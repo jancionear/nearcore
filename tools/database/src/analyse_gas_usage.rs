@@ -1,9 +1,25 @@
-use std::{path::PathBuf, sync::Arc};
+#![allow(unused)]
+
+use std::{
+    collections::{BTreeMap, HashMap},
+    path::PathBuf,
+    sync::Arc,
+};
 
 use clap::Parser;
 use near_chain::{Block, ChainStore, ChainStoreAccess, Error};
-use near_primitives::{hash::CryptoHash, types::BlockHeight};
-use near_store::{NodeStorage, Store};
+use near_epoch_manager::EpochManager;
+use near_primitives::{
+    account, block,
+    epoch_manager::block_info::BlockInfo,
+    hash::CryptoHash,
+    receipt::ReceiptEnum,
+    shard_layout::ShardLayout,
+    sharding::{ReceiptProof, ShardChunk},
+    transaction::ExecutionOutcome,
+    types::{chunk_extra::ChunkExtra, AccountId, BlockHeight, EpochId, Gas, ShardId},
+};
+use near_store::{NodeStorage, ShardUId, Store};
 use nearcore::open_storage;
 
 #[derive(Parser)]
@@ -29,12 +45,17 @@ impl AnalyseGasUsageCommand {
         let node_storage: NodeStorage = open_storage(&home, &mut near_config).unwrap();
         let store: Store =
             node_storage.get_split_store().unwrap_or_else(|| node_storage.get_hot_store());
-        let chain_store =
-            Arc::new(ChainStore::new(store, near_config.genesis.config.genesis_height, false));
+        let chain_store = Arc::new(ChainStore::new(
+            store.clone(),
+            near_config.genesis.config.genesis_height,
+            false,
+        ));
+        let epoch_manager =
+            EpochManager::new_from_genesis_config(store, &near_config.genesis.config).unwrap();
 
         let blocks_iterator = self.make_block_iterator(chain_store.clone());
 
-        analyse_gas_usage(blocks_iterator, &chain_store);
+        analyse_gas_usage(blocks_iterator, &chain_store, &epoch_manager);
         Ok(())
     }
 
@@ -164,9 +185,184 @@ impl Iterator for BlockHeightRangeIterator {
     }
 }
 
-fn analyse_gas_usage(blocks_iter: impl Iterator<Item = Block>, _chain_store: &ChainStore) {
+fn analyse_gas_usage(
+    blocks_iter: impl Iterator<Item = Block>,
+    chain_store: &ChainStore,
+    epoch_manager: &EpochManager,
+) {
+    let mut shard_usages: BTreeMap<ShardUId, GasUsageInShard> = BTreeMap::new();
+    let mut blocks_count: usize = 0;
+    let mut first_analysed_block: Option<(BlockHeight, CryptoHash)> = None;
+    let mut last_analysed_block: Option<(BlockHeight, CryptoHash)> = None;
+
     for block in blocks_iter {
-        println!("Analysing block with height {}", block.header().height());
-        // TODO
+        blocks_count += 1;
+        if first_analysed_block.is_none() {
+            first_analysed_block = Some((block.header().height(), block.hash().clone()));
+        }
+        last_analysed_block = Some((block.header().height(), block.hash().clone()));
+
+        let gas_usage_in_block: GasUsageInBlock =
+            analyse_gas_usage_in_block(&block, chain_store, epoch_manager);
+
+        for (shard_uid, gas_usage) in gas_usage_in_block.shards {
+            match shard_usages.get_mut(&shard_uid) {
+                Some(shard_usage) => shard_usage.merge(&gas_usage),
+                None => _ = shard_usages.insert(shard_uid, gas_usage),
+            };
+        }
     }
+
+    if blocks_count == 0 {
+        println!("No blocks to analyse!");
+        return;
+    }
+
+    let mut all_shard_gas_usage: Gas = shard_usages
+        .values()
+        .fold(0, |sum, shard_usage| sum.checked_add(shard_usage.used_gas_total).unwrap());
+    if all_shard_gas_usage == 0 {
+        // Avoid dividing by 0
+        all_shard_gas_usage = 1;
+    }
+
+    println!("");
+    println!("Analysed {} blocks between:", blocks_count);
+    if let Some((block_height, block_hash)) = first_analysed_block {
+        println!("Block: height = {block_height}, hash = {block_hash}");
+    }
+    if let Some((block_height, block_hash)) = last_analysed_block {
+        println!("Block: height = {block_height}, hash = {block_hash}");
+    }
+    println!("");
+    for (shard_uid, shard_usage) in shard_usages {
+        println!("Shard: {}", shard_uid);
+        println!(
+            "  Total gas usage: {} ({:.1}%)",
+            shard_usage.used_gas_total,
+            shard_usage.used_gas_total as f64 / all_shard_gas_usage as f64 * 100.0
+        );
+        println!("  Number of accounts: {}", shard_usage.used_gas_per_account.len());
+        println!("");
+    }
+}
+
+#[derive(Clone, Debug, Default)]
+struct GasUsageInBlock {
+    pub shards: BTreeMap<ShardUId, GasUsageInShard>,
+}
+
+#[derive(Clone, Debug, Default)]
+struct GasUsageInShard {
+    pub used_gas_per_account: BTreeMap<AccountId, Gas>,
+    pub used_gas_total: Gas,
+}
+
+impl GasUsageInShard {
+    pub fn merge(&mut self, other: &GasUsageInShard) {
+        self.used_gas_total = self.used_gas_total.checked_add(other.used_gas_total).unwrap();
+
+        for (account_id, used_gas) in &other.used_gas_per_account {
+            let new_gas = self
+                .used_gas_per_account
+                .get(account_id)
+                .unwrap_or(&0)
+                .checked_add(*used_gas)
+                .unwrap();
+            self.used_gas_per_account.insert(account_id.clone(), new_gas);
+        }
+    }
+}
+
+fn analyse_gas_usage_in_block(
+    block: &Block,
+    chain_store: &ChainStore,
+    epoch_manager: &EpochManager,
+) -> GasUsageInBlock {
+    //println!("Analysing block with height {}", block.header().height());
+
+    let block_info: Arc<BlockInfo> = epoch_manager.get_block_info(block.hash()).unwrap();
+    let epoch_id: &EpochId = block_info.epoch_id();
+    let shard_layout: ShardLayout = epoch_manager.get_shard_layout(epoch_id).unwrap();
+
+    let mut result = GasUsageInBlock::default();
+
+    for chunk_header in block.chunks().iter() {
+        let shard_id: ShardId = chunk_header.shard_id();
+        let shard_uid: ShardUId = ShardUId::from_shard_id_and_layout(shard_id, &shard_layout);
+        let chunk: Arc<ShardChunk> = chain_store.get_chunk(&chunk_header.chunk_hash()).unwrap();
+        let chunk_extra: Arc<ChunkExtra> =
+            chain_store.get_chunk_extra(block.hash(), &shard_uid).unwrap();
+
+        let mut used_gas_per_account: BTreeMap<AccountId, Gas> = BTreeMap::new();
+
+        let mut record_gas_usage = |account: &AccountId, used_gas: Gas| {
+            let new_used_gas: Gas =
+                used_gas_per_account.get(account).unwrap_or(&0).checked_add(used_gas).unwrap();
+            used_gas_per_account.insert(account.clone(), new_used_gas);
+        };
+
+        for transaction in chunk.transactions().iter().map(|signed_tx| &signed_tx.transaction) {
+            let (tx_hash, _) = transaction.get_hash_and_size();
+
+            // Find the outcome of this transaction.
+            // There might be many outcomes from different forks, choose the one that matches this block's hash.
+            let execution_outcome_opt: Option<ExecutionOutcome> = chain_store
+                .get_outcomes_by_id(&tx_hash)
+                .unwrap()
+                .into_iter()
+                //.filter(|outcome| &outcome.block_hash == block.hash()) // TODO: Why aren't there ExecutionOutcomes that match this block's hash?
+                .next()
+                .map(|o| o.outcome_with_id.outcome);
+
+            if let Some(execution_outcome) = execution_outcome_opt {
+                record_gas_usage(&transaction.signer_id, execution_outcome.gas_burnt);
+            } else {
+                println!("No execution outcome for transaction {}: {:#?}", tx_hash, transaction);
+            }
+        }
+
+        let incoming_receipts = chain_store.get_incoming_receipts(block.hash(), shard_id).unwrap();
+        for receipt_proof in incoming_receipts.iter() {
+            for receipt in receipt_proof.0.iter() {
+                let receipt_hash = receipt.get_hash();
+                let execution_outcome_opt: Option<ExecutionOutcome> = chain_store
+                    .get_outcomes_by_id(&receipt_hash)
+                    .unwrap()
+                    .into_iter()
+                    //.filter(|outcome| &outcome.block_hash == block.hash())
+                    .next()
+                    .map(|o| o.outcome_with_id.outcome);
+
+                if let Some(execution_outcome) = execution_outcome_opt {
+                    record_gas_usage(&receipt.receiver_id, execution_outcome.gas_burnt);
+                } else {
+                    match receipt.receipt {
+                        ReceiptEnum::Data(_) => {}
+                        _ => println!(
+                            "No execution outcome for receipt {}: {:#?}",
+                            receipt_hash, receipt
+                        ),
+                    }
+                }
+            }
+        }
+
+        // Sum gas used by all accounts
+        let account_gas_sum: Gas =
+            used_gas_per_account.values().fold(0, |sum, gas| sum.checked_add(*gas).unwrap());
+        // TODO: Why isn't it equal??
+        //assert_eq!(account_gas_sum, chunk_extra.gas_used());
+
+        // Insert this shard's gas usage data into the result
+        if result.shards.contains_key(&shard_uid) {
+            panic!("Block contains the chunk with shard_uid = {} twice!", shard_uid);
+        }
+        result.shards.insert(
+            shard_uid,
+            GasUsageInShard { used_gas_per_account, used_gas_total: account_gas_sum },
+        );
+    }
+
+    result
 }
