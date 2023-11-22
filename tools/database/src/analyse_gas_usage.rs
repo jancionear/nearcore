@@ -1,8 +1,8 @@
 use std::{path::PathBuf, sync::Arc};
 
 use clap::Parser;
-use near_chain::{Block, ChainStore, ChainStoreAccess};
-use near_primitives::hash::CryptoHash;
+use near_chain::{Block, ChainStore, ChainStoreAccess, Error};
+use near_primitives::{hash::CryptoHash, types::BlockHeight};
 use near_store::{NodeStorage, Store};
 use nearcore::open_storage;
 
@@ -11,6 +11,14 @@ pub(crate) struct AnalyseGasUsageCommand {
     /// Analyse the last N blocks
     #[arg(long)]
     last_blocks: Option<u64>,
+
+    /// Analyse blocks from the given block height, inclusive
+    #[arg(long)]
+    from_block_height: Option<BlockHeight>,
+
+    /// Analyse blocks up to the given block height, inclusive
+    #[arg(long)]
+    to_block_height: Option<BlockHeight>,
 }
 
 impl AnalyseGasUsageCommand {
@@ -36,9 +44,17 @@ impl AnalyseGasUsageCommand {
             return Box::new(LastNBlocksIterator::new(last_blocks, chain_store));
         }
 
-        // The user didn't provide any arguments, default to last 1000 blocks
-        println!("Defaulting to last 1000 blocks");
-        return Box::new(LastNBlocksIterator::new(1000, chain_store));
+        if self.from_block_height.is_none() && self.to_block_height.is_none() {
+            // The user didn't provide any arguments, default to last 1000 blocks
+            println!("Defaulting to last 1000 blocks");
+            return Box::new(LastNBlocksIterator::new(1000, chain_store));
+        }
+
+        Box::new(BlockHeightRangeIterator::new(
+            self.from_block_height,
+            self.to_block_height,
+            chain_store,
+        ))
     }
 }
 
@@ -72,6 +88,76 @@ impl Iterator for LastNBlocksIterator {
                 self.current_block_hash = Some(current_block.header().prev_hash().clone());
             }
             return Some(current_block);
+        }
+
+        None
+    }
+}
+
+struct BlockHeightRangeIterator {
+    chain_store: Arc<ChainStore>,
+    current_block_hash: Option<CryptoHash>,
+    from_block_height: BlockHeight,
+}
+
+impl BlockHeightRangeIterator {
+    pub fn new(
+        from_height_opt: Option<BlockHeight>,
+        to_height_opt: Option<BlockHeight>,
+        chain_store: Arc<ChainStore>,
+    ) -> BlockHeightRangeIterator {
+        if let (Some(from), Some(to)) = (&from_height_opt, &to_height_opt) {
+            if *from > *to {
+                // Empty iterator
+                return BlockHeightRangeIterator {
+                    chain_store,
+                    from_block_height: 0,
+                    current_block_hash: None,
+                };
+            }
+        }
+
+        let min_height: BlockHeight = chain_store.get_genesis_height();
+        let max_height: BlockHeight = chain_store.head().unwrap().height;
+
+        let from_height: BlockHeight =
+            from_height_opt.unwrap_or(min_height).clamp(min_height, max_height);
+        let to_height: BlockHeight =
+            to_height_opt.unwrap_or(max_height).clamp(min_height, max_height);
+
+        // A block with height `to_height` might not exist.
+        // Go over the range in reverse and find the highest block that exists.
+        let mut current_block_hash: Option<CryptoHash> = None;
+        for height in (from_height..=to_height).rev() {
+            match chain_store.get_block_hash_by_height(height) {
+                Ok(hash) => {
+                    current_block_hash = Some(hash);
+                    break;
+                }
+                Err(Error::DBNotFoundErr(_)) => continue,
+                err => err.unwrap(),
+            };
+        }
+
+        BlockHeightRangeIterator { chain_store, from_block_height: from_height, current_block_hash }
+    }
+}
+
+impl Iterator for BlockHeightRangeIterator {
+    type Item = Block;
+
+    fn next(&mut self) -> Option<Block> {
+        if let Some(hash) = self.current_block_hash.take() {
+            let current_block = self.chain_store.get_block(&hash).unwrap();
+            // Make sure that the block is within the from..=to range
+            if current_block.header().height() >= self.from_block_height {
+                // Set the previous block as "current" one, as long as the current one isn't the genesis block
+                if current_block.header().height() != self.chain_store.get_genesis_height() {
+                    self.current_block_hash = Some(current_block.header().prev_hash().clone());
+                }
+
+                return Some(current_block);
+            }
         }
 
         None
