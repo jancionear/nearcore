@@ -182,6 +182,16 @@ struct GasUsageInShard {
     pub used_gas_total: Gas,
 }
 
+#[derive(Debug, Clone)]
+struct ShardSplit {
+    /// Account on which the shard would be split
+    pub split_account: AccountId,
+    /// Gas used by accounts < split_account
+    pub gas_left: Gas,
+    /// Gas used by accounts >= split_account
+    pub gas_right: Gas,
+}
+
 impl GasUsageInShard {
     pub fn new() -> GasUsageInShard {
         GasUsageInShard { used_gas_per_account: BTreeMap::new(), used_gas_total: 0 }
@@ -206,6 +216,33 @@ impl GasUsageInShard {
             self.used_gas_per_account.insert(account_id.clone(), new_gas);
         }
         self.used_gas_total = self.used_gas_total.checked_add(other.used_gas_total).unwrap();
+    }
+
+    /// Calculate the optimal point at which this shard could be split into two halves with equal gas usage
+    pub fn calculate_split(&self) -> Option<ShardSplit> {
+        let mut split_account = match self.used_gas_per_account.keys().next() {
+            Some(account_id) => account_id,
+            None => return None,
+        };
+
+        if self.used_gas_per_account.len() < 2 {
+            return None;
+        }
+
+        let mut gas_left: Gas = 0;
+        let mut gas_right: Gas = self.used_gas_total;
+
+        for (account, used_gas) in self.used_gas_per_account.iter() {
+            if gas_left >= gas_right {
+                break;
+            }
+
+            split_account = &account;
+            gas_left = gas_left.checked_add(*used_gas).unwrap();
+            gas_right = gas_right.checked_sub(*used_gas).unwrap();
+        }
+
+        Some(ShardSplit { split_account: split_account.clone(), gas_left, gas_right })
     }
 }
 
@@ -344,6 +381,23 @@ fn analyse_gas_usage(
             as_percentage_of(shard_usage.used_gas_total, total_gas)
         );
         println!("  Number of accounts: {}", shard_usage.used_gas_per_account.len());
+        match shard_usage.calculate_split() {
+            Some(shard_split) => {
+                println!("  Optimal split:");
+                println!("    split_account: {}", shard_split.split_account);
+                println!(
+                    "    gas(account < split_account): {} ({} of shard)",
+                    shard_split.gas_left,
+                    as_percentage_of(shard_split.gas_left, shard_usage.used_gas_total)
+                );
+                println!(
+                    "    gas(account >= split_account): {} ({} of shard)",
+                    shard_split.gas_right,
+                    as_percentage_of(shard_split.gas_right, shard_usage.used_gas_total)
+                );
+            }
+            None => println!("  No optimal split for this shard"),
+        }
         println!("");
     }
 }
