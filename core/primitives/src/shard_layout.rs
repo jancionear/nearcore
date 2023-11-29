@@ -251,7 +251,7 @@ pub fn account_id_to_shard_id(account_id: &AccountId, shard_layout: &ShardLayout
             // scan. For the time being, with only 4 shards, this is perfectly fine.
             let mut shard_id: ShardId = 0;
             for boundary_account in boundary_accounts {
-                if boundary_account.cmp(account_id) == Greater {
+                if account_id < boundary_account == Greater {
                     break;
                 }
                 shard_id += 1;
