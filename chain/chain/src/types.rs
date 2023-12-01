@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::time::Duration;
 
 use borsh::{BorshDeserialize, BorshSerialize};
 use chrono::DateTime;
@@ -319,6 +320,8 @@ pub trait RuntimeAdapter: Send + Sync {
     /// against the given `chain_validate` closure and runtime's transaction verifier.
     /// If the transaction is valid for both, it's added to the result and the temporary state
     /// update is preserved for validation of next transactions.
+    /// The function will process transactions for up to `time_limit` seconds. If the limit is exceeded,
+    /// it will stop pulling transactions from the pool and return all the transactions processed so far.
     /// Throws an `Error` with `ErrorKind::StorageError` in case the runtime throws
     /// `RuntimeError::StorageError`.
     fn prepare_transactions(
@@ -332,6 +335,7 @@ pub trait RuntimeAdapter: Send + Sync {
         pool_iterator: &mut dyn PoolIterator,
         chain_validate: &mut dyn FnMut(&SignedTransaction) -> bool,
         current_protocol_version: ProtocolVersion,
+        time_limit: Duration,
     ) -> Result<Vec<SignedTransaction>, Error>;
 
     /// Returns true if the shard layout will change in the next epoch

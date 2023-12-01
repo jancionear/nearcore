@@ -60,6 +60,7 @@ use node_runtime::{
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use std::time::Duration;
 use std::time::Instant;
 use tracing::{debug, error, info};
 
@@ -711,7 +712,9 @@ impl RuntimeAdapter for NightshadeRuntime {
         pool_iterator: &mut dyn PoolIterator,
         chain_validate: &mut dyn FnMut(&SignedTransaction) -> bool,
         current_protocol_version: ProtocolVersion,
+        time_limit: Duration,
     ) -> Result<Vec<SignedTransaction>, Error> {
+        let start_time = std::time::Instant::now();
         let shard_uid = self.get_shard_uid_from_epoch_id(shard_id, epoch_id)?;
         let mut state_update = self.tries.new_trie_update(shard_uid, state_root);
 
@@ -763,6 +766,7 @@ impl RuntimeAdapter for NightshadeRuntime {
         while total_gas_burnt < transactions_gas_limit
             && total_size < size_limit
             && transactions.len() < new_receipt_count_limit
+            && start_time.elapsed() < time_limit
         {
             if let Some(iter) = pool_iterator.next() {
                 while let Some(tx) = iter.next() {
