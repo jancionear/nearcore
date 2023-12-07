@@ -489,10 +489,12 @@ impl Config {
     /// Skips semantic validation on field values.
     /// This function should only return error for file issues.
     pub fn from_file_skip_validation(path: &Path) -> Result<Self, ValidationError> {
+        println!("Reading config from file: {:?}", path);
         let json_str =
             std::fs::read_to_string(path).map_err(|_| ValidationError::ConfigFileError {
                 error_message: format!("Failed to read config from {}", path.display()),
             })?;
+        println!("Config starts with: {}", &json_str[..200]);
         let mut unrecognised_fields = Vec::new();
         let json_str_without_comments = near_config_utils::strip_comments_from_json_str(&json_str)
             .map_err(|_| ValidationError::ConfigFileError {
@@ -505,7 +507,7 @@ impl Config {
         .map_err(|_| ValidationError::ConfigFileError {
             error_message: format!("Failed to deserialize config from {}", path.display()),
         })?;
-
+        dbg!(unrecognised_fields.len());
         if !unrecognised_fields.is_empty() {
             let s = if unrecognised_fields.len() > 1 { "s" } else { "" };
             let fields = unrecognised_fields.join(", ");
