@@ -62,7 +62,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
 use std::time::Instant;
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, warn};
 
 pub mod errors;
 #[cfg(test)]
@@ -715,10 +715,6 @@ impl RuntimeAdapter for NightshadeRuntime {
         time_limit: Option<Duration>,
     ) -> Result<Vec<SignedTransaction>, Error> {
         let start_time = std::time::Instant::now();
-        let time_limit_reached = || match time_limit {
-            Some(limit_duration) => start_time.elapsed() >= limit_duration,
-            None => false,
-        };
         let shard_uid = self.get_shard_uid_from_epoch_id(shard_id, epoch_id)?;
         let mut state_update = self.tries.new_trie_update(shard_uid, state_root);
 
@@ -767,11 +763,32 @@ impl RuntimeAdapter for NightshadeRuntime {
             / (runtime_config.wasm_config.ext_costs.gas_cost(ExtCosts::storage_write_value_byte)
                 + runtime_config.wasm_config.ext_costs.gas_cost(ExtCosts::storage_read_value_byte));
 
-        while total_gas_burnt < transactions_gas_limit
-            && total_size < size_limit
-            && transactions.len() < new_receipt_count_limit
-            && !time_limit_reached()
-        {
+        let print_limit_reached_warning = |limit_name: &str| {
+            warn!(target: "runtime", "The {limit_name} limit for preparing transactions has been reached. \
+                                      The rest of transactions will remain in the transaction pool\
+                                      to be processed later.");
+        };
+
+        loop {
+            if total_gas_burnt >= transactions_gas_limit {
+                print_limit_reached_warning("gas");
+                break;
+            }
+            if total_size >= size_limit {
+                print_limit_reached_warning("size");
+                break;
+            }
+            if transactions.len() >= new_receipt_count_limit {
+                print_limit_reached_warning("receipt count");
+                break;
+            }
+            if let Some(tlimit) = &time_limit {
+                if start_time.elapsed() >= *tlimit {
+                    print_limit_reached_warning("time");
+                    break;
+                }
+            }
+
             if let Some(iter) = pool_iterator.next() {
                 while let Some(tx) = iter.next() {
                     num_checked_transactions += 1;
