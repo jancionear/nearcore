@@ -22,6 +22,16 @@ pub(crate) static CHUNK_PRODUCED_TOTAL: Lazy<IntCounter> = Lazy::new(|| {
     .unwrap()
 });
 
+pub(crate) static CHUNK_PRODUCED_CONGESTED_TOTAL: Lazy<IntCounterVec> = Lazy::new(|| {
+    try_create_int_counter_vec(
+        "near_chunk_produced_congested_total",
+        "Total number of congested chunks produced since starting this node. \
+        A chunk is congested when some transactions from the pool didn't fit into the chunk",
+        &["shard_id", "limited_by"],
+    )
+    .unwrap()
+});
+
 pub(crate) static IS_VALIDATOR: Lazy<IntGauge> = Lazy::new(|| {
     try_create_int_gauge(
         "near_is_validator",

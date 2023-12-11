@@ -848,10 +848,6 @@ impl Client {
             *chunk_extra.state_root(),
             &prev_block_header,
         )?;
-        if let Some(limit) = prepared_transactions.limited_by {
-            // TODO: Remove message, use a metric
-            println!("Prepared transactions limited by {}", limit.as_ref());
-        }
         #[cfg(feature = "test_features")]
         let transactions = Self::maybe_insert_invalid_transaction(
             transactions,
@@ -906,6 +902,12 @@ impl Client {
                 chunk_production_duration_millis: Some(timer.elapsed().as_millis() as u64),
             },
         );
+        if let Some(limit) = prepared_transactions.limited_by {
+            // A chunk is congested when a limit was hit and some transactions were left waiting in the pool.
+            metrics::CHUNK_PRODUCED_CONGESTED_TOTAL
+                .with_label_values(&[&shard_id.to_string(), limit.as_ref()])
+                .inc();
+        }
 
         Ok(Some((encoded_chunk, merkle_paths, outgoing_receipts)))
     }
