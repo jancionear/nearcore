@@ -17,19 +17,7 @@ To create a new crypto hash:
 
 Also, prefer doing parse + unwrap:
 
-```rust
-let alice: AccountId = "alice.near".parse().unwrap();
-```
-
-### Signatures
-
-In memory signer (generates the key based on a seed). There is a slight preference
-to use the seed that is matching the account name.
-
-This will create a signer for account 'test' using 'test' as a seed.
-
-```rust
-let signer: InMemoryValidatorSigner = create_test_signer("test");
+```russigner("test");
 ```
 
 ### Block
