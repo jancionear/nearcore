@@ -853,12 +853,17 @@ impl Client {
             .map_err(|err| Error::ChunkProducer(format!("No chunk extra available: {}", err)))?;
 
         let prev_block_header = self.chain.get_block_header(&prev_block_hash)?;
-        let transactions = self.prepare_transactions(
-            shard_uid,
-            chunk_extra.gas_limit(),
-            *chunk_extra.state_root(),
-            &prev_block_header,
-        )?;
+        let transactions = {
+            let _prepare_transactions_timer = metrics::PRODUCE_CHUNK_PREPARE_TRANSACTIONS_TIME
+                .with_label_values(&[&shard_id.to_string()])
+                .start_timer();
+            self.prepare_transactions(
+                shard_uid,
+                chunk_extra.gas_limit(),
+                *chunk_extra.state_root(),
+                &prev_block_header,
+            )
+        }?;
         #[cfg(feature = "test_features")]
         let transactions = Self::maybe_insert_invalid_transaction(
             transactions,
@@ -866,7 +871,12 @@ impl Client {
             self.produce_invalid_tx_in_chunks,
         );
         let num_filtered_transactions = transactions.len();
-        let (tx_root, _) = merklize(&transactions);
+        let (tx_root, _) = {
+            let _timer = metrics::PRODUCE_CHUNK_MERKLIZE_TIME
+                .with_label_values(&[&shard_id.to_string()])
+                .start_timer();
+            merklize(&transactions)
+        };
         let outgoing_receipts = self.chain.get_outgoing_receipts_for_shard(
             prev_block_hash,
             shard_id,
@@ -878,24 +888,29 @@ impl Client {
         let gas_used = chunk_extra.gas_used();
         #[cfg(feature = "test_features")]
         let gas_used = if self.produce_invalid_chunks { gas_used + 1 } else { gas_used };
-        let (encoded_chunk, merkle_paths) = ShardsManager::create_encoded_shard_chunk(
-            prev_block_hash,
-            *chunk_extra.state_root(),
-            *chunk_extra.outcome_root(),
-            next_height,
-            shard_id,
-            gas_used,
-            chunk_extra.gas_limit(),
-            chunk_extra.balance_burnt(),
-            chunk_extra.validator_proposals().collect(),
-            transactions,
-            &outgoing_receipts,
-            outgoing_receipts_root,
-            tx_root,
-            &*validator_signer,
-            &mut self.rs_for_chunk_production,
-            protocol_version,
-        )?;
+        let (encoded_chunk, merkle_paths) = {
+            let _timer = metrics::PRODUCE_CHUNK_CREATE_ENCODED_SHARD_CHUNK_TIME
+                .with_label_values(&[&shard_id.to_string()])
+                .start_timer();
+            ShardsManager::create_encoded_shard_chunk(
+                prev_block_hash,
+                *chunk_extra.state_root(),
+                *chunk_extra.outcome_root(),
+                next_height,
+                shard_id,
+                gas_used,
+                chunk_extra.gas_limit(),
+                chunk_extra.balance_burnt(),
+                chunk_extra.validator_proposals().collect(),
+                transactions,
+                &outgoing_receipts,
+                outgoing_receipts_root,
+                tx_root,
+                &*validator_signer,
+                &mut self.rs_for_chunk_production,
+                protocol_version,
+            )
+        }?;
 
         debug!(target: "client",
             me = %validator_signer.validator_id(),

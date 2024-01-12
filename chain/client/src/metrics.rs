@@ -222,7 +222,7 @@ pub(crate) static CHUNK_DROPPED_BECAUSE_OF_BANNED_CHUNK_PRODUCER: Lazy<IntCounte
     Lazy::new(|| {
         try_create_int_counter(
             "near_chunk_dropped_because_of_banned_chunk_producer",
-            "Number of chunks we, as a block producer, 
+            "Number of chunks we, as a block producer,
                 dropped, because the chunk is produced by a banned chunk producer",
         )
         .unwrap()
@@ -364,6 +364,36 @@ pub(crate) static PRODUCE_CHUNK_TIME: Lazy<HistogramVec> = Lazy::new(|| {
     )
     .unwrap()
 });
+
+pub(crate) static PRODUCE_CHUNK_PREPARE_TRANSACTIONS_TIME: Lazy<HistogramVec> = Lazy::new(|| {
+    try_create_histogram_vec(
+        "near_produce_chunk_prepare_transactions_time",
+        "Time spent on prepare_transactions() in produce_chunk()",
+        &["shard_id"],
+        Some(exponential_buckets(0.001, 2.0, 16).unwrap()),
+    )
+    .unwrap()
+});
+
+pub(crate) static PRODUCE_CHUNK_MERKLIZE_TIME: Lazy<HistogramVec> = Lazy::new(|| {
+    try_create_histogram_vec(
+        "near_produce_chunk_merklize_time",
+        "Time spent on merklize() in produce_chunk()",
+        &["shard_id"],
+        Some(exponential_buckets(0.001, 2.0, 16).unwrap()),
+    )
+    .unwrap()
+});
+pub(crate) static PRODUCE_CHUNK_CREATE_ENCODED_SHARD_CHUNK_TIME: Lazy<HistogramVec> =
+    Lazy::new(|| {
+        try_create_histogram_vec(
+            "near_produce_chunk_create_encoded_shard_chunk_time",
+            "Time spent on create_encoded_shard_chunk() in produce_chunk()",
+            &["shard_id"],
+            Some(exponential_buckets(0.001, 2.0, 16).unwrap()),
+        )
+        .unwrap()
+    });
 
 pub(crate) static VIEW_CLIENT_MESSAGE_TIME: Lazy<HistogramVec> = Lazy::new(|| {
     try_create_histogram_vec(
