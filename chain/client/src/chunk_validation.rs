@@ -166,7 +166,7 @@ fn pre_validate_chunk_state_witness(
     // Blocks from the last last new chunk (exclusive) to the last new chunk (inclusive).
     let mut blocks_after_last_last_chunk = Vec::new();
 
-    {
+    let last_last_chunk_block = {
         let mut block_hash = *state_witness.chunk_header.prev_block_hash();
         let mut prev_chunks_seen = 0;
         loop {
@@ -180,19 +180,19 @@ fn pre_validate_chunk_state_witness(
             };
             let is_new_chunk = chunk.is_new_chunk(block.header().height());
             block_hash = *block.header().prev_hash();
+            if is_new_chunk {
+                prev_chunks_seen += 1;
+            }
+            if prev_chunks_seen == 2 {
+                break block;
+            }
             if prev_chunks_seen == 0 {
                 blocks_after_last_chunk.push(block);
             } else if prev_chunks_seen == 1 {
                 blocks_after_last_last_chunk.push(block);
             }
-            if is_new_chunk {
-                prev_chunks_seen += 1;
-            }
-            if prev_chunks_seen == 2 {
-                break;
-            }
         }
-    }
+    };
 
     // Compute the chunks from which receipts should be collected.
     // let mut chunks_to_collect_receipts_from = Vec::new();
@@ -234,13 +234,14 @@ fn pre_validate_chunk_state_witness(
     //     }
     //     receipts_to_apply.extend(receipt_proof.0.iter().cloned());
     // }
-    let (last_chunk_block, implicit_transition_blocks) =
-        blocks_after_last_chunk.split_last().unwrap();
+
+    let (last_chunk_block, _blocks_before_last_chunk) =
+        blocks_after_last_last_chunk.split_first().unwrap();
     let receipts_response = &store.get_incoming_receipts_for_shard(
         epoch_manager,
         shard_id,
         *last_chunk_block.header().hash(),
-        blocks_after_last_last_chunk.last().unwrap().header().height(),
+        last_last_chunk_block.header().height(),
     )?;
     let receipts_to_apply = near_chain::chain::collect_receipts_from_response(receipts_response);
     let applied_receipts_hash = hash(&borsh::to_vec(receipts_to_apply.as_slice()).unwrap());
@@ -281,7 +282,7 @@ fn pre_validate_chunk_state_witness(
                 record_storage: false,
             },
         },
-        implicit_transition_params: implicit_transition_blocks
+        implicit_transition_params: blocks_after_last_chunk
             .into_iter()
             .rev()
             .map(|block| -> Result<_, Error> {
