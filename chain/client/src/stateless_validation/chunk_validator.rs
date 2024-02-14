@@ -1,3 +1,4 @@
+use super::orphan_witness_pool::OrphanStateWitnessPool;
 use super::processing_tracker::ProcessingDoneTracker;
 use crate::stateless_validation::chunk_endorsement_tracker::ChunkEndorsementTracker;
 use crate::{metrics, Client};
@@ -53,6 +54,7 @@ pub struct ChunkValidator {
     network_sender: Sender<PeerManagerMessageRequest>,
     runtime_adapter: Arc<dyn RuntimeAdapter>,
     chunk_endorsement_tracker: Arc<ChunkEndorsementTracker>,
+    orphan_witness_pool: OrphanStateWitnessPool,
 }
 
 impl ChunkValidator {
@@ -69,6 +71,7 @@ impl ChunkValidator {
             network_sender,
             runtime_adapter,
             chunk_endorsement_tracker,
+            orphan_witness_pool: OrphanStateWitnessPool::default(),
         }
     }
 
