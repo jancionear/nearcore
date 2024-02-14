@@ -4,6 +4,7 @@ use crate::EpochInfoAggregator;
 use crate::EpochManagerHandle;
 use near_chain_primitives::Error;
 use near_crypto::Signature;
+use near_primitives::block::Tip;
 use near_primitives::block_header::{Approval, ApprovalInner, BlockHeader};
 use near_primitives::epoch_manager::block_info::BlockInfo;
 use near_primitives::epoch_manager::epoch_info::EpochInfo;
@@ -140,6 +141,12 @@ pub trait EpochManagerAdapter: Send + Sync {
 
     /// Get epoch start from a block belonging to the epoch.
     fn get_epoch_start_height(&self, block_hash: &CryptoHash) -> Result<BlockHeight, EpochError>;
+
+    /// Get epoch start height for epoch with the given EpochId
+    fn get_epoch_start_height_from_epoch_id(
+        &self,
+        epoch_id: &EpochId,
+    ) -> Result<BlockHeight, EpochError>;
 
     /// Get previous epoch id by hash of previous block.
     fn get_prev_epoch_id_from_prev_block(
@@ -393,6 +400,12 @@ pub trait EpochManagerAdapter: Send + Sync {
         state_witness: &ChunkStateWitness,
     ) -> Result<bool, Error>;
 
+    fn verify_chunk_state_witness_signature_in_epoch(
+        &self,
+        state_witness: &ChunkStateWitness,
+        epoch_id: &EpochId,
+    ) -> Result<bool, Error>;
+
     fn cares_about_shard_from_prev_block(
         &self,
         parent_hash: &CryptoHash,
@@ -408,6 +421,38 @@ pub trait EpochManagerAdapter: Send + Sync {
     ) -> Result<bool, EpochError>;
 
     fn will_shard_layout_change(&self, parent_hash: &CryptoHash) -> Result<bool, EpochError>;
+
+    fn is_height_inside_epoch(
+        &self,
+        height: BlockHeight,
+        epoch_id: &EpochId,
+    ) -> Result<bool, EpochError> {
+        let epoch_config = self.get_epoch_config(epoch_id)?;
+        let epoch_start_height = self.get_epoch_start_height_from_epoch_id(epoch_id)?;
+        let epoch_end_height = epoch_start_height.saturating_add(epoch_config.epoch_length);
+        let epoch_height_range = epoch_start_height..epoch_end_height;
+        Ok(epoch_height_range.contains(&height))
+    }
+
+    fn epoch_id_from_height_around_tip(
+        &self,
+        height: BlockHeight,
+        tip: &Tip,
+    ) -> Result<Option<EpochId>, EpochError> {
+        if self.is_height_inside_epoch(height, &tip.epoch_id)? {
+            return Ok(Some(tip.epoch_id.clone()));
+        }
+        if self.is_height_inside_epoch(height, &tip.next_epoch_id)? {
+            return Ok(Some(tip.next_epoch_id.clone()));
+        }
+
+        let prev_epoch = self.get_prev_epoch_id_from_prev_block(&tip.prev_block_hash)?;
+        if self.is_height_inside_epoch(height, &prev_epoch)? {
+            return Ok(Some(prev_epoch));
+        }
+
+        Ok(None)
+    }
 
     /// Returns a vector of all hashes in the epoch ending with `last_block_info`.
     /// Only return blocks on chain of `last_block_info`.
@@ -1004,6 +1049,16 @@ impl EpochManagerAdapter for EpochManagerHandle {
         let chunk_header = &state_witness.inner.chunk_header;
         let epoch_id =
             epoch_manager.get_epoch_id_from_prev_block(chunk_header.prev_block_hash())?;
+        self.verify_chunk_state_witness_signature_in_epoch(state_witness, &epoch_id)
+    }
+
+    fn verify_chunk_state_witness_signature_in_epoch(
+        &self,
+        state_witness: &ChunkStateWitness,
+        epoch_id: &EpochId,
+    ) -> Result<bool, Error> {
+        let epoch_manager = self.read();
+        let chunk_header = &state_witness.inner.chunk_header;
         let chunk_producer = epoch_manager.get_chunk_producer_info(
             &epoch_id,
             chunk_header.height_created(),
@@ -1041,6 +1096,14 @@ impl EpochManagerAdapter for EpochManagerHandle {
     fn will_shard_layout_change(&self, parent_hash: &CryptoHash) -> Result<bool, EpochError> {
         let epoch_manager = self.read();
         epoch_manager.will_shard_layout_change(parent_hash)
+    }
+
+    fn get_epoch_start_height_from_epoch_id(
+        &self,
+        epoch_id: &EpochId,
+    ) -> Result<BlockHeight, EpochError> {
+        let epoch_manager = self.read();
+        epoch_manager.get_epoch_start_from_epoch_id(epoch_id)
     }
 
     #[cfg(feature = "new_epoch_sync")]

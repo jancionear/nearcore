@@ -617,6 +617,13 @@ impl EpochManagerAdapter for MockEpochManager {
 
     fn get_epoch_start_height(&self, block_hash: &CryptoHash) -> Result<BlockHeight, EpochError> {
         let epoch_id = self.get_epoch_id(block_hash)?;
+        self.get_epoch_start_height_from_epoch_id(&epoch_id)
+    }
+
+    fn get_epoch_start_height_from_epoch_id(
+        &self,
+        epoch_id: &EpochId,
+    ) -> Result<BlockHeight, EpochError> {
         match self.get_block_header(&epoch_id.0)? {
             Some(block_header) => Ok(block_header.height()),
             None => Ok(0),
@@ -930,6 +937,14 @@ impl EpochManagerAdapter for MockEpochManager {
     fn verify_chunk_state_witness_signature(
         &self,
         _state_witness: &ChunkStateWitness,
+    ) -> Result<bool, Error> {
+        Ok(true)
+    }
+
+    fn verify_chunk_state_witness_signature_in_epoch(
+        &self,
+        _state_witness: &ChunkStateWitness,
+        _epoch_id: &EpochId,
     ) -> Result<bool, Error> {
         Ok(true)
     }

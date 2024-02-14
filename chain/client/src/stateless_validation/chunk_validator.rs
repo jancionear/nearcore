@@ -1,6 +1,8 @@
+use super::orphan_witness_pool::OrphanStateWitnessPool;
 use super::processing_tracker::ProcessingDoneTracker;
 use crate::stateless_validation::chunk_endorsement_tracker::ChunkEndorsementTracker;
 use crate::{metrics, Client};
+use borsh::BorshSerialize;
 use itertools::Itertools;
 use near_async::messaging::{CanSend, Sender};
 use near_chain::chain::{
@@ -24,11 +26,11 @@ use near_primitives::network::PeerId;
 use near_primitives::receipt::Receipt;
 use near_primitives::sharding::{ChunkHash, ReceiptProof, ShardChunkHeader};
 use near_primitives::stateless_validation::{
-    ChunkEndorsement, ChunkStateWitness, ChunkStateWitnessInner,
+    ChunkEndorsement, ChunkStateWitness, ChunkStateWitnessInner, MAX_CHUNK_STATE_WITNESS_SIZE,
 };
 use near_primitives::transaction::SignedTransaction;
 use near_primitives::types::chunk_extra::ChunkExtra;
-use near_primitives::types::ShardId;
+use near_primitives::types::{EpochId, ShardId};
 use near_primitives::validator_signer::ValidatorSigner;
 use near_store::PartialStorage;
 use std::collections::HashMap;
@@ -53,6 +55,7 @@ pub struct ChunkValidator {
     network_sender: Sender<PeerManagerMessageRequest>,
     runtime_adapter: Arc<dyn RuntimeAdapter>,
     chunk_endorsement_tracker: Arc<ChunkEndorsementTracker>,
+    orphan_state_witness_pool: OrphanStateWitnessPool,
 }
 
 impl ChunkValidator {
@@ -69,6 +72,7 @@ impl ChunkValidator {
             network_sender,
             runtime_adapter,
             chunk_endorsement_tracker,
+            orphan_state_witness_pool: OrphanStateWitnessPool::default(),
         }
     }
 
@@ -522,6 +526,18 @@ pub(crate) fn validate_chunk_state_witness(
     Ok(())
 }
 
+fn validate_chunk_state_witness_size(witness: &ChunkStateWitness) -> Result<(), Error> {
+    let mut serialize_buf: Vec<u8> = Vec::new();
+    witness.serialize(&mut serialize_buf)?;
+    if serialize_buf.len() > MAX_CHUNK_STATE_WITNESS_SIZE {
+        return Err(Error::InvalidChunkStateWitness(format!(
+            "Chunk state witness is larger than the maximum allowed size (allowed size: {}, size: {})",
+            MAX_CHUNK_STATE_WITNESS_SIZE, serialize_buf.len()
+        )));
+    }
+    Ok(())
+}
+
 fn apply_result_to_chunk_extra(
     apply_result: ApplyChunkResult,
     chunk: &ShardChunkHeader,
@@ -588,7 +604,7 @@ impl Client {
         witness: ChunkStateWitness,
         peer_id: PeerId,
         processing_done_tracker: Option<ProcessingDoneTracker>,
-    ) -> Result<Option<ChunkStateWitness>, Error> {
+    ) -> Result<(), Error> {
         // TODO(#10502): Handle production of state witness for first chunk after genesis.
         // Properly handle case for chunk right after genesis.
         // Context: We are currently unable to handle production of the state witness for the
@@ -596,10 +612,35 @@ impl Client {
         let prev_block_hash = witness.inner.chunk_header.prev_block_hash();
         let prev_block = match self.chain.get_block(prev_block_hash) {
             Ok(block) => block,
-            Err(_) => {
-                return Ok(Some(witness));
+            Err(Error::DBNotFoundErr(_)) => {
+                // Previous block isn't available at the moment, add this witness to the orphan pool.
+                return self.handle_orphan_state_witness(witness);
             }
+            Err(err) => return Err(err),
         };
+
+        self.process_chunk_state_witness_with_prev_block(
+            witness,
+            peer_id,
+            &prev_block,
+            processing_done_tracker,
+        )
+    }
+
+    pub fn process_chunk_state_witness_with_prev_block(
+        &mut self,
+        witness: ChunkStateWitness,
+        peer_id: PeerId,
+        prev_block: &Block,
+        processing_done_tracker: Option<ProcessingDoneTracker>,
+    ) -> Result<(), Error> {
+        if witness.inner.chunk_header.prev_block_hash() != prev_block.hash() {
+            return Err(Error::Other(
+                "process_chunk_state_witness_with_prev_block - prev_block doesn't match"
+                    .to_string(),
+            ));
+        }
+
         let prev_chunk_header = Chain::get_prev_chunk_header(
             self.epoch_manager.as_ref(),
             &prev_block,
@@ -616,7 +657,7 @@ impl Client {
                 &self.chunk_validator.network_sender,
                 self.chunk_endorsement_tracker.as_ref(),
             );
-            return Ok(None);
+            return Ok(());
         }
 
         // TODO(#10265): If the previous block does not exist, we should
@@ -635,6 +676,65 @@ impl Client {
                 },
             ));
         }
-        result.map(|_| None)
+        result
+    }
+
+    pub fn handle_orphan_state_witness(&mut self, witness: ChunkStateWitness) -> Result<(), Error> {
+        let chunk_header = &witness.inner.chunk_header;
+        let epoch_id: EpochId = self
+            .epoch_manager
+            .epoch_id_from_height_around_tip(chunk_header.height_created(), &self.chain.head()?)?
+            .ok_or_else(|| {
+                Error::Other(format!(
+                    "Couldn't find EpochId for orphan chunk state witness with height {}",
+                    chunk_header.height_created()
+                ))
+            })?;
+
+        if !self
+            .epoch_manager
+            .get_shard_layout(&epoch_id)?
+            .shard_ids()
+            .contains(&chunk_header.shard_id())
+        {
+            return Err(Error::InvalidChunkStateWitness(format!(
+                "Invalid shard_id in ChunkStateWitness: {}",
+                chunk_header.shard_id()
+            )));
+        }
+
+        if !self.epoch_manager.verify_chunk_state_witness_signature_in_epoch(&witness, &epoch_id)? {
+            return Err(Error::InvalidChunkStateWitness("Invalid signature".to_string()));
+        }
+
+        validate_chunk_state_witness_size(&witness)?;
+
+        let chunk_producer = self.epoch_manager.get_chunk_producer(
+            &epoch_id,
+            chunk_header.height_created(),
+            chunk_header.shard_id(),
+        )?;
+        self.chunk_validator
+            .orphan_state_witness_pool
+            .add_orphan_state_witness(witness, chunk_producer);
+
+        Ok(())
+    }
+
+    pub fn process_ready_orphaned_chunk_state_witnesses(&mut self, accepted_block: &Block) {
+        let ready_witnesses = self
+            .chunk_validator
+            .orphan_state_witness_pool
+            .take_state_witnesses_waiting_for_block(accepted_block.hash());
+        for witness in ready_witnesses {
+            if let Err(err) = self.process_chunk_state_witness_with_prev_block(
+                witness,
+                PeerId::random(), // TODO: Should peer_id even be here?
+                accepted_block,
+                None,
+            ) {
+                tracing::error!(target: "client", ?err, "Error processing orphan chunk state witness");
+            }
+        }
     }
 }
