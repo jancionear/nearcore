@@ -4,6 +4,7 @@ use crate::EpochInfoAggregator;
 use crate::EpochManagerHandle;
 use near_chain_primitives::Error;
 use near_crypto::Signature;
+use near_primitives::block::Tip;
 use near_primitives::block_header::{Approval, ApprovalInner, BlockHeader};
 use near_primitives::epoch_manager::block_info::BlockInfo;
 use near_primitives::epoch_manager::epoch_info::EpochInfo;
@@ -414,6 +415,20 @@ pub trait EpochManagerAdapter: Send + Sync {
     ) -> Result<bool, EpochError>;
 
     fn will_shard_layout_change(&self, parent_hash: &CryptoHash) -> Result<bool, EpochError>;
+
+    /// Tries to estimate in which epoch the given height would reside.
+    /// Looks at the previous, current and next epoch around the tip
+    /// and adds them to the result if the height might be inside the epoch.
+    /// It returns a list of possible epochs instead of a single value
+    /// because sometimes it's impossible to determine the exact epoch
+    /// in which the height will be. The exact starting height of the
+    /// next epoch isn't known until it actually starts, so it's impossible
+    /// to determine the exact epoch for heights which are ahead of the tip.
+    fn possible_epochs_of_height_around_tip(
+        &self,
+        tip: &Tip,
+        height: BlockHeight,
+    ) -> Result<Vec<EpochId>, EpochError>;
 
     /// Returns a vector of all hashes in the epoch ending with `last_block_info`.
     /// Only return blocks on chain of `last_block_info`.
@@ -1057,6 +1072,71 @@ impl EpochManagerAdapter for EpochManagerHandle {
     fn will_shard_layout_change(&self, parent_hash: &CryptoHash) -> Result<bool, EpochError> {
         let epoch_manager = self.read();
         epoch_manager.will_shard_layout_change(parent_hash)
+    }
+
+    fn possible_epochs_of_height_around_tip(
+        &self,
+        tip: &Tip,
+        height: BlockHeight,
+    ) -> Result<Vec<EpochId>, EpochError> {
+        let epoch_manager = self.read();
+
+        // If the tip is at the genesis block, it has to be handled in a special way.
+        // For genesis block, epoch_first_block() is the dummy block (11111...)
+        // with height 0, which could cause issues with estimating the epoch end
+        // if the genesis height is nonzero. It's easier to handle it manually.
+        if tip.prev_block_hash == CryptoHash::default() {
+            if tip.height == height {
+                return Ok(vec![tip.epoch_id.clone()]);
+            }
+
+            if height > tip.height {
+                return Ok(vec![tip.next_epoch_id.clone()]);
+            }
+
+            return Ok(vec![]);
+        }
+
+        // See if the height is in the current epoch
+        let current_epoch_first_block_hash =
+            *epoch_manager.get_block_info(&tip.last_block_hash)?.epoch_first_block();
+        let current_epoch_first_block_info =
+            epoch_manager.get_block_info(&current_epoch_first_block_hash)?;
+
+        let current_epoch_start = current_epoch_first_block_info.height();
+        let current_epoch_length = self.get_epoch_config(&tip.epoch_id)?.epoch_length;
+        let current_epoch_estimated_end = current_epoch_start.saturating_add(current_epoch_length);
+
+        // All blocks with height lower than the estimated end are guaranteed to reside in the current epoch.
+        // The situation is clear here.
+        if (current_epoch_start..current_epoch_estimated_end).contains(&height) {
+            return Ok(vec![tip.epoch_id.clone()]);
+        }
+
+        // If the height is higher than the current epoch's estimated end, then it's
+        // not clear in which epoch it'll be. Under normal circumstances it would be
+        // in the next epoch, but with missing blocks the current epoch could stretch out
+        // past its estimated end, so the height might end up being in the current epoch,
+        // even though its height is higher than the estimated end.
+        if height >= current_epoch_estimated_end {
+            return Ok(vec![tip.epoch_id.clone(), tip.next_epoch_id.clone()]);
+        }
+
+        // Finally try the previous epoch. Its first and last blocks are already known, so the situation is clear.
+        let prev_epoch_last_block_hash = current_epoch_first_block_info.prev_hash();
+        let prev_epoch_last_block_info =
+            epoch_manager.get_block_info(prev_epoch_last_block_hash)?;
+        let prev_epoch_first_block_info =
+            epoch_manager.get_block_info(prev_epoch_last_block_info.epoch_first_block())?;
+
+        if (prev_epoch_first_block_info.height()..=prev_epoch_last_block_info.height())
+            .contains(&height)
+        {
+            return Ok(vec![prev_epoch_last_block_info.epoch_id().clone()]);
+        }
+
+        // The height doesn't belong to any of the epochs around the tip, return an empty Vec.
+        Ok(vec![])
     }
 
     #[cfg(feature = "new_epoch_sync")]
