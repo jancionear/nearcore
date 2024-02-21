@@ -16,6 +16,7 @@ mod increase_storage_compute_cost;
 mod limit_contract_functions_number;
 mod lower_storage_key_limit;
 mod nearvm;
+mod orphan_chunk_state_witness;
 mod restore_receipts_after_fix_apply_chunks;
 mod restrict_tla;
 mod stateless_validation;
