@@ -23,6 +23,10 @@ impl TrieRecorder {
         nodes.sort();
         PartialStorage { nodes: PartialState::TrieValues(nodes) }
     }
+
+    pub fn total_size(&self) -> usize {
+        self.recorded.values().map(|v| v.len()).sum()
+    }
 }
 
 #[cfg(test)]

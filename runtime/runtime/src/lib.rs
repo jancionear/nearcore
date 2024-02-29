@@ -1399,6 +1399,7 @@ impl Runtime {
         // TODO(#8859): Introduce a dedicated `compute_limit` for the chunk.
         // For now compute limit always matches the gas limit.
         let compute_limit = apply_state.gas_limit.unwrap_or(Gas::max_value());
+        let state_size_limit = 5_000_000;
 
         // We first process local receipts. They contain staking, local contract calls, etc.
         if let Some(prefetcher) = &mut prefetcher {
@@ -1407,7 +1408,9 @@ impl Runtime {
             _ = prefetcher.prefetch_receipts_data(&local_receipts);
         }
         for receipt in local_receipts.iter() {
-            if total_compute_usage < compute_limit {
+            if total_compute_usage < compute_limit
+                && state_update.trie.recorded_size() < state_size_limit
+            {
                 // NOTE: We don't need to validate the local receipt, because it's just validated in
                 // the `verify_and_charge_transaction`.
                 process_receipt(
@@ -1424,7 +1427,9 @@ impl Runtime {
 
         // Then we process the delayed receipts. It's a backlog of receipts from the past blocks.
         while delayed_receipts_indices.first_index < delayed_receipts_indices.next_available_index {
-            if total_compute_usage >= compute_limit {
+            if total_compute_usage >= compute_limit
+                || state_update.trie.recorded_size() >= state_size_limit
+            {
                 break;
             }
             let key = TrieKey::DelayedReceipt { index: delayed_receipts_indices.first_index };

@@ -788,6 +788,10 @@ impl Trie {
         Ok(())
     }
 
+    pub fn recorded_size(&self) -> usize {
+        self.recorder.as_ref().map(|recorder| recorder.borrow().total_size()).unwrap_or(0)
+    }
+
     /// Prints the trie nodes starting from `hash`, up to `max_depth` depth. The node hash can be any node in the trie.
     /// Depending on arguments provided, can limit output to no more than `limit` entries,
     /// show only subtree for a given `record_type`, or skip subtrees where `AccountId` is less than `from` or greater than `to`.
