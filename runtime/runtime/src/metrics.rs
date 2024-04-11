@@ -374,10 +374,16 @@ fn buckets_for_storage_proof_size() -> Vec<f64> {
     exponential_buckets(100_000., 2., 10).unwrap()
 }
 
-// Buckets from 1 to 1.46
+// Precise buckets from 1 to 1.46 and less precise buckets from 1.5 to 15.9
 fn buckets_for_storage_proof_size_ratio() -> Vec<f64> {
     // 1.02 ** 20 = 1.46
-    exponential_buckets(1., 1.02, 20).unwrap()
+    let small_buckets = exponential_buckets(1., 1.02, 20).unwrap();
+    // [1.5; 15.9]
+    let big_buckets = exponential_buckets(1.5, 1.3, 10).unwrap();
+
+    let mut result = small_buckets;
+    result.extend(big_buckets);
+    result
 }
 
 /// Helper struct to collect partial costs of `Runtime::apply` and reporting it
