@@ -1442,17 +1442,19 @@ impl Runtime {
             let recorded_storage_diff = state_update
                 .trie()
                 .recorded_storage_size()
-                .saturating_sub(recorded_storage_size_before)
-                as f64;
+                .saturating_sub(recorded_storage_size_before);
             let recorded_storage_upper_bound_diff = state_update
                 .trie()
                 .recorded_storage_size_upper_bound()
                 .saturating_sub(storage_proof_size_upper_bound_before)
                 as f64;
-            metrics::RECEIPT_RECORDED_SIZE.observe(recorded_storage_diff);
+            metrics::RECEIPT_RECORDED_SIZE.observe(recorded_storage_diff as f64);
             metrics::RECEIPT_RECORDED_SIZE_UPPER_BOUND.observe(recorded_storage_upper_bound_diff);
-            let recorded_storage_proof_ratio =
-                recorded_storage_upper_bound_diff / f64::max(1.0, recorded_storage_diff);
+            let recorded_storage_proof_ratio = if recorded_storage_diff == 0 {
+                1.0
+            } else {
+                recorded_storage_upper_bound_diff / recorded_storage_diff as f64
+            };
             metrics::RECEIPT_RECORDED_SIZE_UPPER_BOUND_RATIO.observe(recorded_storage_proof_ratio);
             if let Some(outcome_with_id) = result? {
                 let gas_burnt = outcome_with_id.outcome.gas_burnt;
@@ -1722,10 +1724,13 @@ impl Runtime {
         }
 
         let state_root = trie_changes.new_root;
-        let chunk_recorded_size = trie.recorded_storage_size() as f64;
-        metrics::CHUNK_RECORDED_SIZE.observe(chunk_recorded_size);
-        metrics::CHUNK_RECORDED_SIZE_UPPER_BOUND_RATIO
-            .observe(chunk_recorded_size_upper_bound / f64::max(1.0, chunk_recorded_size));
+        let chunk_recorded_size = trie.recorded_storage_size();
+        metrics::CHUNK_RECORDED_SIZE.observe(chunk_recorded_size as f64);
+        metrics::CHUNK_RECORDED_SIZE_UPPER_BOUND_RATIO.observe(if chunk_recorded_size == 0 {
+            1.0
+        } else {
+            chunk_recorded_size_upper_bound / chunk_recorded_size as f64
+        });
         let proof = trie.recorded_storage();
         Ok(ApplyResult {
             state_root,
