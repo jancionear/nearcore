@@ -1450,11 +1450,12 @@ impl Runtime {
                 as f64;
             metrics::RECEIPT_RECORDED_SIZE.observe(recorded_storage_diff as f64);
             metrics::RECEIPT_RECORDED_SIZE_UPPER_BOUND.observe(recorded_storage_upper_bound_diff);
-            let recorded_storage_proof_ratio = if recorded_storage_diff == 0 {
-                1.0
-            } else {
-                recorded_storage_upper_bound_diff / recorded_storage_diff as f64
-            };
+            let recorded_storage_proof_ratio =
+                if recorded_storage_diff == 0 || recorded_storage_upper_bound_diff < 100_000. {
+                    1.0
+                } else {
+                    recorded_storage_upper_bound_diff / recorded_storage_diff as f64
+                };
             metrics::RECEIPT_RECORDED_SIZE_UPPER_BOUND_RATIO.observe(recorded_storage_proof_ratio);
             if let Some(outcome_with_id) = result? {
                 let gas_burnt = outcome_with_id.outcome.gas_burnt;
