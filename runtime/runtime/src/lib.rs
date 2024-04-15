@@ -1453,7 +1453,15 @@ impl Runtime {
             metrics::RECEIPT_RECORDED_SIZE_UPPER_BOUND.observe(recorded_storage_upper_bound_diff);
             let recorded_storage_proof_ratio =
                 recorded_storage_upper_bound_diff / f64::max(1.0, recorded_storage_diff);
-            metrics::RECEIPT_RECORDED_SIZE_UPPER_BOUND_RATIO.observe(recorded_storage_proof_ratio);
+            // Record the ratio only for large receipts, small receipts can have a very high ratio,
+            // but the ratio is not that important for them.
+            if recorded_storage_upper_bound_diff > 100_000. {
+                metrics::RECEIPT_RECORDED_SIZE_UPPER_BOUND_RATIO
+                    .observe(recorded_storage_proof_ratio);
+            }
+            if recorded_storage_upper_bound_diff > 500_000. {
+                tracing::info!(target:"runtime", recorded_storage_diff, receipt_id = ?receipt.receipt_id, predecessor_id = ?receipt.predecessor_id, receiver_id = ?receipt.receiver_id, "Receipt with large storage proof!");
+            }
             if let Some(outcome_with_id) = result? {
                 let gas_burnt = outcome_with_id.outcome.gas_burnt;
                 let compute_usage = outcome_with_id
