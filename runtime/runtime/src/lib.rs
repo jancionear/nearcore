@@ -1460,7 +1460,7 @@ impl Runtime {
                     .observe(recorded_storage_proof_ratio);
             }
             if recorded_storage_upper_bound_diff > 500_000. {
-                tracing::info!(target:"runtime", recorded_storage_diff, receipt_id = ?receipt.receipt_id, predecessor_id = ?receipt.predecessor_id, receiver_id = ?receipt.receiver_id, "Receipt with large storage proof!");
+                tracing::info!(target:"runtime", recorded_storage_diff, recorded_storage_upper_bound_diff, receipt_id = ?receipt.receipt_id, predecessor_id = ?receipt.predecessor_id, receiver_id = ?receipt.receiver_id, "Receipt with large storage proof! v2");
             }
             if let Some(outcome_with_id) = result? {
                 let gas_burnt = outcome_with_id.outcome.gas_burnt;
