@@ -15,9 +15,41 @@ static NEARD_BUILD: &str = env!("NEARD_BUILD");
 static RUSTC_VERSION: &str = env!("NEARD_RUSTC_VERSION");
 
 static NEARD_VERSION_STRING: Lazy<String> = Lazy::new(|| {
+    let mut features = Vec::new();
+    if cfg!(feature = "nightly") {
+        features.push("nightly");
+    }
+    if cfg!(feature = "statelessnet_protocol") {
+        features.push("statelessnet_protocol");
+    }
+    if cfg!(feature = "new_epoch_sync") {
+        features.push("new_epoch_sync");
+    }
+    if cfg!(feature = "no_cache") {
+        features.push("no_cache");
+    }
+    if cfg!(feature = "test_features") {
+        features.push("test_features");
+    }
+    if cfg!(feature = "byzanitne_asserts") {
+        features.push("byzantine_asserts");
+    }
+    if cfg!(feature = "sandbox") {
+        features.push("sandbox");
+    }
+    if cfg!(feature = "protocol_feature_nonrefundable_transfer_nep491") {
+        features.push("protocol_feature_nonrefundable_transfer_nep491");
+    }
+    if cfg!(feature = "io_trace") {
+        features.push("io_trace");
+    }
+    if cfg!(feature = "yield_resume") {
+        features.push("yield_resume");
+    }
+    // TODO: more features
     format!(
-        "(release {}) (build {}) (rustc {}) (protocol {}) (db {})",
-        NEARD_VERSION, NEARD_BUILD, RUSTC_VERSION, PROTOCOL_VERSION, DB_VERSION
+        "(release {}) (build {}) (rustc {}) (protocol {}) (db {}) features: {:?}",
+        NEARD_VERSION, NEARD_BUILD, RUSTC_VERSION, PROTOCOL_VERSION, DB_VERSION, features
     )
 });
 
