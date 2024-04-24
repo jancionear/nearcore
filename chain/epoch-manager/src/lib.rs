@@ -2017,6 +2017,9 @@ impl EpochManager {
             tracing::debug_span!(target: "epoch_manager", "get_all_epoch_hashes_from_db", ?last_block_info)
                 .entered();
 
+        panic!("get_all_epoch_hashes_from_db should not be called!");
+
+        /*
         let mut result = vec![];
         let first_epoch_block_height =
             self.get_block_info(last_block_info.epoch_first_block())?.height();
@@ -2040,6 +2043,7 @@ impl EpochManager {
         result.push(*current_block_info.hash());
 
         Ok(result)
+        */
     }
 
     #[cfg(feature = "new_epoch_sync")]
