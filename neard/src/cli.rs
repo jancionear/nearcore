@@ -369,6 +369,13 @@ fn check_release_build(chain: &str) {
 
 impl InitCmd {
     pub(super) fn run(self, home_dir: &Path) -> anyhow::Result<()> {
+        if cfg!(feature = "new_epoch_sync") {
+            println!("Epoch sync enabled!");
+        } else {
+            println!("Epoch sync disabled!");
+        }
+        return Ok(());
+
         // TODO: Check if `home` exists. If exists check what networks we already have there.
         if (self.download_genesis || self.download_genesis_url.is_some()) && self.genesis.is_some()
         {
