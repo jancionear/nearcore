@@ -59,7 +59,7 @@ impl TrieRecorder {
     pub fn recorded_storage_size_upper_bound(&self) -> usize {
         // Charge 2000 bytes for every removal
         let removals_size = self.removal_counter.saturating_mul(2000);
-        self.recorded_storage_size().saturating_add(removals_size).saturating_add(self.code_counter)
+        self.recorded_storage_size().saturating_add(removals_size)
     }
 }
 
