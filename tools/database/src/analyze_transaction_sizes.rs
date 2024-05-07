@@ -223,9 +223,16 @@ where
         total_processed += update;
         if total_processed % 1000 == 0 {
             let rate = total_processed as f64 / start_time.elapsed().as_secs_f64();
-            let left_to_process = height_range.end - height_range.start - total_processed;
+            let total = height_range.end - height_range.start;
+            let left_to_process = total - total_processed;
             let eta = std::time::Duration::from_secs((left_to_process as f64 / rate) as u64);
-            println!("Processed {} blocks ({:.2} blocks/s) ETA: {:?}", total_processed, rate, eta);
+            println!(
+                "Processed {} blocks ({:.2} blocks/s) ({:.2}%) ETA: {:?}",
+                total_processed,
+                rate,
+                total_processed as f64 / total as f64 * 100.0,
+                eta
+            );
         }
     }
 
