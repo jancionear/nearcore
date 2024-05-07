@@ -37,6 +37,10 @@ pub(crate) struct AnalyzeTransactionSizesCommand {
     /// Show top N transactions by size.
     #[arg(long, default_value_t = 50)]
     topn: usize,
+
+    /// Use this many threads to analyze the blocks
+    #[arg(long, default_value_t = 64)]
+    threads: usize,
 }
 
 impl AnalyzeTransactionSizesCommand {
@@ -55,7 +59,7 @@ impl AnalyzeTransactionSizesCommand {
         };
 
         println!("Height range: {:?}", height_range);
-        analyze_transaction_sizes(store, near_config, height_range, self.topn);
+        analyze_transaction_sizes(store, near_config, height_range, self.topn, self.threads);
 
         Ok(())
     }
@@ -66,6 +70,7 @@ fn analyze_transaction_sizes(
     near_config: NearConfig,
     height_range: Range<BlockHeight>,
     topn: usize,
+    threads: usize,
 ) {
     let largest_transactions = analyze_chain(
         store,
@@ -73,6 +78,7 @@ fn analyze_transaction_sizes(
         height_range,
         move |height, chain_store, res| anal_block(height, chain_store, res, topn),
         move |a, b| merge_biggest(a, b, topn),
+        threads,
     );
 
     println!("Done!");
@@ -181,13 +187,13 @@ fn analyze_chain<Res, BlockFun, MergeFun>(
     height_range: Range<BlockHeight>,
     analyze_block: BlockFun,
     mut merge_results: MergeFun,
+    num_threads: usize,
 ) -> Res
 where
     BlockFun: FnMut(BlockHeight, &ChainStore, &mut Res) + Clone + Send + 'static,
     MergeFun: FnMut(Res, Res) -> Res + Clone + Send + 'static,
     Res: Send + Default + 'static,
 {
-    let num_threads = 128;
     let next_to_process = Arc::new(AtomicU64::new(height_range.start));
     let (update_sender, update_receiver) = std::sync::mpsc::sync_channel(num_threads * 4);
     let mut threads = Vec::new();
