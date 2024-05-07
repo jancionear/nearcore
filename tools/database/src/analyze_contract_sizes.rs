@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::str::FromStr;
@@ -15,30 +16,74 @@ use nearcore::{load_config, open_storage};
 #[derive(Parser)]
 pub(crate) struct AnalyzeContractSizesCommand {
     /// Show top N contracts by size.
-    #[arg(short, long)]
+    #[arg(short, long, default_value_t = 50)]
     topn: usize,
 }
 
-//const ACCOUNT_DATA_SEPARATOR: u8 = b',';
+struct ContractSizeStats {
+    topn: usize,
+    top_accounts: BTreeMap<ByteSize, AccountId>,
+    total_accounts: usize,
+    shard_accounts: BTreeMap<ShardUId, usize>,
+}
+
+impl ContractSizeStats {
+    pub fn new(topn: usize) -> ContractSizeStats {
+        ContractSizeStats {
+            topn,
+            top_accounts: BTreeMap::new(),
+            total_accounts: 0,
+            shard_accounts: BTreeMap::new(),
+        }
+    }
+
+    pub fn add_info(&mut self, shard_uid: ShardUId, account_id: AccountId, contract_size: usize) {
+        self.total_accounts += 1;
+        *self.shard_accounts.entry(shard_uid).or_insert(0) += 1;
+
+        self.top_accounts.insert(ByteSize::b(contract_size as u64), account_id);
+        if self.top_accounts.len() > self.topn {
+            self.top_accounts.pop_first();
+        }
+    }
+
+    pub fn print_stats(&self) {
+        println!("");
+        println!("Analyzed {} accounts", self.total_accounts);
+        println!("Accounts per shard:");
+        for (shard_uid, count) in self.shard_accounts.iter() {
+            println!("{}: {}", shard_uid, count);
+        }
+        println!("");
+        println!("Top {} accounts by size:", self.topn);
+        for (size, account_id) in self.top_accounts.iter().rev() {
+            println!("{}: {}", size, account_id);
+        }
+    }
+}
 
 impl AnalyzeContractSizesCommand {
     pub(crate) fn run(&self, home: &PathBuf) -> anyhow::Result<()> {
-        // Create a ChainStore and EpochManager that will be used to read blockchain data.
         let mut near_config = load_config(home, GenesisValidationMode::Full).unwrap();
         let node_storage = open_storage(&home, &mut near_config).unwrap();
         let store = node_storage.get_split_store().unwrap_or_else(|| node_storage.get_hot_store());
-
         let chain_store = Rc::new(ChainStore::new(
             store.clone(),
             near_config.genesis.config.genesis_height,
             false,
         ));
+
         let head = chain_store.head().unwrap();
         let epoch_manager =
             EpochManager::new_from_genesis_config(store.clone(), &near_config.genesis.config)
                 .unwrap();
         let shard_layout = epoch_manager.get_shard_layout(&head.epoch_id).unwrap();
         let last_block = chain_store.get_block(&head.last_block_hash).unwrap();
+        if last_block.header().chunk_mask().contains(&false) {
+            panic!("Last block doesn't have all chunks, please try again later!");
+        }
+
+        let mut stats = ContractSizeStats::new(self.topn);
         for chunk in last_block.chunks().iter() {
             let shard_id = chunk.shard_id();
             let shard_uid = ShardUId::from_shard_id_and_layout(shard_id, &shard_layout);
@@ -51,25 +96,24 @@ impl AnalyzeContractSizesCommand {
             let mut iterator = trie.iter().unwrap();
             iterator.seek_prefix(&[col::CONTRACT_CODE]).unwrap();
 
-            for item in iterator {
+            for (i, item) in iterator.enumerate() {
                 let (key, value) = item.unwrap();
                 if key.is_empty() || key[0] != col::CONTRACT_CODE {
                     break;
                 }
-                //let separator_pos = key.iter().position(|&x| x == ACCOUNT_DATA_SEPARATOR).unwrap();
                 let account_id_bytes = &key[1..];
-                //let contract_code = &key[separator_pos + 1..];
-
                 let account_id_str = std::str::from_utf8(&account_id_bytes).unwrap();
                 let account_id = AccountId::from_str(account_id_str).unwrap();
+                let contract_size = value.len();
 
-                println!(
-                    "account: {}, contract size: {}",
-                    account_id,
-                    ByteSize::b(value.len() as u64)
-                );
+                stats.add_info(shard_uid, account_id, contract_size);
+                if i % 1000 == 0 {
+                    println!("Processed {} contracts...", i);
+                }
             }
         }
+
+        stats.print_stats();
         Ok(())
     }
 }
