@@ -128,7 +128,7 @@ fn anal_block(
     let block = match block_res {
         Ok(Ok(block)) => block,
         _ => {
-            println!("Failed to get block at height {}", height);
+            //println!("Failed to get block at height {}", height);
             return;
         }
     };
