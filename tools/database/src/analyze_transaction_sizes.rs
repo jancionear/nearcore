@@ -202,7 +202,7 @@ fn merge_biggest(a: Biggest, b: Biggest, topn: usize) -> Biggest {
 }
 
 fn analyze_transaction_sizes(home: PathBuf, command_args: CommandArgs, topn: usize) {
-    let threads_num = 16;
+    let threads_num = 5;
     let (jobs_sender, jobs_receiver) = std::sync::mpsc::sync_channel(16);
     let (result_sender, result_receiver) = std::sync::mpsc::sync_channel(16);
 
@@ -217,6 +217,7 @@ fn analyze_transaction_sizes(home: PathBuf, command_args: CommandArgs, topn: usi
     threads.push(std::thread::spawn(move || {
         generate_jobs_thread(home, command_args, jobs_sender);
     }));
+    std::mem::drop(result_sender);
 
     let mut largest_transactions: Biggest = Biggest::new();
     let mut blocks_processed = 0;
