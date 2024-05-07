@@ -41,30 +41,35 @@ pub(crate) struct AnalyzeTransactionSizesCommand {
 
 impl AnalyzeTransactionSizesCommand {
     pub(crate) fn run(&self, home: &PathBuf) -> anyhow::Result<()> {
+        let mut near_config = load_config(&home, GenesisValidationMode::Full).unwrap();
+        let node_storage = open_storage_in_mode(&home, &mut near_config, Mode::ReadOnly).unwrap();
+        let store = node_storage.get_split_store().unwrap_or_else(|| node_storage.get_hot_store());
+
         let height_range = if let Some(last_blocks) = self.last_blocks {
-            let mut near_config = load_config(&home, GenesisValidationMode::Full).unwrap();
-            let node_storage =
-                open_storage_in_mode(&home, &mut near_config, Mode::ReadOnly).unwrap();
-            let store =
-                node_storage.get_split_store().unwrap_or_else(|| node_storage.get_hot_store());
             let chain_store =
-                ChainStore::new(store, near_config.genesis.config.genesis_height, false);
+                ChainStore::new(store.clone(), near_config.genesis.config.genesis_height, false);
             let head = chain_store.head()?;
             head.height.saturating_sub(last_blocks)..head.height
         } else {
             self.from_block_height.unwrap_or(0)..self.to_block_height.unwrap_or(u64::MAX)
         };
 
-        println!("height range: {:?}", height_range);
-        analyze_transaction_sizes(home.clone(), height_range, self.topn);
+        println!("Height range: {:?}", height_range);
+        analyze_transaction_sizes(store, near_config, height_range, self.topn);
 
         Ok(())
     }
 }
 
-fn analyze_transaction_sizes(home: PathBuf, height_range: Range<BlockHeight>, topn: usize) {
+fn analyze_transaction_sizes(
+    store: Store,
+    near_config: NearConfig,
+    height_range: Range<BlockHeight>,
+    topn: usize,
+) {
     let largest_transactions = analyze_chain(
-        home,
+        store,
+        near_config,
         height_range,
         move |height, chain_store, res| anal_block(height, chain_store, res, topn),
         move |a, b| merge_biggest(a, b, topn),
@@ -171,7 +176,8 @@ fn merge_biggest(a: Biggest, b: Biggest, topn: usize) -> Biggest {
 }
 
 fn analyze_chain<Res, BlockFun, MergeFun>(
-    home: PathBuf,
+    store: Store,
+    near_config: NearConfig,
     height_range: Range<BlockHeight>,
     analyze_block: BlockFun,
     mut merge_results: MergeFun,
@@ -181,10 +187,6 @@ where
     MergeFun: FnMut(Res, Res) -> Res + Clone + Send + 'static,
     Res: Send + Default + 'static,
 {
-    let mut near_config = load_config(&home, GenesisValidationMode::Full).unwrap();
-    let node_storage = open_storage_in_mode(&home, &mut near_config, Mode::ReadOnly).unwrap();
-    let store = node_storage.get_split_store().unwrap_or_else(|| node_storage.get_hot_store());
-
     let num_threads = 64;
     let next_to_process = Arc::new(AtomicU64::new(height_range.start));
     let (update_sender, update_receiver) = std::sync::mpsc::sync_channel(num_threads * 4);
