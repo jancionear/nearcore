@@ -187,7 +187,7 @@ where
     MergeFun: FnMut(Res, Res) -> Res + Clone + Send + 'static,
     Res: Send + Default + 'static,
 {
-    let num_threads = 64;
+    let num_threads = 128;
     let next_to_process = Arc::new(AtomicU64::new(height_range.start));
     let (update_sender, update_receiver) = std::sync::mpsc::sync_channel(num_threads * 4);
     let mut threads = Vec::new();
