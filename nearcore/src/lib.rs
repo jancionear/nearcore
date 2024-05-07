@@ -86,6 +86,14 @@ pub fn get_default_home() -> PathBuf {
 /// have the type of the node be determined purely based on kind of database
 /// being opened.
 pub fn open_storage(home_dir: &Path, near_config: &mut NearConfig) -> anyhow::Result<NodeStorage> {
+    open_storage_in_mode(home_dir, near_config, Mode::ReadWrite)
+}
+
+pub fn open_storage_in_mode(
+    home_dir: &Path,
+    near_config: &mut NearConfig,
+    mode: Mode,
+) -> anyhow::Result<NodeStorage> {
     let migrator = migrations::Migrator::new(near_config);
     let opener = NodeStorage::opener(
         home_dir,
@@ -94,7 +102,7 @@ pub fn open_storage(home_dir: &Path, near_config: &mut NearConfig) -> anyhow::Re
         near_config.config.cold_store.as_ref(),
     )
     .with_migrator(&migrator);
-    let storage = match opener.open() {
+    let storage = match opener.open_in_mode(mode) {
         Ok(storage) => Ok(storage),
         Err(StoreOpenerError::IO(err)) => {
             Err(anyhow::anyhow!("{err}"))

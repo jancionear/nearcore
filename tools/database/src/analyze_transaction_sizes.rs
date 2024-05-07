@@ -1,26 +1,24 @@
 use std::collections::BTreeMap;
+use std::ops::Range;
 use std::path::PathBuf;
-use std::rc::Rc;
-use std::sync::mpsc::Receiver;
+use std::sync::atomic::AtomicU64;
+use std::sync::atomic::Ordering;
 use std::sync::mpsc::SyncSender;
 use std::sync::Arc;
-use std::sync::Mutex;
 
 use bytesize::ByteSize;
 use clap::Parser;
-use near_chain::{Block, ChainStore, ChainStoreAccess};
+use near_chain::{ChainStore, ChainStoreAccess};
 use near_chain_configs::GenesisValidationMode;
 use near_primitives::action::Action;
 use near_primitives::hash::CryptoHash;
 use near_primitives::types::AccountId;
 use near_primitives::types::BlockHeight;
 use near_store::Mode;
-use near_store::NodeStorage;
+use near_store::Store;
 use nearcore::load_config;
-
-use crate::block_iterators::{
-    make_block_iterator_from_command_args, CommandArgs, LastNBlocksIterator,
-};
+use nearcore::open_storage_in_mode;
+use nearcore::NearConfig;
 
 #[derive(Parser)]
 pub(crate) struct AnalyzeTransactionSizesCommand {
@@ -43,196 +41,34 @@ pub(crate) struct AnalyzeTransactionSizesCommand {
 
 impl AnalyzeTransactionSizesCommand {
     pub(crate) fn run(&self, home: &PathBuf) -> anyhow::Result<()> {
-        analyze_transaction_sizes(
-            home.clone(),
-            CommandArgs {
-                last_blocks: self.last_blocks,
-                from_block_height: self.from_block_height,
-                to_block_height: self.to_block_height,
-            },
-            self.topn,
-        );
+        let height_range = if let Some(last_blocks) = self.last_blocks {
+            let mut near_config = load_config(&home, GenesisValidationMode::Full).unwrap();
+            let node_storage =
+                open_storage_in_mode(&home, &mut near_config, Mode::ReadOnly).unwrap();
+            let store =
+                node_storage.get_split_store().unwrap_or_else(|| node_storage.get_hot_store());
+            let chain_store =
+                ChainStore::new(store, near_config.genesis.config.genesis_height, false);
+            let head = chain_store.head()?;
+            head.height.saturating_sub(last_blocks)..head.height
+        } else {
+            self.from_block_height.unwrap_or(0)..self.to_block_height.unwrap_or(u64::MAX)
+        };
+
+        println!("height range: {:?}", height_range);
+        analyze_transaction_sizes(home.clone(), height_range, self.topn);
 
         Ok(())
     }
 }
 
-// Things I care about
-// 1) Transaction size (total)
-// 2) DeployContract transactions - contract size
-// 3) FunctionCall transactions - arguments size
-
-struct TransactionInfo {
-    /// An account on which behalf transaction is signed
-    pub signer_id: AccountId,
-    /// Receiver account for this transaction
-    pub receiver_id: AccountId,
-    /// The hash of the block in the blockchain on top of which the given transaction is valid
-    pub tx_hash: CryptoHash,
-
-    typ: TransactionType,
-}
-
-enum TransactionType {
-    DeployContract(ByteSize),
-    FunctionCall(String, ByteSize),
-    Other,
-}
-
-type Biggest = BTreeMap<ByteSize, TransactionInfo>;
-
-struct AnalyzeJob {
-    blocks: Vec<Block>,
-}
-
-struct AnalyzeJobResult {
-    biggest: Biggest,
-    blocks_processed: usize,
-}
-
-impl AnalyzeJob {
-    fn run(&self, chain_store: &ChainStore) -> AnalyzeJobResult {
-        let mut largest_transactions: Biggest = Biggest::new();
-
-        for block in self.blocks.iter() {
-            for chunk_header in block.chunks().iter() {
-                let chunk = chain_store.get_chunk(&chunk_header.chunk_hash()).unwrap();
-                for transaction in chunk.transactions() {
-                    let transaction_size = borsh::to_vec(transaction).unwrap().len();
-
-                    let transaction_type = match &transaction.transaction.actions.as_slice() {
-                        &[Action::FunctionCall(fc)] => TransactionType::FunctionCall(
-                            fc.method_name.clone(),
-                            ByteSize::b(fc.args.len() as u64),
-                        ),
-                        &[Action::DeployContract(dc)] => {
-                            TransactionType::DeployContract(ByteSize::b(dc.code.len() as u64))
-                        }
-                        _ => TransactionType::Other,
-                    };
-
-                    let transaction_info = TransactionInfo {
-                        signer_id: transaction.transaction.signer_id.clone(),
-                        receiver_id: transaction.transaction.receiver_id.clone(),
-                        tx_hash: transaction.get_hash(),
-                        typ: transaction_type,
-                    };
-
-                    largest_transactions
-                        .insert(ByteSize::b(transaction_size as u64), transaction_info);
-                    if largest_transactions.len() > 50 {
-                        largest_transactions.pop_first();
-                    }
-                }
-            }
-        }
-
-        AnalyzeJobResult { biggest: largest_transactions, blocks_processed: self.blocks.len() }
-    }
-}
-
-fn get_chain_store(home: PathBuf) -> ChainStore {
-    // Create a ChainStore and EpochManager that will be used to read blockchain data.
-    let near_config = load_config(&home, GenesisValidationMode::Full).unwrap();
-    let node_storage = NodeStorage::opener(
-        &home,
-        near_config.client_config.archive,
-        &near_config.config.store,
-        near_config.config.cold_store.as_ref(),
-    )
-    .open_in_mode(Mode::ReadOnly)
-    .unwrap();
-    let store = node_storage.get_split_store().unwrap_or_else(|| node_storage.get_hot_store());
-    ChainStore::new(store, near_config.genesis.config.genesis_height, false)
-}
-
-fn run_job_thread(
-    home: PathBuf,
-    jobs_chan: Arc<Mutex<Receiver<AnalyzeJob>>>,
-    result_sender: SyncSender<AnalyzeJobResult>,
-) {
-    let chain_store = get_chain_store(home);
-
-    while let Ok(job) = jobs_chan.lock().unwrap().recv() {
-        let result = job.run(&chain_store);
-        result_sender.send(result).unwrap();
-    }
-}
-
-fn generate_jobs_thread(
-    home: PathBuf,
-    command_args: CommandArgs,
-    jobs_chan: SyncSender<AnalyzeJob>,
-) {
-    let chain_store = Rc::new(get_chain_store(home));
-
-    // Create an iterator over the blocks that should be analysed
-    let blocks_iter_opt = make_block_iterator_from_command_args(command_args, chain_store.clone());
-
-    let blocks_iter = match blocks_iter_opt {
-        Some(iter) => iter,
-        None => {
-            println!("No arguments, defaulting to last 100 blocks");
-            Box::new(LastNBlocksIterator::new(100, chain_store))
-        }
-    };
-
-    let mut cur_blocks: Vec<Block> = Vec::new();
-    for block in blocks_iter {
-        cur_blocks.push(block);
-        if cur_blocks.len() == 100 {
-            let job = AnalyzeJob { blocks: cur_blocks };
-            cur_blocks = Vec::new();
-            jobs_chan.send(job).unwrap();
-        }
-    }
-    let job = AnalyzeJob { blocks: cur_blocks };
-    jobs_chan.send(job).unwrap();
-}
-
-fn merge_biggest(a: Biggest, b: Biggest, topn: usize) -> Biggest {
-    let mut result = a;
-    for (size, info) in b {
-        result.insert(size, info);
-        if result.len() > topn {
-            result.pop_first();
-        }
-    }
-    result
-}
-
-fn analyze_transaction_sizes(home: PathBuf, command_args: CommandArgs, topn: usize) {
-    let threads_num = 5;
-    let (jobs_sender, jobs_receiver) = std::sync::mpsc::sync_channel(16);
-    let (result_sender, result_receiver) = std::sync::mpsc::sync_channel(16);
-
-    let jobs_chan = Arc::new(Mutex::new(jobs_receiver));
-    let mut threads = Vec::new();
-    for _ in 0..threads_num {
-        let jobs_chan = jobs_chan.clone();
-        let result_sender = result_sender.clone();
-        let home = home.clone();
-        threads.push(std::thread::spawn(move || run_job_thread(home, jobs_chan, result_sender)));
-    }
-    threads.push(std::thread::spawn(move || {
-        generate_jobs_thread(home, command_args, jobs_sender);
-    }));
-    std::mem::drop(result_sender);
-
-    let mut largest_transactions: Biggest = Biggest::new();
-    let mut blocks_processed = 0;
-    while let Ok(result) = result_receiver.recv() {
-        blocks_processed += result.blocks_processed;
-        largest_transactions = merge_biggest(largest_transactions, result.biggest, topn);
-
-        if blocks_processed % 1000 == 0 {
-            println!("Processed {} blocks", blocks_processed);
-        }
-    }
-
-    for thread in threads {
-        thread.join().unwrap();
-    }
+fn analyze_transaction_sizes(home: PathBuf, height_range: Range<BlockHeight>, topn: usize) {
+    let largest_transactions = analyze_chain(
+        home,
+        height_range,
+        move |height, chain_store, res| anal_block(height, chain_store, res, topn),
+        move |a, b| merge_biggest(a, b, topn),
+    );
 
     println!("Done!");
     println!("");
@@ -253,5 +89,171 @@ fn analyze_transaction_sizes(home: PathBuf, command_args: CommandArgs, topn: usi
         }
 
         println!(" {:?}", info.tx_hash);
+    }
+}
+
+struct TransactionInfo {
+    /// An account on which behalf transaction is signed
+    pub signer_id: AccountId,
+    /// Receiver account for this transaction
+    pub receiver_id: AccountId,
+    /// The hash of the block in the blockchain on top of which the given transaction is valid
+    pub tx_hash: CryptoHash,
+
+    typ: TransactionType,
+}
+
+enum TransactionType {
+    DeployContract(ByteSize),
+    FunctionCall(String, ByteSize),
+    Other,
+}
+
+type Biggest = BTreeMap<ByteSize, TransactionInfo>;
+
+fn anal_block(
+    height: BlockHeight,
+    chain_store: &ChainStore,
+    largest_transactions: &mut Biggest,
+    topn: usize,
+) {
+    let block_res = chain_store
+        .get_block_hash_by_height(height)
+        .map(|block_hash| chain_store.get_block(&block_hash));
+    let block = match block_res {
+        Ok(Ok(block)) => block,
+        _ => {
+            println!("Failed to get block at height {}", height);
+            return;
+        }
+    };
+
+    for chunk_header in block.chunks().iter() {
+        let chunk = chain_store.get_chunk(&chunk_header.chunk_hash()).unwrap();
+        for transaction in chunk.transactions() {
+            let transaction_size = borsh::to_vec(transaction).unwrap().len();
+
+            let transaction_type = match &transaction.transaction.actions.as_slice() {
+                &[Action::FunctionCall(fc)] => TransactionType::FunctionCall(
+                    fc.method_name.clone(),
+                    ByteSize::b(fc.args.len() as u64),
+                ),
+                &[Action::DeployContract(dc)] => {
+                    TransactionType::DeployContract(ByteSize::b(dc.code.len() as u64))
+                }
+                _ => TransactionType::Other,
+            };
+
+            let transaction_info = TransactionInfo {
+                signer_id: transaction.transaction.signer_id.clone(),
+                receiver_id: transaction.transaction.receiver_id.clone(),
+                tx_hash: transaction.get_hash(),
+                typ: transaction_type,
+            };
+
+            largest_transactions.insert(ByteSize::b(transaction_size as u64), transaction_info);
+            if largest_transactions.len() > topn {
+                largest_transactions.pop_first();
+            }
+        }
+    }
+}
+
+fn merge_biggest(a: Biggest, b: Biggest, topn: usize) -> Biggest {
+    let mut result = a;
+    for (size, info) in b {
+        result.insert(size, info);
+        if result.len() > topn {
+            result.pop_first();
+        }
+    }
+    result
+}
+
+fn analyze_chain<Res, BlockFun, MergeFun>(
+    home: PathBuf,
+    height_range: Range<BlockHeight>,
+    analyze_block: BlockFun,
+    mut merge_results: MergeFun,
+) -> Res
+where
+    BlockFun: FnMut(BlockHeight, &ChainStore, &mut Res) + Clone + Send + 'static,
+    MergeFun: FnMut(Res, Res) -> Res + Clone + Send + 'static,
+    Res: Send + Default + 'static,
+{
+    let mut near_config = load_config(&home, GenesisValidationMode::Full).unwrap();
+    let node_storage = open_storage_in_mode(&home, &mut near_config, Mode::ReadOnly).unwrap();
+    let store = node_storage.get_split_store().unwrap_or_else(|| node_storage.get_hot_store());
+
+    let num_threads = 64;
+    let next_to_process = Arc::new(AtomicU64::new(height_range.start));
+    let (update_sender, update_receiver) = std::sync::mpsc::sync_channel(num_threads * 4);
+    let mut threads = Vec::new();
+    for _ in 0..num_threads {
+        let analyze_block = analyze_block.clone();
+        let store = store.clone();
+        let near_config = near_config.clone();
+        let next_to_process = next_to_process.clone();
+        let update_sender = update_sender.clone();
+        let height_range = height_range.clone();
+        threads.push(std::thread::spawn(move || {
+            analyze_chain_thread(
+                analyze_block,
+                store,
+                near_config,
+                next_to_process,
+                height_range,
+                update_sender,
+            )
+        }));
+    }
+    std::mem::drop(update_sender);
+
+    let mut total_processed = 0;
+    let start_time = std::time::Instant::now();
+    while let Ok(update) = update_receiver.recv() {
+        total_processed += update;
+        if total_processed % 1000 == 0 {
+            let rate = total_processed as f64 / start_time.elapsed().as_secs_f64();
+            println!("Processed {} blocks (rate: {:.2} blocks/s)", total_processed, rate);
+        }
+    }
+
+    let mut res = Res::default();
+    for thread in threads {
+        res = merge_results(res, thread.join().unwrap());
+    }
+
+    res
+}
+
+fn analyze_chain_thread<Res, BlockFun>(
+    mut analyze_block: BlockFun,
+    store: Store,
+    near_config: NearConfig,
+    next_to_process: Arc<AtomicU64>,
+    height_range: Range<BlockHeight>,
+    update_sender: SyncSender<u64>,
+) -> Res
+where
+    BlockFun: FnMut(BlockHeight, &ChainStore, &mut Res),
+    Res: Default,
+{
+    let mut res = Res::default();
+
+    let chain_store = ChainStore::new(store, near_config.genesis.config.genesis_height, false);
+
+    let batch_size = 100;
+    loop {
+        let start = next_to_process.fetch_add(batch_size, Ordering::Relaxed);
+        for height in start..(start + batch_size) {
+            if height > height_range.end {
+                return res;
+            }
+
+            analyze_block(height, &chain_store, &mut res);
+        }
+
+        update_sender.send(batch_size).unwrap();
     }
 }
