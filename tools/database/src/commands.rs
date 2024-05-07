@@ -3,6 +3,7 @@ use crate::analyse_data_size_distribution::AnalyseDataSizeDistributionCommand;
 use crate::analyse_gas_usage::AnalyseGasUsageCommand;
 use crate::analyse_high_load::HighLoadStatsCommand;
 use crate::analyze_delayed_receipt::AnalyzeDelayedReceiptCommand;
+use crate::analyze_transaction_sizes::AnalyzeTransactionSizesCommand;
 use crate::compact::RunCompactionCommand;
 use crate::corrupt::CorruptStateSnapshotCommand;
 use crate::make_snapshot::MakeSnapshotCommand;
@@ -56,6 +57,7 @@ enum SubCommand {
     HighLoadStats(HighLoadStatsCommand),
     // Analyze congestion through delayed receipts
     AnalyzeDelayedReceipt(AnalyzeDelayedReceiptCommand),
+    AnalyzeTransactionSizes(AnalyzeTransactionSizesCommand),
 }
 
 impl DatabaseCommand {
@@ -87,6 +89,7 @@ impl DatabaseCommand {
             SubCommand::WriteCryptoHash(cmd) => cmd.run(home),
             SubCommand::HighLoadStats(cmd) => cmd.run(home),
             SubCommand::AnalyzeDelayedReceipt(cmd) => cmd.run(home),
+            SubCommand::AnalyzeTransactionSizes(cmd) => cmd.run(home),
         }
     }
 }

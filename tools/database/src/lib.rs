@@ -3,6 +3,7 @@ mod analyse_data_size_distribution;
 mod analyse_gas_usage;
 mod analyse_high_load;
 mod analyze_delayed_receipt;
+mod analyze_transaction_sizes;
 mod block_iterators;
 pub mod commands;
 mod compact;
