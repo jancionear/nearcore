@@ -245,7 +245,7 @@ where
 
     let chain_store = ChainStore::new(store, near_config.genesis.config.genesis_height, false);
 
-    let batch_size = 100;
+    let batch_size = 200;
     loop {
         let start = next_to_process.fetch_add(batch_size, Ordering::Relaxed);
         for height in start..(start + batch_size) {
