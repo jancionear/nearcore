@@ -82,6 +82,7 @@ impl Client {
             chunk,
             validated_transactions.storage_proof,
         )?;
+        self.chain.chain_store.save_latest_chunk_state_witness(&witness)?;
         let (encoded_witness, raw_witness_size) = {
             let shard_id_label = shard_id.to_string();
             let encode_timer = metrics::CHUNK_STATE_WITNESS_ENCODE_TIME
