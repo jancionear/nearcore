@@ -234,6 +234,7 @@ impl RocksDB {
     ) -> RocksDBIterator<'a> {
         let cf_handle = self.cf_handle(col).unwrap();
         let mut read_options = rocksdb_read_options();
+        read_options.set_readahead_size(4096);
         if prefix.is_some() && (lower_bound.is_some() || upper_bound.is_some()) {
             panic!("Cannot iterate both with prefix and lower/upper bounds at the same time.");
         }
