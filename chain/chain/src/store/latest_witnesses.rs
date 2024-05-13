@@ -161,8 +161,8 @@ impl ChainStore {
         let commit_time = start.elapsed();
         tracing::info!(
             target: "latest_witnesses",
-            "Saved latest witness! update_time: {:?}, commit_time: {:?}",
-            update_time, commit_time
+            "Saved latest witness! update_time: {:?}, commit_time: {:?}, (info: count: {}, size: {})",
+            update_time, commit_time, info.count, ByteSize::b(info.total_size)
         );
 
         Ok(())
