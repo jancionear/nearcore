@@ -158,7 +158,7 @@ impl ChainStore {
         // Commit the transaction
         store_update.commit()?;
 
-        let commit_time = start.elapsed();
+        let commit_time = start.elapsed().saturating_sub(update_time);
         tracing::info!(
             target: "latest_witnesses",
             "Saved latest witness! update_time: {:?}, commit_time: {:?}, (info: count: {}, size: {})",
