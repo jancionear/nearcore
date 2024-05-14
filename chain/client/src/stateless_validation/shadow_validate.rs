@@ -19,7 +19,7 @@ impl Client {
             return Ok(());
         }
         let block_hash = block.hash();
-        tracing::debug!(target: "stateless_validation", ?block_hash, "shadow validation for block chunks");
+        tracing::info!(target: "stateless_validation", ?block_hash, "shadow validation for block chunks");
         let prev_block = self.chain.get_block(block.header().prev_hash())?;
         let prev_block_chunks = prev_block.chunks();
         for chunk in
