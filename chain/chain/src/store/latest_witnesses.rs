@@ -104,6 +104,15 @@ impl ChainStore {
         &mut self,
         witness: &ChunkStateWitness,
     ) -> Result<(), std::io::Error> {
+        let start_time = std::time::Instant::now();
+        let _span = tracing::info_span!(
+            target: "client",
+            "save_latest_chunk_state_witness",
+            witness_height = witness.chunk_header.height_created(),
+            witness_shard = witness.chunk_header.shard_id(),
+        )
+        .entered();
+
         let serialized_witness = borsh::to_vec(witness)?;
         let serialized_witness_size: u64 =
             serialized_witness.len().try_into().expect("Cannot convert usize to u64");
@@ -175,8 +184,19 @@ impl ChainStore {
         // Update LatestWitnessesInfo
         store_update.set(DBCol::Misc, &LATEST_WITNESSES_INFO, &borsh::to_vec(&info)?);
 
+        let store_update_time = start_time.elapsed();
+        tracing::debug!(
+            "Generating store update to save latest witness took {:?}",
+            store_update_time
+        );
+
         // Commit the transaction
         store_update.commit()?;
+
+        tracing::debug!(
+            "Committing store update to save latest witness took {:?}",
+            start_time.elapsed().saturating_sub(store_update_time)
+        );
 
         Ok(())
     }
