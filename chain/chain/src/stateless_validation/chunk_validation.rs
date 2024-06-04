@@ -308,6 +308,10 @@ fn validate_source_receipt_proofs(
             };
             validate_receipt_proof(receipt_proof, chunk, target_chunk_shard_id)?;
 
+            if target_chunk_shard_id == chunk.shard_id() {
+                tracing::info!(target:"testing", "Source receipt proofs contain receipts from the same shard, with size: {}", borsh::to_vec(&receipt_proof)?.len());
+            }
+
             expected_proofs_len += 1;
             block_receipt_proofs.push(receipt_proof);
         }
