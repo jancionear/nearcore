@@ -66,6 +66,14 @@ impl TrieRecorder {
             .saturating_add(removals_size)
             .saturating_add(self.code_len_counter)
     }
+
+    pub fn dump_info(&self) {
+        println!("Dummping!");
+        dbg!(self.removal_counter);
+        dbg!(self.code_len_counter);
+        dbg!(self.size);
+        println!("");
+    }
 }
 
 #[cfg(test)]

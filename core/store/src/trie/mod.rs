@@ -352,7 +352,7 @@ pub struct Trie {
     /// during the lifetime of this Trie struct. This is used to produce a
     /// state proof so that the same access pattern can be replayed using only
     /// the captured result.
-    recorder: Option<RefCell<TrieRecorder>>,
+    pub recorder: Option<RefCell<TrieRecorder>>,
     /// If true, access to trie nodes (not values) charges gas and affects the
     /// accounting cache. If false, access to trie nodes will not charge gas or
     /// affect the accounting cache. Value accesses always charge gas no matter

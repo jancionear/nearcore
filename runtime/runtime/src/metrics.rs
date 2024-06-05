@@ -303,6 +303,14 @@ pub static RECEIPT_RECORDED_SIZE: Lazy<Histogram> = Lazy::new(|| {
     )
     .unwrap()
 });
+pub static REMOVALS_PER_RECEIPT: Lazy<Histogram> = Lazy::new(|| {
+    try_create_histogram_with_buckets(
+        "near_removals_per_receipt",
+        "Number of removals in a receipt",
+        linear_buckets(0., 1., 10).unwrap(),
+    )
+    .unwrap()
+});
 pub static RECEIPT_RECORDED_SIZE_UPPER_BOUND: Lazy<Histogram> = Lazy::new(|| {
     try_create_histogram_with_buckets(
         "near_receipt_recorded_size_upper_bound",
@@ -424,7 +432,10 @@ fn buckets_for_compute() -> Option<Vec<f64>> {
 /// Buckets from 0 to 10MB
 fn buckets_for_receipt_storage_proof_size() -> Vec<f64> {
     // Precise buckets for the smaller, common values
-    let mut buckets = vec![50_000., 100_000., 200_000., 300_000.];
+    let mut buckets = vec![
+        100., 500., 1000., 2000., 5000., 10000., 20000., 40000., 50_000., 70_000., 100_000.,
+        200_000., 300_000.,
+    ];
 
     // Coarse buckets for the larger values
     buckets.extend(linear_buckets(500_000., 500_000., 20).unwrap());

@@ -1802,6 +1802,7 @@ impl Runtime {
         let chunk_recorded_size_upper_bound =
             state_update.trie.recorded_storage_size_upper_bound() as f64;
         metrics::CHUNK_RECORDED_SIZE_UPPER_BOUND.observe(chunk_recorded_size_upper_bound);
+        state_update.trie.recorder.as_ref().unwrap().borrow().dump_info();
         let (trie, trie_changes, state_changes) = state_update.finalize()?;
         if let Some(prefetcher) = &prefetcher {
             // Only clear the prefetcher queue after finalize is done because as part of receipt
