@@ -4106,6 +4106,8 @@ dependencies = [
  "rand",
  "rayon",
  "rocksdb",
+ "serde",
+ "serde_json",
  "strum",
  "tempfile",
 ]

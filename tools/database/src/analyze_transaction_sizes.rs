@@ -1,4 +1,3 @@
-use std::collections::BTreeMap;
 use std::ops::Range;
 use std::path::PathBuf;
 use std::sync::atomic::AtomicU64;
@@ -6,12 +5,12 @@ use std::sync::atomic::Ordering;
 use std::sync::mpsc::SyncSender;
 use std::sync::Arc;
 
-use bytesize::ByteSize;
 use clap::Parser;
 use near_chain::{ChainStore, ChainStoreAccess};
 use near_chain_configs::GenesisValidationMode;
 use near_primitives::action::Action;
 use near_primitives::hash::CryptoHash;
+use near_primitives::receipt::ReceiptEnum;
 use near_primitives::types::AccountId;
 use near_primitives::types::BlockHeight;
 use near_store::Mode;
@@ -19,6 +18,9 @@ use near_store::Store;
 use nearcore::load_config;
 use nearcore::open_storage_in_mode;
 use nearcore::NearConfig;
+use serde::{Deserialize, Serialize};
+
+const SIZE_LIMIT: usize = 100_000;
 
 #[derive(Parser)]
 pub(crate) struct AnalyzeTransactionSizesCommand {
@@ -33,10 +35,6 @@ pub(crate) struct AnalyzeTransactionSizesCommand {
     /// Analyse blocks up to the given block height, inclusive
     #[arg(long)]
     to_block_height: Option<BlockHeight>,
-
-    /// Show top N transactions by size.
-    #[arg(long, default_value_t = 50)]
-    topn: usize,
 
     /// Use this many threads to analyze the blocks
     #[arg(long, default_value_t = 64)]
@@ -59,7 +57,7 @@ impl AnalyzeTransactionSizesCommand {
         };
 
         println!("Height range: {:?}", height_range);
-        analyze_transaction_sizes(store, near_config, height_range, self.topn, self.threads);
+        analyze_transaction_sizes(store, near_config, height_range, self.threads);
 
         Ok(())
     }
@@ -69,65 +67,67 @@ fn analyze_transaction_sizes(
     store: Store,
     near_config: NearConfig,
     height_range: Range<BlockHeight>,
-    topn: usize,
     threads: usize,
 ) {
     let largest_transactions = analyze_chain(
         store,
         near_config,
         height_range,
-        move |height, chain_store, res| anal_block(height, chain_store, res, topn),
-        move |a, b| merge_biggest(a, b, topn),
+        move |height, chain_store, res| anal_block(height, chain_store, res),
+        merge_biggest,
         threads,
     );
 
     println!("Done!");
     println!("");
-    println!("Top {} transactions by size:", largest_transactions.len());
-    for (size, info) in largest_transactions.iter().rev() {
-        print!("{}: {}->{} ", size, info.signer_id, info.receiver_id);
-
-        match &info.typ {
-            TransactionType::DeployContract(code_size) => {
-                print!("DeployContract with size: {}", code_size);
-            }
-            TransactionType::FunctionCall(method_name, args_size) => {
-                print!("FunctionCall call {} with args size: {}", method_name, args_size);
-            }
-            TransactionType::Other => {
-                print!("Other");
-            }
-        }
-
-        println!(" {:?}", info.tx_hash);
-    }
+    println!("Found {} infos:", largest_transactions.len());
+    println!("{}", serde_json::to_string_pretty(&largest_transactions).unwrap());
 }
 
+#[derive(Serialize, Deserialize)]
 struct TransactionInfo {
-    /// An account on which behalf transaction is signed
     pub signer_id: AccountId,
-    /// Receiver account for this transaction
     pub receiver_id: AccountId,
-    /// The hash of the block in the blockchain on top of which the given transaction is valid
     pub tx_hash: CryptoHash,
-
-    typ: TransactionType,
+    pub typ: TransactionType,
+    pub size: usize,
 }
 
+#[derive(Serialize, Deserialize)]
 enum TransactionType {
-    DeployContract(ByteSize),
-    FunctionCall(String, ByteSize),
+    DeployContract(usize),
+    FunctionCall(String, usize),
     Other,
 }
 
-type Biggest = BTreeMap<ByteSize, TransactionInfo>;
+#[derive(Serialize, Deserialize)]
+struct ReceiptInfo {
+    pub predecessor_id: AccountId,
+    pub receiver_id: AccountId,
+    pub receipt_id: CryptoHash,
+    pub size: usize,
+    pub typ: ReceiptType,
+}
 
-fn anal_block(
-    height: BlockHeight,
-    chain_store: &ChainStore,
-    largest_transactions: &mut Biggest,
-    topn: usize,
-) {
+#[derive(Serialize, Deserialize)]
+enum ReceiptType {
+    DeployContract(usize),
+    FunctionCall(String, usize),
+    Data,
+    PromiseYield,
+    PromiseResume,
+    Other,
+}
+
+#[derive(Serialize, Deserialize)]
+enum Info {
+    Receipt(ReceiptInfo),
+    Transaction(TransactionInfo),
+}
+
+type Biggest = Vec<Info>;
+
+fn anal_block(height: BlockHeight, chain_store: &ChainStore, largest: &mut Biggest) {
     let block_res = chain_store
         .get_block_hash_by_height(height)
         .map(|block_hash| chain_store.get_block(&block_hash));
@@ -144,14 +144,15 @@ fn anal_block(
         for transaction in chunk.transactions() {
             let transaction_size = borsh::to_vec(transaction).unwrap().len();
 
+            if transaction_size < SIZE_LIMIT {
+                continue;
+            }
+
             let transaction_type = match &transaction.transaction.actions.as_slice() {
-                &[Action::FunctionCall(fc)] => TransactionType::FunctionCall(
-                    fc.method_name.clone(),
-                    ByteSize::b(fc.args.len() as u64),
-                ),
-                &[Action::DeployContract(dc)] => {
-                    TransactionType::DeployContract(ByteSize::b(dc.code.len() as u64))
+                &[Action::FunctionCall(fc)] => {
+                    TransactionType::FunctionCall(fc.method_name.clone(), fc.args.len())
                 }
+                &[Action::DeployContract(dc)] => TransactionType::DeployContract(dc.code.len()),
                 _ => TransactionType::Other,
             };
 
@@ -160,25 +161,48 @@ fn anal_block(
                 receiver_id: transaction.transaction.receiver_id.clone(),
                 tx_hash: transaction.get_hash(),
                 typ: transaction_type,
+                size: transaction_size,
             };
 
-            largest_transactions.insert(ByteSize::b(transaction_size as u64), transaction_info);
-            if largest_transactions.len() > topn {
-                largest_transactions.pop_first();
+            largest.push(Info::Transaction(transaction_info));
+        }
+
+        for receipt in chunk.prev_outgoing_receipts() {
+            let receipt_size = borsh::to_vec(receipt).unwrap().len();
+
+            if receipt_size < SIZE_LIMIT {
+                continue;
             }
+
+            let receipt_type = match &receipt.receipt {
+                ReceiptEnum::Action(action_receipt) => match &action_receipt.actions.as_slice() {
+                    &[Action::FunctionCall(fc)] => {
+                        ReceiptType::FunctionCall(fc.method_name.clone(), fc.args.len())
+                    }
+                    &[Action::DeployContract(dc)] => ReceiptType::DeployContract(dc.code.len()),
+                    _ => ReceiptType::Other,
+                },
+                ReceiptEnum::Data(_) => ReceiptType::Data,
+                ReceiptEnum::PromiseYield(_) => ReceiptType::PromiseYield,
+                ReceiptEnum::PromiseResume(_) => ReceiptType::PromiseResume,
+            };
+
+            let receipt_info = ReceiptInfo {
+                predecessor_id: receipt.predecessor_id.clone(),
+                receiver_id: receipt.receiver_id.clone(),
+                receipt_id: receipt.receipt_id,
+                size: receipt_size,
+                typ: receipt_type,
+            };
+
+            largest.push(Info::Receipt(receipt_info));
         }
     }
 }
 
-fn merge_biggest(a: Biggest, b: Biggest, topn: usize) -> Biggest {
-    let mut result = a;
-    for (size, info) in b {
-        result.insert(size, info);
-        if result.len() > topn {
-            result.pop_first();
-        }
-    }
-    result
+fn merge_biggest(mut a: Biggest, b: Biggest) -> Biggest {
+    a.extend(b.into_iter());
+    a
 }
 
 fn analyze_chain<Res, BlockFun, MergeFun>(
