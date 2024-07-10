@@ -30,7 +30,7 @@ const LATEST_WITNESSES_MAX_SIZE: ByteSize = ByteSize::gb(32);
 const SINGLE_LATEST_WITNESS_MAX_SIZE: ByteSize = ByteSize::mb(128);
 
 /// Maximum number of latest witnesses stored in the database.
-const LATEST_WITNESSES_MAX_COUNT: u64 = 60 * 60 * 6;
+const LATEST_WITNESSES_MAX_COUNT: u64 = 100 * 60 * 60 * 6; // ~ 100 hours of witnesses
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LatestWitnessesKey {
