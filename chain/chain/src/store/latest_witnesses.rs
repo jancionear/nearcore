@@ -24,13 +24,13 @@ use rand::rngs::OsRng;
 use rand::RngCore;
 
 /// Maximum size of the latest witnesses stored in the database.
-const LATEST_WITNESSES_MAX_SIZE: ByteSize = ByteSize::gb(4);
+const LATEST_WITNESSES_MAX_SIZE: ByteSize = ByteSize::gb(32);
 
 /// Maximum size of a single latest witness stored in the database.
 const SINGLE_LATEST_WITNESS_MAX_SIZE: ByteSize = ByteSize::mb(128);
 
 /// Maximum number of latest witnesses stored in the database.
-const LATEST_WITNESSES_MAX_COUNT: u64 = 60 * 30;
+const LATEST_WITNESSES_MAX_COUNT: u64 = 60 * 60 * 6;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LatestWitnessesKey {
