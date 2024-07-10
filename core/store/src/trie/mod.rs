@@ -41,7 +41,7 @@ use std::hash::Hash;
 use std::rc::Rc;
 use std::str;
 use std::sync::{Arc, RwLock, RwLockReadGuard};
-pub use trie_recording::TrieRecorderStats;
+pub use trie_recording::{SubtreeSize, TrieRecorderStats};
 
 pub mod accounting_cache;
 mod config;
