@@ -81,12 +81,14 @@ impl Client {
         if self.config.save_latest_witnesses {
             self.chain.chain_store.save_latest_chunk_state_witness(&witness)?;
         }
-        self.chain.shadow_validate_state_witness(
-            witness,
-            self.epoch_manager.as_ref(),
-            self.runtime_adapter.as_ref(),
-            None,
-        )?;
+        if "don't validate state witness" == "because we care only about saving them" {
+            self.chain.shadow_validate_state_witness(
+                witness,
+                self.epoch_manager.as_ref(),
+                self.runtime_adapter.as_ref(),
+                None,
+            )?;
+        }
         Ok(())
     }
 }
