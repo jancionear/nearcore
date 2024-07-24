@@ -141,6 +141,7 @@ fn test_client_with_simple_test_loop() {
     test_loop.register_actor(shards_manager, Some(shards_manager_adapter));
     test_loop.register_actor(client_actor, Some(client_adapter));
 
-    test_loop.run_for(Duration::seconds(10));
+    // Condition is never met, this should panic after 1s
+    test_loop.run_until(|_| false, Duration::seconds(1));
     test_loop.shutdown_and_drain_remaining_events(Duration::seconds(1));
 }
