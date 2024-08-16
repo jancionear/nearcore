@@ -433,7 +433,11 @@ impl EpochManager {
                     (production_ratio, account)
                 })
                 .collect::<Vec<_>>();
-            sorted_validators.sort();
+            if epoch_info.protocol_version() < 71 {
+                sorted_validators.sort_by_key(|(ratio, _)| *ratio);
+            } else {
+                sorted_validators.sort();
+            }
 
             let mut exempted_stake: Balance = 0;
             for (_, account_id) in sorted_validators.into_iter().rev() {
