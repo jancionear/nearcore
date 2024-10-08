@@ -144,6 +144,13 @@ fn genesis_chunk(
     state_root: CryptoHash,
     congestion_info: Option<crate::congestion_info::CongestionInfo>,
 ) -> crate::sharding::EncodedShardChunk {
+    use crate::bandwidth_request::BandwidthRequests;
+    use near_primitives_core::version::ProtocolFeature;
+
+    let bandwidth_requests = ProtocolFeature::BandwidthScheduler
+        .enabled(genesis_protocol_version)
+        .then_some(BandwidthRequests::default());
+
     let (encoded_chunk, _) = crate::sharding::EncodedShardChunk::new(
         CryptoHash::default(),
         state_root,
@@ -160,6 +167,7 @@ fn genesis_chunk(
         &[],
         CryptoHash::default(),
         congestion_info,
+        bandwidth_requests,
         &crate::validator_signer::EmptyValidatorSigner::default().into(),
         genesis_protocol_version,
     )

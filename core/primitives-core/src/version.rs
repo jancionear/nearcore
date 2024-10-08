@@ -174,6 +174,7 @@ pub enum ProtocolFeature {
     StateStoredReceipt,
     /// Resharding V3
     SimpleNightshadeV4,
+    BandwidthScheduler,
 }
 
 impl ProtocolFeature {
@@ -251,6 +252,7 @@ impl ProtocolFeature {
             // that always enables this for mocknet (see config_mocknet function).
             ProtocolFeature::ShuffleShardAssignments => 143,
             ProtocolFeature::SimpleNightshadeV4 => 145,
+            ProtocolFeature::BandwidthScheduler => 146,
         }
     }
 

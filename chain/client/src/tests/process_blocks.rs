@@ -5,6 +5,7 @@ use near_chain::{test_utils, Provenance};
 use near_crypto::vrf::Value;
 use near_crypto::{KeyType, PublicKey, Signature};
 use near_network::types::{NetworkRequests, PeerManagerMessageRequest};
+use near_primitives::bandwidth_request::BandwidthRequests;
 use near_primitives::block::Block;
 use near_primitives::congestion_info::CongestionInfo;
 use near_primitives::network::PeerId;
@@ -70,6 +71,9 @@ fn test_bad_shard_id() {
     let congestion_info = ProtocolFeature::CongestionControl
         .enabled(PROTOCOL_VERSION)
         .then_some(CongestionInfo::default());
+    let bandwidth_requests = ProtocolFeature::BandwidthScheduler
+        .enabled(PROTOCOL_VERSION)
+        .then_some(BandwidthRequests::default());
     let mut modified_chunk = ShardChunkHeaderV3::new(
         PROTOCOL_VERSION,
         *chunk.prev_block_hash(),
@@ -86,6 +90,7 @@ fn test_bad_shard_id() {
         chunk.tx_root(),
         chunk.prev_validator_proposals().collect(),
         congestion_info,
+        bandwidth_requests,
         &validator_signer,
     );
     modified_chunk.height_included = 2;
@@ -213,6 +218,10 @@ fn test_bad_congestion_info_impl(mode: BadCongestionInfoMode) {
     let mut congestion_info = chunk.congestion_info().unwrap_or_default();
     mode.corrupt(&mut congestion_info);
 
+    let bandwidth_requests = ProtocolFeature::BandwidthScheduler
+        .enabled(PROTOCOL_VERSION)
+        .then_some(BandwidthRequests::default());
+
     let mut modified_chunk_header = ShardChunkHeaderV3::new(
         PROTOCOL_VERSION,
         *chunk.prev_block_hash(),
@@ -229,6 +238,7 @@ fn test_bad_congestion_info_impl(mode: BadCongestionInfoMode) {
         chunk.tx_root(),
         chunk.prev_validator_proposals().collect(),
         Some(congestion_info),
+        bandwidth_requests,
         &validator_signer,
     );
     modified_chunk_header.height_included = 2;

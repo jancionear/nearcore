@@ -926,6 +926,7 @@ impl Client {
             outgoing_receipts_root,
             tx_root,
             congestion_info,
+            None, // TODO(bandwidth_scheduler): Pass the real bandwidth requests here.
             &*validator_signer,
             &mut self.rs_for_chunk_production,
             protocol_version,

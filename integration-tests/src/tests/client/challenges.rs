@@ -8,6 +8,7 @@ use near_client::test_utils::{create_chunk, create_chunk_with_transactions, Test
 use near_client::{Client, ProcessTxResponse, ProduceChunkResult};
 use near_crypto::{InMemorySigner, KeyType};
 use near_network::types::NetworkRequests;
+use near_primitives::bandwidth_request::BandwidthRequests;
 use near_primitives::challenge::{
     BlockDoubleSign, Challenge, ChallengeBody, ChunkProofs, MaybeEncodedShardChunk, PartialState,
     TrieValue,
@@ -366,6 +367,9 @@ fn test_verify_chunk_invalid_state_challenge() {
     let congestion_info = ProtocolFeature::CongestionControl
         .enabled(PROTOCOL_VERSION)
         .then_some(CongestionInfo::default());
+    let bandwidth_requests = ProtocolFeature::BandwidthScheduler
+        .enabled(PROTOCOL_VERSION)
+        .then_some(BandwidthRequests::default());
 
     let (mut invalid_chunk, merkle_paths) = ShardsManagerActor::create_encoded_shard_chunk(
         *last_block.hash(),
@@ -382,6 +386,7 @@ fn test_verify_chunk_invalid_state_challenge() {
         last_block.chunks()[0].prev_outgoing_receipts_root(),
         CryptoHash::default(),
         congestion_info,
+        bandwidth_requests,
         &validator_signer,
         &rs,
         PROTOCOL_VERSION,

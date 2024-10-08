@@ -12,6 +12,7 @@ use crate::test_utils::{
 use itertools::Itertools;
 use near_o11y::testonly::init_test_logger;
 use near_primitives::account::id::AccountIdRef;
+use near_primitives::bandwidth_request::BandwidthRequests;
 use near_primitives::block::Tip;
 use near_primitives::challenge::SlashedValidator;
 use near_primitives::congestion_info::CongestionInfo;
@@ -3287,6 +3288,9 @@ fn test_chunk_header(h: &[CryptoHash], signer: &ValidatorSigner) -> ShardChunkHe
     let congestion_info = ProtocolFeature::CongestionControl
         .enabled(PROTOCOL_VERSION)
         .then_some(CongestionInfo::default());
+    let bandwidth_requests = ProtocolFeature::BandwidthScheduler
+        .enabled(PROTOCOL_VERSION)
+        .then_some(BandwidthRequests::default());
     ShardChunkHeader::V3(ShardChunkHeaderV3::new(
         PROTOCOL_VERSION,
         h[0],
@@ -3303,6 +3307,7 @@ fn test_chunk_header(h: &[CryptoHash], signer: &ValidatorSigner) -> ShardChunkHe
         h[2],
         vec![],
         congestion_info,
+        bandwidth_requests,
         signer,
     ))
 }

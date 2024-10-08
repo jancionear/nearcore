@@ -19,6 +19,7 @@ use borsh::BorshSerialize;
 use near_chain::Chain;
 use near_chunks::shards_manager_actor::ShardsManagerActor;
 use near_crypto::{InMemorySigner, KeyType};
+use near_primitives::bandwidth_request::BandwidthRequests;
 use near_primitives::congestion_info::CongestionInfo;
 use near_primitives::hash::CryptoHash;
 use near_primitives::merkle::{merklize, MerklePathItem};
@@ -193,6 +194,10 @@ fn create_encoded_shard_chunk(
         .enabled(PROTOCOL_VERSION)
         .then_some(CongestionInfo::default());
 
+    let bandwidth_requests = ProtocolFeature::BandwidthScheduler
+        .enabled(PROTOCOL_VERSION)
+        .then_some(BandwidthRequests::default());
+
     ShardsManagerActor::create_encoded_shard_chunk(
         Default::default(),
         Default::default(),
@@ -208,6 +213,7 @@ fn create_encoded_shard_chunk(
         Default::default(),
         Default::default(),
         congestion_info,
+        bandwidth_requests,
         &validator_signer().into(),
         &rs,
         100,

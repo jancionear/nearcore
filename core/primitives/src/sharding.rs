@@ -1,3 +1,4 @@
+use crate::bandwidth_request::BandwidthRequests;
 use crate::congestion_info::CongestionInfo;
 use crate::hash::{hash, CryptoHash};
 use crate::merkle::{combine_hash, merklize, verify_path, MerklePath};
@@ -11,6 +12,7 @@ use borsh::{BorshDeserialize, BorshSerialize};
 use near_crypto::Signature;
 use near_fmt::AbbrBytes;
 use near_schema_checker_lib::ProtocolSchema;
+use shard_chunk_header_inner::ShardChunkHeaderInnerV4;
 use std::cmp::Ordering;
 use std::sync::Arc;
 use tracing::debug_span;
@@ -194,11 +196,35 @@ impl ShardChunkHeaderV3 {
         tx_root: CryptoHash,
         prev_validator_proposals: Vec<ValidatorStake>,
         congestion_info: Option<CongestionInfo>,
+        bandwidth_requests: Option<BandwidthRequests>,
         signer: &ValidatorSigner,
     ) -> Self {
-        let inner = if let Some(congestion_info) = congestion_info {
+        if congestion_info.is_some() {
             assert!(ProtocolFeature::CongestionControl.enabled(protocol_version));
-            ShardChunkHeaderInner::V3(ShardChunkHeaderInnerV3 {
+        }
+        if bandwidth_requests.is_some() {
+            assert!(ProtocolFeature::BandwidthScheduler.enabled(protocol_version));
+        }
+
+        let inner = match (congestion_info, bandwidth_requests) {
+            (Some(info), Some(requests)) => ShardChunkHeaderInner::V4(ShardChunkHeaderInnerV4 {
+                prev_block_hash,
+                prev_state_root,
+                prev_outcome_root,
+                encoded_merkle_root,
+                encoded_length,
+                height_created: height,
+                shard_id,
+                prev_gas_used,
+                gas_limit,
+                prev_balance_burnt,
+                prev_outgoing_receipts_root,
+                tx_root,
+                prev_validator_proposals,
+                congestion_info: info,
+                bandwidth_requests: requests,
+            }),
+            (Some(congestion_info), None) => ShardChunkHeaderInner::V3(ShardChunkHeaderInnerV3 {
                 prev_block_hash,
                 prev_state_root,
                 prev_outcome_root,
@@ -213,9 +239,11 @@ impl ShardChunkHeaderV3 {
                 tx_root,
                 prev_validator_proposals,
                 congestion_info,
-            })
-        } else {
-            ShardChunkHeaderInner::V2(ShardChunkHeaderInnerV2 {
+            }),
+            (None, Some(_)) => {
+                panic!("Bandwidth scheduler can't be enabled without congestion control")
+            }
+            (None, None) => ShardChunkHeaderInner::V2(ShardChunkHeaderInnerV2 {
                 prev_block_hash,
                 prev_state_root,
                 prev_outcome_root,
@@ -229,7 +257,7 @@ impl ShardChunkHeaderV3 {
                 prev_outgoing_receipts_root,
                 tx_root,
                 prev_validator_proposals,
-            })
+            }),
         };
         Self::from_inner(inner, signer)
     }
@@ -439,12 +467,23 @@ impl ShardChunkHeader {
         }
     }
 
+    #[inline]
+    pub fn bandwidth_requests(&self) -> Option<&BandwidthRequests> {
+        match self {
+            ShardChunkHeader::V1(_) => None,
+            ShardChunkHeader::V2(_) => None,
+            ShardChunkHeader::V3(header) => header.inner.bandwidth_requests(),
+        }
+    }
+
     /// Returns whether the header is valid for given `ProtocolVersion`.
     pub fn valid_for(&self, version: ProtocolVersion) -> bool {
         const BLOCK_HEADER_V3_VERSION: ProtocolVersion =
             ProtocolFeature::BlockHeaderV3.protocol_version();
         const CONGESTION_CONTROL_VERSION: ProtocolVersion =
             ProtocolFeature::CongestionControl.protocol_version();
+        const BANDWIDTH_SCHEDULER_VERSION: ProtocolVersion =
+            ProtocolFeature::BandwidthScheduler.protocol_version();
 
         match &self {
             ShardChunkHeader::V1(_) => version < SHARD_CHUNK_HEADER_UPGRADE_VERSION,
@@ -460,6 +499,7 @@ impl ShardChunkHeader {
                 // enabled does not have the congestion info.
                 ShardChunkHeaderInner::V2(_) => version >= BLOCK_HEADER_V3_VERSION,
                 ShardChunkHeaderInner::V3(_) => version >= CONGESTION_CONTROL_VERSION,
+                ShardChunkHeaderInner::V4(_) => version >= BANDWIDTH_SCHEDULER_VERSION,
             },
         }
     }
@@ -1060,6 +1100,7 @@ impl EncodedShardChunk {
         prev_outgoing_receipts: &[Receipt],
         prev_outgoing_receipts_root: CryptoHash,
         congestion_info: Option<CongestionInfo>,
+        bandwidth_requests: Option<BandwidthRequests>,
         signer: &ValidatorSigner,
         protocol_version: ProtocolVersion,
     ) -> Result<(Self, Vec<MerklePath>), std::io::Error> {
@@ -1133,6 +1174,7 @@ impl EncodedShardChunk {
                 tx_root,
                 prev_validator_proposals,
                 congestion_info,
+                bandwidth_requests,
                 signer,
             );
             let chunk = EncodedShardChunkV2 { header: ShardChunkHeader::V3(header), content };
