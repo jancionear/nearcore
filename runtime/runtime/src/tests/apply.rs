@@ -10,6 +10,7 @@ use near_parameters::{ActionCosts, ExtCosts, ParameterCost, RuntimeConfig};
 use near_primitives::account::AccessKey;
 use near_primitives::action::delegate::{DelegateAction, NonDelegateAction, SignedDelegateAction};
 use near_primitives::action::Action;
+use near_primitives::bandwidth_request::BlockBandwidthRequests;
 use near_primitives::checked_feature;
 use near_primitives::congestion_info::{
     BlockCongestionInfo, CongestionControl, CongestionInfo, ExtendedCongestionInfo,
@@ -82,6 +83,12 @@ fn setup_runtime_for_shard(
     } else {
         [].into()
     };
+    let bandwidth_requests = if ProtocolFeature::BandwidthScheduler.enabled(PROTOCOL_VERSION) {
+        // TODO(bandwidth_scheduler) - what's going on here?
+        todo!()
+    } else {
+        BlockBandwidthRequests::default()
+    };
     let congestion_info = BlockCongestionInfo::new(shards_congestion_info);
     let apply_state = ApplyState {
         apply_reason: None,
@@ -102,6 +109,7 @@ fn setup_runtime_for_shard(
         migration_data: Arc::new(MigrationData::default()),
         migration_flags: MigrationFlags::default(),
         congestion_info,
+        bandwidth_requests,
     };
 
     (runtime, tries, root, apply_state, signer, MockEpochInfoProvider::default())

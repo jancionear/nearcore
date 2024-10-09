@@ -1,4 +1,7 @@
+use std::collections::BTreeMap;
+
 use borsh::{BorshDeserialize, BorshSerialize};
+use near_primitives_core::types::ShardId;
 use near_schema_checker_lib::ProtocolSchema;
 
 #[derive(
@@ -20,6 +23,11 @@ impl Default for BandwidthRequests {
     fn default() -> BandwidthRequests {
         BandwidthRequests::V1(BandwidthRequestsV1 { requests: Vec::new() })
     }
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct BlockBandwidthRequests {
+    pub requests: BTreeMap<ShardId, BandwidthRequests>,
 }
 
 #[derive(

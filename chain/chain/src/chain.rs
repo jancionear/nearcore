@@ -3162,8 +3162,14 @@ impl Chain {
             prev_block_header.next_gas_price()
         };
         let congestion_info = block.block_congestion_info();
+        let bandwidth_requests = block.block_bandwidth_requests();
 
-        Ok(ApplyChunkBlockContext::from_header(block_header, gas_price, congestion_info))
+        Ok(ApplyChunkBlockContext::from_header(
+            block_header,
+            gas_price,
+            congestion_info,
+            bandwidth_requests,
+        ))
     }
 
     fn block_catch_up_postprocess(

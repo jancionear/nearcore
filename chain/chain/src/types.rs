@@ -9,6 +9,7 @@ pub use near_epoch_manager::EpochManagerAdapter;
 use near_parameters::RuntimeConfig;
 use near_pool::types::TransactionGroupIterator;
 use near_primitives::apply::ApplyChunkReason;
+use near_primitives::bandwidth_request::BlockBandwidthRequests;
 pub use near_primitives::block::{Block, BlockHeader, Tip};
 use near_primitives::challenge::{ChallengesResult, PartialState};
 use near_primitives::checked_feature;
@@ -295,6 +296,7 @@ pub struct ApplyChunkBlockContext {
     pub challenges_result: ChallengesResult,
     pub random_seed: CryptoHash,
     pub congestion_info: BlockCongestionInfo,
+    pub bandwidth_requests: BlockBandwidthRequests,
 }
 
 impl ApplyChunkBlockContext {
@@ -302,6 +304,7 @@ impl ApplyChunkBlockContext {
         header: &BlockHeader,
         gas_price: Balance,
         congestion_info: BlockCongestionInfo,
+        bandwidth_requests: BlockBandwidthRequests,
     ) -> Self {
         Self {
             height: header.height(),
@@ -312,6 +315,7 @@ impl ApplyChunkBlockContext {
             challenges_result: header.challenges_result().clone(),
             random_seed: *header.random_value(),
             congestion_info,
+            bandwidth_requests,
         }
     }
 }
