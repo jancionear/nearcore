@@ -10,7 +10,7 @@ use near_parameters::{ActionCosts, ExtCosts, ParameterCost, RuntimeConfig};
 use near_primitives::account::AccessKey;
 use near_primitives::action::delegate::{DelegateAction, NonDelegateAction, SignedDelegateAction};
 use near_primitives::action::Action;
-use near_primitives::bandwidth_request::BlockBandwidthRequests;
+use near_primitives::bandwidth_scheduler::BlockBandwidthRequests;
 use near_primitives::checked_feature;
 use near_primitives::congestion_info::{
     BlockCongestionInfo, CongestionControl, CongestionInfo, ExtendedCongestionInfo,

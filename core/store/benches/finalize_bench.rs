@@ -19,7 +19,7 @@ use borsh::BorshSerialize;
 use near_chain::Chain;
 use near_chunks::shards_manager_actor::ShardsManagerActor;
 use near_crypto::{InMemorySigner, KeyType};
-use near_primitives::bandwidth_request::BandwidthRequests;
+use near_primitives::bandwidth_scheduler::BandwidthRequests;
 use near_primitives::congestion_info::CongestionInfo;
 use near_primitives::hash::CryptoHash;
 use near_primitives::merkle::{merklize, MerklePathItem};

@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 
 use super::{ChunkProductionKey, SignatureDifferentiator};
-use crate::bandwidth_request::BandwidthRequests;
+use crate::bandwidth_scheduler::BandwidthRequests;
 use crate::challenge::PartialState;
 use crate::congestion_info::CongestionInfo;
 use crate::sharding::{ChunkHash, ReceiptProof, ShardChunkHeader, ShardChunkHeaderV3};

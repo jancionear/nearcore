@@ -10,7 +10,7 @@ use near_pool::{
 };
 use near_primitives::action::FunctionCallAction;
 use near_primitives::apply::ApplyChunkReason;
-use near_primitives::bandwidth_request::BlockBandwidthRequests;
+use near_primitives::bandwidth_scheduler::BlockBandwidthRequests;
 use near_primitives::congestion_info::{BlockCongestionInfo, ExtendedCongestionInfo};
 use near_primitives::epoch_block_info::BlockInfo;
 use near_primitives::receipt::{ActionReceipt, ReceiptV1};

@@ -1,4 +1,4 @@
-use crate::bandwidth_request::BlockBandwidthRequests;
+use crate::bandwidth_scheduler::BlockBandwidthRequests;
 use crate::block::BlockValidityError::{
     InvalidChallengeRoot, InvalidChunkHeaderRoot, InvalidChunkMask, InvalidReceiptRoot,
     InvalidStateRoot, InvalidTransactionRoot,
@@ -145,7 +145,7 @@ fn genesis_chunk(
     state_root: CryptoHash,
     congestion_info: Option<crate::congestion_info::CongestionInfo>,
 ) -> crate::sharding::EncodedShardChunk {
-    use crate::bandwidth_request::BandwidthRequests;
+    use crate::bandwidth_scheduler::BandwidthRequests;
     use near_primitives_core::version::ProtocolFeature;
 
     let bandwidth_requests = ProtocolFeature::BandwidthScheduler

@@ -1,4 +1,4 @@
-use crate::bandwidth_request::BandwidthRequests;
+use crate::bandwidth_scheduler::BandwidthRequests;
 use crate::congestion_info::CongestionInfo;
 use crate::types::validator_stake::{ValidatorStake, ValidatorStakeIter, ValidatorStakeV1};
 use crate::types::StateRoot;

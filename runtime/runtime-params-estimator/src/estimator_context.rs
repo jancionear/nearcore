@@ -6,7 +6,7 @@ use genesis_populate::get_account_id;
 use genesis_populate::state_dump::StateDump;
 use near_parameters::config::CongestionControlConfig;
 use near_parameters::{ExtCosts, RuntimeConfigStore};
-use near_primitives::bandwidth_request::BlockBandwidthRequests;
+use near_primitives::bandwidth_scheduler::BlockBandwidthRequests;
 use near_primitives::congestion_info::{BlockCongestionInfo, ExtendedCongestionInfo};
 use near_primitives::hash::CryptoHash;
 use near_primitives::receipt::Receipt;

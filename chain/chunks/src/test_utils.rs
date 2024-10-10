@@ -6,7 +6,7 @@ use near_epoch_manager::test_utils::setup_epoch_manager_with_block_and_chunk_pro
 use near_epoch_manager::EpochManagerHandle;
 use near_network::shards_manager::ShardsManagerRequestFromNetwork;
 use near_network::test_utils::MockPeerManagerAdapter;
-use near_primitives::bandwidth_request::BandwidthRequests;
+use near_primitives::bandwidth_scheduler::BandwidthRequests;
 use near_primitives::congestion_info::CongestionInfo;
 use near_primitives::hash::CryptoHash;
 use near_primitives::merkle::{self, MerklePath};

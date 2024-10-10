@@ -76,3 +76,22 @@ pub struct BandwidthRequest {
 pub struct BandwidthRequestBitmap {
     pub data: [u8; 5],
 }
+
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, BorshSerialize, BorshDeserialize, Debug)]
+pub struct ShardLink {
+    pub from: ShardId,
+    pub to: ShardId,
+}
+
+impl ShardLink {
+    pub fn new(from: ShardId, to: ShardId) -> ShardLink {
+        ShardLink { from, to }
+    }
+}
+
+pub type Bandwidth = u64;
+
+#[derive(Clone, BorshSerialize, BorshDeserialize, Default, Debug)]
+pub struct BandwidthSchedulerState {
+    allowances: BTreeMap<ShardLink, Bandwidth>,
+}

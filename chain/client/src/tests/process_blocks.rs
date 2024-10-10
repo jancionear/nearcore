@@ -5,7 +5,7 @@ use near_chain::{test_utils, Provenance};
 use near_crypto::vrf::Value;
 use near_crypto::{KeyType, PublicKey, Signature};
 use near_network::types::{NetworkRequests, PeerManagerMessageRequest};
-use near_primitives::bandwidth_request::BandwidthRequests;
+use near_primitives::bandwidth_scheduler::BandwidthRequests;
 use near_primitives::block::Block;
 use near_primitives::congestion_info::CongestionInfo;
 use near_primitives::network::PeerId;
