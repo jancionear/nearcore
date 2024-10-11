@@ -43,8 +43,16 @@ pub struct BlockBandwidthRequests {
     ProtocolSchema,
 )]
 pub struct BandwidthRequestsV1 {
-    requests: Vec<BandwidthRequest>,
+    pub requests: Vec<BandwidthRequest>,
 }
+
+pub const COMPRESSED_BANDWIDTH_REQUEST_VALUES_NUM: usize = 40;
+pub const BANDWIDTH_REQUEST_BITMAP_SIZE: usize = if COMPRESSED_BANDWIDTH_REQUEST_VALUES_NUM % 8 == 0
+{
+    COMPRESSED_BANDWIDTH_REQUEST_VALUES_NUM / 8
+} else {
+    COMPRESSED_BANDWIDTH_REQUEST_VALUES_NUM / 8 + 1
+};
 
 #[derive(
     BorshSerialize,
@@ -59,25 +67,21 @@ pub struct BandwidthRequestsV1 {
 )]
 pub struct BandwidthRequest {
     pub to_shard: u8,
-    pub requested_values_bitmap: BandwidthRequestBitmap,
+    pub requested_values_bitmap_bytes: [u8; BANDWIDTH_REQUEST_BITMAP_SIZE],
 }
 
 #[derive(
-    BorshSerialize,
-    BorshDeserialize,
-    serde::Serialize,
-    serde::Deserialize,
-    Debug,
     Clone,
+    Copy,
     PartialEq,
     Eq,
+    PartialOrd,
+    Ord,
+    BorshSerialize,
+    BorshDeserialize,
+    Debug,
     ProtocolSchema,
 )]
-pub struct BandwidthRequestBitmap {
-    pub data: [u8; 5],
-}
-
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, BorshSerialize, BorshDeserialize, Debug)]
 pub struct ShardLink {
     pub from: ShardId,
     pub to: ShardId,
@@ -91,7 +95,7 @@ impl ShardLink {
 
 pub type Bandwidth = u64;
 
-#[derive(Clone, BorshSerialize, BorshDeserialize, Default, Debug)]
+#[derive(Clone, Default, BorshSerialize, BorshDeserialize, Debug, ProtocolSchema)]
 pub struct BandwidthSchedulerState {
-    allowances: BTreeMap<ShardLink, Bandwidth>,
+    pub allowances: BTreeMap<ShardLink, Bandwidth>,
 }

@@ -1,4 +1,4 @@
-use crate::bandwidth_scheduler::BandwidthGrants;
+use crate::bandwidth_scheduler::BandwidthSchedulerOutput;
 use crate::config::{
     safe_add_gas, total_prepaid_exec_fees, total_prepaid_gas, total_prepaid_send_fees,
 };
@@ -88,7 +88,7 @@ impl<'a> ReceiptSink<'a> {
         trie: &dyn TrieAccess,
         apply_state: &ApplyState,
         prev_own_congestion_info: &'a mut Option<CongestionInfo>,
-        bandwidth_grants: &Option<BandwidthGrants>,
+        bandwidth_scheduler_output: &Option<BandwidthSchedulerOutput>,
         outgoing_receipts: &'a mut Vec<Receipt>,
     ) -> Result<Self, StorageError> {
         if let Some(own_congestion_info) = prev_own_congestion_info {
@@ -113,8 +113,8 @@ impl<'a> ReceiptSink<'a> {
                         Gas::MAX
                     };
 
-                    let size_limit = if let Some(grants) = bandwidth_grants {
-                        grants.get_granted_bandwidth(apply_state.shard_id, shard_id)
+                    let size_limit = if let Some(scheduler_output) = bandwidth_scheduler_output {
+                        scheduler_output.get_granted_bandwidth(apply_state.shard_id, shard_id)
                     } else {
                         other_congestion_control.outgoing_size_limit(apply_state.shard_id)
                     };

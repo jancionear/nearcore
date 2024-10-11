@@ -10,7 +10,7 @@ use crate::verifier::{check_storage_stake, validate_receipt, StorageStakingError
 pub use crate::verifier::{
     validate_transaction, verify_and_charge_transaction, ZERO_BALANCE_ACCOUNT_STORAGE_LIMIT,
 };
-use bandwidth_scheduler::calculate_bandwidth_grants;
+use bandwidth_scheduler::run_bandwidth_scheduler;
 use config::total_prepaid_send_fees;
 pub use congestion_control::bootstrap_congestion_info;
 use congestion_control::ReceiptSink;
@@ -1443,8 +1443,8 @@ impl Runtime {
         let delayed_receipts = DelayedReceiptQueue::load(&processing_state.state_update)?;
         let delayed_receipts = DelayedReceiptQueueWrapper::new(delayed_receipts);
 
-        let bandwidth_grants =
-            calculate_bandwidth_grants(apply_state, &mut processing_state.state_update)?;
+        let bandwidth_scheduler_output =
+            run_bandwidth_scheduler(apply_state, &mut processing_state.state_update)?;
 
         // If the chunk is missing, exit early and don't process any receipts.
         if !apply_state.is_new_chunk
@@ -1475,7 +1475,7 @@ impl Runtime {
             &processing_state.state_update.trie,
             apply_state,
             &mut own_congestion_info,
-            &bandwidth_grants,
+            &bandwidth_scheduler_output,
             &mut outgoing_receipts,
         )?;
         // Forward buffered receipts from previous chunks.

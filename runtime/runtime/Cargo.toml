@@ -21,6 +21,8 @@ serde_json.workspace = true
 sha2.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
+rand_chacha.workspace = true
+bitvec.workspace = true
 
 near-crypto.workspace = true
 near-o11y.workspace = true

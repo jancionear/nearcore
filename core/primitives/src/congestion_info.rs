@@ -54,6 +54,12 @@ impl CongestionControl {
             .max(missed_chunks_congestion)
     }
 
+    pub fn is_fully_congested(&self) -> bool {
+        // note: using float equality is okay here because
+        // `clamped_f64_fraction` clamps to exactly 1.0.
+        self.congestion_level() == 1.0
+    }
+
     fn incoming_congestion(&self) -> f64 {
         self.info.incoming_congestion(&self.config)
     }

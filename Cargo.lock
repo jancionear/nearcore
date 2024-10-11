@@ -5402,6 +5402,7 @@ name = "node-runtime"
 version = "0.0.0"
 dependencies = [
  "assert_matches",
+ "bitvec",
  "borsh 1.2.0",
  "enum-map",
  "hex",
@@ -5418,6 +5419,7 @@ dependencies = [
  "num-bigint 0.3.3",
  "num-traits",
  "rand",
+ "rand_chacha",
  "rayon",
  "serde_json",
  "sha2 0.10.6",
