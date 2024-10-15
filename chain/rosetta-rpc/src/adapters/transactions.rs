@@ -162,6 +162,13 @@ fn convert_cause_to_transaction_id(
                 "State Change 'ReshardingV2' should never be observed".to_string(),
             ))
         }
+        StateChangeCauseView::UpdatedBandwidthSchedulerState => {
+            // TODO(bandwidth_scheduler) - what's going on here?
+            Err(crate::errors::ErrorKind::InternalInvariantError(
+                "State Change 'UpdatedBandwidthSchedulerState' should never be observed"
+                    .to_string(),
+            ))
+        }
     }
 }
 

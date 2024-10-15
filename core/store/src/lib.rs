@@ -35,7 +35,7 @@ use near_primitives::receipt::{
 };
 pub use near_primitives::shard_layout::ShardUId;
 use near_primitives::trie_key::{trie_key_parsers, TrieKey};
-use near_primitives::types::{AccountId, BlockHeight, StateRoot};
+use near_primitives::types::{AccountId, BlockHeight, ShardId, StateRoot};
 use near_vm_runner::{CompiledContractInfo, ContractCode, ContractRuntimeCache};
 use std::fs::File;
 use std::path::Path;
@@ -44,6 +44,7 @@ use std::sync::Arc;
 use std::sync::LazyLock;
 use std::{fmt, io};
 use strum;
+use trie::receipts_column_helper::OutgoingBufferMetadata;
 
 pub mod adapter;
 pub mod cold_storage;
@@ -964,12 +965,26 @@ pub fn get_bandwidth_scheduler_state(
 ) -> Result<BandwidthSchedulerState, StorageError> {
     Ok(get(trie, &TrieKey::BandwidthSchedulerState)?.unwrap_or_default())
 }
-
 pub fn set_bandwidth_scheduler_state(
     state_update: &mut TrieUpdate,
     new_state: &BandwidthSchedulerState,
 ) {
     set(state_update, TrieKey::BandwidthSchedulerState, new_state);
+}
+
+pub fn get_outgoing_buffer_metadata(
+    trie: &dyn TrieAccess,
+    receiving_shard: ShardId,
+) -> Result<Option<OutgoingBufferMetadata>, StorageError> {
+    get(trie, &TrieKey::OutgoingBufferMetadata { receiving_shard })
+}
+
+pub fn set_outgoing_buffer_metadata(
+    state_update: &mut TrieUpdate,
+    receiving_shard: ShardId,
+    metadata: &OutgoingBufferMetadata,
+) {
+    set(state_update, TrieKey::OutgoingBufferMetadata { receiving_shard }, metadata)
 }
 
 pub fn set_access_key(

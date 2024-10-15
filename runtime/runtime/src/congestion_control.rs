@@ -1,9 +1,12 @@
-use crate::bandwidth_scheduler::BandwidthSchedulerOutput;
+use crate::bandwidth_scheduler::{
+    make_bandwidth_request_from_receipt_sizes, BandwidthSchedulerOutput, BandwidthSchedulerParams,
+};
 use crate::config::{
     safe_add_gas, total_prepaid_exec_fees, total_prepaid_gas, total_prepaid_send_fees,
 };
 use crate::ApplyState;
 use near_parameters::{ActionCosts, RuntimeConfig};
+use near_primitives::bandwidth_scheduler::{BandwidthRequests, BandwidthRequestsV1};
 use near_primitives::congestion_info::{CongestionControl, CongestionInfo, CongestionInfoV1};
 use near_primitives::errors::{IntegerOverflowError, RuntimeError};
 use near_primitives::receipt::{
@@ -21,14 +24,14 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 
 /// Handle receipt forwarding for different protocol versions.
-pub(crate) enum ReceiptSink<'a> {
-    V1(ReceiptSinkV1<'a>),
-    V2(ReceiptSinkV2<'a>),
+pub(crate) enum ReceiptSink {
+    V1(ReceiptSinkV1),
+    V2(ReceiptSinkV2),
 }
 
 /// Always put receipt to the outgoing receipts.
-pub(crate) struct ReceiptSinkV1<'a> {
-    pub(crate) outgoing_receipts: &'a mut Vec<Receipt>,
+pub(crate) struct ReceiptSinkV1 {
+    pub(crate) outgoing_receipts: Vec<Receipt>,
 }
 
 /// A helper struct to buffer or forward receipts.
@@ -40,15 +43,16 @@ pub(crate) struct ReceiptSinkV1<'a> {
 /// This is for congestion control, allowing to apply backpressure from the
 /// receiving shard and stopping us from sending more receipts to it than its
 /// nodes can keep in memory.
-pub(crate) struct ReceiptSinkV2<'a> {
+pub(crate) struct ReceiptSinkV2 {
     /// Keeps track of the local shard's congestion info while adding and
     /// removing buffered or delayed receipts. At the end of applying receipts,
     /// it will be a field in the [`ApplyResult`]. For this chunk, it is not
     /// used to make forwarding decisions.
-    pub(crate) own_congestion_info: &'a mut CongestionInfo,
-    pub(crate) outgoing_receipts: &'a mut Vec<Receipt>,
+    pub(crate) own_congestion_info: CongestionInfo,
+    pub(crate) outgoing_receipts: Vec<Receipt>,
     pub(crate) outgoing_limit: HashMap<ShardId, OutgoingLimit>,
     pub(crate) outgoing_buffers: ShardsOutgoingReceiptBuffer,
+    pub(crate) bandwidth_scheduler_params: Option<BandwidthSchedulerParams>,
 }
 
 /// Limits for outgoing receipts to a shard.
@@ -82,14 +86,13 @@ pub(crate) struct DelayedReceiptQueueWrapper {
     removed_delayed_bytes: u64,
 }
 
-impl<'a> ReceiptSink<'a> {
+impl ReceiptSink {
     pub(crate) fn new(
         protocol_version: ProtocolVersion,
         trie: &dyn TrieAccess,
         apply_state: &ApplyState,
-        prev_own_congestion_info: &'a mut Option<CongestionInfo>,
+        prev_own_congestion_info: Option<CongestionInfo>,
         bandwidth_scheduler_output: &Option<BandwidthSchedulerOutput>,
-        outgoing_receipts: &'a mut Vec<Receipt>,
     ) -> Result<Self, StorageError> {
         if let Some(own_congestion_info) = prev_own_congestion_info {
             debug_assert!(ProtocolFeature::CongestionControl.enabled(protocol_version));
@@ -113,7 +116,8 @@ impl<'a> ReceiptSink<'a> {
                         Gas::MAX
                     };
 
-                    let size_limit = if let Some(scheduler_output) = bandwidth_scheduler_output {
+                    let size_limit = if let Some(scheduler_output) = &bandwidth_scheduler_output {
+                        assert!(ProtocolFeature::BandwidthScheduler.enabled(protocol_version));
                         scheduler_output.get_granted_bandwidth(apply_state.shard_id, shard_id)
                     } else {
                         other_congestion_control.outgoing_size_limit(apply_state.shard_id)
@@ -125,13 +129,14 @@ impl<'a> ReceiptSink<'a> {
 
             Ok(ReceiptSink::V2(ReceiptSinkV2 {
                 own_congestion_info,
-                outgoing_receipts: outgoing_receipts,
+                outgoing_receipts: Vec::new(),
                 outgoing_limit,
                 outgoing_buffers,
+                bandwidth_scheduler_params: bandwidth_scheduler_output.as_ref().map(|o| o.params),
             }))
         } else {
             debug_assert!(!ProtocolFeature::CongestionControl.enabled(protocol_version));
-            Ok(ReceiptSink::V1(ReceiptSinkV1 { outgoing_receipts: outgoing_receipts }))
+            Ok(ReceiptSink::V1(ReceiptSinkV1 { outgoing_receipts: Vec::new() }))
         }
     }
 
@@ -171,16 +176,58 @@ impl<'a> ReceiptSink<'a> {
             ),
         }
     }
+
+    pub fn get_own_congestion_info(&self) -> Option<CongestionInfo> {
+        match self {
+            Self::V1(_) => None,
+            Self::V2(v2) => Some(v2.own_congestion_info),
+        }
+    }
+
+    pub fn write_updated_state(&self, state_update: &mut TrieUpdate) {
+        match self {
+            Self::V1(_) => {}
+            Self::V2(v2) => v2.outgoing_buffers.save_updated_metadata(state_update),
+        }
+    }
+
+    pub fn get_outgoing_receipts(&self) -> &[Receipt] {
+        match self {
+            Self::V1(v1) => v1.outgoing_receipts.as_slice(),
+            Self::V2(v2) => v2.outgoing_receipts.as_slice(),
+        }
+    }
+
+    pub fn into_outgoing_receipts(self) -> Vec<Receipt> {
+        match self {
+            Self::V1(v1) => v1.outgoing_receipts,
+            Self::V2(v2) => v2.outgoing_receipts,
+        }
+    }
+
+    pub fn generate_bandwidth_requests(
+        &self,
+        protocol_version: ProtocolVersion,
+    ) -> Option<BandwidthRequests> {
+        if !ProtocolFeature::BandwidthScheduler.enabled(protocol_version) {
+            return None;
+        }
+
+        match self {
+            Self::V1(_) => None,
+            Self::V2(v2) => Some(v2.generate_bandwidth_requests()),
+        }
+    }
 }
 
-impl ReceiptSinkV1<'_> {
+impl ReceiptSinkV1 {
     /// V1 can only forward receipts.
     pub(crate) fn forward(&mut self, receipt: Receipt) {
         self.outgoing_receipts.push(receipt);
     }
 }
 
-impl ReceiptSinkV2<'_> {
+impl ReceiptSinkV2 {
     /// Forward receipts already in the buffer to the outgoing receipts vector, as
     /// much as the gas limits allow.
     pub(crate) fn forward_from_buffer(
@@ -217,7 +264,7 @@ impl ReceiptSinkV2<'_> {
                 size,
                 shard_id,
                 &mut self.outgoing_limit,
-                self.outgoing_receipts,
+                &mut self.outgoing_receipts,
                 apply_state,
             )? {
                 ReceiptForwarding::Forwarded => {
@@ -259,7 +306,7 @@ impl ReceiptSinkV2<'_> {
             size,
             shard,
             &mut self.outgoing_limit,
-            self.outgoing_receipts,
+            &mut self.outgoing_receipts,
             apply_state,
         )? {
             ReceiptForwarding::Forwarded => (),
@@ -341,6 +388,27 @@ impl ReceiptSinkV2<'_> {
 
         self.outgoing_buffers.to_shard(shard).push(state_update, &receipt)?;
         Ok(())
+    }
+
+    fn generate_bandwidth_requests(&self) -> BandwidthRequests {
+        let params = self.bandwidth_scheduler_params.expect("Should exist");
+
+        let mut requests = Vec::new();
+        for target_shard in self.outgoing_buffers.shards() {
+            let Some(metadata) = self.outgoing_buffers.get_metadata(target_shard) else {
+                continue;
+            };
+
+            if let Some(request) = make_bandwidth_request_from_receipt_sizes(
+                target_shard,
+                metadata.grouped_receipts_sizes(),
+                &params,
+            ) {
+                requests.push(request);
+            }
+        }
+
+        BandwidthRequests::V1(BandwidthRequestsV1 { requests })
     }
 }
 
@@ -548,12 +616,7 @@ impl DelayedReceiptQueueWrapper {
 pub(crate) fn receipt_size(
     receipt: &ReceiptOrStateStoredReceipt,
 ) -> Result<u64, IntegerOverflowError> {
-    match receipt {
-        ReceiptOrStateStoredReceipt::Receipt(receipt) => compute_receipt_size(receipt),
-        ReceiptOrStateStoredReceipt::StateStoredReceipt(receipt) => {
-            Ok(receipt.metadata().congestion_size)
-        }
-    }
+    receipt.get_size()
 }
 
 /// Calculate the size of a receipt before it is pushed into a state queue or

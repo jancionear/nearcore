@@ -16,6 +16,7 @@ use near_parameters::RuntimeConfig;
 use near_pool::types::TransactionGroupIterator;
 use near_primitives::account::{AccessKey, Account};
 use near_primitives::apply::ApplyChunkReason;
+use near_primitives::bandwidth_scheduler::BandwidthRequests;
 use near_primitives::block::Tip;
 use near_primitives::block_header::{Approval, ApprovalInner};
 use near_primitives::congestion_info::{CongestionInfo, ExtendedCongestionInfo};
@@ -393,6 +394,12 @@ impl KeyValueRuntime {
         } else {
             None
         }
+    }
+
+    fn get_bandwidth_requests(protocol_version: ProtocolVersion) -> Option<BandwidthRequests> {
+        ProtocolFeature::BandwidthScheduler
+            .enabled(protocol_version)
+            .then(BandwidthRequests::default)
     }
 }
 
@@ -1295,6 +1302,7 @@ impl RuntimeAdapter for KeyValueRuntime {
             processed_yield_timeouts: vec![],
             applied_receipts_hash: hash(&borsh::to_vec(receipts).unwrap()),
             congestion_info: Self::get_congestion_info(PROTOCOL_VERSION),
+            bandwidth_requests: Self::get_bandwidth_requests(PROTOCOL_VERSION),
         })
     }
 

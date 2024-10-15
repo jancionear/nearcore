@@ -1,3 +1,4 @@
+use crate::errors::IntegerOverflowError;
 use crate::hash::CryptoHash;
 use crate::serialize::dec_format;
 use crate::transaction::{Action, TransferAction};
@@ -158,6 +159,18 @@ impl ReceiptOrStateStoredReceipt<'_> {
         match self {
             ReceiptOrStateStoredReceipt::Receipt(receipt) => receipt,
             ReceiptOrStateStoredReceipt::StateStoredReceipt(receipt) => receipt.get_receipt(),
+        }
+    }
+
+    pub fn get_size(&self) -> Result<u64, IntegerOverflowError> {
+        match self {
+            ReceiptOrStateStoredReceipt::Receipt(receipt) => {
+                let size = borsh::object_length(&receipt).map_err(|_| IntegerOverflowError)?;
+                size.try_into().map_err(|_| IntegerOverflowError)
+            }
+            ReceiptOrStateStoredReceipt::StateStoredReceipt(receipt) => {
+                Ok(receipt.metadata().congestion_size)
+            }
         }
     }
 }

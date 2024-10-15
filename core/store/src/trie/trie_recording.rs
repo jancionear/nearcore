@@ -285,6 +285,7 @@ mod trie_recording_tests {
     use crate::trie::TrieNodesCount;
     use crate::{DBCol, KeyLookupMode, PartialStorage, ShardTries, Store, Trie};
     use borsh::BorshDeserialize;
+    use near_primitives::bandwidth_scheduler::BandwidthRequests;
     use near_primitives::challenge::PartialState;
     use near_primitives::congestion_info::CongestionInfo;
     use near_primitives::hash::{hash, CryptoHash};
@@ -350,7 +351,9 @@ mod trie_recording_tests {
         let congestion_info = ProtocolFeature::CongestionControl
             .enabled(PROTOCOL_VERSION)
             .then(CongestionInfo::default);
-
+        let bandwidth_requests = ProtocolFeature::BandwidthScheduler
+            .enabled(PROTOCOL_VERSION)
+            .then(BandwidthRequests::default);
         // ChunkExtra is needed for in-memory trie loading code to query state roots.
         let chunk_extra = ChunkExtra::new(
             PROTOCOL_VERSION,
@@ -361,6 +364,7 @@ mod trie_recording_tests {
             0,
             0,
             congestion_info,
+            bandwidth_requests,
         );
         let mut update_for_chunk_extra = tries_for_building.store_update();
         update_for_chunk_extra

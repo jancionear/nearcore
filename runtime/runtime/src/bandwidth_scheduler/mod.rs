@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use near_parameters::RuntimeConfig;
 use near_primitives::bandwidth_scheduler::{Bandwidth, ShardLink};
 use near_primitives::congestion_info::CongestionControl;
-use near_primitives::types::ShardId;
+use near_primitives::types::{ShardId, StateChangeCause};
 use near_primitives::version::ProtocolFeature;
 use near_store::{
     get_bandwidth_scheduler_state, set_bandwidth_scheduler_state, StorageError, TrieUpdate,
@@ -16,6 +16,8 @@ mod distribute_remaining;
 mod max_flow;
 mod request;
 mod scheduler;
+
+pub use request::make_bandwidth_request_from_receipt_sizes;
 
 pub fn run_bandwidth_scheduler(
     apply_state: &ApplyState,
@@ -35,7 +37,11 @@ pub fn run_bandwidth_scheduler(
     // Read the current bandwidth scheduler state (or initialize if not present)
     let bandwidth_scheduler_state = get_bandwidth_scheduler_state(state_update)?;
 
-    let shard_ids = apply_state.congestion_info.all_shards();
+    let mut shard_ids = apply_state.congestion_info.all_shards();
+    if shard_ids.is_empty() {
+        // Congestion info not initialized yet, start with a default config
+        shard_ids = vec![0];
+    }
 
     // Collect congestion control information needed by bandwidth scheduler
     let mut shards_congestion_status: BTreeMap<ShardId, ShardCongestionStatus> = BTreeMap::new();
@@ -73,13 +79,14 @@ pub fn run_bandwidth_scheduler(
 
     // Save the updated bandwidth scheduler state
     set_bandwidth_scheduler_state(state_update, &new_state);
+    state_update.commit(StateChangeCause::UpdatedDelayedReceipts);
 
     Ok(Some(output))
 }
 
 pub struct BandwidthSchedulerOutput {
-    granted_bandwidth: BTreeMap<ShardLink, Bandwidth>,
-    params: BandwidthSchedulerParams,
+    pub granted_bandwidth: BTreeMap<ShardLink, Bandwidth>,
+    pub params: BandwidthSchedulerParams,
 }
 
 impl BandwidthSchedulerOutput {

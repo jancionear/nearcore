@@ -9,6 +9,7 @@ pub use near_epoch_manager::EpochManagerAdapter;
 use near_parameters::RuntimeConfig;
 use near_pool::types::TransactionGroupIterator;
 use near_primitives::apply::ApplyChunkReason;
+use near_primitives::bandwidth_scheduler::BandwidthRequests;
 use near_primitives::bandwidth_scheduler::BlockBandwidthRequests;
 pub use near_primitives::block::{Block, BlockHeader, Tip};
 use near_primitives::challenge::{ChallengesResult, PartialState};
@@ -102,6 +103,7 @@ pub struct ApplyChunkResult {
     /// should be set to None for chunks before the CongestionControl protocol
     /// version and Some otherwise.
     pub congestion_info: Option<CongestionInfo>,
+    pub bandwidth_requests: Option<BandwidthRequests>,
 }
 
 impl ApplyChunkResult {
@@ -554,7 +556,7 @@ mod tests {
         let shard_ids: Vec<_> = (0..32).collect();
         let genesis_chunks = genesis_chunks(
             vec![Trie::EMPTY_ROOT],
-            vec![Default::default(); shard_ids.len()],
+            vec![Some(Default::default()); shard_ids.len()],
             &shard_ids,
             1_000_000,
             0,

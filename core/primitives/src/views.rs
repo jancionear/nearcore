@@ -2360,6 +2360,7 @@ pub enum StateChangeCauseView {
     ValidatorAccountsUpdate,
     Migration,
     ReshardingV2,
+    UpdatedBandwidthSchedulerState,
 }
 
 impl From<StateChangeCause> for StateChangeCauseView {
@@ -2386,6 +2387,9 @@ impl From<StateChangeCause> for StateChangeCauseView {
             StateChangeCause::ValidatorAccountsUpdate => Self::ValidatorAccountsUpdate,
             StateChangeCause::Migration => Self::Migration,
             StateChangeCause::ReshardingV2 => Self::ReshardingV2,
+            StateChangeCause::UpdatedBandwidthSchedulerState => {
+                Self::UpdatedBandwidthSchedulerState
+            }
         }
     }
 }

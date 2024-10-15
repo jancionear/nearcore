@@ -19,7 +19,7 @@ pub use near_crypto;
 use near_parameters::{ActionCosts, RuntimeConfig};
 pub use near_primitives;
 use near_primitives::account::Account;
-use near_primitives::bandwidth_scheduler::BlockBandwidthRequests;
+use near_primitives::bandwidth_scheduler::{BandwidthRequests, BlockBandwidthRequests};
 use near_primitives::checked_feature;
 use near_primitives::congestion_info::{BlockCongestionInfo, CongestionInfo};
 use near_primitives::errors::{
@@ -192,6 +192,7 @@ pub struct ApplyResult {
     pub delayed_receipts_count: u64,
     pub metrics: Option<metrics::ApplyMetrics>,
     pub congestion_info: Option<CongestionInfo>,
+    pub bandwidth_requests: Option<BandwidthRequests>,
 }
 
 #[derive(Debug)]
@@ -1451,7 +1452,7 @@ impl Runtime {
             && processing_state.protocol_version
                 >= ProtocolFeature::FixApplyChunks.protocol_version()
         {
-            return missing_chunk_apply_result(&delayed_receipts, processing_state);
+            return missing_chunk_apply_result(&delayed_receipts, apply_state, processing_state);
         }
 
         // If we have receipts that need to be restored, prepend them to the list of incoming receipts
@@ -1462,11 +1463,9 @@ impl Runtime {
             receipts_to_restore.as_slice()
         };
 
-        let mut outgoing_receipts = Vec::new();
-
         let mut processing_state =
             processing_state.into_processing_receipt_state(incoming_receipts, delayed_receipts);
-        let mut own_congestion_info = apply_state.own_congestion_info(
+        let own_congestion_info = apply_state.own_congestion_info(
             processing_state.protocol_version,
             &processing_state.state_update,
         )?;
@@ -1474,9 +1473,8 @@ impl Runtime {
             processing_state.protocol_version,
             &processing_state.state_update.trie,
             apply_state,
-            &mut own_congestion_info,
+            own_congestion_info,
             &bandwidth_scheduler_output,
-            &mut outgoing_receipts,
         )?;
         // Forward buffered receipts from previous chunks.
         receipt_sink.forward_from_buffer(&mut processing_state.state_update, apply_state)?;
@@ -1500,10 +1498,9 @@ impl Runtime {
         self.validate_apply_state_update(
             processing_state,
             process_receipts_result,
-            own_congestion_info,
+            receipt_sink,
             validator_accounts_update,
             state_patch,
-            outgoing_receipts,
         )
     }
 
@@ -1999,10 +1996,9 @@ impl Runtime {
         &self,
         processing_state: ApplyProcessingReceiptState<'a>,
         process_receipts_result: ProcessReceiptsResult,
-        mut own_congestion_info: Option<CongestionInfo>,
+        receipt_sink: ReceiptSink,
         validator_accounts_update: &Option<ValidatorAccountsUpdate>,
         state_patch: SandboxStatePatch,
-        outgoing_receipts: Vec<Receipt>,
     ) -> Result<ApplyResult, RuntimeError> {
         let _span = tracing::debug_span!(target: "runtime", "apply_commit").entered();
         let apply_state = processing_state.apply_state;
@@ -2020,9 +2016,14 @@ impl Runtime {
             );
         }
 
+        receipt_sink.write_updated_state(&mut state_update);
+        let bandwidth_requests =
+            receipt_sink.generate_bandwidth_requests(apply_state.current_protocol_version);
+
         // Congestion info needs a final touch to select an allowed shard if
         // this shard is fully congested.
 
+        let mut own_congestion_info = receipt_sink.get_own_congestion_info();
         let delayed_receipts_count = delayed_receipts.len();
         if let Some(congestion_info) = &mut own_congestion_info {
             delayed_receipts.apply_congestion_changes(congestion_info)?;
@@ -2043,7 +2044,7 @@ impl Runtime {
             processing_state.incoming_receipts,
             &promise_yield_result.timeout_receipts,
             processing_state.transactions,
-            &outgoing_receipts,
+            receipt_sink.get_outgoing_receipts(),
             &processing_state.stats,
         )?;
 
@@ -2100,7 +2101,7 @@ impl Runtime {
             state_root,
             trie_changes,
             validator_proposals: unique_proposals,
-            outgoing_receipts,
+            outgoing_receipts: receipt_sink.into_outgoing_receipts(),
             outcomes: processing_state.outcomes,
             state_changes,
             stats: processing_state.stats,
@@ -2110,6 +2111,7 @@ impl Runtime {
             delayed_receipts_count,
             metrics: Some(processing_state.metrics),
             congestion_info: own_congestion_info,
+            bandwidth_requests,
         })
     }
 }
@@ -2194,6 +2196,7 @@ fn action_transfer_or_implicit_account_creation(
 
 fn missing_chunk_apply_result(
     delayed_receipts: &DelayedReceiptQueueWrapper,
+    apply_state: &ApplyState,
     processing_state: ApplyProcessingState,
 ) -> Result<ApplyResult, RuntimeError> {
     let (trie, trie_changes, state_changes) = processing_state.state_update.finalize()?;
@@ -2208,6 +2211,9 @@ fn missing_chunk_apply_result(
         .get(&processing_state.apply_state.shard_id)
         .map(|extended_info| extended_info.congestion_info);
 
+    // The bandwidth requests are the same as in the previous non-missing chunk, we didn't send any receipts.
+    let bandwidth_requests =
+        apply_state.bandwidth_requests.requests.get(&apply_state.shard_id).cloned();
     return Ok(ApplyResult {
         state_root: trie_changes.new_root,
         trie_changes,
@@ -2222,6 +2228,7 @@ fn missing_chunk_apply_result(
         delayed_receipts_count: delayed_receipts.len(),
         metrics: None,
         congestion_info,
+        bandwidth_requests,
     });
 }
 
@@ -2587,15 +2594,16 @@ pub mod estimator {
         epoch_info_provider: &(dyn EpochInfoProvider),
     ) -> Result<ExecutionOutcomeWithId, RuntimeError> {
         // TODO(congestion_control - edit runtime config parameters for limitless estimator runs
-        let mut congestion_info = CongestionInfo::default();
+        let congestion_info = CongestionInfo::default();
         // no limits set for any shards => limitless
         let outgoing_limit = HashMap::new();
 
         let mut receipt_sink = ReceiptSink::V2(ReceiptSinkV2 {
-            own_congestion_info: &mut congestion_info,
+            own_congestion_info: congestion_info,
             outgoing_limit,
             outgoing_buffers: ShardsOutgoingReceiptBuffer::load(&state_update.trie)?,
-            outgoing_receipts,
+            outgoing_receipts: Vec::new(),
+            bandwidth_scheduler_params: None,
         });
         let empty_pipeline = ReceiptPreparationPipeline::new(
             std::sync::Arc::clone(&apply_state.config),
@@ -2603,7 +2611,7 @@ pub mod estimator {
             apply_state.current_protocol_version,
             state_update.contract_storage.clone(),
         );
-        Runtime {}.apply_action_receipt(
+        let res = Runtime {}.apply_action_receipt(
             state_update,
             apply_state,
             &empty_pipeline,
@@ -2612,6 +2620,10 @@ pub mod estimator {
             validator_proposals,
             stats,
             epoch_info_provider,
-        )
+        );
+        receipt_sink.write_updated_state(state_update);
+
+        outgoing_receipts.extend(receipt_sink.into_outgoing_receipts().into_iter());
+        res
     }
 }

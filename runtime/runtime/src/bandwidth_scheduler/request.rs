@@ -116,7 +116,7 @@ impl BandwidthRequestValues {
 
 pub fn make_bandwidth_request_from_receipt_sizes(
     to_shard: ShardId,
-    receipt_sizes: impl Iterator<Item = usize>,
+    receipt_sizes: impl Iterator<Item = u64>,
     params: &BandwidthSchedulerParams,
 ) -> Option<BandwidthRequest> {
     let values = BandwidthRequestValues::new(params);
@@ -125,11 +125,8 @@ pub fn make_bandwidth_request_from_receipt_sizes(
     let mut total_size: u64 = 0;
     let mut cur_value_idx: usize = 0;
     for receipt_size in receipt_sizes {
-        let receipt_size_u64: u64 = receipt_size
-            .try_into()
-            .expect("Receipt size doesn't fit into u64, are there exabytes of receipts?");
         total_size = total_size
-            .checked_add(receipt_size_u64)
+            .checked_add(receipt_size)
             .expect("Total size of receipts doesn't fit in u64, are there exabytes of receipts?");
 
         if total_size <= params.base_bandwidth {

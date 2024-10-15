@@ -46,6 +46,7 @@ use near_chain_primitives::error::{BlockKnownError, Error, LogTransientStorageEr
 use near_epoch_manager::shard_tracker::ShardTracker;
 use near_epoch_manager::EpochManagerAdapter;
 use near_o11y::log_assert;
+use near_primitives::bandwidth_scheduler::BandwidthRequests;
 use near_primitives::block::{genesis_chunks, Block, BlockValidityError, Tip};
 use near_primitives::block_header::BlockHeader;
 use near_primitives::challenge::{
@@ -599,6 +600,9 @@ impl Chain {
         genesis_protocol_version: ProtocolVersion,
         congestion_info: Option<CongestionInfo>,
     ) -> ChunkExtra {
+        let bandwidth_requests = ProtocolFeature::BandwidthScheduler
+            .enabled(genesis_protocol_version)
+            .then(BandwidthRequests::default);
         ChunkExtra::new(
             genesis_protocol_version,
             state_root,
@@ -608,6 +612,7 @@ impl Chain {
             gas_limit,
             0,
             congestion_info,
+            bandwidth_requests,
         )
     }
 

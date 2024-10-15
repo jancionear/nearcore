@@ -1,4 +1,10 @@
-use crate::{get, get_pure, set, TrieAccess, TrieUpdate};
+use std::collections::{BTreeMap, VecDeque};
+
+use crate::{
+    get, get_outgoing_buffer_metadata, get_pure, set, set_outgoing_buffer_metadata, TrieAccess,
+    TrieUpdate,
+};
+use borsh::{BorshDeserialize, BorshSerialize};
 use near_primitives::errors::{IntegerOverflowError, StorageError};
 use near_primitives::receipt::{
     BufferedReceiptIndices, ReceiptOrStateStoredReceipt, TrieQueueIndices,
@@ -37,6 +43,7 @@ pub struct DelayedReceiptQueue {
 /// a buffer to a specific shard.
 pub struct ShardsOutgoingReceiptBuffer {
     shards_indices: BufferedReceiptIndices,
+    metadatas: BTreeMap<ShardId, OutgoingBufferMetadata>,
 }
 
 /// Type safe access to buffered receipts to a specific shard.
@@ -81,6 +88,14 @@ pub trait TrieQueue {
         state_update: &mut TrieUpdate,
         receipt: &ReceiptOrStateStoredReceipt,
     ) -> Result<(), IntegerOverflowError> {
+        self.default_push_impl(state_update, receipt)
+    }
+
+    fn default_push_impl(
+        &mut self,
+        state_update: &mut TrieUpdate,
+        receipt: &ReceiptOrStateStoredReceipt,
+    ) -> Result<(), IntegerOverflowError> {
         self.debug_check_unchanged(state_update);
 
         let index = self.indices().next_available_index;
@@ -97,6 +112,13 @@ pub trait TrieQueue {
         &mut self,
         state_update: &mut TrieUpdate,
     ) -> Result<Option<ReceiptOrStateStoredReceipt>, StorageError> {
+        self.default_pop_impl(state_update)
+    }
+
+    fn default_pop_impl(
+        &mut self,
+        state_update: &mut TrieUpdate,
+    ) -> Result<Option<ReceiptOrStateStoredReceipt<'static>>, StorageError> {
         self.debug_check_unchanged(state_update);
 
         let indices = self.indices();
@@ -125,25 +147,13 @@ pub trait TrieQueue {
     fn pop_n(&mut self, state_update: &mut TrieUpdate, n: u64) -> Result<u64, StorageError> {
         self.debug_check_unchanged(state_update);
 
-        let indices = self.indices();
-        let to_remove = std::cmp::min(
-            n,
-            indices.next_available_index.checked_sub(indices.first_index).unwrap_or(0),
-        );
-
-        for index in indices.first_index..(indices.first_index + to_remove) {
-            let key = self.trie_key(index);
-            state_update.remove(key);
+        let mut removed = 0;
+        for _ in 0..n {
+            if self.pop(state_update)?.is_some() {
+                removed += 1;
+            }
         }
-
-        if to_remove > 0 {
-            self.indices_mut().first_index = indices
-                .first_index
-                .checked_add(to_remove)
-                .expect("first_index + to_remove should be < next_available_index");
-            self.write_indices(state_update);
-        }
-        Ok(to_remove)
+        Ok(removed)
     }
 
     fn len(&self) -> u64 {
@@ -213,11 +223,21 @@ impl TrieQueue for DelayedReceiptQueue {
 impl ShardsOutgoingReceiptBuffer {
     pub fn load(trie: &dyn TrieAccess) -> Result<Self, StorageError> {
         let shards_indices = crate::get_buffered_receipt_indices(trie)?;
-        Ok(Self { shards_indices })
+        let mut metadatas = BTreeMap::new();
+        for shard_id in shards_indices.shard_buffers.keys() {
+            let metadata = get_outgoing_buffer_metadata(trie, *shard_id)?
+                .unwrap_or_else(OutgoingBufferMetadata::new);
+            metadatas.insert(*shard_id, metadata);
+        }
+        Ok(Self { shards_indices, metadatas })
     }
 
     pub fn to_shard(&mut self, shard_id: ShardId) -> OutgoingReceiptBuffer {
         OutgoingReceiptBuffer { shard_id, parent: self }
+    }
+
+    pub fn get_metadata(&self, shard_id: ShardId) -> Option<&OutgoingBufferMetadata> {
+        self.metadatas.get(&shard_id)
     }
 
     /// Returns shard IDs of all shards that have a buffer stored.
@@ -232,6 +252,12 @@ impl ShardsOutgoingReceiptBuffer {
     fn write_indices(&self, state_update: &mut TrieUpdate) {
         set(state_update, TrieKey::BufferedReceiptIndices, &self.shards_indices);
     }
+
+    pub fn save_updated_metadata(&self, state_update: &mut TrieUpdate) {
+        for (shard_id, metadata) in &self.metadatas {
+            set_outgoing_buffer_metadata(state_update, *shard_id, metadata);
+        }
+    }
 }
 
 impl TrieQueue for OutgoingReceiptBuffer<'_> {
@@ -240,6 +266,31 @@ impl TrieQueue for OutgoingReceiptBuffer<'_> {
             get(trie, &TrieKey::BufferedReceiptIndices)?.unwrap_or_default();
         let indices = all_indices.shard_buffers.get(&self.shard_id).cloned().unwrap_or_default();
         Ok(indices)
+    }
+
+    fn push(
+        &mut self,
+        state_update: &mut TrieUpdate,
+        receipt: &ReceiptOrStateStoredReceipt,
+    ) -> Result<(), IntegerOverflowError> {
+        let metadata =
+            self.parent.metadatas.entry(self.shard_id).or_insert_with(OutgoingBufferMetadata::new);
+        metadata.update_on_receipt_pushed(receipt.get_size().unwrap());
+        self.default_push_impl(state_update, receipt)
+    }
+
+    fn pop(
+        &mut self,
+        state_update: &mut TrieUpdate,
+    ) -> Result<Option<ReceiptOrStateStoredReceipt>, StorageError> {
+        let sid = self.shard_id;
+        let receipt_opt = self.default_pop_impl(state_update)?;
+        if let Some(receipt) = &receipt_opt {
+            let metadata =
+                self.parent.metadatas.entry(sid).or_insert_with(OutgoingBufferMetadata::new);
+            metadata.update_on_receipt_popped(receipt.get_size().unwrap());
+        }
+        Ok(receipt_opt)
     }
 
     fn indices(&self) -> TrieQueueIndices {
@@ -461,5 +512,96 @@ mod tests {
         let shard_uid = ShardUId { version: shard_layout_version, shard_id: 0 };
         let trie = tries.get_trie_for_shard(shard_uid, state_root);
         TrieUpdate::new(trie)
+    }
+}
+
+#[derive(Clone, BorshSerialize, BorshDeserialize, Debug)]
+pub enum OutgoingBufferMetadata {
+    V1(OutgoingBufferMetadataV1),
+}
+
+impl OutgoingBufferMetadata {
+    pub fn new() -> OutgoingBufferMetadata {
+        OutgoingBufferMetadata::V1(OutgoingBufferMetadataV1::new())
+    }
+
+    pub fn update_on_receipt_pushed(&mut self, receipt_size: u64) {
+        match self {
+            OutgoingBufferMetadata::V1(v1) => v1.groups.on_receipt_pushed(receipt_size),
+        }
+    }
+
+    pub fn update_on_receipt_popped(&mut self, receipt_size: u64) {
+        match self {
+            OutgoingBufferMetadata::V1(v1) => v1.groups.on_receipt_popped(receipt_size),
+        }
+    }
+
+    pub fn grouped_receipts_sizes(&self) -> impl Iterator<Item = u64> + '_ {
+        match self {
+            OutgoingBufferMetadata::V1(v1) => v1.groups.group_sizes_iter(),
+        }
+    }
+}
+
+#[derive(Clone, BorshSerialize, BorshDeserialize, Debug)]
+pub struct OutgoingBufferMetadataV1 {
+    groups: BufferedReceiptGroups,
+}
+
+impl OutgoingBufferMetadataV1 {
+    pub fn new() -> Self {
+        // TODO(bandwidth_scheduler): make min_group_size configurable
+        OutgoingBufferMetadataV1 { groups: BufferedReceiptGroups::new(30_000) }
+    }
+}
+
+#[derive(Debug, Clone, Copy, BorshSerialize, BorshDeserialize)]
+struct BufferedReceiptGroup {
+    total_size: u64,
+}
+
+impl BufferedReceiptGroup {
+    pub fn new() -> BufferedReceiptGroup {
+        BufferedReceiptGroup { total_size: 0 }
+    }
+}
+
+#[derive(Clone, BorshSerialize, BorshDeserialize, Debug)]
+struct BufferedReceiptGroups {
+    groups: VecDeque<BufferedReceiptGroup>,
+    min_group_size: u64,
+}
+
+impl BufferedReceiptGroups {
+    pub fn new(min_group_size: u64) -> BufferedReceiptGroups {
+        BufferedReceiptGroups { groups: VecDeque::new(), min_group_size }
+    }
+
+    pub fn on_receipt_pushed(&mut self, receipt_size: u64) {
+        let mut last_group = self.groups.pop_back().unwrap_or_else(BufferedReceiptGroup::new);
+        if last_group.total_size >= self.min_group_size {
+            self.groups.push_back(last_group);
+            last_group = BufferedReceiptGroup::new();
+        }
+        last_group.total_size = last_group.total_size.checked_add(receipt_size).expect(
+            "Total size of stored delayed receipts has exceeded 18 Exabytes. This shouldn't happen",
+        );
+        self.groups.push_back(last_group)
+    }
+
+    pub fn on_receipt_popped(&mut self, receipt_size: u64) {
+        let Some(mut first_group) = self.groups.pop_front() else {
+            // This could happen when popping receipts which were added before the protocol that uses group tracking was active.
+            return;
+        };
+        first_group.total_size -= receipt_size;
+        if first_group.total_size > 0 {
+            self.groups.push_front(first_group);
+        }
+    }
+
+    pub fn group_sizes_iter(&self) -> impl Iterator<Item = u64> + '_ {
+        self.groups.iter().map(|g| g.total_size)
     }
 }

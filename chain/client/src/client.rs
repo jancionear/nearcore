@@ -911,6 +911,7 @@ impl Client {
         let gas_used = if self.produce_invalid_chunks { gas_used + 1 } else { gas_used };
 
         let congestion_info = chunk_extra.congestion_info();
+        let bandwidth_requests = chunk_extra.bandwidth_requests().cloned();
         let (encoded_chunk, merkle_paths) = ShardsManagerActor::create_encoded_shard_chunk(
             prev_block_hash,
             *chunk_extra.state_root(),
@@ -926,7 +927,7 @@ impl Client {
             outgoing_receipts_root,
             tx_root,
             congestion_info,
-            None, // TODO(bandwidth_scheduler): Pass the real bandwidth requests here.
+            bandwidth_requests,
             &*validator_signer,
             &mut self.rs_for_chunk_production,
             protocol_version,
