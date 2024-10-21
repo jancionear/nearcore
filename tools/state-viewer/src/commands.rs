@@ -992,6 +992,7 @@ pub(crate) fn print_epoch_info(
     kickouts_summary: bool,
     near_config: NearConfig,
     store: Store,
+    raw_info: bool,
 ) {
     let genesis_height = near_config.genesis.config.genesis_height;
     let mut chain_store =
@@ -1008,6 +1009,7 @@ pub(crate) fn print_epoch_info(
         store,
         &mut chain_store,
         &epoch_manager,
+        raw_info,
     );
 }
 

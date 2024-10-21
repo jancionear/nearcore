@@ -37,6 +37,7 @@ pub(crate) fn print_epoch_info(
     store: Store,
     chain_store: &ChainStore,
     epoch_manager: &EpochManagerHandle,
+    raw_info: bool,
 ) {
     let epoch_ids = get_epoch_ids(epoch_selection, store, chain_store, epoch_manager);
 
@@ -54,6 +55,10 @@ pub(crate) fn print_epoch_info(
     for (epoch_id, epoch_info) in &epoch_infos {
         println!("-------------------------");
         println!("EpochId: {}", epoch_id.0);
+        if raw_info {
+            println!("{:#?}", epoch_info);
+            continue;
+        }
         if kickouts_summary {
             display_kickouts(epoch_info);
         } else {
