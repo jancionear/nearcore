@@ -72,6 +72,7 @@ pub(crate) fn print_epoch_info(
             println!("DeterministicEpochInfo: {:#?}", deterministic_info);
             let config = epoch_manager.get_epoch_config(epoch_id).ok();
             println!("EpochConfig: {:#?}", config);
+            continue;
         }
         if kickouts_summary {
             display_kickouts(epoch_info);
