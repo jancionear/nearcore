@@ -778,11 +778,11 @@ pub mod epoch_info {
         #[default(PROTOCOL_VERSION)]
         pub protocol_version: ProtocolVersion,
         // stuff for selecting validators at each height
-        rng_seed: RngSeed,
-        block_producers_sampler: WeightedIndex,
-        chunk_producers_sampler: Vec<WeightedIndex>,
+        pub rng_seed: RngSeed,
+        pub block_producers_sampler: WeightedIndex,
+        pub chunk_producers_sampler: Vec<WeightedIndex>,
         /// Contains the epoch's validator mandates. Used to sample chunk validators.
-        validator_mandates: ValidatorMandates,
+        pub validator_mandates: ValidatorMandates,
     }
 
     impl EpochInfo {
