@@ -75,11 +75,11 @@ pub struct EpochInfoV4 {
     #[default(PROTOCOL_VERSION)]
     pub protocol_version: ProtocolVersion,
     // stuff for selecting validators at each height
-    rng_seed: RngSeed,
-    block_producers_sampler: crate::rand::WeightedIndex,
-    chunk_producers_sampler: Vec<crate::rand::WeightedIndex>,
+    pub rng_seed: RngSeed,
+    pub block_producers_sampler: crate::rand::WeightedIndex,
+    pub chunk_producers_sampler: Vec<crate::rand::WeightedIndex>,
     /// Contains the epoch's validator mandates. Used to sample chunk validators.
-    validator_mandates: crate::validator_mandates::ValidatorMandates,
+    pub validator_mandates: crate::validator_mandates::ValidatorMandates,
 }
 
 impl Default for EpochInfo {

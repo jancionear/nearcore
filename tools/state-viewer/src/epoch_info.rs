@@ -4,11 +4,19 @@ use itertools::Itertools;
 use near_chain::{ChainStore, ChainStoreAccess, Error};
 use near_epoch_manager::{EpochManagerAdapter, EpochManagerHandle};
 use near_primitives::account::id::AccountId;
-use near_primitives::epoch_info::EpochInfo;
+use near_primitives::epoch_info::{EpochInfo, EpochInfoV4, RngSeed, ValidatorWeight};
 use near_primitives::epoch_manager::AGGREGATOR_KEY;
 use near_primitives::hash::CryptoHash;
-use near_primitives::types::{BlockHeight, EpochHeight, EpochId, ProtocolVersion, ShardId};
+use near_primitives::rand::WeightedIndex;
+use near_primitives::types::validator_stake::ValidatorStake;
+use near_primitives::types::{
+    Balance, BlockHeight, EpochHeight, EpochId, ProtocolVersion, ShardId, ValidatorId,
+    ValidatorKickoutReason,
+};
+use near_primitives::validator_mandates::ValidatorMandates;
 use near_store::{DBCol, Store};
+use std::collections::BTreeMap;
+use std::ops::Deref;
 use std::str::FromStr;
 use std::sync::Arc;
 
@@ -37,6 +45,7 @@ pub(crate) fn print_epoch_info(
     store: Store,
     chain_store: &ChainStore,
     epoch_manager: &EpochManagerHandle,
+    raw_info: bool,
 ) {
     let epoch_ids = get_epoch_ids(epoch_selection, store, chain_store, epoch_manager);
 
@@ -54,6 +63,16 @@ pub(crate) fn print_epoch_info(
     for (epoch_id, epoch_info) in &epoch_infos {
         println!("-------------------------");
         println!("EpochId: {}", epoch_id.0);
+        if raw_info {
+            let info_v4 = match epoch_info.deref() {
+                EpochInfo::V4(info_v4) => info_v4,
+                _ => panic!("Old epoch info???"),
+            };
+            let deterministic_info = DeterministicEpochInfo::new(info_v4.clone());
+            println!("DeterministicEpochInfo: {:#?}", deterministic_info);
+            let config = epoch_manager.get_epoch_config(epoch_id).ok();
+            println!("EpochConfig: {:#?}", config);
+        }
         if kickouts_summary {
             display_kickouts(epoch_info);
         } else {
@@ -79,6 +98,58 @@ pub(crate) fn print_epoch_info(
     }
     println!("=========================");
     println!("Found {} epochs", epoch_ids.len());
+}
+
+#[allow(unused)]
+#[derive(Debug, Clone)]
+struct DeterministicEpochInfo {
+    pub epoch_height: EpochHeight,
+    pub validators: Vec<ValidatorStake>,
+    pub validator_to_index: BTreeMap<AccountId, ValidatorId>,
+    pub block_producers_settlement: Vec<ValidatorId>,
+    pub chunk_producers_settlement: Vec<Vec<ValidatorId>>,
+    /// Deprecated.
+    pub hidden_validators_settlement: Vec<ValidatorWeight>,
+    /// Deprecated.
+    pub fishermen: Vec<ValidatorStake>,
+    /// Deprecated.
+    pub fishermen_to_index: BTreeMap<AccountId, ValidatorId>,
+    pub stake_change: BTreeMap<AccountId, Balance>,
+    pub validator_reward: BTreeMap<AccountId, Balance>,
+    pub validator_kickout: BTreeMap<AccountId, ValidatorKickoutReason>,
+    pub minted_amount: Balance,
+    pub seat_price: Balance,
+    pub protocol_version: ProtocolVersion,
+    // stuff for selecting validators at each height
+    rng_seed: RngSeed,
+    block_producers_sampler: WeightedIndex,
+    chunk_producers_sampler: Vec<WeightedIndex>,
+    /// Contains the epoch's validator mandates. Used to sample chunk validators.
+    validator_mandates: ValidatorMandates,
+}
+impl DeterministicEpochInfo {
+    pub fn new(info: EpochInfoV4) -> DeterministicEpochInfo {
+        DeterministicEpochInfo {
+            epoch_height: info.epoch_height,
+            validators: info.validators,
+            validator_to_index: info.validator_to_index.into_iter().collect(),
+            block_producers_settlement: info.block_producers_settlement,
+            chunk_producers_settlement: info.chunk_producers_settlement,
+            hidden_validators_settlement: info._hidden_validators_settlement,
+            fishermen: info._fishermen,
+            fishermen_to_index: info._fishermen_to_index.into_iter().collect(),
+            stake_change: info.stake_change,
+            validator_reward: info.validator_reward.into_iter().collect(),
+            validator_kickout: info.validator_kickout.into_iter().collect(),
+            minted_amount: info.minted_amount,
+            seat_price: info.seat_price,
+            protocol_version: info.protocol_version,
+            rng_seed: info.rng_seed,
+            block_producers_sampler: info.block_producers_sampler,
+            chunk_producers_sampler: info.chunk_producers_sampler,
+            validator_mandates: info.validator_mandates,
+        }
+    }
 }
 
 fn display_block_and_chunk_producers(

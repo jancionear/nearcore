@@ -547,6 +547,8 @@ pub struct EpochInfoCmd {
     /// Show only information about kickouts.
     #[clap(long)]
     kickouts_summary: bool,
+    #[clap(long)]
+    raw_info: bool,
 }
 
 impl EpochInfoCmd {
@@ -557,6 +559,7 @@ impl EpochInfoCmd {
             self.kickouts_summary,
             near_config,
             store,
+            self.raw_info,
         );
     }
 }
