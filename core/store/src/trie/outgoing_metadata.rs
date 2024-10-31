@@ -1,7 +1,70 @@
-use std::collections::VecDeque;
+use std::collections::{BTreeMap, VecDeque};
 
 use borsh::{BorshDeserialize, BorshSerialize};
+use near_primitives::errors::StorageError;
+use near_primitives::types::{ShardId, StateChangeCause};
+use near_primitives::version::ProtocolFeature;
 use near_schema_checker_lib::ProtocolSchema;
+use near_vm_runner::logic::ProtocolVersion;
+
+use crate::TrieUpdate;
+
+use super::TrieAccess;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OutgoingMetadatas {
+    pub metadatas: BTreeMap<ShardId, OutgoingBufferMetadata>,
+    pub group_size_threshold: u64,
+}
+
+impl OutgoingMetadatas {
+    pub fn new(group_size_threshold: u64) -> Self {
+        Self { metadatas: BTreeMap::new(), group_size_threshold }
+    }
+
+    pub fn load(
+        trie: &dyn TrieAccess,
+        shard_ids: impl Iterator<Item = ShardId>,
+        group_size_threshold: u64,
+        protocol_version: ProtocolVersion,
+    ) -> Result<Self, StorageError> {
+        if !ProtocolFeature::BandwidthScheduler.enabled(protocol_version) {
+            return Ok(Self::new(group_size_threshold));
+        }
+
+        let mut metadatas = BTreeMap::new();
+        for shard_id in shard_ids {
+            if let Some(metadata) = crate::get_outgoing_buffer_metadata(trie, shard_id)? {
+                metadatas.insert(shard_id, metadata);
+            }
+        }
+        Ok(Self { metadatas, group_size_threshold })
+    }
+
+    pub fn save(&self, state_update: &mut TrieUpdate, protocol_version: ProtocolVersion) {
+        if !ProtocolFeature::BandwidthScheduler.enabled(protocol_version) {
+            return;
+        }
+
+        for (shard_id, metadata) in &self.metadatas {
+            crate::set_outgoing_buffer_metadata(state_update, *shard_id, metadata);
+        }
+        state_update.commit(StateChangeCause::SaveOutgoingBufferMetadata);
+    }
+
+    pub fn on_receipt_buffered(&mut self, shard_id: ShardId, receipt_size: u64) {
+        let metadata = self
+            .metadatas
+            .entry(shard_id)
+            .or_insert_with(|| OutgoingBufferMetadata::new(self.group_size_threshold as u64));
+        metadata.on_receipt_buffered(receipt_size);
+    }
+
+    pub fn on_receipt_removed(&mut self, shard_id: ShardId, receipt_size: u64) {
+        let metadata = self.metadatas.get_mut(&shard_id).expect("Metadata should exist");
+        metadata.on_receipt_removed(receipt_size);
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, BorshSerialize, BorshDeserialize, ProtocolSchema)]
 pub enum OutgoingBufferMetadata {
