@@ -4,6 +4,7 @@ extern crate core;
 
 use crate::db::{refcount, DBIterator, DBOp, DBSlice, DBTransaction, Database, StoreStatistics};
 pub use crate::trie::iterator::{TrieIterator, TrieTraversalItem};
+use crate::trie::outgoing_metadata::OutgoingBufferMetadata;
 pub use crate::trie::update::{TrieUpdate, TrieUpdateIterator, TrieUpdateValuePtr};
 pub use crate::trie::{
     estimator, resharding_v2, ApplyStatePartResult, KeyForStateChanges, KeyLookupMode, NibbleSlice,
@@ -35,7 +36,7 @@ use near_primitives::receipt::{
 };
 pub use near_primitives::shard_layout::ShardUId;
 use near_primitives::trie_key::{trie_key_parsers, TrieKey};
-use near_primitives::types::{AccountId, BlockHeight, StateRoot};
+use near_primitives::types::{AccountId, BlockHeight, ShardId, StateRoot};
 use near_vm_runner::{CompiledContractInfo, ContractCode, ContractRuntimeCache};
 use std::fs::File;
 use std::path::Path;
@@ -984,6 +985,21 @@ pub fn set_bandwidth_scheduler_state(
     scheduler_state: &BandwidthSchedulerState,
 ) {
     set(state_update, TrieKey::BandwidthSchedulerState, scheduler_state);
+}
+
+pub fn get_outgoing_buffer_metadata(
+    trie: &dyn TrieAccess,
+    to_shard: ShardId,
+) -> Result<Option<OutgoingBufferMetadata>, StorageError> {
+    get(trie, &TrieKey::OutgoingBufferMetadata { to_shard })
+}
+
+pub fn set_outgoing_buffer_metadata(
+    state_update: &mut TrieUpdate,
+    to_shard: ShardId,
+    metadata: &OutgoingBufferMetadata,
+) {
+    set(state_update, TrieKey::OutgoingBufferMetadata { to_shard }, metadata);
 }
 
 pub fn set_access_key(
