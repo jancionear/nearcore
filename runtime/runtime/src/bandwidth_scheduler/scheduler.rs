@@ -105,7 +105,7 @@
 //! chunk wasn't missing.
 //! This would improve bandwidth utilization in scenarios with many missing chunks.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, VecDeque};
 use std::rc::Rc;
 
 use near_primitives::bandwidth_scheduler::{
@@ -330,7 +330,7 @@ impl BandwidthScheduler {
             requests.shuffle(&mut self.rng);
             for mut request in requests {
                 // Try to grant the first bandwidth increase from the request.
-                let Some(bandwidth_increase) = request.bandwidth_increases.pop() else {
+                let Some(bandwidth_increase) = request.bandwidth_increases.pop_front() else {
                     continue;
                 };
                 match self.try_grant_bandwidth(&request.link, bandwidth_increase) {
@@ -539,7 +539,7 @@ pub struct SchedulerBandwidthRequest {
     /// Request to send receipts between those two shards.
     pub link: ShardLink,
     /// Requests to increase the granted bandwidth on the link.
-    pub bandwidth_increases: Vec<Bandwidth>,
+    pub bandwidth_increases: VecDeque<Bandwidth>,
 }
 
 impl SchedulerBandwidthRequest {
@@ -561,7 +561,7 @@ impl SchedulerBandwidthRequest {
         };
         let link = ShardLink::new(sender_index, receiver_index);
 
-        let mut bandwidth_increases = Vec::new();
+        let mut bandwidth_increases = VecDeque::new();
 
         // Keeps track of the total bandwidth that would be granted by the requested increases.
         // Base bandwidth is already granted on all links, so we start with that.
@@ -576,7 +576,7 @@ impl SchedulerBandwidthRequest {
                     continue;
                 }
                 // Convert the absolute value to a bandwidth increase.
-                bandwidth_increases.push(requested_value - current_total);
+                bandwidth_increases.push_back(requested_value - current_total);
                 current_total = requested_value;
             }
         }
