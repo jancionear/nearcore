@@ -253,6 +253,9 @@ impl ReceiptSinkV2 {
             parent_shard_ids.insert(parent_shard_id);
         }
 
+        println!("jandebug: parent_shard_ids: {:?}", parent_shard_ids);
+        println!("jandebug: shard_ids: {:?}", shard_ids);
+
         // First forward any receipts that may still be in the outgoing buffers
         // of the parent shards.
         for &shard_id in &parent_shard_ids {
