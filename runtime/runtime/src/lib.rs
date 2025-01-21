@@ -175,7 +175,7 @@ pub struct VerificationResult {
 }
 
 #[derive(Debug, Default)]
-pub struct ApplyStats {
+pub struct ChunkApplyStats {
     pub tx_burnt_amount: Balance,
     pub slashed_burnt_amount: Balance,
     pub other_burnt_amount: Balance,
@@ -192,7 +192,7 @@ pub struct ApplyResult {
     pub outgoing_receipts: Vec<Receipt>,
     pub outcomes: Vec<ExecutionOutcomeWithId>,
     pub state_changes: Vec<RawStateChangesWithTrieKey>,
-    pub stats: ApplyStats,
+    pub stats: ChunkApplyStats,
     pub processed_delayed_receipts: Vec<Receipt>,
     pub processed_yield_timeouts: Vec<PromiseYieldTimeout>,
     pub proof: Option<PartialStorage>,
@@ -336,7 +336,7 @@ impl Runtime {
         apply_state: &ApplyState,
         signed_transaction: &SignedTransaction,
         transaction_cost: &TransactionCost,
-        stats: &mut ApplyStats,
+        stats: &mut ChunkApplyStats,
     ) -> Result<(Receipt, ExecutionOutcomeWithId), InvalidTxError> {
         let span = tracing::Span::current();
         metrics::TRANSACTION_PROCESSED_TOTAL.inc();
@@ -616,7 +616,7 @@ impl Runtime {
         receipt: &Receipt,
         receipt_sink: &mut ReceiptSink,
         validator_proposals: &mut Vec<ValidatorStake>,
-        stats: &mut ApplyStats,
+        stats: &mut ChunkApplyStats,
         epoch_info_provider: &dyn EpochInfoProvider,
     ) -> Result<ExecutionOutcomeWithId, RuntimeError> {
         let _span = tracing::debug_span!(
@@ -1246,7 +1246,7 @@ impl Runtime {
         &self,
         state_update: &mut TrieUpdate,
         validator_accounts_update: &ValidatorAccountsUpdate,
-        stats: &mut ApplyStats,
+        stats: &mut ChunkApplyStats,
     ) -> Result<(), RuntimeError> {
         for (account_id, max_of_stakes) in &validator_accounts_update.stake_info {
             if let Some(mut account) = get_account(state_update, account_id)? {
@@ -2529,7 +2529,7 @@ struct ApplyProcessingState<'a> {
     epoch_info_provider: &'a dyn EpochInfoProvider,
     transactions: SignedValidPeriodTransactions<'a>,
     total: TotalResourceGuard,
-    stats: ApplyStats,
+    stats: ChunkApplyStats,
 }
 
 impl<'a> ApplyProcessingState<'a> {
@@ -2550,7 +2550,7 @@ impl<'a> ApplyProcessingState<'a> {
             gas: 0,
             compute: 0,
         };
-        let stats = ApplyStats::default();
+        let stats = ChunkApplyStats::default();
         Self {
             protocol_version,
             apply_state,
@@ -2640,7 +2640,7 @@ struct ApplyProcessingReceiptState<'a> {
     epoch_info_provider: &'a dyn EpochInfoProvider,
     transactions: SignedValidPeriodTransactions<'a>,
     total: TotalResourceGuard,
-    stats: ApplyStats,
+    stats: ChunkApplyStats,
     outcomes: Vec<ExecutionOutcomeWithId>,
     metrics: ApplyMetrics,
     local_receipts: VecDeque<Receipt>,
@@ -2767,7 +2767,7 @@ pub mod estimator {
     use super::{ReceiptSink, Runtime};
     use crate::congestion_control::ReceiptSinkV2;
     use crate::pipelining::ReceiptPreparationPipeline;
-    use crate::{ApplyState, ApplyStats};
+    use crate::{ApplyState, ChunkApplyStats};
     use near_primitives::congestion_info::CongestionInfo;
     use near_primitives::errors::RuntimeError;
     use near_primitives::receipt::Receipt;
@@ -2785,7 +2785,7 @@ pub mod estimator {
         receipt: &Receipt,
         outgoing_receipts: &mut Vec<Receipt>,
         validator_proposals: &mut Vec<ValidatorStake>,
-        stats: &mut ApplyStats,
+        stats: &mut ChunkApplyStats,
         epoch_info_provider: &dyn EpochInfoProvider,
     ) -> Result<ExecutionOutcomeWithId, RuntimeError> {
         // TODO(congestion_control - edit runtime config parameters for limitless estimator runs
