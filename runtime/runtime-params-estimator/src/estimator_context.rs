@@ -480,7 +480,7 @@ impl Testbed<'_> {
         let mut state_update = TrieUpdate::new(self.trie());
         let mut outgoing_receipts = vec![];
         let mut validator_proposals = vec![];
-        let mut stats = node_runtime::ChunkApplyStats::default();
+        let mut stats = node_runtime::ChunkApplyStats::new(&self.apply_state);
         // TODO: mock is not accurate, potential DB requests are skipped in the mock!
         let epoch_info_provider = MockEpochInfoProvider::default();
         let clock = GasCost::measure(metric);

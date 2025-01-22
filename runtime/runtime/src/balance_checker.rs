@@ -2,8 +2,9 @@ use crate::config::{
     safe_add_balance, safe_add_gas, safe_gas_to_balance, total_deposit, total_prepaid_exec_fees,
     total_prepaid_gas, total_prepaid_send_fees,
 };
+use crate::stats::BalanceStats;
 use crate::{safe_add_balance_apply, SignedValidPeriodTransactions};
-use crate::{ChunkApplyStats, DelayedReceiptIndices, ValidatorAccountsUpdate};
+use crate::{DelayedReceiptIndices, ValidatorAccountsUpdate};
 use near_parameters::{ActionCosts, RuntimeConfig};
 use near_primitives::errors::{
     BalanceMismatchError, IntegerOverflowError, RuntimeError, StorageError,
@@ -278,7 +279,7 @@ pub(crate) fn check_balance(
     yield_timeout_receipts: &[Receipt],
     transactions: SignedValidPeriodTransactions<'_>,
     outgoing_receipts: &[Receipt],
-    stats: &ChunkApplyStats,
+    stats: &BalanceStats,
 ) -> Result<(), RuntimeError> {
     let initial_state = final_state.trie();
 
@@ -339,6 +340,7 @@ pub(crate) fn check_balance(
         total_postponed_receipts_cost(initial_state, config, &all_potential_postponed_receipt_ids)?;
     let final_postponed_receipts_balance =
         total_postponed_receipts_cost(final_state, config, &all_potential_postponed_receipt_ids)?;
+
     // Sum it up
 
     let initial_balance = safe_add_balance_apply!(
@@ -387,7 +389,6 @@ pub(crate) fn check_balance(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ChunkApplyStats;
     use near_crypto::InMemorySigner;
     use near_primitives::hash::{hash, CryptoHash};
     use near_primitives::receipt::{
@@ -423,7 +424,7 @@ mod tests {
             &[],
             SignedValidPeriodTransactions::empty(),
             &[],
-            &ChunkApplyStats::default(),
+            &BalanceStats::default(),
         )
         .unwrap();
     }
@@ -442,7 +443,7 @@ mod tests {
             &[],
             SignedValidPeriodTransactions::empty(),
             &[],
-            &ChunkApplyStats::default(),
+            &BalanceStats::default(),
         )
         .unwrap_err();
         assert_matches!(err, RuntimeError::BalanceMismatchError(_));
@@ -507,7 +508,7 @@ mod tests {
             &[],
             SignedValidPeriodTransactions::empty(),
             &[],
-            &ChunkApplyStats::default(),
+            &BalanceStats::default(),
         )
         .unwrap();
     }
@@ -556,7 +557,7 @@ mod tests {
             &[],
             SignedValidPeriodTransactions::new(&[tx], &[true]),
             &[receipt],
-            &ChunkApplyStats {
+            &BalanceStats {
                 tx_burnt_amount: total_validator_reward,
                 gas_deficit_amount: 0,
                 other_burnt_amount: 0,
@@ -629,7 +630,7 @@ mod tests {
                 &[],
                 SignedValidPeriodTransactions::new(&[tx], &[true]),
                 &[],
-                &ChunkApplyStats::default(),
+                &BalanceStats::default(),
             ),
             Err(RuntimeError::UnexpectedIntegerOverflow(_))
         );
@@ -672,7 +673,7 @@ mod tests {
                 &[],
                 SignedValidPeriodTransactions::new(&[tx], &[true]),
                 &[],
-                &ChunkApplyStats::default(),
+                &BalanceStats::default(),
             ),
             Err(RuntimeError::BalanceMismatchError { .. })
         );
@@ -752,7 +753,7 @@ mod tests {
             &[],
             SignedValidPeriodTransactions::new(&[tx], &[true]),
             &[],
-            &ChunkApplyStats {
+            &BalanceStats {
                 // send gas was burnt on this shard, exec gas is part of the receipt value
                 tx_burnt_amount: send_gas as Balance * gas_price,
                 gas_deficit_amount: 0,
@@ -823,7 +824,7 @@ mod tests {
             &[],
             SignedValidPeriodTransactions::empty(),
             &outgoing_receipts,
-            &ChunkApplyStats::default(),
+            &BalanceStats::default(),
         )
         .unwrap();
     }
@@ -887,7 +888,7 @@ mod tests {
             &[],
             SignedValidPeriodTransactions::empty(),
             &outgoing_receipts,
-            &ChunkApplyStats::default(),
+            &BalanceStats::default(),
         );
         assert_matches!(result, Err(RuntimeError::BalanceMismatchError { .. }));
     }

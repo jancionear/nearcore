@@ -13,6 +13,7 @@ pub use crate::verifier::{
 use bandwidth_scheduler::{run_bandwidth_scheduler, BandwidthSchedulerOutput};
 use config::{total_prepaid_send_fees, TransactionCost};
 pub use congestion_control::bootstrap_congestion_info;
+pub use congestion_control::OutgoingLimit;
 use congestion_control::ReceiptSink;
 use itertools::Itertools;
 use metrics::ApplyMetrics;
@@ -71,6 +72,7 @@ use near_vm_runner::ContractRuntimeCache;
 use near_vm_runner::ProfileDataV3;
 use pipelining::ReceiptPreparationPipeline;
 use rayon::prelude::*;
+pub use stats::ChunkApplyStats;
 use std::cmp::max;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::Arc;
@@ -90,6 +92,7 @@ mod pipelining;
 mod prefetch;
 pub mod receipt_manager;
 pub mod state_viewer;
+pub mod stats;
 #[cfg(test)]
 mod tests;
 mod verifier;
@@ -172,16 +175,6 @@ pub struct VerificationResult {
     pub receipt_gas_price: Balance,
     /// The balance that was burnt to convert the transaction into a receipt and send it.
     pub burnt_amount: Balance,
-}
-
-#[derive(Debug, Default)]
-pub struct ChunkApplyStats {
-    pub tx_burnt_amount: Balance,
-    pub slashed_burnt_amount: Balance,
-    pub other_burnt_amount: Balance,
-    /// This is a negative amount. This amount was not charged from the account that issued
-    /// the transaction. It's likely due to the delayed queue of the receipts.
-    pub gas_deficit_amount: Balance,
 }
 
 #[derive(Debug)]
@@ -375,9 +368,11 @@ impl Runtime {
                         actions: transaction.actions().to_vec(),
                     }),
                 });
-                stats.tx_burnt_amount =
-                    safe_add_balance(stats.tx_burnt_amount, verification_result.burnt_amount)
-                        .map_err(|_| InvalidTxError::CostOverflow)?;
+                stats.balance.tx_burnt_amount = safe_add_balance(
+                    stats.balance.tx_burnt_amount,
+                    verification_result.burnt_amount,
+                )
+                .map_err(|_| InvalidTxError::CostOverflow)?;
                 let gas_burnt = verification_result.gas_burnt;
                 let compute_usage = verification_result.gas_burnt;
                 let outcome = ExecutionOutcomeWithId {
@@ -771,8 +766,8 @@ impl Runtime {
 
             // If the refund fails tokens are burned.
             if result.result.is_err() {
-                stats.other_burnt_amount = safe_add_balance(
-                    stats.other_burnt_amount,
+                stats.balance.other_burnt_amount = safe_add_balance(
+                    stats.balance.other_burnt_amount,
                     total_deposit(&action_receipt.actions)?,
                 )?
             }
@@ -787,7 +782,8 @@ impl Runtime {
                 &apply_state.config,
             )?
         };
-        stats.gas_deficit_amount = safe_add_balance(stats.gas_deficit_amount, gas_deficit_amount)?;
+        stats.balance.gas_deficit_amount =
+            safe_add_balance(stats.balance.gas_deficit_amount, gas_deficit_amount)?;
 
         // Moving validator proposals
         validator_proposals.append(&mut result.validator_proposals);
@@ -806,8 +802,8 @@ impl Runtime {
         // If the receipt was successfully applied, we update `other_burnt_amount` statistic with the non-refundable amount burnt.
         #[cfg(feature = "protocol_feature_nonrefundable_transfer_nep491")]
         if result.result.is_ok() {
-            stats.other_burnt_amount =
-                safe_add_balance(stats.other_burnt_amount, nonrefundable_amount_burnt)?;
+            stats.balance.other_burnt_amount =
+                safe_add_balance(stats.balance.other_burnt_amount, nonrefundable_amount_burnt)?;
         }
 
         // If the receipt is a refund, then we consider it free without burnt gas.
@@ -843,7 +839,8 @@ impl Runtime {
             }
         }
 
-        stats.tx_burnt_amount = safe_add_balance(stats.tx_burnt_amount, tx_burnt_amount)?;
+        stats.balance.tx_burnt_amount =
+            safe_add_balance(stats.balance.tx_burnt_amount, tx_burnt_amount)?;
 
         // Generating outgoing data
         // A {
@@ -1315,12 +1312,14 @@ impl Runtime {
                         "FATAL: staking invariant does not hold. Account locked {} is less than slashed {}",
                         account.locked(), amount_to_slash)).into());
                 }
-                stats.slashed_burnt_amount =
-                    stats.slashed_burnt_amount.checked_add(amount_to_slash).ok_or_else(|| {
-                        RuntimeError::UnexpectedIntegerOverflow(
-                            "update_validator_accounts - slashed".into(),
-                        )
-                    })?;
+                stats.balance.slashed_burnt_amount =
+                    stats.balance.slashed_burnt_amount.checked_add(amount_to_slash).ok_or_else(
+                        || {
+                            RuntimeError::UnexpectedIntegerOverflow(
+                                "update_validator_accounts - slashed".into(),
+                            )
+                        },
+                    )?;
                 account.set_locked(account.locked().checked_sub(amount_to_slash).ok_or_else(
                     || {
                         RuntimeError::UnexpectedIntegerOverflow(
@@ -1470,6 +1469,9 @@ impl Runtime {
 
         let mut processing_state =
             ApplyProcessingState::new(&apply_state, trie, epoch_info_provider, transactions);
+        processing_state.stats.transactions_num =
+            transactions.transactions.len().try_into().unwrap();
+        processing_state.stats.incoming_receipts_num = incoming_receipts.len().try_into().unwrap();
 
         if let Some(prefetcher) = &mut processing_state.prefetcher {
             // Prefetcher is allowed to fail
@@ -1508,9 +1510,11 @@ impl Runtime {
             apply_state,
             &mut processing_state.state_update,
             epoch_info_provider,
+            &mut processing_state.stats,
         )?;
 
         // If the chunk is missing, exit early and don't process any receipts.
+        processing_state.stats.is_chunk_missing = !apply_state.is_new_chunk;
         if !apply_state.is_new_chunk
             && processing_state.protocol_version
                 >= ProtocolFeature::FixApplyChunks.protocol_version()
@@ -2116,6 +2120,7 @@ impl Runtime {
         let epoch_info_provider = processing_state.epoch_info_provider;
         let mut state_update = processing_state.state_update;
         let pending_delayed_receipts = processing_state.delayed_receipts;
+        let mut stats = processing_state.stats;
         let processed_delayed_receipts = process_receipts_result.processed_delayed_receipts;
         let promise_yield_result = process_receipts_result.promise_yield_result;
         let shard_layout = epoch_info_provider.shard_layout(&apply_state.epoch_id)?;
@@ -2160,8 +2165,12 @@ impl Runtime {
             );
         }
 
-        let bandwidth_requests =
-            receipt_sink.generate_bandwidth_requests(&state_update, &shard_layout, true)?;
+        let bandwidth_requests = receipt_sink.generate_bandwidth_requests(
+            &state_update,
+            &shard_layout,
+            true,
+            &mut stats,
+        )?;
 
         if cfg!(debug_assertions) {
             if let Err(err) = check_balance(
@@ -2173,7 +2182,7 @@ impl Runtime {
                 &promise_yield_result.timeout_receipts,
                 processing_state.transactions,
                 &receipt_sink.outgoing_receipts(),
-                &processing_state.stats,
+                &stats.balance,
             ) {
                 panic!(
                     "The runtime's balance_checker failed for shard {} at height {} with block hash {} and protocol version {}: {}",
@@ -2239,14 +2248,15 @@ impl Runtime {
             .bandwidth_scheduler_output()
             .map(|o| o.scheduler_state_hash)
             .unwrap_or_default();
+        let outgoing_receipts = receipt_sink.finalize_stats_get_outgoing_receipts(&mut stats);
         Ok(ApplyResult {
             state_root,
             trie_changes,
             validator_proposals: unique_proposals,
-            outgoing_receipts: receipt_sink.into_outgoing_receipts(),
+            outgoing_receipts,
             outcomes: processing_state.outcomes,
             state_changes,
-            stats: processing_state.stats,
+            stats,
             processed_delayed_receipts,
             processed_yield_timeouts,
             proof,
@@ -2550,7 +2560,7 @@ impl<'a> ApplyProcessingState<'a> {
             gas: 0,
             compute: 0,
         };
-        let stats = ChunkApplyStats::default();
+        let stats = ChunkApplyStats::new(&apply_state);
         Self {
             protocol_version,
             apply_state,
@@ -2767,6 +2777,7 @@ pub mod estimator {
     use super::{ReceiptSink, Runtime};
     use crate::congestion_control::ReceiptSinkV2;
     use crate::pipelining::ReceiptPreparationPipeline;
+    use crate::stats::ReceiptSinkStats;
     use crate::{ApplyState, ChunkApplyStats};
     use near_primitives::congestion_info::CongestionInfo;
     use near_primitives::errors::RuntimeError;
@@ -2791,6 +2802,7 @@ pub mod estimator {
         // TODO(congestion_control - edit runtime config parameters for limitless estimator runs
         let congestion_info = CongestionInfo::default();
         // no limits set for any shards => limitless
+        // TODO(bandwidth_scheduler) - no limits now means no receipts sent, fix.
         let outgoing_limit = HashMap::new();
 
         // ShardId used in EstimatorContext::testbed
@@ -2810,6 +2822,7 @@ pub mod estimator {
             outgoing_metadatas,
             bandwidth_scheduler_output: None,
             protocol_version: apply_state.current_protocol_version,
+            stats: ReceiptSinkStats::default(),
         });
         let empty_pipeline = ReceiptPreparationPipeline::new(
             std::sync::Arc::clone(&apply_state.config),
@@ -2827,7 +2840,8 @@ pub mod estimator {
             stats,
             epoch_info_provider,
         );
-        outgoing_receipts.extend(receipt_sink.into_outgoing_receipts().into_iter());
+        outgoing_receipts
+            .extend(receipt_sink.finalize_stats_get_outgoing_receipts(stats).into_iter());
         apply_result
     }
 }

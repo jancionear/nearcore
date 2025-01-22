@@ -12,7 +12,7 @@ use near_primitives::version::ProtocolFeature;
 use near_store::{get_bandwidth_scheduler_state, set_bandwidth_scheduler_state, TrieUpdate};
 use scheduler::{BandwidthScheduler, GrantedBandwidth, ShardStatus};
 
-use crate::ApplyState;
+use crate::{ApplyState, ChunkApplyStats};
 
 mod distribute_remaining;
 mod scheduler;
@@ -35,11 +35,13 @@ pub fn run_bandwidth_scheduler(
     apply_state: &ApplyState,
     state_update: &mut TrieUpdate,
     epoch_info_provider: &dyn EpochInfoProvider,
+    stats: &mut ChunkApplyStats,
 ) -> Result<Option<BandwidthSchedulerOutput>, RuntimeError> {
     if !ProtocolFeature::BandwidthScheduler.enabled(apply_state.current_protocol_version) {
         return Ok(None);
     }
 
+    let start_time = std::time::Instant::now();
     let _span = tracing::debug_span!(
         target: "runtime",
         "run_bandwidth_scheduler",
@@ -93,6 +95,10 @@ pub fn run_bandwidth_scheduler(
         &apply_state.config,
     );
 
+    // Record stats
+    stats.bandwidth_scheduler.params = Some(params);
+    stats.bandwidth_scheduler.set_prev_bandwidth_requests(&apply_state.bandwidth_requests, &params);
+
     // Run the bandwidth scheduler algorithm.
     let granted_bandwidth = BandwidthScheduler::run(
         shard_layout,
@@ -102,6 +108,7 @@ pub fn run_bandwidth_scheduler(
         &shards_status,
         apply_state.prev_block_hash.0,
     );
+    stats.bandwidth_scheduler.granted_bandwidth = granted_bandwidth.granted.clone();
 
     // Hash (some of) the inputs to the scheduler algorithm and save the checksum in the state.
     // This is a sanity check to make sure that all shards run the scheduler with the same inputs.
@@ -121,5 +128,7 @@ pub fn run_bandwidth_scheduler(
     state_update.commit(StateChangeCause::BandwidthSchedulerStateUpdate);
 
     let scheduler_state_hash: CryptoHash = hash(&borsh::to_vec(&scheduler_state).unwrap());
+
+    stats.bandwidth_scheduler.time_to_run_ms = start_time.elapsed().as_millis();
     Ok(Some(BandwidthSchedulerOutput { granted_bandwidth, params, scheduler_state_hash }))
 }
