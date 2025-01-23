@@ -4,6 +4,7 @@ use crate::config::{
 };
 use crate::stats::{ReceiptSinkStats, ReceiptsStats};
 use crate::{ApplyState, ChunkApplyStats};
+use borsh::{BorshDeserialize, BorshSerialize};
 use bytesize::ByteSize;
 use itertools::Itertools;
 use near_parameters::{ActionCosts, RuntimeConfig};
@@ -65,7 +66,7 @@ pub(crate) struct ReceiptSinkV2 {
 
 /// Limits for outgoing receipts to a shard.
 /// Receipts are sent out until the limit is hit, after that they're buffered.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, BorshSerialize, BorshDeserialize)]
 pub struct OutgoingLimit {
     pub gas: Gas,
     pub size: u64,

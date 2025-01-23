@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 
+use borsh::{BorshDeserialize, BorshSerialize};
 use near_primitives::bandwidth_scheduler::{
     Bandwidth, BandwidthRequest, BandwidthRequestValues, BandwidthRequests,
     BandwidthSchedulerParams, BlockBandwidthRequests,
@@ -9,7 +10,7 @@ use near_primitives::types::{Balance, BlockHeight, Gas, ShardId};
 use crate::congestion_control::OutgoingLimit;
 use crate::ApplyState;
 
-#[derive(Debug)]
+#[derive(Debug, BorshSerialize, BorshDeserialize)]
 pub struct ChunkApplyStats {
     pub height: BlockHeight,
     pub shard_id: ShardId,
@@ -45,7 +46,7 @@ impl ChunkApplyStats {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, BorshSerialize, BorshDeserialize)]
 pub struct BandwidthSchedulerStats {
     pub params: Option<BandwidthSchedulerParams>,
     pub prev_bandwidth_requests: BTreeMap<(ShardId, ShardId), Vec<Bandwidth>>,
@@ -95,7 +96,7 @@ impl BandwidthSchedulerStats {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, BorshSerialize, BorshDeserialize)]
 pub struct ReceiptSinkStats {
     pub outgoing_limits: BTreeMap<ShardId, OutgoingLimit>,
     pub forwarded_receipts: BTreeMap<ShardId, ReceiptsStats>,
@@ -105,7 +106,7 @@ pub struct ReceiptSinkStats {
     pub all_outgoing_metadatas_ready: bool,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, BorshSerialize, BorshDeserialize)]
 pub struct ReceiptsStats {
     pub num: u64,
     pub total_size: u64,
@@ -121,7 +122,7 @@ impl ReceiptsStats {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, BorshSerialize, BorshDeserialize)]
 pub struct BalanceStats {
     pub tx_burnt_amount: Balance,
     pub slashed_burnt_amount: Balance,
