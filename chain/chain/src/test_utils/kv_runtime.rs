@@ -54,7 +54,7 @@ use near_store::{
     TrieChanges, WrappedTrieChanges,
 };
 use near_vm_runner::{ContractCode, ContractRuntimeCache, NoContractRuntimeCache};
-use node_runtime::SignedValidPeriodTransactions;
+use node_runtime::{ChunkApplyStats, SignedValidPeriodTransactions};
 use std::cmp::Ordering;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::sync::{Arc, RwLock};
@@ -1255,6 +1255,7 @@ impl RuntimeAdapter for KeyValueRuntime {
             bandwidth_requests: BandwidthRequests::default_for_protocol_version(PROTOCOL_VERSION),
             bandwidth_scheduler_state_hash: CryptoHash::default(),
             contract_updates: Default::default(),
+            stats: ChunkApplyStats::dummy(),
         })
     }
 

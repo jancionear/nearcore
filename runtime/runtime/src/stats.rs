@@ -44,6 +44,20 @@ impl ChunkApplyStats {
     ) {
         self.bandwidth_scheduler.set_new_bandwidth_requests(self.shard_id, requests, params);
     }
+
+    /// Dummy data for tests.
+    pub fn dummy() -> ChunkApplyStats {
+        ChunkApplyStats {
+            height: 0,
+            shard_id: ShardId::new(0),
+            is_chunk_missing: false,
+            transactions_num: 0,
+            incoming_receipts_num: 0,
+            bandwidth_scheduler: Default::default(),
+            balance: Default::default(),
+            receipt_sink: Default::default(),
+        }
+    }
 }
 
 #[derive(Debug, Default, BorshSerialize, BorshDeserialize)]

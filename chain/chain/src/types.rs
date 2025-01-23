@@ -42,6 +42,7 @@ use near_store::flat::FlatStorageManager;
 use near_store::{PartialStorage, ShardTries, Store, Trie, WrappedTrieChanges};
 use near_vm_runner::ContractCode;
 use near_vm_runner::ContractRuntimeCache;
+use node_runtime::ChunkApplyStats;
 use node_runtime::SignedValidPeriodTransactions;
 use num_rational::Rational32;
 use tracing::instrument;
@@ -114,6 +115,7 @@ pub struct ApplyChunkResult {
     pub bandwidth_scheduler_state_hash: CryptoHash,
     /// Contracts accessed and deployed while applying the chunk.
     pub contract_updates: ContractUpdates,
+    pub stats: ChunkApplyStats,
 }
 
 impl ApplyChunkResult {
