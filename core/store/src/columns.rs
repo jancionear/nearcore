@@ -468,7 +468,7 @@ impl DBCol {
             | DBCol::TransactionResultForBlock
             | DBCol::Transactions
             | DBCol::StateShardUIdMapping
-            | DBCol::ChunkApplyStats => true,
+             => true,
 
             // TODO
             DBCol::ChallengedBlocks => false,
@@ -498,6 +498,7 @@ impl DBCol {
             DBCol::_ReceiptIdToShardId => false,
             // This can be re-constructed from the Chunks column, so no need to store in Cold DB.
             DBCol::PartialChunks => false,
+            DBCol::ChunkApplyStats => false,
 
             // Columns that are not GC-ed need not be copied to the cold storage.
             DBCol::BlockHeader
