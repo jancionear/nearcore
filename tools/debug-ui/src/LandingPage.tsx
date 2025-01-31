@@ -28,6 +28,9 @@ export const LandingPage = () => {
                 <li>
                     <Link to="/logviz">/logviz</Link>: Log visualizer for nearcore TestLoop tests
                 </li>
+                <li>
+                    <Link to="/traviz">/traviz</Link>: Trace visualizer
+                </li>
             </ul>
         </div>
     );
