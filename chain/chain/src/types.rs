@@ -12,8 +12,9 @@ use near_primitives::apply::ApplyChunkReason;
 use near_primitives::bandwidth_scheduler::BandwidthRequests;
 use near_primitives::bandwidth_scheduler::BlockBandwidthRequests;
 pub use near_primitives::block::{Block, BlockHeader, Tip};
-use near_primitives::challenge::{ChallengesResult, PartialState};
+use near_primitives::challenge::ChallengesResult;
 use near_primitives::checked_feature;
+use near_primitives::chunk_apply_stats::ChunkApplyStatsV0;
 use near_primitives::congestion_info::BlockCongestionInfo;
 use near_primitives::congestion_info::CongestionInfo;
 use near_primitives::congestion_info::ExtendedCongestionInfo;
@@ -23,6 +24,7 @@ use near_primitives::merkle::{merklize, MerklePath};
 use near_primitives::receipt::{PromiseYieldTimeout, Receipt};
 use near_primitives::sandbox::state_patch::SandboxStatePatch;
 use near_primitives::shard_layout::ShardUId;
+use near_primitives::state::PartialState;
 use near_primitives::state_part::PartId;
 use near_primitives::stateless_validation::contract_distribution::ContractUpdates;
 use near_primitives::transaction::{ExecutionOutcomeWithId, SignedTransaction};
@@ -114,6 +116,7 @@ pub struct ApplyChunkResult {
     pub bandwidth_scheduler_state_hash: CryptoHash,
     /// Contracts accessed and deployed while applying the chunk.
     pub contract_updates: ContractUpdates,
+    pub stats: ChunkApplyStatsV0,
 }
 
 impl ApplyChunkResult {

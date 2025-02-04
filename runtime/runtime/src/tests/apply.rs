@@ -16,7 +16,6 @@ use near_primitives::action::delegate::{DelegateAction, NonDelegateAction, Signe
 use near_primitives::action::{Action, DeleteAccountAction};
 use near_primitives::apply::ApplyChunkReason;
 use near_primitives::bandwidth_scheduler::BlockBandwidthRequests;
-use near_primitives::challenge::PartialState;
 use near_primitives::congestion_info::{
     BlockCongestionInfo, CongestionControl, CongestionInfo, ExtendedCongestionInfo,
 };
@@ -25,6 +24,7 @@ use near_primitives::hash::{hash, CryptoHash};
 use near_primitives::receipt::{ActionReceipt, Receipt, ReceiptEnum, ReceiptPriority, ReceiptV0};
 use near_primitives::runtime::migration_data::{MigrationData, MigrationFlags};
 use near_primitives::shard_layout::{ShardLayout, ShardUId};
+use near_primitives::state::PartialState;
 use near_primitives::stateless_validation::contract_distribution::CodeHash;
 use near_primitives::test_utils::{account_new, MockEpochInfoProvider};
 use near_primitives::transaction::{
@@ -737,7 +737,7 @@ fn test_apply_deficit_gas_for_transfer() {
             Default::default(),
         )
         .unwrap();
-    assert_eq!(result.stats.gas_deficit_amount, result.stats.tx_burnt_amount * 9)
+    assert_eq!(result.stats.balance.gas_deficit_amount, result.stats.balance.tx_burnt_amount * 9)
 }
 
 #[test]
@@ -795,7 +795,7 @@ fn test_apply_deficit_gas_for_function_call_covered() {
         )
         .unwrap();
     // We used part of the prepaid gas to paying extra fees.
-    assert_eq!(result.stats.gas_deficit_amount, 0);
+    assert_eq!(result.stats.balance.gas_deficit_amount, 0);
     // The refund is less than the received amount.
     match result.outgoing_receipts[0].receipt() {
         ReceiptEnum::Action(ActionReceipt { actions, .. }) => {
@@ -862,9 +862,9 @@ fn test_apply_deficit_gas_for_function_call_partial() {
         )
         .unwrap();
     // Used full prepaid gas, but it still not enough to cover deficit.
-    assert_eq!(result.stats.gas_deficit_amount, expected_deficit);
+    assert_eq!(result.stats.balance.gas_deficit_amount, expected_deficit);
     // Burnt all the fees + all prepaid gas.
-    assert_eq!(result.stats.tx_burnt_amount, total_receipt_cost);
+    assert_eq!(result.stats.balance.tx_burnt_amount, total_receipt_cost);
 }
 
 #[test]

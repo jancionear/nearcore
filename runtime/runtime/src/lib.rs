@@ -20,8 +20,10 @@ pub use near_crypto;
 use near_parameters::{ActionCosts, RuntimeConfig};
 pub use near_primitives;
 use near_primitives::account::Account;
+use near_primitives::action::GlobalContractIdentifier;
 use near_primitives::bandwidth_scheduler::{BandwidthRequests, BlockBandwidthRequests};
 use near_primitives::checked_feature;
+use near_primitives::chunk_apply_stats::{BalanceStats, ChunkApplyStatsV0};
 use near_primitives::congestion_info::{BlockCongestionInfo, CongestionInfo};
 use near_primitives::errors::{
     ActionError, ActionErrorKind, EpochError, IntegerOverflowError, InvalidTxError, RuntimeError,
@@ -36,13 +38,11 @@ use near_primitives::runtime::migration_data::{MigrationData, MigrationFlags};
 use near_primitives::sandbox::state_patch::SandboxStatePatch;
 use near_primitives::state_record::StateRecord;
 use near_primitives::stateless_validation::contract_distribution::ContractUpdates;
-#[cfg(feature = "protocol_feature_nonrefundable_transfer_nep491")]
-use near_primitives::transaction::NonrefundableStorageTransferAction;
 use near_primitives::transaction::{
     Action, ExecutionMetadata, ExecutionOutcome, ExecutionOutcomeWithId, ExecutionStatus, LogEntry,
     SignedTransaction, TransferAction,
 };
-use near_primitives::trie_key::TrieKey;
+use near_primitives::trie_key::{GlobalContractCodeIdentifier, TrieKey};
 use near_primitives::types::{
     validator_stake::ValidatorStake, AccountId, Balance, BlockHeight, Compute, EpochHeight,
     EpochId, EpochInfoProvider, Gas, RawStateChangesWithTrieKey, ShardId, StateChangeCause,
@@ -174,16 +174,6 @@ pub struct VerificationResult {
     pub burnt_amount: Balance,
 }
 
-#[derive(Debug, Default)]
-pub struct ApplyStats {
-    pub tx_burnt_amount: Balance,
-    pub slashed_burnt_amount: Balance,
-    pub other_burnt_amount: Balance,
-    /// This is a negative amount. This amount was not charged from the account that issued
-    /// the transaction. It's likely due to the delayed queue of the receipts.
-    pub gas_deficit_amount: Balance,
-}
-
 #[derive(Debug)]
 pub struct ApplyResult {
     pub state_root: StateRoot,
@@ -192,7 +182,7 @@ pub struct ApplyResult {
     pub outgoing_receipts: Vec<Receipt>,
     pub outcomes: Vec<ExecutionOutcomeWithId>,
     pub state_changes: Vec<RawStateChangesWithTrieKey>,
-    pub stats: ApplyStats,
+    pub stats: ChunkApplyStatsV0,
     pub processed_delayed_receipts: Vec<Receipt>,
     pub processed_yield_timeouts: Vec<PromiseYieldTimeout>,
     pub proof: Option<PartialStorage>,
@@ -336,7 +326,7 @@ impl Runtime {
         apply_state: &ApplyState,
         signed_transaction: &SignedTransaction,
         transaction_cost: &TransactionCost,
-        stats: &mut ApplyStats,
+        stats: &mut ChunkApplyStatsV0,
     ) -> Result<(Receipt, ExecutionOutcomeWithId), InvalidTxError> {
         let span = tracing::Span::current();
         metrics::TRANSACTION_PROCESSED_TOTAL.inc();
@@ -375,9 +365,11 @@ impl Runtime {
                         actions: transaction.actions().to_vec(),
                     }),
                 });
-                stats.tx_burnt_amount =
-                    safe_add_balance(stats.tx_burnt_amount, verification_result.burnt_amount)
-                        .map_err(|_| InvalidTxError::CostOverflow)?;
+                stats.balance.tx_burnt_amount = safe_add_balance(
+                    stats.balance.tx_burnt_amount,
+                    verification_result.burnt_amount,
+                )
+                .map_err(|_| InvalidTxError::CostOverflow)?;
                 let gas_burnt = verification_result.gas_burnt;
                 let compute_usage = verification_result.gas_burnt;
                 let outcome = ExecutionOutcomeWithId {
@@ -440,8 +432,6 @@ impl Runtime {
         let is_the_only_action = actions.len() == 1;
         let implicit_account_creation_eligible = is_the_only_action && !is_refund;
 
-        let receipt_starts_with_create_account =
-            matches!(actions.get(0), Some(Action::CreateAccount(_)));
         // Account validation
         if let Err(e) = check_account_existence(
             action,
@@ -449,7 +439,6 @@ impl Runtime {
             account_id,
             &apply_state.config,
             implicit_account_creation_eligible,
-            receipt_starts_with_create_account,
         ) {
             result.result = Err(e);
             return Ok(result);
@@ -470,7 +459,6 @@ impl Runtime {
                     receipt.receiver_id(),
                     receipt.predecessor_id(),
                     &mut result,
-                    apply_state.current_protocol_version,
                 );
             }
             Action::DeployContract(deploy_contract) => {
@@ -485,7 +473,7 @@ impl Runtime {
                 )?;
             }
             Action::DeployGlobalContract(deploy_global_contract) => {
-                action_deploy_global_contract(account_id, deploy_global_contract, &mut result)?;
+                action_deploy_global_contract(account_id, deploy_global_contract, &mut result);
             }
             Action::UseGlobalContract(use_global_contract) => {
                 let account = account.as_mut().expect(EXPECT_ACCOUNT_EXISTS);
@@ -522,24 +510,6 @@ impl Runtime {
                 action_transfer_or_implicit_account_creation(
                     account,
                     *deposit,
-                    false,
-                    is_refund,
-                    action_receipt,
-                    receipt,
-                    state_update,
-                    apply_state,
-                    actor_id,
-                    epoch_info_provider,
-                )?;
-            }
-            #[cfg(feature = "protocol_feature_nonrefundable_transfer_nep491")]
-            Action::NonrefundableStorageTransfer(NonrefundableStorageTransferAction {
-                deposit,
-            }) => {
-                action_transfer_or_implicit_account_creation(
-                    account,
-                    *deposit,
-                    true,
                     is_refund,
                     action_receipt,
                     receipt,
@@ -616,7 +586,7 @@ impl Runtime {
         receipt: &Receipt,
         receipt_sink: &mut ReceiptSink,
         validator_proposals: &mut Vec<ValidatorStake>,
-        stats: &mut ApplyStats,
+        stats: &mut ChunkApplyStatsV0,
         epoch_info_provider: &dyn EpochInfoProvider,
     ) -> Result<ExecutionOutcomeWithId, RuntimeError> {
         let _span = tracing::debug_span!(
@@ -667,8 +637,6 @@ impl Runtime {
         result.gas_burnt = exec_fees;
         // TODO(#8806): Support compute costs for actions. For now they match burnt gas.
         result.compute_usage = exec_fees;
-        #[cfg(feature = "protocol_feature_nonrefundable_transfer_nep491")]
-        let mut nonrefundable_amount_burnt: Balance = 0;
 
         // Executing actions one by one
         for (action_index, action) in action_receipt.actions.iter().enumerate() {
@@ -712,14 +680,6 @@ impl Runtime {
             if let Err(ref mut res) = result.result {
                 res.index = Some(action_index as u64);
                 break;
-            }
-
-            #[cfg(feature = "protocol_feature_nonrefundable_transfer_nep491")]
-            if let Action::NonrefundableStorageTransfer(NonrefundableStorageTransferAction {
-                deposit,
-            }) = action
-            {
-                nonrefundable_amount_burnt = safe_add_balance(nonrefundable_amount_burnt, *deposit)?
             }
         }
 
@@ -771,8 +731,8 @@ impl Runtime {
 
             // If the refund fails tokens are burned.
             if result.result.is_err() {
-                stats.other_burnt_amount = safe_add_balance(
-                    stats.other_burnt_amount,
+                stats.balance.other_burnt_amount = safe_add_balance(
+                    stats.balance.other_burnt_amount,
                     total_deposit(&action_receipt.actions)?,
                 )?
             }
@@ -787,7 +747,8 @@ impl Runtime {
                 &apply_state.config,
             )?
         };
-        stats.gas_deficit_amount = safe_add_balance(stats.gas_deficit_amount, gas_deficit_amount)?;
+        stats.balance.gas_deficit_amount =
+            safe_add_balance(stats.balance.gas_deficit_amount, gas_deficit_amount)?;
 
         // Moving validator proposals
         validator_proposals.append(&mut result.validator_proposals);
@@ -803,13 +764,6 @@ impl Runtime {
                 state_update.rollback();
             }
         };
-        // If the receipt was successfully applied, we update `other_burnt_amount` statistic with the non-refundable amount burnt.
-        #[cfg(feature = "protocol_feature_nonrefundable_transfer_nep491")]
-        if result.result.is_ok() {
-            stats.other_burnt_amount =
-                safe_add_balance(stats.other_burnt_amount, nonrefundable_amount_burnt)?;
-        }
-
         // If the receipt is a refund, then we consider it free without burnt gas.
         let gas_burnt: Gas =
             if receipt.predecessor_id().is_system() { 0 } else { result.gas_burnt };
@@ -843,7 +797,8 @@ impl Runtime {
             }
         }
 
-        stats.tx_burnt_amount = safe_add_balance(stats.tx_burnt_amount, tx_burnt_amount)?;
+        stats.balance.tx_burnt_amount =
+            safe_add_balance(stats.balance.tx_burnt_amount, tx_burnt_amount)?;
 
         // Generating outgoing data
         // A {
@@ -958,6 +913,37 @@ impl Runtime {
                 ))),
             },
         })
+    }
+
+    fn apply_global_contract_distribution_receipt(
+        &self,
+        receipt: &Receipt,
+        state_update: &mut TrieUpdate,
+    ) {
+        let _span = tracing::debug_span!(
+            target: "runtime",
+            "apply_global_contract_distribution_receipt",
+        )
+        .entered();
+
+        let ReceiptEnum::GlobalContractDistribution(global_contract_data) = receipt.receipt()
+        else {
+            unreachable!("given receipt should be an global contract distribution receipt")
+        };
+
+        let trie_key = TrieKey::GlobalContractCode {
+            identifier: match &global_contract_data.id {
+                GlobalContractIdentifier::CodeHash(hash) => {
+                    GlobalContractCodeIdentifier::CodeHash(*hash)
+                }
+                GlobalContractIdentifier::AccountId(account_id) => {
+                    GlobalContractCodeIdentifier::AccountId(account_id.clone())
+                }
+            },
+        };
+        state_update.set(trie_key, global_contract_data.code.to_vec());
+        state_update
+            .commit(StateChangeCause::ReceiptProcessing { receipt_hash: receipt.get_hash() });
     }
 
     fn generate_refund_receipts(
@@ -1232,6 +1218,10 @@ impl Runtime {
                     return Ok(None);
                 }
             }
+            ReceiptEnum::GlobalContractDistribution(_) => {
+                self.apply_global_contract_distribution_receipt(receipt, state_update);
+                return Ok(None);
+            }
         };
         // We didn't trigger execution, so we need to commit the state.
         state_update
@@ -1246,7 +1236,7 @@ impl Runtime {
         &self,
         state_update: &mut TrieUpdate,
         validator_accounts_update: &ValidatorAccountsUpdate,
-        stats: &mut ApplyStats,
+        stats: &mut BalanceStats,
     ) -> Result<(), RuntimeError> {
         for (account_id, max_of_stakes) in &validator_accounts_update.stake_info {
             if let Some(mut account) = get_account(state_update, account_id)? {
@@ -1470,6 +1460,10 @@ impl Runtime {
 
         let mut processing_state =
             ApplyProcessingState::new(&apply_state, trie, epoch_info_provider, transactions);
+        processing_state.stats.transactions_num =
+            transactions.transactions.len().try_into().unwrap();
+        processing_state.stats.incoming_receipts_num = incoming_receipts.len().try_into().unwrap();
+        processing_state.stats.is_chunk_missing = !apply_state.is_new_chunk;
 
         if let Some(prefetcher) = &mut processing_state.prefetcher {
             // Prefetcher is allowed to fail
@@ -1481,7 +1475,7 @@ impl Runtime {
             self.update_validator_accounts(
                 &mut processing_state.state_update,
                 validator_accounts_update,
-                &mut processing_state.stats,
+                &mut processing_state.stats.balance,
             )?;
         }
 
@@ -1508,6 +1502,7 @@ impl Runtime {
             apply_state,
             &mut processing_state.state_update,
             epoch_info_provider,
+            &mut processing_state.stats.bandwidth_scheduler,
         )?;
 
         // If the chunk is missing, exit early and don't process any receipts.
@@ -2114,6 +2109,7 @@ impl Runtime {
         let _span = tracing::debug_span!(target: "runtime", "apply_commit").entered();
         let apply_state = processing_state.apply_state;
         let epoch_info_provider = processing_state.epoch_info_provider;
+        let mut stats = processing_state.stats;
         let mut state_update = processing_state.state_update;
         let pending_delayed_receipts = processing_state.delayed_receipts;
         let processed_delayed_receipts = process_receipts_result.processed_delayed_receipts;
@@ -2160,8 +2156,12 @@ impl Runtime {
             );
         }
 
-        let bandwidth_requests =
-            receipt_sink.generate_bandwidth_requests(&state_update, &shard_layout, true)?;
+        let bandwidth_requests = receipt_sink.generate_bandwidth_requests(
+            &state_update,
+            &shard_layout,
+            true,
+            &mut stats,
+        )?;
 
         if cfg!(debug_assertions) {
             if let Err(err) = check_balance(
@@ -2173,7 +2173,7 @@ impl Runtime {
                 &promise_yield_result.timeout_receipts,
                 processing_state.transactions,
                 &receipt_sink.outgoing_receipts(),
-                &processing_state.stats,
+                &stats.balance,
             ) {
                 panic!(
                     "The runtime's balance_checker failed for shard {} at height {} with block hash {} and protocol version {}: {}",
@@ -2239,14 +2239,16 @@ impl Runtime {
             .bandwidth_scheduler_output()
             .map(|o| o.scheduler_state_hash)
             .unwrap_or_default();
+        let outgoing_receipts =
+            receipt_sink.finalize_stats_get_outgoing_receipts(&mut stats.receipt_sink);
         Ok(ApplyResult {
             state_root,
             trie_changes,
             validator_proposals: unique_proposals,
-            outgoing_receipts: receipt_sink.into_outgoing_receipts(),
+            outgoing_receipts,
             outcomes: processing_state.outcomes,
             state_changes,
-            stats: processing_state.stats,
+            stats,
             processed_delayed_receipts,
             processed_yield_timeouts,
             proof,
@@ -2288,7 +2290,6 @@ impl ApplyState {
 fn action_transfer_or_implicit_account_creation(
     account: &mut Option<Account>,
     deposit: u128,
-    nonrefundable: bool,
     is_refund: bool,
     action_receipt: &ActionReceipt,
     receipt: &Receipt,
@@ -2298,17 +2299,7 @@ fn action_transfer_or_implicit_account_creation(
     epoch_info_provider: &dyn EpochInfoProvider,
 ) -> Result<(), RuntimeError> {
     Ok(if let Some(account) = account.as_mut() {
-        if nonrefundable {
-            assert!(cfg!(feature = "protocol_feature_nonrefundable_transfer_nep491"));
-            #[cfg(feature = "protocol_feature_nonrefundable_transfer_nep491")]
-            action_nonrefundable_storage_transfer(
-                account,
-                deposit,
-                apply_state.config.storage_amount_per_byte(),
-            )?;
-        } else {
-            action_transfer(account, deposit)?;
-        }
+        action_transfer(account, deposit)?;
         // Check if this is a gas refund, then try to refund the access key allowance.
         if is_refund && &action_receipt.signer_id == receipt.receiver_id() {
             try_refund_allowance(
@@ -2332,7 +2323,6 @@ fn action_transfer_or_implicit_account_creation(
             deposit,
             apply_state.block_height,
             apply_state.current_protocol_version,
-            nonrefundable,
             epoch_info_provider,
         );
     })
@@ -2529,7 +2519,7 @@ struct ApplyProcessingState<'a> {
     epoch_info_provider: &'a dyn EpochInfoProvider,
     transactions: SignedValidPeriodTransactions<'a>,
     total: TotalResourceGuard,
-    stats: ApplyStats,
+    stats: ChunkApplyStatsV0,
 }
 
 impl<'a> ApplyProcessingState<'a> {
@@ -2550,7 +2540,7 @@ impl<'a> ApplyProcessingState<'a> {
             gas: 0,
             compute: 0,
         };
-        let stats = ApplyStats::default();
+        let stats = ChunkApplyStatsV0::new(apply_state.block_height, apply_state.shard_id);
         Self {
             protocol_version,
             apply_state,
@@ -2640,7 +2630,7 @@ struct ApplyProcessingReceiptState<'a> {
     epoch_info_provider: &'a dyn EpochInfoProvider,
     transactions: SignedValidPeriodTransactions<'a>,
     total: TotalResourceGuard,
-    stats: ApplyStats,
+    stats: ChunkApplyStatsV0,
     outcomes: Vec<ExecutionOutcomeWithId>,
     metrics: ApplyMetrics,
     local_receipts: VecDeque<Receipt>,
@@ -2754,6 +2744,7 @@ fn schedule_contract_preparation<'b, R: MaybeRefReceipt>(
                     };
                     return handle_receipt(mgr, state_update, receiver, account_id, &yr);
                 }
+                ReceiptEnum::GlobalContractDistribution(_) => false,
             }
         }
         handle_receipt(pipeline_manager, state_update, &receiver, account_id, peek)
@@ -2767,7 +2758,8 @@ pub mod estimator {
     use super::{ReceiptSink, Runtime};
     use crate::congestion_control::ReceiptSinkV2;
     use crate::pipelining::ReceiptPreparationPipeline;
-    use crate::{ApplyState, ApplyStats};
+    use crate::ApplyState;
+    use near_primitives::chunk_apply_stats::{ChunkApplyStatsV0, ReceiptSinkStats};
     use near_primitives::congestion_info::CongestionInfo;
     use near_primitives::errors::RuntimeError;
     use near_primitives::receipt::Receipt;
@@ -2785,12 +2777,13 @@ pub mod estimator {
         receipt: &Receipt,
         outgoing_receipts: &mut Vec<Receipt>,
         validator_proposals: &mut Vec<ValidatorStake>,
-        stats: &mut ApplyStats,
+        stats: &mut ChunkApplyStatsV0,
         epoch_info_provider: &dyn EpochInfoProvider,
     ) -> Result<ExecutionOutcomeWithId, RuntimeError> {
         // TODO(congestion_control - edit runtime config parameters for limitless estimator runs
         let congestion_info = CongestionInfo::default();
         // no limits set for any shards => limitless
+        // TODO(bandwidth_scheduler) - now empty map means all limits are zero, fix.
         let outgoing_limit = HashMap::new();
 
         // ShardId used in EstimatorContext::testbed
@@ -2810,6 +2803,7 @@ pub mod estimator {
             outgoing_metadatas,
             bandwidth_scheduler_output: None,
             protocol_version: apply_state.current_protocol_version,
+            stats: ReceiptSinkStats::default(),
         });
         let empty_pipeline = ReceiptPreparationPipeline::new(
             std::sync::Arc::clone(&apply_state.config),
@@ -2827,7 +2821,9 @@ pub mod estimator {
             stats,
             epoch_info_provider,
         );
-        outgoing_receipts.extend(receipt_sink.into_outgoing_receipts().into_iter());
+        let new_outgoing_receipts =
+            receipt_sink.finalize_stats_get_outgoing_receipts(&mut stats.receipt_sink);
+        outgoing_receipts.extend(new_outgoing_receipts.into_iter());
         apply_result
     }
 }
