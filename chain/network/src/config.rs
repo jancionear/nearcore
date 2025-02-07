@@ -472,21 +472,29 @@ impl std::ops::Deref for VerifiedConfig {
 
 #[cfg(test)]
 mod test {
+    use std::sync::Arc;
+
+    use super::{peer_store, SocketOptions, Tier1, ValidatorProxies, PEERS_RESPONSE_MAX_PEERS};
     use super::{NetworkConfig, ValidatorConfig, UPDATE_INTERVAL_LAST_TIME_RECEIVED_MESSAGE};
-    use crate::blacklist;
+    use crate::concurrency::rate;
     use crate::config;
     use crate::config_json::NetworkConfigOverrides;
-    use crate::network_protocol;
     use crate::network_protocol::testonly as data;
+    use crate::network_protocol::{self, PeerAddr};
     use crate::network_protocol::{AccountData, VersionedAccountData};
+    use crate::rate_limits::messages_limits;
     use crate::rate_limits::messages_limits::{
         RateLimitedPeerMessageKey::BlockHeaders, SingleMessageConfig,
     };
     use crate::tcp;
     use crate::testonly::make_rng;
+    use crate::types::ROUTED_MESSAGE_TTL;
+    use crate::{blacklist, snapshot_hosts};
     use near_async::time;
     use near_chain_configs::MutableConfigValue;
     use near_crypto::KeyType;
+    use near_crypto::SecretKey;
+    use near_primitives::network::PeerId;
     use near_primitives::test_utils::create_test_signer;
 
     impl NetworkConfig {

@@ -23,19 +23,7 @@ fn make_peer_manager(
     addr: tcp::ListenerAddr,
     boot_nodes: Vec<(&str, std::net::SocketAddr)>,
 ) -> actix::Addr<PeerManagerActor> {
-    let mut config = config::NetworkConfig::from_seed(seed, addr);
-    config.peer_store.boot_nodes = convert_boot_nodes(boot_nodes);
-    PeerManagerActor::spawn(
-        time::Clock::real(),
-        near_store::db::TestDB::new(),
-        config,
-        noop().into_multi_sender(),
-        noop().into_multi_sender(),
-        noop().into_sender(),
-        noop().into_multi_sender(),
-        GenesisId::default(),
-    )
-    .unwrap()
+    unimplemented!()
 }
 
 /// This test spawns several (7) nodes but node 0 crash very frequently and restart.
