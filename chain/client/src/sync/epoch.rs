@@ -986,6 +986,8 @@ impl EpochSync {
 impl Handler<EpochSyncRequestMessage> for ClientActorInner {
     #[perf]
     fn handle(&mut self, msg: EpochSyncRequestMessage) {
+        let _span =
+            tracing::debug_span!(target: "client", "handle EpochSyncRequestMessage").entered();
         if self.client.epoch_sync.config.ignore_epoch_sync_network_requests {
             // Temporary kill switch for the rare case there were issues with this network request.
             return;
@@ -1020,6 +1022,8 @@ impl Handler<EpochSyncRequestMessage> for ClientActorInner {
 impl Handler<EpochSyncResponseMessage> for ClientActorInner {
     #[perf]
     fn handle(&mut self, msg: EpochSyncResponseMessage) {
+        let _span =
+            tracing::debug_span!(target: "client", "handle EpochSyncResponseMessage").entered();
         let (proof, _) = match msg.proof.decode() {
             Ok(proof) => proof,
             Err(err) => {

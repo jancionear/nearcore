@@ -22,6 +22,8 @@ impl HandlerWithContext<FlatStorageSplitShardRequest> for ReshardingActor {
         msg: FlatStorageSplitShardRequest,
         ctx: &mut dyn DelayedActionRunner<Self>,
     ) {
+        let _span =
+            tracing::debug_span!(target: "chain", "handle_flat_storage_split_shard").entered();
         self.handle_flat_storage_split_shard(msg.resharder, ctx);
     }
 }
@@ -32,12 +34,14 @@ impl HandlerWithContext<FlatStorageShardCatchupRequest> for ReshardingActor {
         msg: FlatStorageShardCatchupRequest,
         ctx: &mut dyn DelayedActionRunner<Self>,
     ) {
+        let _span = tracing::debug_span!(target: "chain", "handle_flat_storage_catchup").entered();
         self.handle_flat_storage_catchup(msg.resharder, msg.shard_uid, ctx);
     }
 }
 
 impl Handler<MemtrieReloadRequest> for ReshardingActor {
     fn handle(&mut self, _msg: MemtrieReloadRequest) {
+        let _span = tracing::debug_span!(target: "chain", "handle MemtrieReloadRequest").entered();
         // TODO(resharding): implement memtrie reloading. At this stage the flat storage for
         // `msg.shard_uid` should be ready. Construct a new memtrie in the background and replace
         // with hybrid memtrie with it. Afterwards, the hybrid memtrie can be deleted.

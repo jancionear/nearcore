@@ -186,6 +186,8 @@ impl StateSnapshotActor {
 impl Handler<DeleteAndMaybeCreateSnapshotRequest> for StateSnapshotActor {
     #[perf]
     fn handle(&mut self, msg: DeleteAndMaybeCreateSnapshotRequest) {
+        let _span =
+            tracing::debug_span!(target: "chain", "handle_delete_and_maybe_create_snapshot_request").entered();
         self.handle_delete_and_maybe_create_snapshot_request(msg)
     }
 }
@@ -193,6 +195,8 @@ impl Handler<DeleteAndMaybeCreateSnapshotRequest> for StateSnapshotActor {
 impl HandlerWithContext<CreateSnapshotRequest> for StateSnapshotActor {
     #[perf]
     fn handle(&mut self, msg: CreateSnapshotRequest, ctx: &mut dyn DelayedActionRunner<Self>) {
+        let _span =
+            tracing::debug_span!(target: "chain", "handle_create_snapshot_request").entered();
         self.handle_create_snapshot_request(msg, ctx)
     }
 }

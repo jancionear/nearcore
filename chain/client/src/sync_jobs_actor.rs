@@ -22,6 +22,7 @@ impl messaging::Actor for SyncJobsActor {}
 impl Handler<BlockCatchUpRequest> for SyncJobsActor {
     #[perf]
     fn handle(&mut self, msg: BlockCatchUpRequest) {
+        let _span = tracing::debug_span!(target: "client", "handle BlockCatchUpRequest").entered();
         self.handle_block_catch_up_request(msg);
     }
 }

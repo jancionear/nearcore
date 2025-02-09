@@ -99,6 +99,8 @@ pub struct PartialWitnessSenderForClient {
 impl Handler<DistributeStateWitnessRequest> for PartialWitnessActor {
     #[perf]
     fn handle(&mut self, msg: DistributeStateWitnessRequest) {
+        let _span = tracing::debug_span!(target: "client", "handle DistributeStateWitnessRequest")
+            .entered();
         if let Err(err) = self.handle_distribute_state_witness_request(msg) {
             tracing::error!(target: "client", ?err, "Failed to handle distribute chunk state witness request");
         }
@@ -107,12 +109,17 @@ impl Handler<DistributeStateWitnessRequest> for PartialWitnessActor {
 
 impl Handler<ChunkStateWitnessAckMessage> for PartialWitnessActor {
     fn handle(&mut self, msg: ChunkStateWitnessAckMessage) {
+        let _span =
+            tracing::debug_span!(target: "client", "handle ChunkStateWitnessAckMessage").entered();
         self.handle_chunk_state_witness_ack(msg.0);
     }
 }
 
 impl Handler<PartialEncodedStateWitnessMessage> for PartialWitnessActor {
     fn handle(&mut self, msg: PartialEncodedStateWitnessMessage) {
+        let _span =
+            tracing::debug_span!(target: "client", "handle PartialEncodedStateWitnessMessage")
+                .entered();
         if let Err(err) = self.handle_partial_encoded_state_witness(msg.0) {
             tracing::error!(target: "client", ?err, "Failed to handle PartialEncodedStateWitnessMessage");
         }
@@ -121,6 +128,9 @@ impl Handler<PartialEncodedStateWitnessMessage> for PartialWitnessActor {
 
 impl Handler<PartialEncodedStateWitnessForwardMessage> for PartialWitnessActor {
     fn handle(&mut self, msg: PartialEncodedStateWitnessForwardMessage) {
+        let _span =
+            tracing::debug_span!(target: "client", "handle PartialEncodedStateWitnessForwardMessage")
+                .entered();
         if let Err(err) = self.handle_partial_encoded_state_witness_forward(msg.0) {
             tracing::error!(target: "client", ?err, "Failed to handle PartialEncodedStateWitnessForwardMessage");
         }
@@ -129,6 +139,8 @@ impl Handler<PartialEncodedStateWitnessForwardMessage> for PartialWitnessActor {
 
 impl Handler<ChunkContractAccessesMessage> for PartialWitnessActor {
     fn handle(&mut self, msg: ChunkContractAccessesMessage) {
+        let _span =
+            tracing::debug_span!(target: "client", "handle ChunkContractAccessesMessage").entered();
         if let Err(err) = self.handle_chunk_contract_accesses(msg.0) {
             tracing::error!(target: "client", ?err, "Failed to handle ChunkContractAccessesMessage");
         }
@@ -137,6 +149,9 @@ impl Handler<ChunkContractAccessesMessage> for PartialWitnessActor {
 
 impl Handler<PartialEncodedContractDeploysMessage> for PartialWitnessActor {
     fn handle(&mut self, msg: PartialEncodedContractDeploysMessage) {
+        let _span =
+            tracing::debug_span!(target: "client", "handle PartialEncodedContractDeploysMessage")
+                .entered();
         if let Err(err) = self.handle_partial_encoded_contract_deploys(msg.0) {
             tracing::error!(target: "client", ?err, "Failed to handle PartialEncodedContractDeploysMessage");
         }
@@ -145,6 +160,8 @@ impl Handler<PartialEncodedContractDeploysMessage> for PartialWitnessActor {
 
 impl Handler<ContractCodeRequestMessage> for PartialWitnessActor {
     fn handle(&mut self, msg: ContractCodeRequestMessage) {
+        let _span =
+            tracing::debug_span!(target: "client", "handle ContractCodeRequestMessage").entered();
         if let Err(err) = self.handle_contract_code_request(msg.0) {
             tracing::error!(target: "client", ?err, "Failed to handle ContractCodeRequestMessage");
         }
@@ -153,6 +170,8 @@ impl Handler<ContractCodeRequestMessage> for PartialWitnessActor {
 
 impl Handler<ContractCodeResponseMessage> for PartialWitnessActor {
     fn handle(&mut self, msg: ContractCodeResponseMessage) {
+        let _span =
+            tracing::debug_span!(target: "client", "handle ContractCodeResponseMessage").entered();
         if let Err(err) = self.handle_contract_code_response(msg.0) {
             tracing::error!(target: "client", ?err, "Failed to handle ContractCodeResponseMessage");
         }

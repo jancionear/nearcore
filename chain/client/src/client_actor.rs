@@ -515,6 +515,7 @@ impl Handler<NetworkAdversarialMessage> for ClientActorInner {
 
 impl Handler<ProcessTxRequest> for ClientActorInner {
     fn handle(&mut self, msg: ProcessTxRequest) -> ProcessTxResponse {
+        let _span = tracing::debug_span!(target: "client", "handle ProcessTxRequest").entered();
         let ProcessTxRequest { transaction, is_forwarded, check_only } = msg;
         self.client.process_tx(transaction, is_forwarded, check_only)
     }
@@ -522,6 +523,7 @@ impl Handler<ProcessTxRequest> for ClientActorInner {
 
 impl Handler<BlockResponse> for ClientActorInner {
     fn handle(&mut self, msg: BlockResponse) {
+        let _span = tracing::debug_span!(target: "client", "handle BlockResponse").entered();
         let BlockResponse { block, peer_id, was_requested } = msg;
         debug!(target: "client", block_height = block.header().height(), block_hash = ?block.header().hash(), "BlockResponse");
         let blocks_at_height =
@@ -562,6 +564,8 @@ impl Handler<BlockResponse> for ClientActorInner {
 
 impl Handler<BlockHeadersResponse> for ClientActorInner {
     fn handle(&mut self, msg: BlockHeadersResponse) -> Result<(), ReasonForBan> {
+        let _span = tracing::debug_span!(target: "client", "handle BlockHeadersResponse").entered();
+
         let BlockHeadersResponse(headers, peer_id) = msg;
         let validator_signer = self.client.validator_signer.get();
         if self.receive_headers(headers, peer_id, &validator_signer) {
@@ -575,6 +579,7 @@ impl Handler<BlockHeadersResponse> for ClientActorInner {
 
 impl Handler<BlockApproval> for ClientActorInner {
     fn handle(&mut self, msg: BlockApproval) {
+        let _span = tracing::debug_span!(target: "client", "handle BlockApproval").entered();
         let BlockApproval(approval, peer_id) = msg;
         debug!(target: "client", "Receive approval {:?} from peer {:?}", approval, peer_id);
         let validator_signer = self.client.validator_signer.get();
@@ -590,6 +595,8 @@ impl Handler<BlockApproval> for ClientActorInner {
 /// It contains either StateSync header information (that tells us how many parts there are etc) or a single part.
 impl Handler<StateResponseReceived> for ClientActorInner {
     fn handle(&mut self, msg: StateResponseReceived) {
+        let _span =
+            tracing::debug_span!(target: "client", "handle StateResponseReceived").entered();
         let StateResponseReceived { peer_id, state_response_info } = msg;
         let shard_id = state_response_info.shard_id();
         let hash = state_response_info.sync_hash();
@@ -636,6 +643,7 @@ impl Handler<StateResponseReceived> for ClientActorInner {
 
 impl Handler<RecvChallenge> for ClientActorInner {
     fn handle(&mut self, msg: RecvChallenge) {
+        let _span = tracing::debug_span!(target: "client", "handle RecvChallenge").entered();
         let RecvChallenge(challenge) = msg;
         match self.client.process_challenge(challenge) {
             Ok(_) => {}
@@ -646,6 +654,7 @@ impl Handler<RecvChallenge> for ClientActorInner {
 
 impl Handler<SetNetworkInfo> for ClientActorInner {
     fn handle(&mut self, msg: SetNetworkInfo) {
+        let _span = tracing::debug_span!(target: "client", "handle SetNetworkInfo").entered();
         // SetNetworkInfo is a large message. Avoid printing it at the `debug` verbosity.
         let SetNetworkInfo(network_info) = msg;
         self.network_info = network_info;
@@ -690,6 +699,7 @@ impl Handler<near_client_primitives::types::SandboxMessage> for ClientActorInner
 
 impl Handler<Status> for ClientActorInner {
     fn handle(&mut self, msg: Status) -> Result<StatusResponse, StatusError> {
+        let _span = tracing::debug_span!(target: "client", "handle Status").entered();
         let head = self.client.chain.head()?;
         let head_header = self.client.chain.get_block_header(&head.last_block_hash)?;
         let latest_block_time = head_header.raw_timestamp();
@@ -833,6 +843,7 @@ fn make_known_producer(
 
 impl Handler<GetNetworkInfo> for ClientActorInner {
     fn handle(&mut self, _msg: GetNetworkInfo) -> Result<NetworkInfoResponse, String> {
+        let _span = tracing::debug_span!(target: "client", "handle GetNetworkInfo").entered();
         Ok(NetworkInfoResponse {
             connected_peers: (self.network_info.connected_peers.iter())
                 .map(|fpi| make_peer_info(fpi.full_peer_info.peer_info.clone()))
@@ -853,6 +864,8 @@ impl Handler<GetNetworkInfo> for ClientActorInner {
 
 impl Handler<ApplyChunksDoneMessage> for ClientActorInner {
     fn handle(&mut self, _msg: ApplyChunksDoneMessage) {
+        let _span =
+            tracing::debug_span!(target: "client", "handle ApplyChunksDoneMessage").entered();
         let validator_signer = self.client.validator_signer.get();
         self.try_process_unfinished_blocks(&validator_signer);
     }
@@ -2191,6 +2204,7 @@ impl ClientActorInner {
 
 impl Handler<BlockCatchUpResponse> for ClientActorInner {
     fn handle(&mut self, msg: BlockCatchUpResponse) {
+        let _span = tracing::debug_span!(target: "client", "handle BlockCatchUpResponse").entered();
         tracing::debug!(target: "client", ?msg);
         if let Some(CatchupState { catchup, .. }) =
             self.client.catchup_state_syncs.get_mut(&msg.sync_hash)
@@ -2209,8 +2223,11 @@ impl Handler<BlockCatchUpResponse> for ClientActorInner {
 impl Handler<ShardsManagerResponse> for ClientActorInner {
     #[perf]
     fn handle(&mut self, msg: ShardsManagerResponse) {
+        let _span =
+            tracing::debug_span!(target: "client", "handle ShardsManagerResponse").entered();
         match msg {
             ShardsManagerResponse::ChunkCompleted { partial_chunk, shard_chunk } => {
+                let _span = tracing::debug_span!(target: "client", "on_chunk_completed").entered();
                 let signer = self.client.validator_signer.get();
                 self.client.on_chunk_completed(
                     partial_chunk,
@@ -2220,12 +2237,16 @@ impl Handler<ShardsManagerResponse> for ClientActorInner {
                 );
             }
             ShardsManagerResponse::InvalidChunk(encoded_chunk) => {
+                let _span = tracing::debug_span!(target: "client", "on_invalid_chunk").entered();
                 self.client.on_invalid_chunk(encoded_chunk);
             }
             ShardsManagerResponse::ChunkHeaderReadyForInclusion {
                 chunk_header,
                 chunk_producer,
             } => {
+                let _span =
+                    tracing::debug_span!(target: "client", "mark_chunk_header_ready_for_inclusion")
+                        .entered();
                 self.client
                     .chunk_inclusion_tracker
                     .mark_chunk_header_ready_for_inclusion(chunk_header, chunk_producer);
@@ -2236,6 +2257,7 @@ impl Handler<ShardsManagerResponse> for ClientActorInner {
 
 impl Handler<GetClientConfig> for ClientActorInner {
     fn handle(&mut self, msg: GetClientConfig) -> Result<ClientConfig, GetClientConfigError> {
+        let _span = tracing::debug_span!(target: "client", "GetClientConfig").entered();
         tracing::debug!(target: "client", ?msg);
 
         Ok(self.client.config.clone())
@@ -2245,6 +2267,8 @@ impl Handler<GetClientConfig> for ClientActorInner {
 impl Handler<ChunkStateWitnessMessage> for ClientActorInner {
     #[perf]
     fn handle(&mut self, msg: ChunkStateWitnessMessage) {
+        let _span =
+            tracing::debug_span!(target: "client", "handle ChunkStateWitnessMessage").entered();
         let ChunkStateWitnessMessage { witness, raw_witness_size } = msg;
         let signer = self.client.validator_signer.get();
         if let Err(err) =
@@ -2258,6 +2282,8 @@ impl Handler<ChunkStateWitnessMessage> for ClientActorInner {
 impl Handler<ChunkEndorsementMessage> for ClientActorInner {
     #[perf]
     fn handle(&mut self, msg: ChunkEndorsementMessage) {
+        let _span =
+            tracing::debug_span!(target: "client", "handle ChunkEndorsementMessage").entered();
         if let Err(err) = self.client.chunk_endorsement_tracker.process_chunk_endorsement(msg.0) {
             tracing::error!(target: "client", ?err, "Error processing chunk endorsement");
         }
@@ -2267,6 +2293,8 @@ impl Handler<ChunkEndorsementMessage> for ClientActorInner {
 impl Handler<StateHeaderValidationRequest> for ClientActorInner {
     #[perf]
     fn handle(&mut self, msg: StateHeaderValidationRequest) -> Result<(), near_chain::Error> {
+        let _span =
+            tracing::debug_span!(target: "client", "handle StateHeaderValidationRequest").entered();
         self.client.chain.set_state_header(msg.shard_id, msg.sync_hash, msg.header)
     }
 }
@@ -2274,6 +2302,8 @@ impl Handler<StateHeaderValidationRequest> for ClientActorInner {
 impl Handler<ChainFinalizationRequest> for ClientActorInner {
     #[perf]
     fn handle(&mut self, msg: ChainFinalizationRequest) -> Result<(), near_chain::Error> {
+        let _span =
+            tracing::debug_span!(target: "client", "handle ChainFinalizationRequest").entered();
         self.client.chain.set_state_finalize(msg.shard_id, msg.sync_hash)
     }
 }
