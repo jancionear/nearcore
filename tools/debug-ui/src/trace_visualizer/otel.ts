@@ -10,7 +10,7 @@ export type ResourceSpans = {
 
 
 export type Resource = {
-    attributes: Attributes;
+    attributes: KeyValue[];
     // dropped_attributes_count: number,
 }
 
@@ -42,9 +42,14 @@ export type Span = {
 export type Link = {
     traceId: string,
     spanId: string,
-    attributes: Attributes
+    attributes: KeyValue[],
     // droppedAttributesCount: number,
     // flags
+}
+
+export type KeyValue = {
+    key: string,
+    value: AttributeValue
 }
 
 export type Attributes = {
