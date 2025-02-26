@@ -462,6 +462,7 @@ impl Doomslug {
     /// the timers
     #[must_use]
     pub fn process_timer(&mut self, signer: &Option<Arc<ValidatorSigner>>) -> Vec<Approval> {
+        let _span = tracing::trace_span!(target: "doomslug", "process_timer").entered();
         let now = self.clock.now();
         let mut ret = vec![];
         for _ in 0..MAX_TIMER_ITERS {
@@ -617,6 +618,8 @@ impl Doomslug {
         height: BlockHeight,
         last_final_height: BlockHeight,
     ) {
+        let _span =
+            tracing::trace_span!(target: "doomslug", "Doomslug::set_tip", block_height = height, block_hash = ?block_hash, last_final_height = last_final_height).entered();
         debug_assert!(height > self.tip.height || self.tip.height == 0);
         self.tip = DoomslugTip { block_hash, height };
 
@@ -649,10 +652,12 @@ impl Doomslug {
             .process_approval(approval, stakes, threshold_mode);
 
         if approval.target_height > self.largest_approval_height.get() {
+            tracing::trace!(target: "doomslug", "Updating largest approval height to {}", approval.target_height);
             self.largest_approval_height.set(approval.target_height);
         }
 
         if ret != DoomslugBlockProductionReadiness::NotReady {
+            tracing::trace!(target: "doomslug", "Not ready to produce a block yet");
             if approval.target_height > self.largest_threshold_height.get() {
                 self.largest_threshold_height.set(approval.target_height);
             }
@@ -663,9 +668,11 @@ impl Doomslug {
 
     /// Processes single approval
     pub fn on_approval_message(&mut self, approval: &Approval, stakes: &[(ApprovalStake, bool)]) {
+        let _span = tracing::trace_span!(target: "doomslug", "on_approval_message", target_height = approval.target_height, account_id = ?approval.account_id, msg = ?approval.inner).entered();
         if approval.target_height < self.tip.height
             || approval.target_height > self.tip.height + MAX_HEIGHTS_AHEAD_TO_STORE_APPROVALS
         {
+            tracing::trace!(target: "doomslug", "Ignoring approval for height {}, current tip is {}", approval.target_height, self.tip.height);
             return;
         }
 

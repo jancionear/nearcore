@@ -1,7 +1,18 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 
 //import json_data from './big_multi.json';// assert { type: "json" };
-import { ExportTraceServiceRequest, Event, Resource, parseFromJson, KeyValue } from './otel';
+import { ExportTraceServiceRequest, Event, Resource, parseFromJson, KeyValue, AttributeValue } from './otel';
+
+const PARAMS = {
+    topBarHeight: 30,
+    timelineHeight: 70,
+    endBarWidth: 10,
+    searchBarHeight: 30,
+    displayedTimesHeight: 30,
+    nodeNameWidth: 120,
+    spanHeight: 30,
+    timePointWidth: 230,
+};
 
 // Representation of a Span used by the visualizer
 type VisSpan = {
@@ -13,6 +24,7 @@ type VisSpan = {
     children: VisSpan[],
     events: Event[],
     resource: Resource,
+    attributes: KeyValue[],
     height_level: number,
 }
 
@@ -43,6 +55,7 @@ function extractVisSpans(otel_requests: ExportTraceServiceRequest[]): VisSpan[] 
                         children: [],
                         events: span.events,
                         resource: resource_spans.resource,
+                        attributes: span.attributes,
                         height_level: 0,
                     });
                 }
@@ -265,13 +278,6 @@ function isColliding(span1: VisSpan, bbox1: SpanBoundingBox, span2: VisSpan, bbo
     return isCollidingInAxis(span1.height_level, span1.height_level + bbox1.height, span2.height_level, span2.height_level + bbox2.height);
 }
 
-type CameraData = {
-    startTime: number,
-    endTime: number,
-    widthPerSecond: number,
-    heightPerSpan: number,
-}
-
 class TaskTimer {
     start_time: number;
     task: string;
@@ -477,13 +483,6 @@ export const TraceVisualizer = () => {
         return res;
     }, [spansToDisplay]);
 
-    let camera: CameraData = {
-        startTime: displayedSpansRange.startTime,
-        endTime: displayedSpansRange.endTime,
-        widthPerSecond: windowWidth / (displayedSpansRange.endTime - displayedSpansRange.startTime) * 1e9,
-        heightPerSpan: 30,
-    };
-
     let renderTimer: TaskTimer | null = null;
     let startRenderTimer = () => {
         renderTimer = new TaskTimer("Rendering");
@@ -498,9 +497,9 @@ export const TraceVisualizer = () => {
     return (<div onMouseMove={onMouseMove} onMouseUp={onMouseUp}>
         <StartRenderTimer startRenderTimer={startRenderTimer} />
         <TopBar topBarHeight={topBarHeight} setTraceFile={setTraceFile} />
-        <Timeline timelineHeight={timelineHeight} windowWidth={windowWidth} timelineState={timelineState} setTimelineState={setTimelineState} />
-        <SearchBar searchBarHeight={searchBarHeight} />
-        <DrawAllNodeSpans nodeSpans={nodeSpans} camera={camera} tracesHeight={tracesHeight} minStartTime={minStartTime} />
+        <Timeline width={windowWidth} timelineState={timelineState} setTimelineState={setTimelineState} />
+        <SearchBar />
+        <DrawAllNodeSpans nodeSpans={nodeSpans} tracesHeight={tracesHeight} minStartTime={minStartTime} displayedSpansRange={displayedSpansRange} windowWidth={windowWidth} />
         <StopRenderTimer stopRenderTimer={stopRenderTimer} />
     </div >);
 }
@@ -531,12 +530,10 @@ function TopBar({ topBarHeight, setTraceFile }: { topBarHeight: number, setTrace
     </div>
 }
 
-function Timeline({ timelineHeight, windowWidth, timelineState, setTimelineState }: { timelineHeight: number, windowWidth: number, timelineState: TimelineState, setTimelineState: (timelineState: TimelineState) => void }): JSX.Element {
-    let selectedStartX = timeToScreen(timelineState.selectedStart, timelineState, windowWidth);
-    let selectedEndX = timeToScreen(timelineState.selectedEnd, timelineState, windowWidth);
+function Timeline({ width, timelineState, setTimelineState }: { width: number, timelineState: TimelineState, setTimelineState: (timelineState: TimelineState) => void }): JSX.Element {
+    let selectedStartX = timeToScreen(timelineState.selectedStart, timelineState, width);
+    let selectedEndX = timeToScreen(timelineState.selectedEnd, timelineState, width);
     let selectedWidth = selectedEndX - selectedStartX;
-
-    let endBarWidth = 10;
 
     let leftBarOnMouseDown = (e: React.MouseEvent) => {
         if (e.button !== 0) {
@@ -583,7 +580,7 @@ function Timeline({ timelineHeight, windowWidth, timelineState, setTimelineState
         }
         e.stopPropagation();
         e.preventDefault();
-        let clickedTime = screenToTime(e.clientX, timelineState, windowWidth);
+        let clickedTime = screenToTime(e.clientX, timelineState, width);
         setTimelineState({ ...timelineState, action: TimelineAction.DraggingEdge, selectedStart: clickedTime, selectedEnd: clickedTime, deltaX: 0, notDraggedEdgeTime: clickedTime });
     };
 
@@ -593,7 +590,7 @@ function Timeline({ timelineHeight, windowWidth, timelineState, setTimelineState
         e.stopPropagation();
 
         let mouseX = e.clientX;
-        let mouseTime = screenToTime(mouseX, timelineState, windowWidth);
+        let mouseTime = screenToTime(mouseX, timelineState, width);
 
         let speedFactor = 0.001;
         let scrollAmount = e.deltaY * speedFactor;
@@ -611,24 +608,30 @@ function Timeline({ timelineHeight, windowWidth, timelineState, setTimelineState
         setTimelineState({ ...timelineState, startTime: newStart, endTime: newEnd });
     };
 
-    let middleBarWidth = Math.max(selectedWidth - endBarWidth, 0);
+    let middleBarWidth = Math.max(selectedWidth - PARAMS.endBarWidth, 0);
     let middleBarColor = "blue";
     let endBarsColor = "brown";
 
-    return <div style={{ height: timelineHeight, position: "relative", border: "1px solid black", overflow: "hidden", background: "lightblue" }} onMouseDown={backgroundOnMouseDown} onWheel={timelineScrollHandler}>
-        <TimePoints startTime={timelineState.startTime} endTime={timelineState.endTime} width={windowWidth} minStartTime={timelineState.minStartTime} />
-        <div style={{ position: "absolute", left: selectedStartX + endBarWidth / 2, top: 0, width: middleBarWidth, height: timelineHeight, background: middleBarColor, opacity: 0.3 }} onMouseDown={middleBarOnMouseDown}
+    return <div
+        style={{ height: PARAMS.timelineHeight, position: "relative", border: "1px solid black", overflow: "hidden", background: "lightblue" }}
+        onMouseDown={backgroundOnMouseDown}
+        onWheel={timelineScrollHandler}>
+
+        <TimePoints startTime={timelineState.startTime} endTime={timelineState.endTime} width={width} minStartTime={timelineState.minStartTime} />
+
+        <div style={{ position: "absolute", left: selectedStartX + PARAMS.endBarWidth / 2, top: 0, width: middleBarWidth, height: PARAMS.timelineHeight, background: middleBarColor, opacity: 0.3 }} onMouseDown={middleBarOnMouseDown}
         > </div>
-        <div style={{ position: "absolute", left: selectedStartX - endBarWidth / 2, top: 0, width: endBarWidth, height: timelineHeight, background: endBarsColor, opacity: 0.3 }} onMouseDown={leftBarOnMouseDown}></div>
-        <div style={{ position: "absolute", left: selectedStartX + selectedWidth - endBarWidth / 2, top: 0, width: endBarWidth, height: timelineHeight, background: endBarsColor, opacity: 0.3 }} onMouseDown={rightBarOnMouseDown}></div>
+
+        <div style={{ position: "absolute", left: selectedStartX - PARAMS.endBarWidth / 2, top: 0, width: PARAMS.endBarWidth, height: PARAMS.timelineHeight, background: endBarsColor, opacity: 0.3 }} onMouseDown={leftBarOnMouseDown}></div>
+
+        <div style={{ position: "absolute", left: selectedStartX + selectedWidth - PARAMS.endBarWidth / 2, top: 0, width: PARAMS.endBarWidth, height: PARAMS.timelineHeight, background: endBarsColor, opacity: 0.3 }} onMouseDown={rightBarOnMouseDown}></div>
     </div >
 }
 
 function TimePoints({ startTime, endTime, width, minStartTime }: { startTime: number, endTime: number, width: number, minStartTime: number }): JSX.Element {
     console.log("Generating time points from ", startTime, " to ", endTime, " with width ", width);
 
-    let timePointWidth = 230;
-    let numPoints = Math.floor(width / timePointWidth);
+    let numPoints = Math.floor(width / PARAMS.timePointWidth);
     let points = [];
     for (let i = 0; i < numPoints; i++) {
         let time = startTime + (endTime - startTime) / numPoints * i;
@@ -637,7 +640,7 @@ function TimePoints({ startTime, endTime, width, minStartTime }: { startTime: nu
 
         let screenPos = (time - startTime) / (endTime - startTime) * width;
 
-        points.push(<div key={i} style={{ position: "absolute", left: screenPos, top: 0, width: timePointWidth, height: 20, borderLeft: "2px solid black" }}>
+        points.push(<div key={i} style={{ position: "absolute", left: screenPos, top: 0, width: PARAMS.timePointWidth, height: 20, borderLeft: "2px solid black" }}>
             <div>{time_utc}</div>
             <div>{seconds_since_start}</div>
         </div>);
@@ -645,59 +648,139 @@ function TimePoints({ startTime, endTime, width, minStartTime }: { startTime: nu
 
     console.log("Generated ", numPoints, " time points");
 
-    return <div style={{ position: "relative", width: width, height: 20 }}>
+    return <div style={{ position: "relative", width: width }}>
         {points}
     </div>
 }
 
-function SearchBar({ searchBarHeight }: { searchBarHeight: number }): JSX.Element {
-    return <div style={{ height: searchBarHeight, border: "1px solid black", background: "lightgrey" }}>
+function SearchBar(): JSX.Element {
+    return <div style={{ height: PARAMS.searchBarHeight, border: "1px solid black", background: "lightgrey" }}>
         This is the search bar (TODO)
     </div>
 }
 
-function timeToScreenSpace(time: number, camera: CameraData): number {
-    return (time - camera.startTime) / 1e9 * camera.widthPerSecond;
-}
+function DrawAllNodeSpans({ nodeSpans, tracesHeight, minStartTime, displayedSpansRange, windowWidth }: { nodeSpans: NodeSpans[], tracesHeight: number, minStartTime: number, windowWidth: number, displayedSpansRange: DisplayedSpansRange }): JSX.Element {
+    let timeToScreen = (time: number) => (time - displayedSpansRange.startTime) / (displayedSpansRange.endTime - displayedSpansRange.startTime) * (windowWidth - PARAMS.nodeNameWidth);
 
-function DrawAllNodeSpans({ nodeSpans, camera, tracesHeight, minStartTime }: { nodeSpans: NodeSpans[], camera: CameraData, tracesHeight: number, minStartTime: number }): JSX.Element {
-    let width = camera.widthPerSecond * (camera.endTime - camera.startTime) / 1e9;
+    let [clickedSpan, setClickedSpan] = useState<VisSpan | null>(null);
+    let [includeChildEvents, setIncludeChildEvents] = useState(true);
 
-    return (<div style={{ height: tracesHeight, overflowX: "hidden", overflowY: "scroll" }}>
-        <div style={{ height: 50, borderBottom: "1px solid black" }}> <TimePoints startTime={camera.startTime} endTime={camera.endTime} width={width} minStartTime={minStartTime} /> </div>
-        <div>{nodeSpans.map(ns => <DrawNodeSpans nodeSpans={ns} camera={camera} />)} </div>
+    return (<div>
+        <div style={{ height: 50, marginLeft: PARAMS.nodeNameWidth, borderBottom: "1px solid black" }}> <TimePoints startTime={displayedSpansRange.startTime} endTime={displayedSpansRange.endTime} width={windowWidth - PARAMS.nodeNameWidth} minStartTime={minStartTime} /> </div>
+        <div style={{ height: tracesHeight - 50, overflowX: "hidden", overflowY: "scroll" }}>
+            {nodeSpans.map(ns => <DrawNodeSpans nodeSpans={ns} width={windowWidth} timeToScreen={timeToScreen} setClickedSpan={setClickedSpan} />)}
+        </div>
+        {clickedSpan && ClickedSpanInfo({ span: clickedSpan, resetClickedSpan: () => setClickedSpan(null), maxWidth: windowWidth, maxHeight: tracesHeight, includeChildEvents: includeChildEvents, setIncludeChildEvents: setIncludeChildEvents })}
     </div>);
 }
 
-function DrawNodeSpans({ nodeSpans, camera }: { nodeSpans: NodeSpans, camera: CameraData }): JSX.Element {
-    let width = timeToScreenSpace(camera.endTime, camera) - timeToScreenSpace(camera.startTime, camera);
-    let height = nodeSpans.bbox.height * camera.heightPerSpan;
-    return (<div>
-        <div> Node: {nodeSpans.node.name} </div>
-        <div style={{ position: "relative", border: "1px solid black", width: width, height: height }}>
-            {nodeSpans.spans.map(s => <DrawSpan span={s} camera={camera} curHeightLevel={0} />)}
+type HoveredSpan = {
+    span: VisSpan,
+}
+
+function DrawNodeSpans({ nodeSpans, width, timeToScreen, setClickedSpan }: { nodeSpans: NodeSpans, width: number, timeToScreen: (time: number) => number, setClickedSpan: (span: VisSpan | null) => void }): JSX.Element {
+    let height = nodeSpans.bbox.height * PARAMS.spanHeight + 10;
+    return (<div style={{ position: "relative", height: height }}>
+        <div style={{ width: PARAMS.nodeNameWidth, height: height, border: "1px solid black" }}> {nodeSpans.node.name} </div>
+        <div style={{ position: "absolute", left: PARAMS.nodeNameWidth, top: 0, width: width - PARAMS.nodeNameWidth, height: height }}>
+            <div style={{ position: "relative", display: "inline-block", border: "1px solid black", width: width - PARAMS.nodeNameWidth, height: height, overflowX: "hidden" }}>
+                {nodeSpans.spans.map(s => <DrawSpan span={s} timeToScreen={timeToScreen} curHeightLevel={0} setClickedSpan={setClickedSpan} />)}
+            </div>
         </div>
-    </div>
+    </div >
 
     )
 }
 
-function DrawSpan({ span, camera, curHeightLevel }: { span: VisSpan, camera: CameraData, curHeightLevel: number }): JSX.Element {
-    let x = timeToScreenSpace(span.startTime, camera);
-    let width = timeToScreenSpace(span.endTime, camera) - x;
-    let y = (curHeightLevel + span.height_level) * camera.heightPerSpan;
+function ClickedSpanInfo({ span, resetClickedSpan, maxHeight, maxWidth, includeChildEvents, setIncludeChildEvents }: {
+    span: VisSpan, resetClickedSpan: () => void, maxHeight: number, maxWidth: number, includeChildEvents: boolean, setIncludeChildEvents: (includeChildEvents: boolean) => void
+
+}): JSX.Element {
+    let events = includeChildEvents ? collectEvents(span) : span.events;
+    events.sort((a, b) => a.timeUnixNano - b.timeUnixNano);
 
     return (
-        <>
-            <div style={{ position: "absolute", left: x, top: y, height: camera.heightPerSpan, background: "white", color: "transparent", fontFamily: "monospace" }}>
+        <div style={{
+            position: "absolute", top: 0, left: 0, background: "white", border: "2px solid black", margin: 10, padding: 10, marginTop: 60
+            , maxHeight: maxHeight, maxWidth: maxWidth, overflowY: "scroll"
+        }}>
+            <button onClick={resetClickedSpan}>Close</button>
+            <div> <h2> {span.name} </h2></div>
+            <div> {((span.endTime - span.startTime) / 1e6).toFixed(3)} ms </div>
+            <div> {new Date(span.startTime / 1e6).toISOString()} - {new Date(span.endTime / 1e6).toISOString()} </div>
+            <ul>
+                {span.attributes.map(kv => <li>{kv.key}: {getValueAsStr(kv.value)}</li>)}
+            </ul>
+            <div style={{ paddingLeft: 10 }}>
+                <h2> Events </h2>
+                {
+                    includeChildEvents &&
+                    <div key={0} style={{ background: "lightgreen" }}> Including events from child spans <button onClick={() => setIncludeChildEvents(false)}> Click to exclude </button> </div>}
+                {!includeChildEvents && <div key={1} style={{ background: "rgb(255 204 203)" }}> Not including events from child spans <button onClick={() => setIncludeChildEvents(true)}> Click to include </button> </div>}
+                <div>
+                    {events.map(event => DisplayEvent({ event: event }))}
+                    {events.length === 0 && <div>No events</div>}
+                </div>
+            </div>
+        </div >
+    )
+}
+
+function collectEvents(span: VisSpan): Event[] {
+    let res: Event[] = [];
+    res.push(...span.events);
+    for (let child of span.children) {
+        res.push(...collectEvents(child));
+    }
+    return res;
+}
+
+function DisplayEvent({ event }: { event: Event }): JSX.Element {
+    return <div style={{ border: "1px solid grey", padding: 10 }}>
+        <div>{new Date(event.timeUnixNano / 1e6).toISOString()} - "{event.name}"</div>
+        <ul>{event.attributes.map(kv => {
+            console.log("KV: ", kv);
+            return <li>{kv.key}: {getValueAsStr(kv.value)}</li>
+        })}</ul>
+    </div>
+}
+
+function getValueAsStr(val: AttributeValue): string {
+    // Take the attribute that exists - int or string or double
+    if (val.stringValue !== undefined) {
+        return val.stringValue;
+    } else if (val.doubleValue !== undefined) {
+        return "" + val.doubleValue;
+    } else if (val.intValue !== undefined) {
+        return "" + val.intValue;
+    } else if (val.boolValue !== undefined) {
+        return "" + val.boolValue;
+    } else {
+        return "Unknown type";
+    }
+}
+
+function DrawSpan({ span, timeToScreen, curHeightLevel, setClickedSpan }: { span: VisSpan, timeToScreen: (time: number) => number, curHeightLevel: number, setClickedSpan: (span: VisSpan) => void }): JSX.Element {
+    let x = timeToScreen(span.startTime);
+    let width = timeToScreen(span.endTime) - x;
+    let y = (curHeightLevel + span.height_level) * PARAMS.spanHeight;
+
+    return (
+        <div>
+            <div style={{ position: "absolute", left: x, top: y, height: PARAMS.spanHeight, background: "white", color: "transparent", fontFamily: "monospace" }}
+                onClick={() => setClickedSpan(span)}>
                 {span.name}
             </div>
-            <div style={{ position: "absolute", left: x, top: y, width: width, height: camera.heightPerSpan, border: "1px solid orange", background: "yellow", }}></div>
-            <div style={{ position: "absolute", left: x, top: y, fontFamily: "monospace" }}>
+            <div style={{ position: "absolute", left: x, top: y, width: width, height: PARAMS.spanHeight, border: "1px solid orange", background: "yellow", }}
+                onClick={() => setClickedSpan(span)}
+            >
+            </div>
+            <div style={{ position: "absolute", left: x, top: y, fontFamily: "monospace" }}
+                onClick={() => setClickedSpan(span)}>
                 {span.name}
             </div >
-            {span.children.map(child => <DrawSpan span={child} camera={camera} curHeightLevel={curHeightLevel + span.height_level + 1} />)}
-        </>
+            {span.children.map(child => <DrawSpan span={child} timeToScreen={timeToScreen} curHeightLevel={curHeightLevel + span.height_level + 1} setClickedSpan={setClickedSpan} />)}
+        </div>
     )
 }
 

@@ -30,7 +30,7 @@ export type Span = {
     // kind
     startTimeUnixNano: number,
     endTimeUnixNano: number,
-    attributes: Attributes,
+    attributes: KeyValue[],
     // droppedAttributesCount: number,
     events: Event[],
     // droppedEventsCount: number,
@@ -69,7 +69,7 @@ export type AttributeValue = {
 export type Event = {
     timeUnixNano: number,
     name: string,
-    attributes: Attributes,
+    attributes: KeyValue[],
     // droppedAttributesCount: number,
 }
 
