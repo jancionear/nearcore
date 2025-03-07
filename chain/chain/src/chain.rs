@@ -114,6 +114,20 @@ use time::OffsetDateTime;
 use time::ext::InstantExt as _;
 use tracing::{Span, debug, debug_span, error, info, warn};
 
+#[derive(serde::Serialize, serde::Deserialize, Debug)]
+struct ValidatorsInfo {
+    tip: Tip,
+    block_producers: Vec<(AccountId, String)>,
+    shards: Vec<ShardValidatorsInfo>,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Debug)]
+struct ShardValidatorsInfo {
+    shard_id: ShardId,
+    chunk_producers: Vec<(AccountId, String)>,
+    chunk_validators: Vec<(AccountId, String)>,
+}
+
 pub const APPLY_CHUNK_RESULTS_CACHE_SIZE: usize = 100;
 
 /// The size of the invalid_blocks in-memory pool
@@ -2455,23 +2469,14 @@ impl Chain {
     fn print_validators(&self) -> Result<(), Error> {
         let tip = self.head()?;
 
-        #[derive(serde::Serialize, serde::Deserialize)]
-        struct ValidatorsInfo {
-            tip: Tip,
-            block_producers: Vec<ValidatorStake>,
-            shards: Vec<ShardValidatorsInfo>,
-        }
-
-        #[derive(serde::Serialize, serde::Deserialize)]
-        struct ShardValidatorsInfo {
-            shard_id: ShardId,
-            chunk_producers: Vec<ValidatorStake>,
-            chunk_validators: Vec<(AccountId, Balance)>,
-        }
-
         let mut info = ValidatorsInfo {
             tip: tip.clone(),
-            block_producers: self.epoch_manager.get_epoch_block_producers_ordered(&tip.epoch_id)?,
+            block_producers: self
+                .epoch_manager
+                .get_epoch_block_producers_ordered(&tip.epoch_id)?
+                .iter()
+                .map(|vs| vs.dump())
+                .collect(),
             shards: Vec::new(),
         };
 
@@ -2481,22 +2486,21 @@ impl Chain {
         for shard_index in shard_layout.shard_indexes() {
             let shard_id = shard_layout.get_shard_id(shard_index)?;
 
-            let chunk_validators = self.epoch_manager.get_chunk_validator_assignments(
-                &tip.epoch_id,
-                shard_id,
-                tip.height,
-            )?;
+            let chunk_validators = self
+                .epoch_manager
+                .get_chunk_validator_assignments(&tip.epoch_id, shard_id, tip.height)?
+                .assignments()
+                .iter()
+                .map(|(acc, stake)| (acc.clone(), stake.to_string()))
+                .collect();
 
             let mut chunk_producers = Vec::new();
             for validator_index in &epoch_info.chunk_producers_settlement()[shard_index] {
-                chunk_producers.push(epoch_info.get_validator(*validator_index));
+                let vs = epoch_info.get_validator(*validator_index);
+                chunk_producers.push(vs.dump());
             }
 
-            info.shards.push(ShardValidatorsInfo {
-                shard_id,
-                chunk_producers,
-                chunk_validators: chunk_validators.assignments().clone(),
-            });
+            info.shards.push(ShardValidatorsInfo { shard_id, chunk_producers, chunk_validators });
         }
         println!("Validators: {}", serde_json::to_string_pretty(&info).unwrap());
 
@@ -4439,4 +4443,14 @@ impl Chain {
             })
             .collect()
     }
+}
+
+const VALIDATORS_JSON: &'static str = "
+";
+
+#[test]
+fn analyze_validators() {
+    let vinfo: ValidatorsInfo = serde_json::from_str(VALIDATORS_JSON).unwrap();
+
+    println!("vinfos: {:?}", vinfo);
 }

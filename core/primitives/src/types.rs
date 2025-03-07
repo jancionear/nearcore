@@ -535,6 +535,12 @@ pub mod validator_stake {
         // begins with a field of type `AccountId`.
     }
 
+    impl ValidatorStake {
+        pub fn dump(&self) -> (AccountId, String) {
+            (self.account_id().clone(), self.stake().to_string())
+        }
+    }
+
     pub struct ValidatorStakeIter<'a> {
         collection: ValidatorStakeIterSource<'a>,
         curr_index: usize,
