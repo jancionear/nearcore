@@ -522,7 +522,9 @@ pub mod validator_stake {
     pub use super::ValidatorStakeV1;
 
     /// Stores validator and its stake.
-    #[derive(BorshSerialize, BorshDeserialize, Serialize, Debug, Clone, PartialEq, Eq)]
+    #[derive(
+        BorshSerialize, BorshDeserialize, Serialize, Debug, Clone, PartialEq, Eq, serde::Deserialize,
+    )]
     #[serde(tag = "validator_stake_struct_version")]
     pub enum ValidatorStake {
         V1(ValidatorStakeV1),
@@ -721,7 +723,15 @@ pub mod validator_stake {
 
 /// Stores validator and its stake.
 #[derive(
-    BorshSerialize, BorshDeserialize, serde::Serialize, Debug, Clone, PartialEq, Eq, ProtocolSchema,
+    BorshSerialize,
+    BorshDeserialize,
+    serde::Serialize,
+    Debug,
+    Clone,
+    PartialEq,
+    Eq,
+    ProtocolSchema,
+    serde::Deserialize,
 )]
 pub struct ValidatorStakeV1 {
     /// Account that stakes money.

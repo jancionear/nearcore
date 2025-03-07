@@ -2452,6 +2452,57 @@ impl Chain {
         Ok(())
     }
 
+    fn print_validators(&self) -> Result<(), Error> {
+        let tip = self.head()?;
+
+        #[derive(serde::Serialize, serde::Deserialize)]
+        struct ValidatorsInfo {
+            tip: Tip,
+            block_producers: Vec<ValidatorStake>,
+            shards: Vec<ShardValidatorsInfo>,
+        }
+
+        #[derive(serde::Serialize, serde::Deserialize)]
+        struct ShardValidatorsInfo {
+            shard_id: ShardId,
+            chunk_producers: Vec<ValidatorStake>,
+            chunk_validators: Vec<(AccountId, Balance)>,
+        }
+
+        let mut info = ValidatorsInfo {
+            tip: tip.clone(),
+            block_producers: self.epoch_manager.get_epoch_block_producers_ordered(&tip.epoch_id)?,
+            shards: Vec::new(),
+        };
+
+        let epoch_info = self.epoch_manager.get_epoch_info(&tip.epoch_id)?;
+        let shard_layout = self.epoch_manager.get_shard_layout(&tip.epoch_id)?;
+
+        for shard_index in shard_layout.shard_indexes() {
+            let shard_id = shard_layout.get_shard_id(shard_index)?;
+
+            let chunk_validators = self.epoch_manager.get_chunk_validator_assignments(
+                &tip.epoch_id,
+                shard_id,
+                tip.height,
+            )?;
+
+            let mut chunk_producers = Vec::new();
+            for validator_index in &epoch_info.chunk_producers_settlement()[shard_index] {
+                chunk_producers.push(epoch_info.get_validator(*validator_index));
+            }
+
+            info.shards.push(ShardValidatorsInfo {
+                shard_id,
+                chunk_producers,
+                chunk_validators: chunk_validators.assignments().clone(),
+            });
+        }
+        println!("Validators: {}", serde_json::to_string_pretty(&info).unwrap());
+
+        Ok(())
+    }
+
     /// Preprocess a block before applying chunks, verify that we have the necessary information
     /// to process the block and the block is valid.
     /// Note that this function does NOT introduce any changes to chain state.
@@ -2465,6 +2516,8 @@ impl Chain {
         block_received_time: Instant,
         state_patch: SandboxStatePatch,
     ) -> Result<PreprocessBlockResult, Error> {
+        self.print_validators().unwrap();
+
         let header = block.header();
 
         // see if the block is already in processing or if there are too many blocks being processed
