@@ -707,7 +707,7 @@ impl Client {
         height: BlockHeight,
         prev_hash: CryptoHash,
     ) -> Result<Option<Block>, Error> {
-        let _span = tracing::info_span!(target: "traviz", "produce_block_on", height).entered();
+        let _span = tracing::info_span!(target: "client", "produce_block_on", height).entered();
 
         let validator_signer = self.validator_signer.get().ok_or_else(|| {
             Error::BlockProducer("Called without block producer info.".to_string())
@@ -1065,7 +1065,7 @@ impl Client {
     /// Check optimistic block and start processing if is valid.
     pub fn receive_optimistic_block(&mut self, block: OptimisticBlock, peer_id: &PeerId) {
         let _span =
-            tracing::info_span!(target: "traviz", "receive_optimistic_block", height = block.height())
+            tracing::info_span!(target: "client", "receive_optimistic_block", height = block.height())
                 .entered();
         debug!(target: "client", ?block, ?peer_id, "Received optimistic block");
 

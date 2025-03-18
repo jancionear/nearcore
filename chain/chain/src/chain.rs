@@ -1544,7 +1544,7 @@ impl Chain {
         me: &Option<AccountId>,
         apply_chunks_done_sender: Option<near_async::messaging::Sender<ApplyChunksDoneMessage>>,
     ) {
-        let _span = tracing::info_span!(target: "traviz", "preprocess_optimistic_block", height = block.height())
+        let _span = tracing::info_span!(target: "chain", "preprocess_optimistic_block", height = block.height())
             .entered();
 
         // Validate the optimistic block.
@@ -1600,7 +1600,7 @@ impl Chain {
         apply_chunks_done_sender: Option<near_async::messaging::Sender<ApplyChunksDoneMessage>>,
     ) -> Result<(), Error> {
         let _span = tracing::info_span!(
-            target: "traviz",
+            target: "chain",
             "process_optimistic_block",
             block_hash = ?block.hash(),
             block_height = ?block.height()
@@ -2154,7 +2154,7 @@ impl Chain {
         // We want to include block height here, so we didn't put this line at the beginning of the
         // function.
         let _span = tracing::info_span!(
-            target: "traviz",
+            target: "chain",
             "postprocess_ready_block",
             height = block.header().height())
         .entered();
@@ -2312,7 +2312,7 @@ impl Chain {
         self.blocks_delay_tracker.record_optimistic_block_processed(optimistic_block.height());
 
         let _span = tracing::info_span!(
-            target: "traviz",
+            target: "chain",
             "postprocess_optimistic_block",
             block_height = optimistic_block.height())
         .entered();
@@ -2526,7 +2526,7 @@ impl Chain {
     ) -> Result<PreprocessBlockResult, Error> {
         let header = block.header();
 
-        let _span = tracing::info_span!(target: "traviz", "preprocess_block",
+        let _span = tracing::info_span!(target: "chain", "preprocess_block",
             height = header.height(), block_hash = ?header.hash(), epoch_id = ?header.epoch_id())
         .entered();
 

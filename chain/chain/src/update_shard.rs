@@ -131,7 +131,7 @@ pub fn apply_new_chunk(
     let height_created = chunk_header.height_created();
     let chunk_hash = chunk_header.chunk_hash();
     let _span = tracing::info_span!(
-        target: "traviz",
+        target: "chain",
         parent: parent_span,
         "apply_new_chunk",
         ?shard_id,
@@ -182,7 +182,7 @@ pub fn apply_old_chunk(
     let OldChunkData { prev_chunk_extra, block, storage_context } = data;
     let shard_id = shard_context.shard_uid.shard_id();
     let _span = tracing::info_span!(
-        target: "traviz",
+        target: "chain",
         parent: parent_span,
         "apply_old_chunk",
         ?shard_id,
