@@ -9,6 +9,7 @@ use crate::corrupt::CorruptStateSnapshotCommand;
 use crate::drop_column::DropColumnCommand;
 use crate::make_snapshot::MakeSnapshotCommand;
 use crate::memtrie::LoadMemTrieCommand;
+use crate::reset_cold::ResetColdHeadCommand;
 use crate::reset_version::ResetVersionCommand;
 use crate::resharding_v2::ReshardingV2Command;
 use crate::run_migrations::RunMigrationsCommand;
@@ -72,6 +73,8 @@ enum SubCommand {
 
     /// Perform on demand resharding V2
     Resharding(ReshardingV2Command),
+
+    ResetColdHead(ResetColdHeadCommand),
 }
 
 impl DatabaseCommand {
@@ -103,6 +106,7 @@ impl DatabaseCommand {
                 let near_config = load_config(home, genesis_validation);
                 cmd.run(near_config, home)
             }
+            SubCommand::ResetColdHead(cmd) => cmd.run(home, genesis_validation),
         }
     }
 }
