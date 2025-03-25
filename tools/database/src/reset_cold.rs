@@ -22,7 +22,7 @@ impl ResetColdHeadCommand {
             false,
             near_config.genesis.config.transaction_validity_period,
         );
-        let tip = chain_store.head().unwrap();
+        let tip = chain_store.final_head().unwrap();
 
         update_cold_head(
             node_storage.cold_db().expect("Cold db must exist to reset cold head"),
