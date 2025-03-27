@@ -450,6 +450,9 @@ impl ContractAccountsCmd {
 #[derive(clap::Parser)]
 pub struct DebugUICmd {
     #[clap(long)]
+    ip: Option<String>,
+
+    #[clap(long)]
     port: Option<u16>,
 }
 
@@ -473,15 +476,17 @@ impl DebugUICmd {
             runtime: NightshadeRuntime::from_config(home_dir, store, &near_config, epoch_manager)
                 .unwrap(),
         };
-        let mut rpc_config = near_config.rpc_config.unwrap_or_default();
-        if let Some(port) = self.port {
-            rpc_config.addr = ListenerAddr::new(SocketAddr::new(rpc_config.addr.ip(), port));
-        }
+
+        let rpc_config = near_config.rpc_config.unwrap_or_default();
+        let ip = match self.ip {
+            Some(ip_str) => ip_str.parse().unwrap(),
+            None => rpc_config.addr.ip(),
+        };
+        let port = self.port.unwrap_or(rpc_config.addr.port());
+        let listen_addr = ListenerAddr::new(SocketAddr::new(ip, port));
+
         actix::System::new()
-            .block_on(start_http_for_readonly_debug_querying(
-                rpc_config.addr,
-                Arc::new(debug_handler),
-            ))
+            .block_on(start_http_for_readonly_debug_querying(listen_addr, Arc::new(debug_handler)))
             .unwrap();
     }
 }
