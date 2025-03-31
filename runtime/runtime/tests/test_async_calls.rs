@@ -30,12 +30,14 @@ fn test_simple_func_call() {
         signer_sender.get_account_id(),
         signer_receiver.get_account_id(),
         &signer_sender,
-        vec![Action::FunctionCall(Box::new(FunctionCallAction {
-            method_name: "sum_n".to_string(),
-            args: 10u64.to_le_bytes().to_vec(),
-            gas: GAS_1,
-            deposit: 0,
-        }))],
+        vec![Action::FunctionCall(Box::new(
+            FunctionCallAction {
+                method_name: "sum_n".to_string(),
+                args: 10u64.to_le_bytes().to_vec(),
+                gas: GAS_1,
+                deposit: 0,
+            },
+        ))],
         CryptoHash::default(),
         0,
     );
@@ -77,12 +79,14 @@ fn test_single_promise_no_callback() {
         signer_sender.get_account_id(),
         signer_receiver.get_account_id(),
         &signer_sender,
-        vec![Action::FunctionCall(Box::new(FunctionCallAction {
-            method_name: "call_promise".to_string(),
-            args: serde_json::to_vec(&data).unwrap(),
-            gas: GAS_1,
-            deposit: 0,
-        }))],
+        vec![Action::FunctionCall(Box::new(
+            FunctionCallAction {
+                method_name: "call_promise".to_string(),
+                args: serde_json::to_vec(&data).unwrap(),
+                gas: GAS_1,
+                deposit: 0,
+            },
+        ))],
         CryptoHash::default(),
         0,
     );
@@ -144,12 +148,14 @@ fn test_single_promise_with_callback() {
         signer_sender.get_account_id(),
         signer_receiver.get_account_id(),
         &signer_sender,
-        vec![Action::FunctionCall(Box::new(FunctionCallAction {
-            method_name: "call_promise".to_string(),
-            args: serde_json::to_vec(&data).unwrap(),
-            gas: GAS_1,
-            deposit: 0,
-        }))],
+        vec![Action::FunctionCall(Box::new(
+            FunctionCallAction {
+                method_name: "call_promise".to_string(),
+                args: serde_json::to_vec(&data).unwrap(),
+                gas: GAS_1,
+                deposit: 0,
+            },
+        ))],
         CryptoHash::default(),
         0,
     );
@@ -229,12 +235,14 @@ fn test_two_promises_no_callbacks() {
         signer_sender.get_account_id(),
         signer_receiver.get_account_id(),
         &signer_sender,
-        vec![Action::FunctionCall(Box::new(FunctionCallAction {
-            method_name: "call_promise".to_string(),
-            args: serde_json::to_vec(&data).unwrap(),
-            gas: GAS_1,
-            deposit: 0,
-        }))],
+        vec![Action::FunctionCall(Box::new(
+            FunctionCallAction {
+                method_name: "call_promise".to_string(),
+                args: serde_json::to_vec(&data).unwrap(),
+                gas: GAS_1,
+                deposit: 0,
+            },
+        ))],
         CryptoHash::default(),
         0,
     );
@@ -324,12 +332,14 @@ fn test_two_promises_with_two_callbacks() {
         signer_sender.get_account_id(),
         signer_receiver.get_account_id(),
         &signer_sender,
-        vec![Action::FunctionCall(Box::new(FunctionCallAction {
-            method_name: "call_promise".to_string(),
-            args: serde_json::to_vec(&data).unwrap(),
-            gas: GAS_1,
-            deposit: 0,
-        }))],
+        vec![Action::FunctionCall(Box::new(
+            FunctionCallAction {
+                method_name: "call_promise".to_string(),
+                args: serde_json::to_vec(&data).unwrap(),
+                gas: GAS_1,
+                deposit: 0,
+            },
+        ))],
         CryptoHash::default(),
         0,
     );
@@ -416,12 +426,14 @@ fn test_single_promise_no_callback_batch() {
         signer_sender.get_account_id(),
         signer_receiver.get_account_id(),
         &signer_sender,
-        vec![Action::FunctionCall(Box::new(FunctionCallAction {
-            method_name: "call_promise".to_string(),
-            args: serde_json::to_vec(&data).unwrap(),
-            gas: GAS_1,
-            deposit: 0,
-        }))],
+        vec![Action::FunctionCall(Box::new(
+            FunctionCallAction {
+                method_name: "call_promise".to_string(),
+                args: serde_json::to_vec(&data).unwrap(),
+                gas: GAS_1,
+                deposit: 0,
+            },
+        ))],
         CryptoHash::default(),
         0,
     );
@@ -489,12 +501,14 @@ fn test_single_promise_with_callback_batch() {
         signer_sender.get_account_id(),
         signer_receiver.get_account_id(),
         &signer_sender,
-        vec![Action::FunctionCall(Box::new(FunctionCallAction {
-            method_name: "call_promise".to_string(),
-            args: serde_json::to_vec(&data).unwrap(),
-            gas: GAS_1,
-            deposit: 0,
-        }))],
+        vec![Action::FunctionCall(Box::new(
+            FunctionCallAction {
+                method_name: "call_promise".to_string(),
+                args: serde_json::to_vec(&data).unwrap(),
+                gas: GAS_1,
+                deposit: 0,
+            },
+        ))],
         CryptoHash::default(),
         0,
     );
@@ -564,12 +578,14 @@ fn test_simple_transfer() {
         signer_sender.get_account_id(),
         signer_receiver.get_account_id(),
         &signer_sender,
-        vec![Action::FunctionCall(Box::new(FunctionCallAction {
-            method_name: "call_promise".to_string(),
-            args: serde_json::to_vec(&data).unwrap(),
-            gas: GAS_1,
-            deposit: 0,
-        }))],
+        vec![Action::FunctionCall(Box::new(
+            FunctionCallAction {
+                method_name: "call_promise".to_string(),
+                args: serde_json::to_vec(&data).unwrap(),
+                gas: GAS_1,
+                deposit: 0,
+            },
+        ))],
         CryptoHash::default(),
         0,
     );
@@ -632,12 +648,14 @@ fn test_create_account_with_transfer_and_full_key() {
         signer_sender.get_account_id(),
         signer_receiver.get_account_id(),
         &signer_sender,
-        vec![Action::FunctionCall(Box::new(FunctionCallAction {
-            method_name: "call_promise".to_string(),
-            args: serde_json::to_vec(&data).unwrap(),
-            gas: GAS_1,
-            deposit: 0,
-        }))],
+        vec![Action::FunctionCall(Box::new(
+            FunctionCallAction {
+                method_name: "call_promise".to_string(),
+                args: serde_json::to_vec(&data).unwrap(),
+                gas: GAS_1,
+                deposit: 0,
+            },
+        ))],
         CryptoHash::default(),
         0,
     );
@@ -745,12 +763,14 @@ fn test_account_factory() {
         signer_sender.get_account_id(),
         signer_receiver.get_account_id(),
         &signer_sender,
-        vec![Action::FunctionCall(Box::new(FunctionCallAction {
-            method_name: "call_promise".to_string(),
-            args: serde_json::to_vec(&data).unwrap(),
-            gas: GAS_1,
-            deposit: 0,
-        }))],
+        vec![Action::FunctionCall(Box::new(
+            FunctionCallAction {
+                method_name: "call_promise".to_string(),
+                args: serde_json::to_vec(&data).unwrap(),
+                gas: GAS_1,
+                deposit: 0,
+            },
+        ))],
         CryptoHash::default(),
         0,
     );
@@ -892,12 +912,14 @@ fn test_create_account_add_key_call_delete_key_delete_account() {
         signer_sender.get_account_id(),
         signer_receiver.get_account_id(),
         &signer_sender,
-        vec![Action::FunctionCall(Box::new(FunctionCallAction {
-            method_name: "call_promise".to_string(),
-            args: serde_json::to_vec(&data).unwrap(),
-            gas: GAS_1,
-            deposit: 0,
-        }))],
+        vec![Action::FunctionCall(Box::new(
+            FunctionCallAction {
+                method_name: "call_promise".to_string(),
+                args: serde_json::to_vec(&data).unwrap(),
+                gas: GAS_1,
+                deposit: 0,
+            },
+        ))],
         CryptoHash::default(),
         0,
     );
@@ -966,7 +988,11 @@ fn test_transfer_64len_hex() {
         AccountId::try_from(hex::encode(pk.public_key().unwrap_as_ed25519().0)).unwrap();
 
     let group = RuntimeGroup::new_with_account_ids(
-        vec!["near_0".parse().unwrap(), "near_1".parse().unwrap(), account_id.clone()],
+        vec![
+            "near_0".parse().unwrap(),
+            "near_1".parse().unwrap(),
+            account_id.clone(),
+        ],
         2,
         near_test_contracts::rs_contract(),
     );
@@ -988,12 +1014,14 @@ fn test_transfer_64len_hex() {
         signer_sender.get_account_id(),
         signer_receiver.get_account_id(),
         &signer_sender,
-        vec![Action::FunctionCall(Box::new(FunctionCallAction {
-            method_name: "call_promise".to_string(),
-            args: serde_json::to_vec(&data).unwrap(),
-            gas: GAS_1,
-            deposit: 0,
-        }))],
+        vec![Action::FunctionCall(Box::new(
+            FunctionCallAction {
+                method_name: "call_promise".to_string(),
+                args: serde_json::to_vec(&data).unwrap(),
+                gas: GAS_1,
+                deposit: 0,
+            },
+        ))],
         CryptoHash::default(),
         0,
     );
@@ -1031,7 +1059,11 @@ fn test_create_transfer_64len_hex_fail() {
         AccountId::try_from(hex::encode(pk.public_key().unwrap_as_ed25519().0)).unwrap();
 
     let group = RuntimeGroup::new_with_account_ids(
-        vec!["near_0".parse().unwrap(), "near_1".parse().unwrap(), account_id.clone()],
+        vec![
+            "near_0".parse().unwrap(),
+            "near_1".parse().unwrap(),
+            account_id.clone(),
+        ],
         2,
         near_test_contracts::rs_contract(),
     );
@@ -1056,12 +1088,14 @@ fn test_create_transfer_64len_hex_fail() {
         signer_sender.get_account_id(),
         signer_receiver.get_account_id(),
         &signer_sender,
-        vec![Action::FunctionCall(Box::new(FunctionCallAction {
-            method_name: "call_promise".to_string(),
-            args: serde_json::to_vec(&data).unwrap(),
-            gas: GAS_1,
-            deposit: 0,
-        }))],
+        vec![Action::FunctionCall(Box::new(
+            FunctionCallAction {
+                method_name: "call_promise".to_string(),
+                args: serde_json::to_vec(&data).unwrap(),
+                gas: GAS_1,
+                deposit: 0,
+            },
+        ))],
         CryptoHash::default(),
         0,
     );

@@ -27,7 +27,13 @@ fn test_storage_proof_size_limit() {
     let user_account: AccountId = "test1".parse().unwrap();
     let runtime_config_store = RuntimeConfigStore::new(None);
     let mut env = {
-        let mut genesis = Genesis::test(vec![contract_account.clone(), user_account.clone()], 1);
+        let mut genesis = Genesis::test(
+            vec![
+                contract_account.clone(),
+                user_account.clone(),
+            ],
+            1,
+        );
         genesis.config.epoch_length = epoch_length;
         genesis.config.protocol_version = PROTOCOL_VERSION;
         TestEnv::builder(&genesis.config)
@@ -38,11 +44,15 @@ fn test_storage_proof_size_limit() {
     // setup: deploy the contract
     {
         let code = near_test_contracts::rs_contract().to_vec();
-        let actions = vec![Action::DeployContract(DeployContractAction { code })];
+        let actions = vec![Action::DeployContract(
+            DeployContractAction { code },
+        )];
 
         let signer = InMemorySigner::test_signer(&contract_account);
         let tx = env.tx_from_actions(actions, &signer, signer.get_account_id());
-        env.execute_tx(tx).unwrap().assert_success();
+        env.execute_tx(tx)
+            .unwrap()
+            .assert_success();
     }
 
     // Fetching the correct nonce from `env` is a bit fiddly, we would have to
@@ -67,7 +77,11 @@ fn test_storage_proof_size_limit() {
             contract_account.clone(),
             &signer,
             vec![action],
-            env.clients[0].chain.head().unwrap().last_block_hash,
+            env.clients[0]
+                .chain
+                .head()
+                .unwrap()
+                .last_block_hash,
             0,
         );
         nonce += 1;
@@ -75,7 +89,11 @@ fn test_storage_proof_size_limit() {
         assert_matches!(res.status, FinalExecutionStatus::SuccessValue(_));
     }
 
-    let after_writes_block_hash = env.clients[0].chain.head().unwrap().last_block_hash;
+    let after_writes_block_hash = env.clients[0]
+        .chain
+        .head()
+        .unwrap()
+        .last_block_hash;
     // read_n_megabytes reads keys between from..to, (to - from) MB of data in total.
     let mut make_read_transaction = |from: u8, to: u8| {
         let action = Action::FunctionCall(Box::new(FunctionCallAction {
@@ -108,15 +126,15 @@ fn test_storage_proof_size_limit() {
     let res = env.execute_tx(read20_tx).unwrap();
     assert_matches!(res.status, FinalExecutionStatus::Failure(_));
     let error_string = match res.status {
-        FinalExecutionStatus::Failure(TxExecutionError::ActionError(action_error)) => {
+        | FinalExecutionStatus::Failure(TxExecutionError::ActionError(action_error)) => {
             match action_error.kind {
-                ActionErrorKind::FunctionCallError(FunctionCallError::ExecutionError(
+                | ActionErrorKind::FunctionCallError(FunctionCallError::ExecutionError(
                     error_string,
                 )) => error_string,
-                other => panic!("Bad ActionErrorKind: {:?}", other),
+                | other => panic!("Bad ActionErrorKind: {:?}", other),
             }
         }
-        other => panic!("Bad FinalExecutionStatus: {:?}", other),
+        | other => panic!("Bad FinalExecutionStatus: {:?}", other),
     };
     assert!(error_string
         .contains("Size of the recorded trie storage proof has exceeded the allowed limit"));
@@ -126,8 +144,11 @@ fn test_storage_proof_size_limit() {
     // After the first two receipts the 4MB soft limit will be hit and the third receipt will be postponed to
     // the next chunk.
     // We must read different values in every receipt to make sure that the receipts are always recording fresh data.
-    let read2_txs =
-        [make_read_transaction(0, 3), make_read_transaction(3, 6), make_read_transaction(6, 9)];
+    let read2_txs = [
+        make_read_transaction(0, 3),
+        make_read_transaction(3, 6),
+        make_read_transaction(6, 9),
+    ];
     for read2_tx in &read2_txs {
         let response = env.clients[0].process_tx(read2_tx.clone(), false, false);
         assert_eq!(response, ProcessTxResponse::ValidTx);
@@ -135,10 +156,16 @@ fn test_storage_proof_size_limit() {
 
     let mut next_chunk = || {
         let tip = env.clients[0].chain.head().unwrap();
-        let block = env.clients[0].produce_block(tip.height + 1).unwrap().unwrap();
+        let block = env.clients[0]
+            .produce_block(tip.height + 1)
+            .unwrap()
+            .unwrap();
         env.process_block(0, block.clone(), Provenance::PRODUCED);
         let chunk_header = block.chunks().get(0).unwrap().clone();
-        env.clients[0].chain.get_chunk(&chunk_header.chunk_hash()).unwrap()
+        env.clients[0]
+            .chain
+            .get_chunk(&chunk_header.chunk_hash())
+            .unwrap()
     };
 
     // Empty chunk
@@ -169,16 +196,22 @@ fn test_storage_proof_size_limit() {
 }
 
 fn count_function_call_receipts(receipts: &[Receipt]) -> usize {
-    receipts.iter().filter(|r| matches!(receipt_action(r), Action::FunctionCall(_))).count()
+    receipts
+        .iter()
+        .filter(|r| matches!(receipt_action(r), Action::FunctionCall(_)))
+        .count()
 }
 
 fn count_transfer_receipts(receipts: &[Receipt]) -> usize {
-    receipts.iter().filter(|r| matches!(receipt_action(r), Action::Transfer(_))).count()
+    receipts
+        .iter()
+        .filter(|r| matches!(receipt_action(r), Action::Transfer(_)))
+        .count()
 }
 
 fn receipt_action(receipt: &Receipt) -> &Action {
     match receipt.receipt() {
-        ReceiptEnum::Action(action_receipt) => &action_receipt.actions[0],
-        _ => panic!("Expected Action receipt"),
+        | ReceiptEnum::Action(action_receipt) => &action_receipt.actions[0],
+        | _ => panic!("Expected Action receipt"),
     }
 }

@@ -38,14 +38,20 @@ impl ChunkStats {
         }
     }
 
-    pub const fn new_with_production(produced: u64, expected: u64) -> Self {
+    pub const fn new_with_production(
+        produced: u64,
+        expected: u64,
+    ) -> Self {
         ChunkStats {
             production: ValidatorStats { produced, expected },
             endorsement: ValidatorStats { produced: 0, expected: 0 },
         }
     }
 
-    pub const fn new_with_endorsement(produced: u64, expected: u64) -> Self {
+    pub const fn new_with_endorsement(
+        produced: u64,
+        expected: u64,
+    ) -> Self {
         ChunkStats {
             production: ValidatorStats { produced: 0, expected: 0 },
             endorsement: ValidatorStats { produced, expected },

@@ -48,8 +48,9 @@ pub fn check_storage_stake(
     #[cfg(not(feature = "protocol_feature_nonrefundable_transfer_nep491"))]
     let billable_storage_bytes = account.storage_usage();
     #[cfg(feature = "protocol_feature_nonrefundable_transfer_nep491")]
-    let billable_storage_bytes =
-        account.storage_usage().saturating_sub(account.permanent_storage_bytes());
+    let billable_storage_bytes = account
+        .storage_usage()
+        .saturating_sub(account.permanent_storage_bytes());
 
     let required_amount = Balance::from(billable_storage_bytes)
         .checked_mul(runtime_config.storage_amount_per_byte())
@@ -114,7 +115,10 @@ pub fn validate_transaction(
     }
 
     let transaction_size = signed_transaction.get_size();
-    let max_transaction_size = config.wasm_config.limit_config.max_transaction_size;
+    let max_transaction_size = config
+        .wasm_config
+        .limit_config
+        .max_transaction_size;
     if transaction_size > max_transaction_size {
         return Err(InvalidTxError::TransactionSizeExceeded {
             size: transaction_size,
@@ -155,15 +159,15 @@ pub fn verify_and_charge_transaction(
     let signer_id = transaction.signer_id();
 
     let mut signer = match get_account(state_update, signer_id)? {
-        Some(signer) => signer,
-        None => {
+        | Some(signer) => signer,
+        | None => {
             return Err(InvalidTxError::SignerDoesNotExist { signer_id: signer_id.clone() });
         }
     };
 
     let mut access_key = match get_access_key(state_update, signer_id, transaction.public_key())? {
-        Some(access_key) => access_key,
-        None => {
+        | Some(access_key) => access_key,
+        | None => {
             return Err(InvalidTxError::InvalidAccessKeyError(
                 InvalidAccessKeyError::AccessKeyNotFound {
                     account_id: signer_id.clone(),
@@ -197,39 +201,46 @@ pub fn verify_and_charge_transaction(
 
     access_key.nonce = transaction.nonce();
 
-    signer.set_amount(signer.amount().checked_sub(total_cost).ok_or_else(|| {
-        InvalidTxError::NotEnoughBalance {
-            signer_id: signer_id.clone(),
-            balance: signer.amount(),
-            cost: total_cost,
-        }
-    })?);
+    signer.set_amount(
+        signer
+            .amount()
+            .checked_sub(total_cost)
+            .ok_or_else(|| InvalidTxError::NotEnoughBalance {
+                signer_id: signer_id.clone(),
+                balance: signer.amount(),
+                cost: total_cost,
+            })?,
+    );
 
     if let AccessKeyPermission::FunctionCall(ref mut function_call_permission) =
         access_key.permission
     {
         if let Some(ref mut allowance) = function_call_permission.allowance {
-            *allowance = allowance.checked_sub(total_cost).ok_or_else(|| {
-                InvalidTxError::InvalidAccessKeyError(InvalidAccessKeyError::NotEnoughAllowance {
-                    account_id: signer_id.clone(),
-                    public_key: transaction.public_key().clone().into(),
-                    allowance: *allowance,
-                    cost: total_cost,
-                })
-            })?;
+            *allowance = allowance
+                .checked_sub(total_cost)
+                .ok_or_else(|| {
+                    InvalidTxError::InvalidAccessKeyError(
+                        InvalidAccessKeyError::NotEnoughAllowance {
+                            account_id: signer_id.clone(),
+                            public_key: transaction.public_key().clone().into(),
+                            allowance: *allowance,
+                            cost: total_cost,
+                        },
+                    )
+                })?;
         }
     }
 
     match check_storage_stake(&signer, config, current_protocol_version) {
-        Ok(()) => {}
-        Err(StorageStakingError::LackBalanceForStorageStaking(amount)) => {
+        | Ok(()) => {}
+        | Err(StorageStakingError::LackBalanceForStorageStaking(amount)) => {
             return Err(InvalidTxError::LackBalanceForState {
                 signer_id: signer_id.clone(),
                 amount,
             }
             .into())
         }
-        Err(StorageStakingError::StorageError(err)) => {
+        | Err(StorageStakingError::StorageError(err)) => {
             return Err(StorageError::StorageInconsistentState(err).into());
         }
     };
@@ -252,12 +263,16 @@ pub fn verify_and_charge_transaction(
                 return Err(InvalidTxError::InvalidAccessKeyError(
                     InvalidAccessKeyError::ReceiverMismatch {
                         tx_receiver: transaction.receiver_id().clone(),
-                        ak_receiver: function_call_permission.receiver_id.clone(),
+                        ak_receiver: function_call_permission
+                            .receiver_id
+                            .clone(),
                     },
                 )
                 .into());
             }
-            if !function_call_permission.method_names.is_empty()
+            if !function_call_permission
+                .method_names
+                .is_empty()
                 && function_call_permission
                     .method_names
                     .iter()
@@ -292,8 +307,11 @@ pub(crate) fn validate_receipt(
     mode: ValidateReceiptMode,
 ) -> Result<(), ReceiptValidationError> {
     if mode == ValidateReceiptMode::NewReceipt {
-        let receipt_size: u64 =
-            borsh::to_vec(receipt).unwrap().len().try_into().expect("Can't convert usize to u64");
+        let receipt_size: u64 = borsh::to_vec(receipt)
+            .unwrap()
+            .len()
+            .try_into()
+            .expect("Can't convert usize to u64");
         if receipt_size > limit_config.max_receipt_size {
             return Err(ReceiptValidationError::ReceiptSizeExceeded {
                 size: receipt_size,
@@ -315,10 +333,10 @@ pub(crate) fn validate_receipt(
     })?;
 
     match receipt.receipt() {
-        ReceiptEnum::Action(action_receipt) | ReceiptEnum::PromiseYield(action_receipt) => {
+        | ReceiptEnum::Action(action_receipt) | ReceiptEnum::PromiseYield(action_receipt) => {
             validate_action_receipt(limit_config, action_receipt, current_protocol_version)
         }
-        ReceiptEnum::Data(data_receipt) | ReceiptEnum::PromiseResume(data_receipt) => {
+        | ReceiptEnum::Data(data_receipt) | ReceiptEnum::PromiseResume(data_receipt) => {
             validate_data_receipt(limit_config, data_receipt)
         }
     }
@@ -360,7 +378,11 @@ fn validate_data_receipt(
     limit_config: &LimitConfig,
     receipt: &DataReceipt,
 ) -> Result<(), ReceiptValidationError> {
-    let data_len = receipt.data.as_ref().map(|data| data.len()).unwrap_or(0);
+    let data_len = receipt
+        .data
+        .as_ref()
+        .map(|data| data.len())
+        .unwrap_or(0);
     if data_len as u64 > limit_config.max_length_returned_data {
         return Err(ReceiptValidationError::ReturnedValueLengthExceeded {
             length: data_len as u64,
@@ -432,25 +454,24 @@ pub fn validate_action(
     current_protocol_version: ProtocolVersion,
 ) -> Result<(), ActionsValidationError> {
     match action {
-        Action::CreateAccount(_) => Ok(()),
-        Action::DeployContract(a) => validate_deploy_contract_action(limit_config, a),
-        Action::DeployGlobalContract(a) => {
+        | Action::CreateAccount(_) => Ok(()),
+        | Action::DeployContract(a) => validate_deploy_contract_action(limit_config, a),
+        | Action::DeployGlobalContract(a) => {
             validate_deploy_global_contract_action(limit_config, a, current_protocol_version)
         }
-        Action::UseGlobalContract(_) => {
-            validate_use_global_contract_action(current_protocol_version)
-        }
-        Action::FunctionCall(a) => validate_function_call_action(limit_config, a),
-        Action::Transfer(_) => Ok(()),
+        | Action::FunctionCall(a) => validate_function_call_action(limit_config, a),
+        | Action::Transfer(_) => Ok(()),
         #[cfg(feature = "protocol_feature_nonrefundable_transfer_nep491")]
-        Action::NonrefundableStorageTransfer(_) => {
+        | Action::NonrefundableStorageTransfer(_) => {
             check_feature_enabled(ProtocolFeature::NonrefundableStorage, current_protocol_version)
         }
-        Action::Stake(a) => validate_stake_action(a),
-        Action::AddKey(a) => validate_add_key_action(limit_config, a),
-        Action::DeleteKey(_) => Ok(()),
-        Action::DeleteAccount(a) => validate_delete_action(a),
-        Action::Delegate(a) => validate_delegate_action(limit_config, a, current_protocol_version),
+        | Action::Stake(a) => validate_stake_action(a),
+        | Action::AddKey(a) => validate_add_key_action(limit_config, a),
+        | Action::DeleteKey(_) => Ok(()),
+        | Action::DeleteAccount(a) => validate_delete_action(a),
+        | Action::Delegate(a) => {
+            validate_delegate_action(limit_config, a, current_protocol_version)
+        }
     }
 }
 
@@ -459,7 +480,9 @@ fn validate_delegate_action(
     signed_delegate_action: &SignedDelegateAction,
     current_protocol_version: ProtocolVersion,
 ) -> Result<(), ActionsValidationError> {
-    let actions = signed_delegate_action.delegate_action.get_actions();
+    let actions = signed_delegate_action
+        .delegate_action
+        .get_actions();
     validate_actions(limit_config, &actions, current_protocol_version)?;
     Ok(())
 }
@@ -485,8 +508,12 @@ fn validate_deploy_global_contract_action(
     action: &DeployGlobalContractAction,
     current_protocol_version: ProtocolVersion,
 ) -> Result<(), ActionsValidationError> {
-    check_global_contracts_enabled(current_protocol_version)?;
-
+    if !checked_feature!("stable", GlobalContracts, current_protocol_version) {
+        return Err(ActionsValidationError::UnsupportedProtocolFeature {
+            protocol_feature: "GlobalContracts".to_owned(),
+            version: current_protocol_version,
+        });
+    }
     if action.code.len() as u64 > limit_config.max_contract_size {
         return Err(ActionsValidationError::ContractSizeExceeded {
             size: action.code.len() as u64,
@@ -495,13 +522,6 @@ fn validate_deploy_global_contract_action(
     }
 
     Ok(())
-}
-
-/// Validates `UseGlobalContractAction`.
-fn validate_use_global_contract_action(
-    current_protocol_version: ProtocolVersion,
-) -> Result<(), ActionsValidationError> {
-    check_global_contracts_enabled(current_protocol_version)
 }
 
 /// Validates `FunctionCallAction`. Checks that the method name length doesn't exceed the limit and
@@ -553,8 +573,8 @@ fn validate_add_key_action(
         // Check whether `receiver_id` is a valid account_id. Historically, we
         // allowed arbitrary strings there!
         match limit_config.account_id_validity_rules_version {
-            near_primitives_core::config::AccountIdValidityRulesVersion::V0 => (),
-            near_primitives_core::config::AccountIdValidityRulesVersion::V1 => {
+            | near_primitives_core::config::AccountIdValidityRulesVersion::V0 => (),
+            | near_primitives_core::config::AccountIdValidityRulesVersion::V1 => {
                 if let Err(_) = fc.receiver_id.parse::<AccountId>() {
                     return Err(ActionsValidationError::InvalidAccountId {
                         account_id: truncate_string(&fc.receiver_id, AccountId::MAX_LEN * 2),
@@ -615,25 +635,16 @@ fn check_feature_enabled(
     }
 }
 
-fn truncate_string(s: &str, limit: usize) -> String {
+fn truncate_string(
+    s: &str,
+    limit: usize,
+) -> String {
     for i in (0..=limit).rev() {
         if let Some(s) = s.get(..i) {
             return s.to_string();
         }
     }
     unreachable!()
-}
-
-fn check_global_contracts_enabled(
-    current_protocol_version: ProtocolVersion,
-) -> Result<(), ActionsValidationError> {
-    if !checked_feature!("stable", GlobalContracts, current_protocol_version) {
-        return Err(ActionsValidationError::UnsupportedProtocolFeature {
-            protocol_feature: "GlobalContracts".to_owned(),
-            version: current_protocol_version,
-        });
-    }
-    Ok(())
 }
 
 #[cfg(test)]
@@ -669,7 +680,11 @@ mod tests {
 
     fn test_limit_config() -> LimitConfig {
         let store = near_parameters::RuntimeConfigStore::test();
-        store.get_config(PROTOCOL_VERSION).wasm_config.limit_config.clone()
+        store
+            .get_config(PROTOCOL_VERSION)
+            .wasm_config
+            .limit_config
+            .clone()
     }
 
     fn setup_common(
@@ -739,7 +754,10 @@ mod tests {
                 );
                 initial_account.set_code_hash(code_hash);
                 initial_account.set_storage_usage(
-                    initial_account.storage_usage().checked_add(code.len() as u64).unwrap(),
+                    initial_account
+                        .storage_usage()
+                        .checked_add(code.len() as u64)
+                        .unwrap(),
                 );
             }
             if has_data {
@@ -760,7 +778,10 @@ mod tests {
             set_account(&mut initial_state, account_id.clone(), &initial_account);
         }
         initial_state.commit(StateChangeCause::InitialState);
-        let trie_changes = initial_state.finalize().unwrap().trie_changes;
+        let trie_changes = initial_state
+            .finalize()
+            .unwrap()
+            .trie_changes;
         let mut store_update = tries.store_update();
         let root = tries.apply_all(&trie_changes, ShardUId::single_shard(), &mut store_update);
         store_update.commit().unwrap();
@@ -776,7 +797,7 @@ mod tests {
         expected_err: InvalidTxError,
     ) {
         match validate_transaction(config, gas_price, signed_transaction, true, PROTOCOL_VERSION) {
-            Ok(cost) => {
+            | Ok(cost) => {
                 // Validation passed, now verification should fail with expected_err
                 let err = verify_and_charge_transaction(
                     config,
@@ -789,7 +810,7 @@ mod tests {
                 .expect_err("expected an error");
                 assert_eq!(err, expected_err);
             }
-            Err(err) => {
+            | Err(err) => {
                 // Validation itself returned an error
                 assert_eq!(err, expected_err);
             }
@@ -859,7 +880,9 @@ mod tests {
                 false,
                 false,
             )]);
-            let account = get_account(&state_update, account_id).unwrap().unwrap();
+            let account = get_account(&state_update, account_id)
+                .unwrap()
+                .unwrap();
             (account, state_update)
         }
 
@@ -896,8 +919,9 @@ mod tests {
         #[test]
         fn test_zero_balance_account_with_invalid_access_key() {
             let account_id = alice_account();
-            let method_names =
-                (0..30).map(|i| format!("long_method_name_{}", i)).collect::<Vec<_>>();
+            let method_names = (0..30)
+                .map(|i| format!("long_method_name_{}", i))
+                .collect::<Vec<_>>();
             let (_, state_update, _) = setup_accounts(vec![(
                 account_id.clone(),
                 0,
@@ -913,7 +937,9 @@ mod tests {
                 false,
                 false,
             )]);
-            let account = get_account(&state_update, &account_id).unwrap().unwrap();
+            let account = get_account(&state_update, &account_id)
+                .unwrap()
+                .unwrap();
             assert!(!is_zero_balance_account(&account));
         }
     }
@@ -953,7 +979,9 @@ mod tests {
             Balance::from(verification_result.gas_burnt) * gas_price
         );
 
-        let account = get_account(&state_update, &alice_account()).unwrap().unwrap();
+        let account = get_account(&state_update, &alice_account())
+            .unwrap()
+            .unwrap();
         // Balance is decreased by (TX fees + transfer balance).
         assert_eq!(
             account.amount(),
@@ -964,8 +992,9 @@ mod tests {
                 - deposit
         );
 
-        let access_key =
-            get_access_key(&state_update, &alice_account(), &signer.public_key()).unwrap().unwrap();
+        let access_key = get_access_key(&state_update, &alice_account(), &signer.public_key())
+            .unwrap()
+            .unwrap();
         assert_eq!(access_key.nonce, 1);
     }
 
@@ -1033,7 +1062,9 @@ mod tests {
             setup_common(TESTING_INIT_BALANCE, 0, Some(AccessKey::full_access()));
 
         let wasm_config = Arc::make_mut(&mut config.wasm_config);
-        wasm_config.limit_config.max_total_prepaid_gas = 100;
+        wasm_config
+            .limit_config
+            .max_total_prepaid_gas = 100;
 
         assert_err_both_validations(
             &config,
@@ -1044,12 +1075,14 @@ mod tests {
                 alice_account(),
                 bob_account(),
                 &*signer,
-                vec![Action::FunctionCall(Box::new(FunctionCallAction {
-                    method_name: "hello".to_string(),
-                    args: b"abc".to_vec(),
-                    gas: 200,
-                    deposit: 0,
-                }))],
+                vec![Action::FunctionCall(Box::new(
+                    FunctionCallAction {
+                        method_name: "hello".to_string(),
+                        args: b"abc".to_vec(),
+                        gas: 200,
+                        deposit: 0,
+                    },
+                ))],
                 CryptoHash::default(),
                 0,
             ),
@@ -1154,7 +1187,9 @@ mod tests {
                 alice_account(),
                 bob_account(),
                 &*signer,
-                vec![Action::Transfer(TransferAction { deposit: 100 })],
+                vec![Action::Transfer(TransferAction {
+                    deposit: 100,
+                })],
                 CryptoHash::default(),
                 1,
             ),
@@ -1216,12 +1251,14 @@ mod tests {
             alice_account(),
             bob_account(),
             &*signer,
-            vec![Action::FunctionCall(Box::new(FunctionCallAction {
-                method_name: "hello".to_string(),
-                args: b"abc".to_vec(),
-                gas: 300,
-                deposit: 0,
-            }))],
+            vec![Action::FunctionCall(Box::new(
+                FunctionCallAction {
+                    method_name: "hello".to_string(),
+                    args: b"abc".to_vec(),
+                    gas: 300,
+                    deposit: 0,
+                },
+            ))],
             CryptoHash::default(),
             0,
         );
@@ -1255,7 +1292,8 @@ mod tests {
     fn test_validate_transaction_invalid_low_balance() {
         let mut config = RuntimeConfig::free();
         let fees = Arc::make_mut(&mut config.fees);
-        fees.storage_usage_config.storage_amount_per_byte = 10_000_000;
+        fees.storage_usage_config
+            .storage_amount_per_byte = 10_000_000;
         let initial_balance = 1_000_000_000;
         let transfer_amount = 950_000_000;
         let (signer, mut state_update, gas_price) =
@@ -1288,7 +1326,8 @@ mod tests {
     fn test_validate_transaction_invalid_low_balance_many_keys() {
         let mut config = RuntimeConfig::free();
         let fees = Arc::make_mut(&mut config.fees);
-        fees.storage_usage_config.storage_amount_per_byte = 10_000_000;
+        fees.storage_usage_config
+            .storage_amount_per_byte = 10_000_000;
         let initial_balance = 1_000_000_000;
         let transfer_amount = 950_000_000;
         let account_id = alice_account();
@@ -1320,7 +1359,9 @@ mod tests {
             PROTOCOL_VERSION,
         )
         .expect_err("expected an error");
-        let account = get_account(&state_update, &account_id).unwrap().unwrap();
+        let account = get_account(&state_update, &account_id)
+            .unwrap()
+            .unwrap();
 
         assert_eq!(
             err,
@@ -1402,7 +1443,9 @@ mod tests {
             alice_account(),
             bob_account(),
             &*signer,
-            vec![Action::CreateAccount(CreateAccountAction {})],
+            vec![Action::CreateAccount(
+                CreateAccountAction {},
+            )],
             CryptoHash::default(),
             0,
         );
@@ -1438,12 +1481,14 @@ mod tests {
             alice_account(),
             eve_dot_alice_account(),
             &*signer,
-            vec![Action::FunctionCall(Box::new(FunctionCallAction {
-                method_name: "hello".to_string(),
-                args: b"abc".to_vec(),
-                gas: 100,
-                deposit: 0,
-            }))],
+            vec![Action::FunctionCall(Box::new(
+                FunctionCallAction {
+                    method_name: "hello".to_string(),
+                    args: b"abc".to_vec(),
+                    gas: 100,
+                    deposit: 0,
+                },
+            ))],
             CryptoHash::default(),
             0,
         );
@@ -1477,7 +1522,10 @@ mod tests {
                 permission: AccessKeyPermission::FunctionCall(FunctionCallPermission {
                     allowance: None,
                     receiver_id: bob_account().into(),
-                    method_names: vec!["not_hello".to_string(), "world".to_string()],
+                    method_names: vec![
+                        "not_hello".to_string(),
+                        "world".to_string(),
+                    ],
                 }),
             }),
         );
@@ -1487,12 +1535,14 @@ mod tests {
             alice_account(),
             bob_account(),
             &*signer,
-            vec![Action::FunctionCall(Box::new(FunctionCallAction {
-                method_name: "hello".to_string(),
-                args: b"abc".to_vec(),
-                gas: 100,
-                deposit: 0,
-            }))],
+            vec![Action::FunctionCall(Box::new(
+                FunctionCallAction {
+                    method_name: "hello".to_string(),
+                    args: b"abc".to_vec(),
+                    gas: 100,
+                    deposit: 0,
+                },
+            ))],
             CryptoHash::default(),
             0,
         );
@@ -1535,12 +1585,14 @@ mod tests {
             alice_account(),
             bob_account(),
             &*signer,
-            vec![Action::FunctionCall(Box::new(FunctionCallAction {
-                method_name: "hello".to_string(),
-                args: b"abc".to_vec(),
-                gas: 100,
-                deposit: 100,
-            }))],
+            vec![Action::FunctionCall(Box::new(
+                FunctionCallAction {
+                    method_name: "hello".to_string(),
+                    args: b"abc".to_vec(),
+                    gas: 100,
+                    deposit: 100,
+                },
+            ))],
             CryptoHash::default(),
             0,
         );
@@ -1570,7 +1622,9 @@ mod tests {
             alice_account(),
             bob_account(),
             &*signer,
-            vec![Action::DeployContract(DeployContractAction { code: vec![1; 5] })],
+            vec![Action::DeployContract(
+                DeployContractAction { code: vec![1; 5] },
+            )],
             CryptoHash::default(),
             0,
         );
@@ -1580,7 +1634,9 @@ mod tests {
         let max_transaction_size = transaction_size - 1;
         {
             let wasm_config = Arc::make_mut(&mut config.wasm_config);
-            wasm_config.limit_config.max_transaction_size = transaction_size - 1;
+            wasm_config
+                .limit_config
+                .max_transaction_size = transaction_size - 1;
         }
 
         let err = validate_transaction(&config, gas_price, &transaction, false, PROTOCOL_VERSION)
@@ -1595,7 +1651,9 @@ mod tests {
 
         {
             let wasm_config = Arc::make_mut(&mut config.wasm_config);
-            wasm_config.limit_config.max_transaction_size = transaction_size + 1;
+            wasm_config
+                .limit_config
+                .max_transaction_size = transaction_size + 1;
         }
 
         validate_verify_and_charge_transaction(
@@ -1635,7 +1693,10 @@ mod tests {
                     signer_public_key: PublicKey::empty(KeyType::ED25519),
                     gas_price: 100,
                     output_data_receivers: vec![],
-                    input_data_ids: vec![CryptoHash::default(), CryptoHash::default()],
+                    input_data_ids: vec![
+                        CryptoHash::default(),
+                        CryptoHash::default()
+                    ],
                     actions: vec![]
                 },
                 PROTOCOL_VERSION
@@ -1697,12 +1758,14 @@ mod tests {
         let limit_config = test_limit_config();
         validate_actions(
             &limit_config,
-            &[Action::FunctionCall(Box::new(FunctionCallAction {
-                method_name: "hello".to_string(),
-                args: b"abc".to_vec(),
-                gas: 100,
-                deposit: 0,
-            }))],
+            &[Action::FunctionCall(Box::new(
+                FunctionCallAction {
+                    method_name: "hello".to_string(),
+                    args: b"abc".to_vec(),
+                    gas: 100,
+                    deposit: 0,
+                },
+            ))],
             PROTOCOL_VERSION,
         )
         .expect("valid function call action");
@@ -1885,7 +1948,9 @@ mod tests {
             &test_limit_config(),
             &Action::Stake(Box::new(StakeAction {
                 stake: 100,
-                public_key: "ed25519:KuTCtARNzxZQ3YvXDeLjx83FDqxv2SdQTSbiq876zR7".parse().unwrap(),
+                public_key: "ed25519:KuTCtARNzxZQ3YvXDeLjx83FDqxv2SdQTSbiq876zR7"
+                    .parse()
+                    .unwrap(),
             })),
             PROTOCOL_VERSION,
         )
@@ -1971,10 +2036,10 @@ mod tests {
             delegate_action: DelegateAction {
                 sender_id: "bob.test.near".parse().unwrap(),
                 receiver_id: "token.test.near".parse().unwrap(),
-                actions: vec![NonDelegateAction::try_from(Action::CreateAccount(
-                    CreateAccountAction {},
-                ))
-                .unwrap()],
+                actions: vec![
+                    NonDelegateAction::try_from(Action::CreateAccount(CreateAccountAction {}))
+                        .unwrap(),
+                ],
                 nonce: 19000001,
                 max_block_height: 57,
                 public_key: PublicKey::empty(KeyType::ED25519),
@@ -1995,7 +2060,9 @@ mod tests {
         assert_eq!(
             validate_actions(
                 &&test_limit_config(),
-                &[Action::Delegate(Box::new(signed_delegate_action.clone())),],
+                &[Action::Delegate(Box::new(
+                    signed_delegate_action.clone()
+                )),],
                 PROTOCOL_VERSION,
             ),
             Ok(()),
@@ -2015,7 +2082,11 @@ mod tests {
 
     #[test]
     fn test_truncate_string() {
-        fn check(input: &str, limit: usize, want: &str) {
+        fn check(
+            input: &str,
+            limit: usize,
+            want: &str,
+        ) {
             let got = truncate_string(input, limit);
             assert_eq!(got, want)
         }

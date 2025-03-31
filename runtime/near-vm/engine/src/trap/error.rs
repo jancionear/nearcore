@@ -22,12 +22,15 @@ enum RuntimeErrorSource {
 }
 
 impl fmt::Display for RuntimeErrorSource {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
         match self {
-            Self::Generic(s) => write!(f, "{}", s),
-            Self::User(s) => write!(f, "{}", s),
-            Self::OOM => write!(f, "Wasmer VM out of memory"),
-            Self::Trap(s) => write!(f, "{}", s.message()),
+            | Self::Generic(s) => write!(f, "{}", s),
+            | Self::User(s) => write!(f, "{}", s),
+            | Self::OOM => write!(f, "Wasmer VM out of memory"),
+            | Self::Trap(s) => write!(f, "{}", s.message()),
         }
     }
 }
@@ -69,11 +72,11 @@ impl RuntimeError {
         let info = FRAME_INFO.read().unwrap();
         match trap {
             // A user error
-            Trap::User(error) => {
+            | Trap::User(error) => {
                 match error.downcast::<Self>() {
                     // The error is already a RuntimeError, we return it directly
-                    Ok(runtime_error) => *runtime_error,
-                    Err(e) => Self::new_with_trace(
+                    | Ok(runtime_error) => *runtime_error,
+                    | Err(e) => Self::new_with_trace(
                         &info,
                         None,
                         RuntimeErrorSource::User(e),
@@ -82,18 +85,18 @@ impl RuntimeError {
                 }
             }
             // A trap caused by the VM being Out of Memory
-            Trap::OOM { backtrace } => {
+            | Trap::OOM { backtrace } => {
                 Self::new_with_trace(&info, None, RuntimeErrorSource::OOM, backtrace)
             }
             // A trap caused by an error on the generated machine code for a Wasm function
-            Trap::Wasm { pc, signal_trap, backtrace } => {
+            | Trap::Wasm { pc, signal_trap, backtrace } => {
                 let code = info
                     .lookup_trap_info(pc)
                     .map_or(signal_trap.unwrap_or(TrapCode::StackOverflow), |info| info.trap_code);
                 Self::new_with_trace(&info, Some(pc), RuntimeErrorSource::Trap(code), backtrace)
             }
             // A trap triggered manually from the Wasmer runtime
-            Trap::Lib { trap_code, backtrace } => {
+            | Trap::Lib { trap_code, backtrace } => {
                 Self::new_with_trace(&info, None, RuntimeErrorSource::Trap(trap_code), backtrace)
             }
         }
@@ -135,8 +138,10 @@ impl RuntimeError {
             .collect();
 
         // Let's construct the trace
-        let wasm_trace =
-            frames.into_iter().filter_map(|pc| info.lookup_frame_info(pc)).collect::<Vec<_>>();
+        let wasm_trace = frames
+            .into_iter()
+            .filter_map(|pc| info.lookup_frame_info(pc))
+            .collect::<Vec<_>>();
 
         Self { inner: Arc::new(RuntimeErrorInner { source, wasm_trace, native_trace }) }
     }
@@ -156,13 +161,13 @@ impl RuntimeError {
     pub fn downcast<T: Error + 'static>(self) -> Result<T, Self> {
         match Arc::try_unwrap(self.inner) {
             // We only try to downcast user errors
-            Ok(RuntimeErrorInner { source: RuntimeErrorSource::User(err), .. })
+            | Ok(RuntimeErrorInner { source: RuntimeErrorSource::User(err), .. })
                 if err.is::<T>() =>
             {
                 Ok(*err.downcast::<T>().unwrap())
             }
-            Ok(inner) => Err(Self { inner: Arc::new(inner) }),
-            Err(inner) => Err(Self { inner }),
+            | Ok(inner) => Err(Self { inner: Arc::new(inner) }),
+            | Err(inner) => Err(Self { inner }),
         }
     }
 
@@ -178,14 +183,17 @@ impl RuntimeError {
     /// Returns true if the `RuntimeError` is the same as T
     pub fn is<T: Error + 'static>(&self) -> bool {
         match &self.inner.source {
-            RuntimeErrorSource::User(err) => err.is::<T>(),
-            _ => false,
+            | RuntimeErrorSource::User(err) => err.is::<T>(),
+            | _ => false,
         }
     }
 }
 
 impl fmt::Debug for RuntimeError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
         f.debug_struct("RuntimeError")
             .field("source", &self.inner.source)
             .field("wasm_trace", &self.inner.wasm_trace)
@@ -195,7 +203,10 @@ impl fmt::Debug for RuntimeError {
 }
 
 impl fmt::Display for RuntimeError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
         write!(f, "RuntimeError: {}", self.message())?;
         let trace = self.trace();
         if trace.is_empty() {
@@ -207,11 +218,11 @@ impl fmt::Display for RuntimeError {
             writeln!(f)?;
             write!(f, "    at ")?;
             match frame.function_name() {
-                Some(name) => match rustc_demangle::try_demangle(name) {
-                    Ok(name) => write!(f, "{}", name)?,
-                    Err(_) => write!(f, "{}", name)?,
+                | Some(name) => match rustc_demangle::try_demangle(name) {
+                    | Ok(name) => write!(f, "{}", name)?,
+                    | Err(_) => write!(f, "{}", name)?,
                 },
-                None => write!(f, "<unnamed>")?,
+                | None => write!(f, "<unnamed>")?,
             }
             write!(f, " ({}[{}]:0x{:x})", name, func_index, frame.module_offset())?;
         }
@@ -222,9 +233,9 @@ impl fmt::Display for RuntimeError {
 impl std::error::Error for RuntimeError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match &self.inner.source {
-            RuntimeErrorSource::User(err) => Some(&**err),
-            RuntimeErrorSource::Trap(err) => Some(err),
-            _ => None,
+            | RuntimeErrorSource::User(err) => Some(&**err),
+            | RuntimeErrorSource::Trap(err) => Some(err),
+            | _ => None,
         }
     }
 }

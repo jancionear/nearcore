@@ -94,17 +94,19 @@ impl TriePrefetcher {
         for receipt in receipts.iter() {
             let is_refund = receipt.predecessor_id().is_system();
             let action_receipt = match receipt.receipt() {
-                ReceiptEnum::Action(action_receipt) | ReceiptEnum::PromiseYield(action_receipt) => {
-                    action_receipt
-                }
-                ReceiptEnum::Data(_) | ReceiptEnum::PromiseResume(_) => {
+                | ReceiptEnum::Action(action_receipt)
+                | ReceiptEnum::PromiseYield(action_receipt) => action_receipt,
+                | ReceiptEnum::Data(_) | ReceiptEnum::PromiseResume(_) => {
                     continue;
                 }
             };
             let account_id = receipt.receiver_id().clone();
 
             // general-purpose account prefetching
-            if self.prefetch_api.enable_receipt_prefetching {
+            if self
+                .prefetch_api
+                .enable_receipt_prefetching
+            {
                 let trie_key = TrieKey::Account { account_id: account_id.clone() };
                 self.prefetch_trie_key(trie_key)?;
                 if is_refund {
@@ -116,28 +118,34 @@ impl TriePrefetcher {
                 }
                 for action in &action_receipt.actions {
                     match action {
-                        Action::Delegate(delegate_action) => {
+                        | Action::Delegate(delegate_action) => {
                             let trie_key = TrieKey::AccessKey {
-                                account_id: delegate_action.delegate_action.sender_id.clone(),
-                                public_key: delegate_action.delegate_action.public_key.clone(),
+                                account_id: delegate_action
+                                    .delegate_action
+                                    .sender_id
+                                    .clone(),
+                                public_key: delegate_action
+                                    .delegate_action
+                                    .public_key
+                                    .clone(),
                             };
                             self.prefetch_trie_key(trie_key)?;
                         }
-                        Action::AddKey(add_key_action) => {
+                        | Action::AddKey(add_key_action) => {
                             let trie_key = TrieKey::AccessKey {
                                 account_id: account_id.clone(),
                                 public_key: add_key_action.public_key.clone(),
                             };
                             self.prefetch_trie_key(trie_key)?;
                         }
-                        Action::DeleteKey(delete_key_action) => {
+                        | Action::DeleteKey(delete_key_action) => {
                             let trie_key = TrieKey::AccessKey {
                                 account_id: account_id.clone(),
                                 public_key: delete_key_action.public_key.clone(),
                             };
                             self.prefetch_trie_key(trie_key)?;
                         }
-                        _ => {}
+                        | _ => {}
                     }
                 }
             }
@@ -153,15 +161,23 @@ impl TriePrefetcher {
                     code_prefetch_requested = true;
                 }
 
-                if self.prefetch_api.sweat_prefetch_receivers.contains(&account_id)
-                    && self.prefetch_api.sweat_prefetch_senders.contains(receipt.predecessor_id())
+                if self
+                    .prefetch_api
+                    .sweat_prefetch_receivers
+                    .contains(&account_id)
+                    && self
+                        .prefetch_api
+                        .sweat_prefetch_senders
+                        .contains(receipt.predecessor_id())
                 {
                     if fn_call.method_name == "record_batch" {
                         self.prefetch_sweat_record_batch(account_id.clone(), &fn_call.args)?;
                     }
                 }
 
-                let claim_sweat_cfg = &self.prefetch_api.claim_sweat_prefetch_config;
+                let claim_sweat_cfg = &self
+                    .prefetch_api
+                    .claim_sweat_prefetch_config;
                 if fn_call.method_name == "record_batch_for_hold" {
                     let config = claim_sweat_cfg.iter().find(|cfg| {
                         cfg.receiver == account_id.as_str()
@@ -176,11 +192,16 @@ impl TriePrefetcher {
                     }
                 }
 
-                if self.prefetch_api.kaiching_prefetch_config.iter().any(|cfg| {
-                    cfg.sender == receipt.predecessor_id().as_str()
-                        && cfg.receiver == account_id.as_str()
-                        && cfg.method_name == fn_call.method_name
-                }) {
+                if self
+                    .prefetch_api
+                    .kaiching_prefetch_config
+                    .iter()
+                    .any(|cfg| {
+                        cfg.sender == receipt.predecessor_id().as_str()
+                            && cfg.receiver == account_id.as_str()
+                            && cfg.method_name == fn_call.method_name
+                    })
+                {
                     self.prefetch_kaiching(account_id.clone(), &fn_call.args)?;
                 }
             }
@@ -197,7 +218,10 @@ impl TriePrefetcher {
         &mut self,
         transactions: SignedValidPeriodTransactions<'_>,
     ) -> Result<(), PrefetchError> {
-        if self.prefetch_api.enable_receipt_prefetching {
+        if self
+            .prefetch_api
+            .enable_receipt_prefetching
+        {
             for t in transactions.iter_nonexpired_transactions() {
                 let account_id = t.transaction.signer_id().clone();
                 let trie_key = TrieKey::Account { account_id };
@@ -235,18 +259,23 @@ impl TriePrefetcher {
         ret
     }
 
-    fn prefetch_trie_key(&self, trie_key: TrieKey) -> Result<(), PrefetchError> {
-        let res = self.prefetch_api.prefetch_trie_key(self.trie_root, trie_key);
+    fn prefetch_trie_key(
+        &self,
+        trie_key: TrieKey,
+    ) -> Result<(), PrefetchError> {
+        let res = self
+            .prefetch_api
+            .prefetch_trie_key(self.trie_root, trie_key);
         match res {
-            Err(PrefetchError::QueueFull) => {
+            | Err(PrefetchError::QueueFull) => {
                 self.prefetch_queue_full.inc();
                 debug!(target: "runtime::prefetch", "I/O scheduler input queue is full, dropping prefetch request");
             }
-            Err(PrefetchError::QueueDisconnected) => {
+            | Err(PrefetchError::QueueDisconnected) => {
                 // This shouldn't have happened, hence logging warning here
                 warn!(target: "runtime::prefetch", "I/O scheduler input queue is disconnected, dropping prefetch request");
             }
-            Ok(()) => self.prefetch_enqueued.inc(),
+            | Ok(()) => self.prefetch_enqueued.inc(),
         };
         res
     }
@@ -324,7 +353,11 @@ impl TriePrefetcher {
     /// Prefetcher tuned for kaiching contract calls.
     ///
     /// Remove after #10965 reaches mainnet.
-    fn prefetch_kaiching(&self, account_id: AccountId, arg: &[u8]) -> Result<(), PrefetchError> {
+    fn prefetch_kaiching(
+        &self,
+        account_id: AccountId,
+        arg: &[u8],
+    ) -> Result<(), PrefetchError> {
         let Ok(json) = serde_json::de::from_slice::<serde_json::Value>(&arg) else {
             return Ok(());
         };
@@ -468,7 +501,11 @@ mod tests {
     }
 
     #[track_caller]
-    fn check_prefetch_account(input: &[&str], prefetch: &[&str], expected_prefetched: usize) {
+    fn check_prefetch_account(
+        input: &[&str],
+        prefetch: &[&str],
+        expected_prefetched: usize,
+    ) {
         let input_keys = accounts_to_trie_keys(input);
         let prefetch_keys = accounts_to_trie_keys(prefetch);
 
@@ -493,7 +530,9 @@ mod tests {
         }
         let root = test_populate_trie(&tries, &Trie::EMPTY_ROOT, ShardUId::single_shard(), kvs);
         let trie = tries.get_trie_for_shard(ShardUId::single_shard(), root);
-        trie.internal_get_storage_as_caching_storage().unwrap().clear_cache();
+        trie.internal_get_storage_as_caching_storage()
+            .unwrap()
+            .clear_cache();
 
         let prefetcher =
             TriePrefetcher::new_if_enabled(&trie).expect("caching storage should have prefetcher");

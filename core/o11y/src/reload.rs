@@ -44,7 +44,7 @@ pub(crate) type TracingLayer<Inner> = Layered<
 >;
 
 pub(crate) fn set_log_layer_handle(
-    handle: Handle<EnvFilter, log_counter::LogCountingLayer<Registry>>,
+    handle: Handle<EnvFilter, log_counter::LogCountingLayer<Registry>>
 ) {
     LOG_LAYER_RELOAD_HANDLE
         .set(handle)
@@ -52,7 +52,7 @@ pub(crate) fn set_log_layer_handle(
 }
 
 pub(crate) fn set_otlp_layer_handle(
-    handle: Handle<Targets, LogLayer<log_counter::LogCountingLayer<Registry>>>,
+    handle: Handle<Targets, LogLayer<log_counter::LogCountingLayer<Registry>>>
 ) {
     OTLP_LAYER_RELOAD_HANDLE
         .set(handle)
@@ -94,10 +94,10 @@ pub fn reload_log_config(config: Option<&log_config::LogConfig>) {
         reload(None, None, None)
     };
     match result {
-        Ok(_) => {
+        | Ok(_) => {
             tracing::info!("Updated the logging layer according to `log_config.json`");
         }
-        Err(err) => {
+        | Err(err) => {
             eprintln!(
                 "Failed to update the logging layer according to the changed `log_config.json`. Errors: {:?}",
                 err
@@ -128,7 +128,9 @@ pub fn reload(
             if let Some(module) = verbose_module {
                 builder = builder.verbose(Some(module));
             }
-            let env_filter = builder.finish().map_err(ReloadError::Parse)?;
+            let env_filter = builder
+                .finish()
+                .map_err(ReloadError::Parse)?;
 
             reload_handle
                 .modify(|log_filter| {
@@ -143,7 +145,9 @@ pub fn reload(
         .map(|f| Targets::from_str(f).map_err(ReloadError::ParseOpentelemetry))
         .unwrap_or_else(|| {
             Ok(get_opentelemetry_filter(
-                *DEFAULT_OTLP_LEVEL.get().unwrap_or(&OpenTelemetryLevel::OFF),
+                *DEFAULT_OTLP_LEVEL
+                    .get()
+                    .unwrap_or(&OpenTelemetryLevel::OFF),
             ))
         });
     let opentelemetry_reload_result = OTLP_LAYER_RELOAD_HANDLE.get().map_or(

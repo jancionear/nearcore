@@ -48,12 +48,12 @@ impl BlockHeightRangeIterator {
         let mut current_block_hash: Option<CryptoHash> = None;
         for height in (from_height..=to_height).rev() {
             match chain_store.get_block_hash_by_height(height) {
-                Ok(hash) => {
+                | Ok(hash) => {
                     current_block_hash = Some(hash);
                     break;
                 }
-                Err(Error::DBNotFoundErr(_)) => continue,
-                err => err.unwrap(),
+                | Err(Error::DBNotFoundErr(_)) => continue,
+                | err => err.unwrap(),
             };
         }
 
@@ -66,10 +66,13 @@ impl Iterator for BlockHeightRangeIterator {
 
     fn next(&mut self) -> Option<Block> {
         let current_block_hash = match self.current_block_hash.take() {
-            Some(hash) => hash,
-            None => return None,
+            | Some(hash) => hash,
+            | None => return None,
         };
-        let current_block = self.chain_store.get_block(&current_block_hash).unwrap();
+        let current_block = self
+            .chain_store
+            .get_block(&current_block_hash)
+            .unwrap();
 
         // Make sure that the block is within the from..=to range, stop iterating if it isn't
         if current_block.header().height() >= self.from_block_height {

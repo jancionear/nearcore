@@ -34,8 +34,9 @@ fn slow_test_fix_validator_stake_threshold_protocol_upgrade() {
     let epoch_config_store = EpochConfigStore::for_chain_id("mainnet", None).unwrap();
     let epoch_length = 10;
     let initial_balance = 1_000_000 * ONE_NEAR;
-    let accounts =
-        (0..6).map(|i| format!("account{}", i).parse().unwrap()).collect::<Vec<AccountId>>();
+    let accounts = (0..6)
+        .map(|i| format!("account{}", i).parse().unwrap())
+        .collect::<Vec<AccountId>>();
     let clients = accounts.iter().cloned().collect_vec();
     let validators = vec![
         AccountInfo {
@@ -59,7 +60,12 @@ fn slow_test_fix_validator_stake_threshold_protocol_upgrade() {
     let genesis = TestGenesisBuilder::new()
         .protocol_version(protocol_version)
         .genesis_time_from_clock(&test_loop_builder.clock())
-        .shard_layout(epoch_config_store.get_config(protocol_version).shard_layout.clone())
+        .shard_layout(
+            epoch_config_store
+                .get_config(protocol_version)
+                .shard_layout
+                .clone(),
+        )
         .epoch_length(epoch_length)
         .validators_spec(validators_spec)
         .max_inflation_rate(Rational32::new(0, 1))
@@ -79,19 +85,36 @@ fn slow_test_fix_validator_stake_threshold_protocol_upgrade() {
 
     let epoch_id = client
         .epoch_manager
-        .get_epoch_id_from_prev_block(&client.chain.head().unwrap().last_block_hash)
+        .get_epoch_id_from_prev_block(
+            &client
+                .chain
+                .head()
+                .unwrap()
+                .last_block_hash,
+        )
         .unwrap();
-    let epoch_info = client.epoch_manager.get_epoch_info(&epoch_id).unwrap();
-    let protocol_version = client.epoch_manager.get_epoch_protocol_version(&epoch_id).unwrap();
+    let epoch_info = client
+        .epoch_manager
+        .get_epoch_info(&epoch_id)
+        .unwrap();
+    let protocol_version = client
+        .epoch_manager
+        .get_epoch_protocol_version(&epoch_id)
+        .unwrap();
     let validators = get_epoch_all_validators(client);
     let total_stake = validators
         .iter()
         .map(|v| {
             let account_id = &v.parse().unwrap();
-            epoch_info.get_validator_stake(account_id).unwrap()
+            epoch_info
+                .get_validator_stake(account_id)
+                .unwrap()
         })
         .sum::<u128>();
-    let num_shards = epoch_config_store.get_config(protocol_version).shard_layout.num_shards();
+    let num_shards = epoch_config_store
+        .get_config(protocol_version)
+        .shard_layout
+        .num_shards();
 
     assert!(protocol_version < ProtocolFeature::FixStakingThreshold.protocol_version());
     assert_eq!(validators.len(), 2, "proposal with stake at threshold should not be approved");

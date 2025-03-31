@@ -38,7 +38,10 @@ pub struct AllForOneProducer {
 }
 
 impl Producer for AllForOneProducer {
-    fn init(&mut self, shards: &[ShardId]) {
+    fn init(
+        &mut self,
+        shards: &[ShardId],
+    ) {
         // note: the `to_vec` is required to satisfy lifetimes
         #[allow(clippy::unnecessary_to_owned)]
         let iter = shards.to_vec().into_iter().cycle();
@@ -68,10 +71,10 @@ impl Producer for AllForOneProducer {
             let shard = self.round_robin_shards.next().unwrap();
             let mut tx_builder = tx_factory(shard);
             match hops {
-                1 => self.produce_one_hop_tx(shards, &mut tx_builder),
-                2 => self.produce_two_hops_tx(shards, &mut tx_builder),
-                3 => self.produce_three_hops_tx(shards, &mut tx_builder),
-                _ => unreachable!(),
+                | 1 => self.produce_one_hop_tx(shards, &mut tx_builder),
+                | 2 => self.produce_two_hops_tx(shards, &mut tx_builder),
+                | 3 => self.produce_three_hops_tx(shards, &mut tx_builder),
+                | _ => unreachable!(),
             }
             out.push(tx_builder);
         }
@@ -81,7 +84,11 @@ impl Producer for AllForOneProducer {
 
 impl AllForOneProducer {
     /// Transaction with a single receipt, going directly to shard 0.
-    fn produce_one_hop_tx(&self, shards: &[ShardId], tx: &mut TransactionBuilder) {
+    fn produce_one_hop_tx(
+        &self,
+        shards: &[ShardId],
+        tx: &mut TransactionBuilder,
+    ) {
         let heavy_receipt = self.receipt_to_shard_0(shards, 1);
         let first = tx.add_first_receipt(heavy_receipt, self.conversion_gas);
         tx.new_outgoing_receipt(first, utils::refund_receipt(tx.sender_shard()));
@@ -89,7 +96,11 @@ impl AllForOneProducer {
 
     /// Transaction with two receipts, a one executing locally with small
     /// execution gas, followed by one going to shard 0 spending more gas.
-    fn produce_two_hops_tx(&self, shards: &[ShardId], tx: &mut TransactionBuilder) {
+    fn produce_two_hops_tx(
+        &self,
+        shards: &[ShardId],
+        tx: &mut TransactionBuilder,
+    ) {
         let light_receipt = self.light_receipt(tx.sender_shard(), 0);
         let heavy_receipt = self.receipt_to_shard_0(shards, 1);
         let first = tx.add_first_receipt(light_receipt, self.conversion_gas);
@@ -101,7 +112,11 @@ impl AllForOneProducer {
 
     /// Transaction with a chain of three receipts, the last one spending the
     /// most gas. The last receipt always has shard 0 as receiver.
-    fn produce_three_hops_tx(&self, shards: &[ShardId], tx: &mut TransactionBuilder) {
+    fn produce_three_hops_tx(
+        &self,
+        shards: &[ShardId],
+        tx: &mut TransactionBuilder,
+    ) {
         let my_index = shards
             .iter()
             .position(|&id| id == tx.sender_shard())
@@ -122,7 +137,11 @@ impl AllForOneProducer {
         tx.new_outgoing_receipt(third, utils::refund_receipt(tx.sender_shard()));
     }
 
-    fn receipt_to_shard_0(&self, shards: &[ShardId], prior_hops: u64) -> ReceiptDefinition {
+    fn receipt_to_shard_0(
+        &self,
+        shards: &[ShardId],
+        prior_hops: u64,
+    ) -> ReceiptDefinition {
         ReceiptDefinition {
             receiver: shards[0],
             size: self.receipt_size,
@@ -131,7 +150,11 @@ impl AllForOneProducer {
         }
     }
 
-    fn light_receipt(&self, shard: ShardId, prior_hops: u64) -> ReceiptDefinition {
+    fn light_receipt(
+        &self,
+        shard: ShardId,
+        prior_hops: u64,
+    ) -> ReceiptDefinition {
         ReceiptDefinition {
             receiver: shard,
             size: self.receipt_size,
@@ -140,7 +163,11 @@ impl AllForOneProducer {
         }
     }
 
-    pub fn new(enable_one_hop: bool, enable_two_hops: bool, enable_three_hops: bool) -> Self {
+    pub fn new(
+        enable_one_hop: bool,
+        enable_two_hops: bool,
+        enable_three_hops: bool,
+    ) -> Self {
         Self { enable_one_hop, enable_two_hops, enable_three_hops, ..Default::default() }
     }
 

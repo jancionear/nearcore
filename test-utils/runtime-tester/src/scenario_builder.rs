@@ -67,39 +67,63 @@ impl ScenarioBuilder {
     }
 
     /// Changes number of accounts to `num_accounts`.
-    pub fn number_of_accounts(mut self, num_accounts: usize) -> Self {
-        self.scenario.network_config =
-            NetworkConfig { seeds: (0..num_accounts).map(id_to_seed).collect() };
+    pub fn number_of_accounts(
+        mut self,
+        num_accounts: usize,
+    ) -> Self {
+        self.scenario.network_config = NetworkConfig {
+            seeds: (0..num_accounts)
+                .map(id_to_seed)
+                .collect(),
+        };
         self
     }
 
     /// Changes max_total_prepaid_gas
-    pub fn max_total_prepaid_gas(mut self, max_total_prepaid_gas: Gas) -> Self {
-        self.scenario.runtime_config.max_total_prepaid_gas = max_total_prepaid_gas;
+    pub fn max_total_prepaid_gas(
+        mut self,
+        max_total_prepaid_gas: Gas,
+    ) -> Self {
+        self.scenario
+            .runtime_config
+            .max_total_prepaid_gas = max_total_prepaid_gas;
         self
     }
 
     /// Changes gas_limit
-    pub fn gas_limit(mut self, gas_limit: Gas) -> Self {
+    pub fn gas_limit(
+        mut self,
+        gas_limit: Gas,
+    ) -> Self {
         self.scenario.runtime_config.gas_limit = gas_limit;
         self
     }
 
     /// Changes epoch_length
-    pub fn epoch_length(mut self, epoch_length: BlockHeightDelta) -> Self {
-        self.scenario.runtime_config.epoch_length = epoch_length;
+    pub fn epoch_length(
+        mut self,
+        epoch_length: BlockHeightDelta,
+    ) -> Self {
+        self.scenario
+            .runtime_config
+            .epoch_length = epoch_length;
         self
     }
 
     /// Changes `use_in_memory_store`.
-    pub fn in_memory_store(mut self, in_memory_store: bool) -> Self {
+    pub fn in_memory_store(
+        mut self,
+        in_memory_store: bool,
+    ) -> Self {
         self.scenario.use_in_memory_store = in_memory_store;
         self
     }
 
     /// Adds empty block to the scenario with the next height (starting from 1).
     pub fn add_block(&mut self) {
-        self.scenario.blocks.push(BlockConfig::at_height(self.height));
+        self.scenario
+            .blocks
+            .push(BlockConfig::at_height(self.height));
         self.height += 1;
     }
 
@@ -122,13 +146,9 @@ impl ScenarioBuilder {
             &mut self.scenario.blocks[last_id]
         };
 
-        (*block).transactions.push(TransactionConfig {
-            nonce: self.nonce,
-            signer_id,
-            receiver_id,
-            signer,
-            actions,
-        });
+        (*block)
+            .transactions
+            .push(TransactionConfig { nonce: self.nonce, signer_id, receiver_id, signer, actions });
 
         self.nonce += 1
     }

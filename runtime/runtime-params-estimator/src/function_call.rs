@@ -67,7 +67,9 @@ fn compute_function_call_cost(
     let cache: Option<&dyn ContractRuntimeCache> = Some(&cache_store);
     let protocol_version = ProtocolVersion::MAX;
     let config_store = RuntimeConfigStore::new(None);
-    let runtime_config = config_store.get_config(protocol_version).as_ref();
+    let runtime_config = config_store
+        .get_config(protocol_version)
+        .as_ref();
     let vm_config = runtime_config.wasm_config.clone();
     let fees = runtime_config.fees.clone();
     let mut fake_external = MockedExternal::with_code(contract.clone_for_tests());
@@ -76,7 +78,9 @@ fn compute_function_call_cost(
     // Warmup.
     for _ in 0..warmup_repeats {
         let gas_counter = fake_context.make_gas_counter(&vm_config);
-        let runtime = vm_kind.runtime(vm_config.clone()).expect("runtime has not been enabled");
+        let runtime = vm_kind
+            .runtime(vm_config.clone())
+            .expect("runtime has not been enabled");
         let result = runtime
             .prepare(&fake_external, cache, gas_counter, "hello0")
             .run(&mut fake_external, &fake_context, Arc::clone(&fees))
@@ -87,7 +91,9 @@ fn compute_function_call_cost(
     let start = GasCost::measure(gas_metric);
     for _ in 0..repeats {
         let gas_counter = fake_context.make_gas_counter(&vm_config);
-        let runtime = vm_kind.runtime(vm_config.clone()).expect("runtime has not been enabled");
+        let runtime = vm_kind
+            .runtime(vm_config.clone())
+            .expect("runtime has not been enabled");
         let result = runtime
             .prepare(&fake_external, cache, gas_counter, "hello0")
             .run(&mut fake_external, &fake_context, Arc::clone(&fees))

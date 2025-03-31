@@ -11,10 +11,17 @@ fn find_route() {
     let rng = &mut rng;
 
     // Create a sample NextHopTable.
-    let peers: Vec<_> = (0..10).map(|_| data::make_peer_id(rng)).collect();
+    let peers: Vec<_> = (0..10)
+        .map(|_| data::make_peer_id(rng))
+        .collect();
     let mut next_hops = routing::NextHopTable::new();
     for p in &peers {
-        next_hops.insert(p.clone(), (0..3).map(|_| peers.choose(rng).cloned().unwrap()).collect());
+        next_hops.insert(
+            p.clone(),
+            (0..3)
+                .map(|_| peers.choose(rng).cloned().unwrap())
+                .collect(),
+        );
     }
     let next_hops = Arc::new(next_hops);
 
@@ -23,7 +30,9 @@ fn find_route() {
     rtv.update(next_hops.clone(), Default::default());
     for _ in 0..1000 {
         let p = peers.choose(rng).unwrap();
-        let got = rtv.find_next_hop_for_target(&p).unwrap();
+        let got = rtv
+            .find_next_hop_for_target(&p)
+            .unwrap();
         assert!(next_hops.get(p).unwrap().contains(&got));
     }
 }

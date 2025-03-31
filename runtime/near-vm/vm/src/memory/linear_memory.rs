@@ -70,7 +70,10 @@ impl LinearMemory {
     ///
     /// This creates a `LinearMemory` with owned metadata: this can be used to create a memory
     /// that will be imported into Wasm modules.
-    pub fn new(memory: &MemoryType, style: &MemoryStyle) -> Result<Self, MemoryError> {
+    pub fn new(
+        memory: &MemoryType,
+        style: &MemoryStyle,
+    ) -> Result<Self, MemoryError> {
         unsafe { Self::new_internal(memory, style, None) }
     }
 
@@ -122,14 +125,16 @@ impl LinearMemory {
         let offset_guard_bytes = style.offset_guard_size() as usize;
 
         let minimum_pages = match style {
-            MemoryStyle::Dynamic { .. } => memory.minimum,
-            MemoryStyle::Static { bound, .. } => {
+            | MemoryStyle::Dynamic { .. } => memory.minimum,
+            | MemoryStyle::Static { bound, .. } => {
                 assert_ge!(*bound, memory.minimum);
                 *bound
             }
         };
         let minimum_bytes = minimum_pages.bytes().0;
-        let request_bytes = minimum_bytes.checked_add(offset_guard_bytes).unwrap();
+        let request_bytes = minimum_bytes
+            .checked_add(offset_guard_bytes)
+            .unwrap();
         let mapped_pages = memory.minimum;
         let mapped_bytes = mapped_pages.bytes();
 
@@ -170,8 +175,8 @@ impl LinearMemory {
     ///   this function. You can get this by locking the `mmap` mutex.
     unsafe fn get_vm_memory_definition(&self) -> NonNull<VMMemoryDefinition> {
         match &self.vm_memory_definition {
-            VMMemoryDefinitionOwnership::VMOwned(ptr) => *ptr,
-            VMMemoryDefinitionOwnership::HostOwned(boxed_ptr) => {
+            | VMMemoryDefinitionOwnership::VMOwned(ptr) => *ptr,
+            | VMMemoryDefinitionOwnership::HostOwned(boxed_ptr) => {
                 NonNull::new_unchecked(boxed_ptr.get())
             }
         }
@@ -199,7 +204,9 @@ impl LinearMemory {
         unsafe {
             let md_ptr = self.get_vm_memory_definition();
             let md = md_ptr.as_ref();
-            Bytes::from(md.current_length).try_into().unwrap()
+            Bytes::from(md.current_length)
+                .try_into()
+                .unwrap()
         }
     }
 
@@ -207,7 +214,10 @@ impl LinearMemory {
     ///
     /// Returns `None` if memory can't be grown by the specified amount
     /// of wasm pages.
-    pub fn grow(&self, delta: Pages) -> Result<Pages, MemoryError> {
+    pub fn grow(
+        &self,
+        delta: Pages,
+    ) -> Result<Pages, MemoryError> {
         let mut mmap_guard = self.mmap.lock().unwrap();
         let mmap = mmap_guard.borrow_mut();
         // Optimization of memory.grow 0 calls.
@@ -246,8 +256,9 @@ impl LinearMemory {
             // If the new size is within the declared maximum, but needs more memory than we
             // have on hand, it's a dynamic heap and it can move.
             let guard_bytes = self.offset_guard_size;
-            let request_bytes =
-                new_bytes.checked_add(guard_bytes).ok_or_else(|| MemoryError::CouldNotGrow {
+            let request_bytes = new_bytes
+                .checked_add(guard_bytes)
+                .ok_or_else(|| MemoryError::CouldNotGrow {
                     current: new_pages,
                     attempted_delta: Bytes(guard_bytes).try_into().unwrap(),
                 })?;
@@ -261,7 +272,9 @@ impl LinearMemory {
             mmap.alloc = new_mmap;
         } else if delta_bytes > 0 {
             // Make the newly allocated pages accessible.
-            mmap.alloc.make_accessible(prev_bytes, delta_bytes).map_err(MemoryError::Region)?;
+            mmap.alloc
+                .make_accessible(prev_bytes, delta_bytes)
+                .map_err(MemoryError::Region)?;
         }
 
         mmap.size = new_pages;

@@ -35,22 +35,25 @@ impl<'a> StorageComputer<'a> {
     }
 
     /// Updates user's storage info based on the StateRecord.
-    fn process_record(&mut self, record: &StateRecord) {
+    fn process_record(
+        &mut self,
+        record: &StateRecord,
+    ) {
         // Note: It's okay to use unsafe math here, because this method should only be called on the trusted
         // state records (e.g. at launch from genesis)
         let account_and_storage = match record {
-            StateRecord::Account { account_id, .. } => {
+            | StateRecord::Account { account_id, .. } => {
                 Some((account_id.clone(), self.config.num_bytes_account))
             }
-            StateRecord::Data { account_id, data_key, value } => {
+            | StateRecord::Data { account_id, data_key, value } => {
                 let storage_usage =
                     self.config.num_extra_bytes_record + data_key.len() as u64 + value.len() as u64;
                 Some((account_id.clone(), storage_usage))
             }
-            StateRecord::Contract { account_id, code } => {
+            | StateRecord::Contract { account_id, code } => {
                 Some((account_id.clone(), code.len() as u64))
             }
-            StateRecord::AccessKey { account_id, public_key, access_key } => {
+            | StateRecord::AccessKey { account_id, public_key, access_key } => {
                 let public_key: PublicKey = public_key.clone();
                 let access_key: AccessKey = access_key.clone();
                 let storage_usage = self.config.num_extra_bytes_record
@@ -58,17 +61,23 @@ impl<'a> StorageComputer<'a> {
                     + borsh::object_length(&access_key).unwrap() as u64;
                 Some((account_id.clone(), storage_usage))
             }
-            StateRecord::PostponedReceipt(_) => None,
-            StateRecord::ReceivedData { .. } => None,
-            StateRecord::DelayedReceipt(_) => None,
+            | StateRecord::PostponedReceipt(_) => None,
+            | StateRecord::ReceivedData { .. } => None,
+            | StateRecord::DelayedReceipt(_) => None,
         };
         if let Some((account_id, storage_usage)) = account_and_storage {
-            *self.result.entry(account_id).or_default() += storage_usage;
+            *self
+                .result
+                .entry(account_id)
+                .or_default() += storage_usage;
         }
     }
 
     /// Adds multiple StateRecords to the users' storage info.
-    fn process_records(&mut self, records: &[StateRecord]) {
+    fn process_records(
+        &mut self,
+        records: &[StateRecord],
+    ) {
         for record in records {
             self.process_record(record);
         }
@@ -115,11 +124,20 @@ impl<'a> AutoFlushingTrieUpdate<'a> {
         }
     }
 
-    fn modify<R>(&mut self, process_callback: impl FnOnce(&mut TrieUpdate) -> R) -> R {
+    fn modify<R>(
+        &mut self,
+        process_callback: impl FnOnce(&mut TrieUpdate) -> R,
+    ) -> R {
         let Self { ref mut changes, ref mut state_update, .. } = self;
         // See if we should consider flushing.
-        let result = process_callback(state_update.as_mut().expect("state update should be set"));
-        let writers = self.active_writers.load(atomic::Ordering::Relaxed);
+        let result = process_callback(
+            state_update
+                .as_mut()
+                .expect("state update should be set"),
+        );
+        let writers = self
+            .active_writers
+            .load(atomic::Ordering::Relaxed);
         let target_updates = TARGET_OUTSTANDING_WRITES / writers;
         *changes += 1;
         if *changes >= target_updates {
@@ -137,16 +155,26 @@ impl<'a> AutoFlushingTrieUpdate<'a> {
             %changes,
             "flushing changes"
         );
-        let mut old_state_update = state_update.take().expect("state update should be set");
+        let mut old_state_update = state_update
+            .take()
+            .expect("state update should be set");
         old_state_update.commit(StateChangeCause::InitialState);
-        let TrieUpdateResult { trie_changes, state_changes, .. } =
-            old_state_update.finalize().expect("Genesis state update failed");
+        let TrieUpdateResult { trie_changes, state_changes, .. } = old_state_update
+            .finalize()
+            .expect("Genesis state update failed");
         let mut store_update = self.tries.store_update();
-        *state_root = self.tries.apply_all(&trie_changes, self.shard_uid, &mut store_update);
+        *state_root = self
+            .tries
+            .apply_all(&trie_changes, self.shard_uid, &mut store_update);
         FlatStateChanges::from_state_changes(&state_changes)
             .apply_to_flat_state(&mut store_update.flat_store_update(), self.shard_uid);
-        store_update.commit().expect("Store update failed on genesis initialization");
-        *state_update = Some(self.tries.new_trie_update(self.shard_uid, *state_root));
+        store_update
+            .commit()
+            .expect("Store update failed on genesis initialization");
+        *state_update = Some(
+            self.tries
+                .new_trie_update(self.shard_uid, *state_root),
+        );
         *changes = 0;
         *state_root
     }
@@ -155,7 +183,8 @@ impl<'a> AutoFlushingTrieUpdate<'a> {
 impl<'a> Drop for AutoFlushingTrieUpdate<'a> {
     fn drop(&mut self) {
         self.flush();
-        self.active_writers.fetch_sub(1, atomic::Ordering::Relaxed);
+        self.active_writers
+            .fetch_sub(1, atomic::Ordering::Relaxed);
     }
 }
 
@@ -184,10 +213,10 @@ impl GenesisStateApplier {
             }
             storage_computer.process_record(record);
             match record {
-                StateRecord::Account { account_id, account } => storage.modify(|state_update| {
+                | StateRecord::Account { account_id, account } => storage.modify(|state_update| {
                     set_account(state_update, account_id.clone(), account);
                 }),
-                StateRecord::Data { account_id, data_key, value } => {
+                | StateRecord::Data { account_id, data_key, value } => {
                     storage.modify(|state_update| {
                         state_update.set(
                             TrieKey::ContractData {
@@ -198,7 +227,7 @@ impl GenesisStateApplier {
                         );
                     })
                 }
-                StateRecord::Contract { account_id, code } => {
+                | StateRecord::Contract { account_id, code } => {
                     storage.modify(|state_update| {
                         // Recompute contract code hash.
                         let code = ContractCode::new(code.clone(), None);
@@ -217,7 +246,7 @@ impl GenesisStateApplier {
                         }
                     })
                 }
-                StateRecord::AccessKey { account_id, public_key, access_key } => {
+                | StateRecord::AccessKey { account_id, public_key, access_key } => {
                     storage.modify(|state_update| {
                         set_access_key(
                             state_update,
@@ -227,11 +256,11 @@ impl GenesisStateApplier {
                         );
                     })
                 }
-                StateRecord::PostponedReceipt(receipt) => {
+                | StateRecord::PostponedReceipt(receipt) => {
                     // Delaying processing postponed receipts, until we process all data first
                     postponed_receipts.push(*receipt.clone());
                 }
-                StateRecord::ReceivedData { account_id, data_id, data } => {
+                | StateRecord::ReceivedData { account_id, data_id, data } => {
                     storage.modify(|state_update| {
                         set_received_data(
                             state_update,
@@ -242,7 +271,7 @@ impl GenesisStateApplier {
                         );
                     })
                 }
-                StateRecord::DelayedReceipt(receipt) => storage.modify(|state_update| {
+                | StateRecord::DelayedReceipt(receipt) => storage.modify(|state_update| {
                     set_delayed_receipt(state_update, delayed_receipts_indices, &*receipt);
                 }),
             }
@@ -274,7 +303,7 @@ impl GenesisStateApplier {
 
             // Logic similar to `apply_receipt`
             match receipt.receipt() {
-                ReceiptEnum::Action(action_receipt) => {
+                | ReceiptEnum::Action(action_receipt) => {
                     let mut pending_data_count: u32 = 0;
                     for data_id in &action_receipt.input_data_ids {
                         storage.modify(|state_update| {
@@ -309,12 +338,12 @@ impl GenesisStateApplier {
                         });
                     }
                 }
-                ReceiptEnum::PromiseYield(ref _action_receipt) => {
+                | ReceiptEnum::PromiseYield(ref _action_receipt) => {
                     storage.modify(|state_update| {
                         set_promise_yield_receipt(state_update, &receipt);
                     });
                 }
-                ReceiptEnum::Data(_) | ReceiptEnum::PromiseResume(_) => {
+                | ReceiptEnum::Data(_) | ReceiptEnum::PromiseResume(_) => {
                     panic!("Expected action receipt")
                 }
             }

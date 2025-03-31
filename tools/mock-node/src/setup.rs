@@ -64,9 +64,9 @@ fn setup_mock_peer(
     mock_listen_addr: tcp::ListenerAddr,
 ) -> tokio::task::JoinHandle<anyhow::Result<()>> {
     let network_start_height = match network_start_height {
-        None => target_height,
-        Some(0) => chain.genesis_block().header().height(),
-        Some(it) => it,
+        | None => target_height,
+        | Some(0) => chain.genesis_block().header().height(),
+        | Some(it) => it,
     };
     let secret_key = SecretKey::from_random(KeyType::ED25519);
     config
@@ -75,7 +75,9 @@ fn setup_mock_peer(
         .boot_nodes
         .push(PeerInfo::new(PeerId::new(secret_key.public_key()), *mock_listen_addr));
     let chain_id = config.genesis.config.chain_id.clone();
-    let block_production_delay = config.client_config.min_block_production_delay;
+    let block_production_delay = config
+        .client_config
+        .min_block_production_delay;
     let archival = config.client_config.archive;
     actix::spawn(async move {
         let mock = MockPeer::new(
@@ -144,17 +146,26 @@ pub fn setup_mock_node(
             client_runtime.store().clone(),
             config.genesis.config.genesis_height,
             config.client_config.save_trie_changes,
-            config.genesis.config.transaction_validity_period,
+            config
+                .genesis
+                .config
+                .transaction_validity_period,
         );
         let mut network_chain_store = ChainStore::new(
             mock_network_runtime.store().clone(),
             config.genesis.config.genesis_height,
             config.client_config.save_trie_changes,
-            config.genesis.config.transaction_validity_period,
+            config
+                .genesis
+                .config
+                .transaction_validity_period,
         );
 
         let network_tail_height = network_chain_store.tail().unwrap();
-        let network_head_height = network_chain_store.head().unwrap().height;
+        let network_head_height = network_chain_store
+            .head()
+            .unwrap()
+            .height;
         tracing::info!(target: "mock_node", network_tail_height, network_head_height, "network data chain");
         assert!(
             client_start_height <= network_head_height
@@ -164,11 +175,17 @@ pub fn setup_mock_node(
             network_tail_height,
             network_head_height
         );
-        let hash = network_chain_store.get_block_hash_by_height(client_start_height).unwrap();
+        let hash = network_chain_store
+            .get_block_hash_by_height(client_start_height)
+            .unwrap();
         tracing::info!(target: "mock_node", "Checking whether the given start height is the last block of an epoch.");
-        if !mock_network_epoch_manager.is_next_block_epoch_start(&hash).unwrap() {
-            let epoch_start_height =
-                mock_network_epoch_manager.get_epoch_start_height(&hash).unwrap();
+        if !mock_network_epoch_manager
+            .is_next_block_epoch_start(&hash)
+            .unwrap()
+        {
+            let epoch_start_height = mock_network_epoch_manager
+                .get_epoch_start_height(&hash)
+                .unwrap();
             panic!(
                 "start height must be the last block of an epoch, try using {} instead.",
                 epoch_start_height - 1
@@ -193,15 +210,26 @@ pub fn setup_mock_node(
         tracing::info!(target: "mock_node", "Done preparing epoch info");
 
         // copy state for all shards
-        let block = network_chain_store.get_block(&hash).unwrap();
+        let block = network_chain_store
+            .get_block(&hash)
+            .unwrap();
         let prev_hash = *block.header().prev_hash();
         let epoch_id = block.header().epoch_id();
-        let shard_layout = client_epoch_manager.get_shard_layout(epoch_id).unwrap();
-        for (shard_index, chunk_header) in block.chunks().iter_deprecated().enumerate() {
-            let shard_id = shard_layout.get_shard_id(shard_index).unwrap();
+        let shard_layout = client_epoch_manager
+            .get_shard_layout(epoch_id)
+            .unwrap();
+        for (shard_index, chunk_header) in block
+            .chunks()
+            .iter_deprecated()
+            .enumerate()
+        {
+            let shard_id = shard_layout
+                .get_shard_id(shard_index)
+                .unwrap();
             let state_root = chunk_header.prev_state_root();
-            let state_root_node =
-                mock_network_runtime.get_state_root_node(shard_id, &hash, &state_root).unwrap();
+            let state_root_node = mock_network_runtime
+                .get_state_root_node(shard_id, &hash, &state_root)
+                .unwrap();
             let num_parts = get_num_state_parts(state_root_node.memory_usage);
             let finished_parts_count = Arc::new(AtomicUsize::new(0));
             tracing::info!(target: "mock_node", ?shard_id, ?state_root, num_parts, "Preparing state for a shard");
@@ -264,10 +292,16 @@ pub fn setup_mock_node(
     .unwrap();
     let head = chain.head().unwrap();
     let epoch_id = head.epoch_id;
-    let shard_layout = mock_network_epoch_manager.get_shard_layout(&epoch_id).unwrap();
+    let shard_layout = mock_network_epoch_manager
+        .get_shard_layout(&epoch_id)
+        .unwrap();
     let target_height = min(target_height.unwrap_or(head.height), head.height);
 
-    config.network_config.peer_store.boot_nodes.clear();
+    config
+        .network_config
+        .peer_store
+        .boot_nodes
+        .clear();
     let mock_peer = setup_mock_peer(
         chain,
         &mut config,
@@ -280,7 +314,11 @@ pub fn setup_mock_node(
 
     let rpc_client = near_jsonrpc_client::new_client(&format!(
         "http://{}",
-        &config.rpc_config.as_ref().expect("the JSON RPC config must be set").addr
+        &config
+            .rpc_config
+            .as_ref()
+            .expect("the JSON RPC config must be set")
+            .addr
     ));
     let _node = nearcore::start_with_config(client_home_dir, config).unwrap();
 

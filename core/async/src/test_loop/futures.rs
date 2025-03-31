@@ -38,7 +38,11 @@ use std::task::Context;
 pub type TestLoopFutureSpawner = PendingEventsSender;
 
 impl FutureSpawner for TestLoopFutureSpawner {
-    fn spawn_boxed(&self, description: &str, f: BoxFuture<'static, ()>) {
+    fn spawn_boxed(
+        &self,
+        description: &str,
+        f: BoxFuture<'static, ()>,
+    ) {
         let task = Arc::new(FutureTask {
             future: Mutex::new(Some(f)),
             sender: self.clone(),
@@ -75,7 +79,11 @@ fn drive_futures(task: &Arc<FutureTask>) {
     if let Some(mut future) = future_slot.take() {
         let waker = waker_ref(&task);
         let context = &mut Context::from_waker(&*waker);
-        if future.as_mut().poll(context).is_pending() {
+        if future
+            .as_mut()
+            .poll(context)
+            .is_pending()
+        {
             // We're still not done processing the future, so put it
             // back in its task to be run again in the future.
             *future_slot = Some(future);
@@ -99,7 +107,11 @@ impl TestLoopAsyncComputationSpawner {
 }
 
 impl AsyncComputationSpawner for TestLoopAsyncComputationSpawner {
-    fn spawn_boxed(&self, name: &str, f: Box<dyn FnOnce() + Send>) {
+    fn spawn_boxed(
+        &self,
+        name: &str,
+        f: Box<dyn FnOnce() + Send>,
+    ) {
         self.sender.send_with_delay(
             format!("AsyncComputation({})", name),
             Box::new(move |_| f()),

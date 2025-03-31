@@ -198,7 +198,11 @@ impl ChunkStateWitness {
         }
     }
 
-    pub fn new_dummy(height: BlockHeight, shard_id: ShardId, prev_block_hash: CryptoHash) -> Self {
+    pub fn new_dummy(
+        height: BlockHeight,
+        shard_id: ShardId,
+        prev_block_hash: CryptoHash,
+    ) -> Self {
         let congestion_info = ProtocolFeature::CongestionControl
             .enabled(PROTOCOL_VERSION)
             .then_some(CongestionInfo::default());

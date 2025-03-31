@@ -371,7 +371,7 @@ impl DBCol {
     /// always one.
     pub const fn is_insert_only(&self) -> bool {
         match self {
-            DBCol::Block
+            | DBCol::Block
             | DBCol::BlockHeader
             | DBCol::BlockExtra
             | DBCol::BlockInfo
@@ -379,7 +379,7 @@ impl DBCol {
             | DBCol::InvalidChunks
             | DBCol::PartialChunks
             | DBCol::TransactionResultForBlock => true,
-            _ => false,
+            | _ => false,
         }
     }
 
@@ -421,10 +421,10 @@ impl DBCol {
     /// ```
     pub const fn is_rc(&self) -> bool {
         match self {
-            DBCol::State | DBCol::Transactions | DBCol::Receipts | DBCol::_ReceiptIdToShardId => {
+            | DBCol::State | DBCol::Transactions | DBCol::Receipts | DBCol::_ReceiptIdToShardId => {
                 true
             }
-            _ => false,
+            | _ => false,
         }
     }
 
@@ -534,76 +534,104 @@ impl DBCol {
     /// Vector of DBKeyType s concatenation of which results in key for the column.
     pub fn key_type(&self) -> &'static [DBKeyType] {
         match self {
-            DBCol::DbVersion => &[DBKeyType::StringLiteral],
-            DBCol::BlockMisc => &[DBKeyType::StringLiteral],
-            DBCol::Misc => &[DBKeyType::StringLiteral],
-            DBCol::Block => &[DBKeyType::BlockHash],
-            DBCol::BlockHeader => &[DBKeyType::BlockHash],
-            DBCol::BlockHeight => &[DBKeyType::BlockHeight],
-            DBCol::State => &[DBKeyType::ShardUId, DBKeyType::TrieNodeOrValueHash],
-            DBCol::ChunkExtra => &[DBKeyType::BlockHash, DBKeyType::ShardUId],
-            DBCol::_TransactionResult => &[DBKeyType::OutcomeId],
-            DBCol::OutgoingReceipts => &[DBKeyType::BlockHash, DBKeyType::ShardId],
-            DBCol::IncomingReceipts => &[DBKeyType::BlockHash, DBKeyType::ShardId],
-            DBCol::_Peers => &[DBKeyType::PeerId],
-            DBCol::RecentOutboundConnections => &[DBKeyType::Empty],
-            DBCol::EpochInfo => &[DBKeyType::EpochId],
-            DBCol::BlockInfo => &[DBKeyType::BlockHash],
-            DBCol::Chunks => &[DBKeyType::ChunkHash],
-            DBCol::PartialChunks => &[DBKeyType::ChunkHash],
-            DBCol::BlocksToCatchup => &[DBKeyType::BlockHash],
-            DBCol::StateDlInfos => &[DBKeyType::BlockHash],
-            DBCol::ChallengedBlocks => &[DBKeyType::BlockHash],
-            DBCol::StateHeaders => &[DBKeyType::ShardId, DBKeyType::BlockHash],
-            DBCol::InvalidChunks => &[DBKeyType::ChunkHash],
-            DBCol::BlockExtra => &[DBKeyType::BlockHash],
-            DBCol::BlockPerHeight => &[DBKeyType::BlockHeight],
-            DBCol::StateParts => &[DBKeyType::BlockHash, DBKeyType::ShardId, DBKeyType::PartId],
-            DBCol::EpochStart => &[DBKeyType::EpochId],
-            DBCol::AccountAnnouncements => &[DBKeyType::AccountId],
-            DBCol::NextBlockHashes => &[DBKeyType::PreviousBlockHash],
-            DBCol::EpochLightClientBlocks => &[DBKeyType::EpochId],
-            DBCol::_ReceiptIdToShardId => &[DBKeyType::ReceiptHash],
-            DBCol::_NextBlockWithNewChunk => &[DBKeyType::BlockHash, DBKeyType::ShardId],
-            DBCol::_LastBlockWithNewChunk => &[DBKeyType::ShardId],
-            DBCol::PeerComponent => &[DBKeyType::PeerId],
-            DBCol::ComponentEdges => &[DBKeyType::Nonce],
-            DBCol::LastComponentNonce => &[DBKeyType::Empty],
-            DBCol::Transactions => &[DBKeyType::TransactionHash],
-            DBCol::_ChunkPerHeightShard => &[DBKeyType::BlockHeight, DBKeyType::ShardId],
-            DBCol::StateChanges => &[DBKeyType::BlockHash, DBKeyType::TrieKey],
-            DBCol::BlockRefCount => &[DBKeyType::BlockHash],
-            DBCol::TrieChanges => &[DBKeyType::BlockHash, DBKeyType::ShardUId],
-            DBCol::BlockMerkleTree => &[DBKeyType::BlockHash],
-            DBCol::ChunkHashesByHeight => &[DBKeyType::BlockHeight],
-            DBCol::BlockOrdinal => &[DBKeyType::BlockOrdinal],
-            DBCol::_GCCount => &[DBKeyType::ColumnId],
-            DBCol::OutcomeIds => &[DBKeyType::BlockHash, DBKeyType::ShardId],
-            DBCol::_TransactionRefCount => &[DBKeyType::TransactionHash],
-            DBCol::ProcessedBlockHeights => &[DBKeyType::BlockHeight],
-            DBCol::Receipts => &[DBKeyType::ReceiptHash],
-            DBCol::CachedContractCode => &[DBKeyType::ContractCacheKey],
-            DBCol::EpochValidatorInfo => &[DBKeyType::EpochId],
-            DBCol::HeaderHashesByHeight => &[DBKeyType::BlockHeight],
-            DBCol::StateChangesForSplitStates => &[DBKeyType::BlockHash, DBKeyType::ShardId],
-            DBCol::TransactionResultForBlock => &[DBKeyType::OutcomeId, DBKeyType::BlockHash],
-            DBCol::FlatState => &[DBKeyType::ShardUId, DBKeyType::TrieKey],
-            DBCol::FlatStateChanges => &[DBKeyType::ShardUId, DBKeyType::BlockHash],
-            DBCol::FlatStateDeltaMetadata => &[DBKeyType::ShardUId, DBKeyType::BlockHash],
-            DBCol::FlatStorageStatus => &[DBKeyType::ShardUId],
-            DBCol::StateTransitionData => &[DBKeyType::BlockHash, DBKeyType::ShardId],
-            DBCol::LatestChunkStateWitnesses => &[DBKeyType::LatestWitnessesKey],
-            DBCol::LatestWitnessesByIndex => &[DBKeyType::LatestWitnessIndex],
-            DBCol::EpochSyncProof => &[DBKeyType::Empty],
-            DBCol::StateShardUIdMapping => &[DBKeyType::ShardUId],
-            DBCol::StateSyncHashes => &[DBKeyType::EpochId],
-            DBCol::StateSyncNewChunks => &[DBKeyType::BlockHash],
+            | DBCol::DbVersion => &[DBKeyType::StringLiteral],
+            | DBCol::BlockMisc => &[DBKeyType::StringLiteral],
+            | DBCol::Misc => &[DBKeyType::StringLiteral],
+            | DBCol::Block => &[DBKeyType::BlockHash],
+            | DBCol::BlockHeader => &[DBKeyType::BlockHash],
+            | DBCol::BlockHeight => &[DBKeyType::BlockHeight],
+            | DBCol::State => &[
+                DBKeyType::ShardUId,
+                DBKeyType::TrieNodeOrValueHash,
+            ],
+            | DBCol::ChunkExtra => &[
+                DBKeyType::BlockHash,
+                DBKeyType::ShardUId,
+            ],
+            | DBCol::_TransactionResult => &[DBKeyType::OutcomeId],
+            | DBCol::OutgoingReceipts => &[DBKeyType::BlockHash, DBKeyType::ShardId],
+            | DBCol::IncomingReceipts => &[DBKeyType::BlockHash, DBKeyType::ShardId],
+            | DBCol::_Peers => &[DBKeyType::PeerId],
+            | DBCol::RecentOutboundConnections => &[DBKeyType::Empty],
+            | DBCol::EpochInfo => &[DBKeyType::EpochId],
+            | DBCol::BlockInfo => &[DBKeyType::BlockHash],
+            | DBCol::Chunks => &[DBKeyType::ChunkHash],
+            | DBCol::PartialChunks => &[DBKeyType::ChunkHash],
+            | DBCol::BlocksToCatchup => &[DBKeyType::BlockHash],
+            | DBCol::StateDlInfos => &[DBKeyType::BlockHash],
+            | DBCol::ChallengedBlocks => &[DBKeyType::BlockHash],
+            | DBCol::StateHeaders => &[DBKeyType::ShardId, DBKeyType::BlockHash],
+            | DBCol::InvalidChunks => &[DBKeyType::ChunkHash],
+            | DBCol::BlockExtra => &[DBKeyType::BlockHash],
+            | DBCol::BlockPerHeight => &[DBKeyType::BlockHeight],
+            | DBCol::StateParts => &[
+                DBKeyType::BlockHash,
+                DBKeyType::ShardId,
+                DBKeyType::PartId,
+            ],
+            | DBCol::EpochStart => &[DBKeyType::EpochId],
+            | DBCol::AccountAnnouncements => &[DBKeyType::AccountId],
+            | DBCol::NextBlockHashes => &[DBKeyType::PreviousBlockHash],
+            | DBCol::EpochLightClientBlocks => &[DBKeyType::EpochId],
+            | DBCol::_ReceiptIdToShardId => &[DBKeyType::ReceiptHash],
+            | DBCol::_NextBlockWithNewChunk => &[DBKeyType::BlockHash, DBKeyType::ShardId],
+            | DBCol::_LastBlockWithNewChunk => &[DBKeyType::ShardId],
+            | DBCol::PeerComponent => &[DBKeyType::PeerId],
+            | DBCol::ComponentEdges => &[DBKeyType::Nonce],
+            | DBCol::LastComponentNonce => &[DBKeyType::Empty],
+            | DBCol::Transactions => &[DBKeyType::TransactionHash],
+            | DBCol::_ChunkPerHeightShard => &[
+                DBKeyType::BlockHeight,
+                DBKeyType::ShardId,
+            ],
+            | DBCol::StateChanges => &[DBKeyType::BlockHash, DBKeyType::TrieKey],
+            | DBCol::BlockRefCount => &[DBKeyType::BlockHash],
+            | DBCol::TrieChanges => &[
+                DBKeyType::BlockHash,
+                DBKeyType::ShardUId,
+            ],
+            | DBCol::BlockMerkleTree => &[DBKeyType::BlockHash],
+            | DBCol::ChunkHashesByHeight => &[DBKeyType::BlockHeight],
+            | DBCol::BlockOrdinal => &[DBKeyType::BlockOrdinal],
+            | DBCol::_GCCount => &[DBKeyType::ColumnId],
+            | DBCol::OutcomeIds => &[DBKeyType::BlockHash, DBKeyType::ShardId],
+            | DBCol::_TransactionRefCount => &[DBKeyType::TransactionHash],
+            | DBCol::ProcessedBlockHeights => &[DBKeyType::BlockHeight],
+            | DBCol::Receipts => &[DBKeyType::ReceiptHash],
+            | DBCol::CachedContractCode => &[DBKeyType::ContractCacheKey],
+            | DBCol::EpochValidatorInfo => &[DBKeyType::EpochId],
+            | DBCol::HeaderHashesByHeight => &[DBKeyType::BlockHeight],
+            | DBCol::StateChangesForSplitStates => &[DBKeyType::BlockHash, DBKeyType::ShardId],
+            | DBCol::TransactionResultForBlock => &[
+                DBKeyType::OutcomeId,
+                DBKeyType::BlockHash,
+            ],
+            | DBCol::FlatState => &[DBKeyType::ShardUId, DBKeyType::TrieKey],
+            | DBCol::FlatStateChanges => &[
+                DBKeyType::ShardUId,
+                DBKeyType::BlockHash,
+            ],
+            | DBCol::FlatStateDeltaMetadata => &[
+                DBKeyType::ShardUId,
+                DBKeyType::BlockHash,
+            ],
+            | DBCol::FlatStorageStatus => &[DBKeyType::ShardUId],
+            | DBCol::StateTransitionData => &[DBKeyType::BlockHash, DBKeyType::ShardId],
+            | DBCol::LatestChunkStateWitnesses => &[DBKeyType::LatestWitnessesKey],
+            | DBCol::LatestWitnessesByIndex => &[DBKeyType::LatestWitnessIndex],
+            | DBCol::EpochSyncProof => &[DBKeyType::Empty],
+            | DBCol::StateShardUIdMapping => &[DBKeyType::ShardUId],
+            | DBCol::StateSyncHashes => &[DBKeyType::EpochId],
+            | DBCol::StateSyncNewChunks => &[DBKeyType::BlockHash],
         }
     }
 }
 
 impl fmt::Display for DBCol {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
         fmt::Debug::fmt(self, f)
     }
 }

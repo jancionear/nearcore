@@ -20,11 +20,14 @@ fn create_thread_nodes_rpc() -> Vec<ThreadNode> {
     let mut nodes: Vec<_> = nodes
         .into_iter()
         .map(|cfg| match cfg {
-            NodeConfig::Thread(config) => ThreadNode::new(config),
-            _ => unreachable!(),
+            | NodeConfig::Thread(config) => ThreadNode::new(config),
+            | _ => unreachable!(),
         })
         .collect();
-    let account_names: Vec<_> = nodes.iter().map(|node| node.account_id().unwrap()).collect();
+    let account_names: Vec<_> = nodes
+        .iter()
+        .map(|node| node.account_id().unwrap())
+        .collect();
 
     assert_eq!(account_names[0], alice_account());
     for i in 0..nodes.len() {

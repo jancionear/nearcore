@@ -17,7 +17,9 @@ async fn connection_tie_break() {
     let mut clock = time::FakeClock::default();
     let chain = Arc::new(data::Chain::make(&mut clock, rng, 10));
 
-    let mut configs: Vec<_> = (0..3).map(|_| chain.make_config(rng)).collect();
+    let mut configs: Vec<_> = (0..3)
+        .map(|_| chain.make_config(rng))
+        .collect();
     configs.sort_by_key(|c| c.node_id());
 
     let pm = peer_manager::testonly::start(
@@ -29,27 +31,43 @@ async fn connection_tie_break() {
     .await;
 
     // pm.id is lower
-    let outbound_conn = pm.start_outbound(chain.clone(), configs[2].clone(), tcp::Tier::T2).await;
-    let inbound_conn = pm.start_inbound(chain.clone(), configs[2].clone()).await;
+    let outbound_conn = pm
+        .start_outbound(chain.clone(), configs[2].clone(), tcp::Tier::T2)
+        .await;
+    let inbound_conn = pm
+        .start_inbound(chain.clone(), configs[2].clone())
+        .await;
     // inbound should be rejected, outbound accepted.
     assert_eq!(
         ClosingReason::RejectedByPeerManager(RegisterPeerError::PoolError(
             connection::PoolError::AlreadyStartedConnecting
         )),
-        inbound_conn.manager_fail_handshake(&clock.clock()).await,
+        inbound_conn
+            .manager_fail_handshake(&clock.clock())
+            .await,
     );
-    outbound_conn.handshake(&clock.clock()).await;
+    outbound_conn
+        .handshake(&clock.clock())
+        .await;
 
     // pm.id is higher
-    let outbound_conn = pm.start_outbound(chain.clone(), configs[0].clone(), tcp::Tier::T2).await;
-    let inbound_conn = pm.start_inbound(chain.clone(), configs[0].clone()).await;
+    let outbound_conn = pm
+        .start_outbound(chain.clone(), configs[0].clone(), tcp::Tier::T2)
+        .await;
+    let inbound_conn = pm
+        .start_inbound(chain.clone(), configs[0].clone())
+        .await;
     // inbound should be accepted, outbound rejected by PM.
-    let inbound = inbound_conn.handshake(&clock.clock()).await;
+    let inbound = inbound_conn
+        .handshake(&clock.clock())
+        .await;
     assert_eq!(
         ClosingReason::RejectedByPeerManager(RegisterPeerError::PoolError(
             connection::PoolError::AlreadyConnected
         )),
-        outbound_conn.manager_fail_handshake(&clock.clock()).await,
+        outbound_conn
+            .manager_fail_handshake(&clock.clock())
+            .await,
     );
     drop(inbound);
 }
@@ -72,51 +90,75 @@ async fn duplicate_connections() {
 
     // Double outbound.
     let cfg = chain.make_config(rng);
-    let conn1 = pm.start_outbound(chain.clone(), cfg.clone(), tcp::Tier::T2).await;
-    let conn2 = pm.start_outbound(chain.clone(), cfg.clone(), tcp::Tier::T2).await;
+    let conn1 = pm
+        .start_outbound(chain.clone(), cfg.clone(), tcp::Tier::T2)
+        .await;
+    let conn2 = pm
+        .start_outbound(chain.clone(), cfg.clone(), tcp::Tier::T2)
+        .await;
     // conn2 shouldn't even be started, so it should fail before conn1 completes.
     assert_eq!(
         ClosingReason::OutboundNotAllowed(connection::PoolError::AlreadyStartedConnecting),
-        conn2.manager_fail_handshake(&clock.clock()).await,
+        conn2
+            .manager_fail_handshake(&clock.clock())
+            .await,
     );
     conn1.handshake(&clock.clock()).await;
 
     // Double inbound.
     let cfg = chain.make_config(rng);
-    let conn1 = pm.start_inbound(chain.clone(), cfg.clone()).await;
-    let conn2 = pm.start_inbound(chain.clone(), cfg.clone()).await;
+    let conn1 = pm
+        .start_inbound(chain.clone(), cfg.clone())
+        .await;
+    let conn2 = pm
+        .start_inbound(chain.clone(), cfg.clone())
+        .await;
     // Second inbound should be rejected.
     let conn1 = conn1.handshake(&clock.clock()).await;
     assert_eq!(
         ClosingReason::RejectedByPeerManager(RegisterPeerError::PoolError(
             connection::PoolError::AlreadyConnected
         )),
-        conn2.manager_fail_handshake(&clock.clock()).await,
+        conn2
+            .manager_fail_handshake(&clock.clock())
+            .await,
     );
     pm.check_consistency().await;
     drop(conn1);
 
     // Inbound then outbound.
     let cfg = chain.make_config(rng);
-    let conn1 = pm.start_inbound(chain.clone(), cfg.clone()).await;
+    let conn1 = pm
+        .start_inbound(chain.clone(), cfg.clone())
+        .await;
     let conn1 = conn1.handshake(&clock.clock()).await;
-    let conn2 = pm.start_outbound(chain.clone(), cfg.clone(), tcp::Tier::T2).await;
+    let conn2 = pm
+        .start_outbound(chain.clone(), cfg.clone(), tcp::Tier::T2)
+        .await;
     assert_eq!(
         ClosingReason::OutboundNotAllowed(connection::PoolError::AlreadyConnected),
-        conn2.manager_fail_handshake(&clock.clock()).await,
+        conn2
+            .manager_fail_handshake(&clock.clock())
+            .await,
     );
     drop(conn1);
 
     // Outbound then inbound.
     let cfg = chain.make_config(rng);
-    let conn1 = pm.start_outbound(chain.clone(), cfg.clone(), tcp::Tier::T2).await;
+    let conn1 = pm
+        .start_outbound(chain.clone(), cfg.clone(), tcp::Tier::T2)
+        .await;
     let conn1 = conn1.handshake(&clock.clock()).await;
-    let conn2 = pm.start_inbound(chain.clone(), cfg.clone()).await;
+    let conn2 = pm
+        .start_inbound(chain.clone(), cfg.clone())
+        .await;
     assert_eq!(
         ClosingReason::RejectedByPeerManager(RegisterPeerError::PoolError(
             connection::PoolError::AlreadyConnected
         )),
-        conn2.manager_fail_handshake(&clock.clock()).await,
+        conn2
+            .manager_fail_handshake(&clock.clock())
+            .await,
     );
     drop(conn1);
 }

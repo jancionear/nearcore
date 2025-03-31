@@ -2,12 +2,12 @@ use crate::config::Mode;
 use crate::db::{refcount, DBIterator, DBOp, DBSlice, DBTransaction, Database, StatsValue};
 use crate::{metadata, metrics, DBCol, StoreConfig, StoreStatistics, Temperature};
 use ::rocksdb::{
-    properties, BlockBasedOptions, Cache, ColumnFamily, Env, IteratorMode, Options, ReadOptions,
-    WriteBatch, DB,
+    BlockBasedOptions, Cache, ColumnFamily, Env, IteratorMode, Options, ReadOptions, WriteBatch, DB,
 };
 use anyhow::Context;
 use itertools::Itertools;
 use std::io;
+use std::ops::Deref;
 use std::path::Path;
 use std::sync::LazyLock;
 use strum::IntoEnumIterator;
@@ -19,23 +19,28 @@ pub(crate) mod snapshot;
 /// List of integer RocksDB properties we’re reading when collecting statistics.
 ///
 /// In the end, they are exported as Prometheus metrics.
-static CF_PROPERTY_NAMES: LazyLock<Vec<properties::PropertyName>> = LazyLock::new(|| {
-    [
-        properties::LIVE_SST_FILES_SIZE,
-        properties::ESTIMATE_LIVE_DATA_SIZE,
-        properties::COMPACTION_PENDING,
-        properties::NUM_RUNNING_COMPACTIONS,
-        properties::ESTIMATE_PENDING_COMPACTION_BYTES,
-        properties::ESTIMATE_TABLE_READERS_MEM,
-        properties::BLOCK_CACHE_CAPACITY,
-        properties::BLOCK_CACHE_USAGE,
-        properties::CUR_SIZE_ACTIVE_MEM_TABLE,
-        properties::SIZE_ALL_MEM_TABLES,
-    ]
-    .into_iter()
-    .map(properties::PropName::to_owned)
-    .chain((0..7).map(properties::num_files_at_level))
-    .collect()
+static CF_PROPERTY_NAMES: LazyLock<Vec<std::ffi::CString>> = LazyLock::new(|| {
+    use ::rocksdb::properties;
+    let mut ret = Vec::new();
+    ret.extend_from_slice(
+        &[
+            properties::LIVE_SST_FILES_SIZE,
+            properties::ESTIMATE_LIVE_DATA_SIZE,
+            properties::COMPACTION_PENDING,
+            properties::NUM_RUNNING_COMPACTIONS,
+            properties::ESTIMATE_PENDING_COMPACTION_BYTES,
+            properties::ESTIMATE_TABLE_READERS_MEM,
+            properties::BLOCK_CACHE_CAPACITY,
+            properties::BLOCK_CACHE_USAGE,
+            properties::CUR_SIZE_ACTIVE_MEM_TABLE,
+            properties::SIZE_ALL_MEM_TABLES,
+        ]
+        .map(std::ffi::CStr::to_owned),
+    );
+    for level in 0..=6 {
+        ret.push(properties::num_files_at_level(level));
+    }
+    ret
 });
 
 pub struct RocksDB {
@@ -181,7 +186,10 @@ impl RocksDB {
     /// `cf_handles` mapping has been constructed.  We technically should mark
     /// this function unsafe but to improve ergonomics we didn’t.  This is an
     /// internal method so hopefully the implementation knows what it’s doing.
-    fn cf_handle(&self, col: DBCol) -> io::Result<&ColumnFamily> {
+    fn cf_handle(
+        &self,
+        col: DBCol,
+    ) -> io::Result<&ColumnFamily> {
         if let Some(ptr) = self.cf_handles[col] {
             // SAFETY: The pointers are valid so long as self.db is valid.
             Ok(unsafe { ptr.as_ref() })
@@ -205,14 +213,16 @@ impl RocksDB {
     /// this function unsafe but to improve ergonomics we didn’t.  This is an
     /// internal method so hopefully the implementation knows what it’s doing.
     fn cf_handles(&self) -> impl Iterator<Item = (DBCol, &ColumnFamily)> {
-        self.cf_handles.iter().filter_map(|(col, ptr)| {
-            if let Some(ptr) = *ptr {
-                // SAFETY: The pointers are valid so long as self.db is valid.
-                Some((col, unsafe { ptr.as_ref() }))
-            } else {
-                None
-            }
-        })
+        self.cf_handles
+            .iter()
+            .filter_map(|(col, ptr)| {
+                if let Some(ptr) = *ptr {
+                    // SAFETY: The pointers are valid so long as self.db is valid.
+                    Some((col, unsafe { ptr.as_ref() }))
+                } else {
+                    None
+                }
+            })
     }
 
     /// Iterates over rocksDB storage.
@@ -246,7 +256,9 @@ impl RocksDB {
         if let Some(upper_bound) = upper_bound {
             read_options.set_iterate_upper_bound(upper_bound);
         }
-        let iter = self.db.iterator_cf_opt(cf_handle, read_options, IteratorMode::Start);
+        let iter = self
+            .db
+            .iterator_cf_opt(cf_handle, read_options, IteratorMode::Start);
         RocksDBIterator(iter)
     }
 }
@@ -273,23 +285,29 @@ impl RocksDB {
         cf_handle: &ColumnFamily,
     ) -> Result<Option<std::ops::RangeInclusive<Box<[u8]>>>, ::rocksdb::Error> {
         let range = {
-            let mut iter = self.db.iterator_cf(cf_handle, IteratorMode::Start);
+            let mut iter = self
+                .db
+                .iterator_cf(cf_handle, IteratorMode::Start);
             let start = iter.next().transpose()?;
             iter.set_mode(IteratorMode::End);
             let end = iter.next().transpose()?;
             (start, end)
         };
         match range {
-            (Some(start), Some(end)) => Ok(Some(start.0..=end.0)),
-            (None, None) => Ok(None),
-            _ => unreachable!(),
+            | (Some(start), Some(end)) => Ok(Some(start.0..=end.0)),
+            | (None, None) => Ok(None),
+            | _ => unreachable!(),
         }
     }
 
-    pub fn compact_column(&self, col: DBCol) -> io::Result<()> {
+    pub fn compact_column(
+        &self,
+        col: DBCol,
+    ) -> io::Result<()> {
         let none = Option::<&[u8]>::None;
         tracing::info!(target: "store::db::rocksdb", col = %col, "RocksDB::compact_column");
-        self.db.compact_range_cf(self.cf_handle(col)?, none, none);
+        self.db
+            .compact_range_cf(self.cf_handle(col)?, none, none);
         Ok(())
     }
 
@@ -300,14 +318,17 @@ impl RocksDB {
         skip_all,
         fields(transaction.ops.len = transaction.ops.len()),
     )]
-    fn build_write_batch(&self, transaction: DBTransaction) -> io::Result<WriteBatch> {
+    fn build_write_batch(
+        &self,
+        transaction: DBTransaction,
+    ) -> io::Result<WriteBatch> {
         let mut batch = WriteBatch::default();
         for op in transaction.ops {
             match op {
-                DBOp::Set { col, key, value } => {
+                | DBOp::Set { col, key, value } => {
                     batch.put_cf(self.cf_handle(col)?, key, value);
                 }
-                DBOp::Insert { col, key, value } => {
+                | DBOp::Insert { col, key, value } => {
                     if cfg!(debug_assertions) {
                         if let Ok(Some(old_value)) = self.get_raw_bytes(col, &key) {
                             super::assert_no_overwrite(col, &key, &value, &*old_value)
@@ -315,22 +336,24 @@ impl RocksDB {
                     }
                     batch.put_cf(self.cf_handle(col)?, key, value);
                 }
-                DBOp::UpdateRefcount { col, key, value } => {
+                | DBOp::UpdateRefcount { col, key, value } => {
                     batch.merge_cf(self.cf_handle(col)?, key, value);
                 }
-                DBOp::Delete { col, key } => {
+                | DBOp::Delete { col, key } => {
                     batch.delete_cf(self.cf_handle(col)?, key);
                 }
-                DBOp::DeleteAll { col } => {
+                | DBOp::DeleteAll { col } => {
                     let cf_handle = self.cf_handle(col)?;
-                    let range = self.get_cf_key_range(cf_handle).map_err(io::Error::other)?;
+                    let range = self
+                        .get_cf_key_range(cf_handle)
+                        .map_err(io::Error::other)?;
                     if let Some(range) = range {
                         batch.delete_range_cf(cf_handle, range.start(), range.end());
                         // delete_range_cf deletes ["begin_key", "end_key"), so need one more delete
                         batch.delete_cf(cf_handle, range.end())
                     }
                 }
-                DBOp::DeleteRange { col, from, to } => {
+                | DBOp::DeleteRange { col, from, to } => {
                     batch.delete_range_cf(self.cf_handle(col)?, from, to);
                 }
             }
@@ -340,9 +363,14 @@ impl RocksDB {
 }
 
 impl Database for RocksDB {
-    fn get_raw_bytes(&self, col: DBCol, key: &[u8]) -> io::Result<Option<DBSlice<'_>>> {
-        let timer =
-            metrics::DATABASE_OP_LATENCY_HIST.with_label_values(&["get", col.into()]).start_timer();
+    fn get_raw_bytes(
+        &self,
+        col: DBCol,
+        key: &[u8],
+    ) -> io::Result<Option<DBSlice<'_>>> {
+        let timer = metrics::DATABASE_OP_LATENCY_HIST
+            .with_label_values(&["get", col.into()])
+            .start_timer();
         let read_options = rocksdb_read_options();
         let result = self
             .db
@@ -353,15 +381,25 @@ impl Database for RocksDB {
         Ok(result)
     }
 
-    fn iter_raw_bytes(&self, col: DBCol) -> DBIterator {
+    fn iter_raw_bytes(
+        &self,
+        col: DBCol,
+    ) -> DBIterator {
         Box::new(self.iter_raw_bytes_internal(col, None, None, None))
     }
 
-    fn iter(&self, col: DBCol) -> DBIterator {
+    fn iter(
+        &self,
+        col: DBCol,
+    ) -> DBIterator {
         refcount::iter_with_rc_logic(col, self.iter_raw_bytes_internal(col, None, None, None))
     }
 
-    fn iter_prefix(&self, col: DBCol, key_prefix: &[u8]) -> DBIterator {
+    fn iter_prefix(
+        &self,
+        col: DBCol,
+        key_prefix: &[u8],
+    ) -> DBIterator {
         let iter = self.iter_raw_bytes_internal(col, Some(key_prefix), None, None);
         refcount::iter_with_rc_logic(col, iter)
     }
@@ -382,7 +420,10 @@ impl Database for RocksDB {
         "RocksDB::write",
         skip_all
     )]
-    fn write(&self, transaction: DBTransaction) -> io::Result<()> {
+    fn write(
+        &self,
+        transaction: DBTransaction,
+    ) -> io::Result<()> {
         let write_batch_start = std::time::Instant::now();
         let batch = self.build_write_batch(transaction)?;
         let elapsed = write_batch_start.elapsed();
@@ -394,7 +435,9 @@ impl Database for RocksDB {
                 backtrace = %std::backtrace::Backtrace::force_capture()
             );
         }
-        self.db.write(batch).map_err(io::Error::other)
+        self.db
+            .write(batch)
+            .map_err(io::Error::other)
     }
 
     #[tracing::instrument(
@@ -420,7 +463,9 @@ impl Database for RocksDB {
         // Need to iterator over all CFs because the normal `flush()` only
         // flushes the default column family.
         for col in DBCol::iter() {
-            self.db.flush_cf(self.cf_handle(col)?).map_err(io::Error::other)?;
+            self.db
+                .flush_cf(self.cf_handle(col)?)
+                .map_err(io::Error::other)?;
         }
         Ok(())
     }
@@ -478,13 +523,14 @@ impl Database for RocksDB {
                     );
                     continue;
                 }
-                db.drop_cf(col_name(col)).with_context(|| {
-                    format!(
-                        "failed to drop column family {:?} from checkpoint at {}",
-                        col,
-                        path.display()
-                    )
-                })?;
+                db.drop_cf(col_name(col))
+                    .with_context(|| {
+                        format!(
+                            "failed to drop column family {:?} from checkpoint at {}",
+                            col,
+                            path.display()
+                        )
+                    })?;
             }
         }
         Ok(())
@@ -534,11 +580,19 @@ fn common_rocksdb_options() -> Options {
     opts
 }
 
-fn rocksdb_options(store_config: &StoreConfig, mode: Mode) -> Options {
+fn rocksdb_options(
+    store_config: &StoreConfig,
+    mode: Mode,
+) -> Options {
     let mut opts = common_rocksdb_options();
     opts.create_missing_column_families(mode.read_write());
     opts.create_if_missing(mode.can_create());
-    opts.set_max_open_files(store_config.max_open_files.try_into().unwrap_or(i32::MAX));
+    opts.set_max_open_files(
+        store_config
+            .max_open_files
+            .try_into()
+            .unwrap_or(i32::MAX),
+    );
     // TODO(mina86): Perhaps enable statistics even in read-only mode?
     if mode.read_write() && store_config.enable_statistics {
         // Rust API doesn't permit choosing stats level. The default stats level
@@ -563,16 +617,25 @@ fn rocksdb_read_options() -> ReadOptions {
 /// If true then we enable caching of index blocks inside block cache
 fn use_block_cache_for_index_and_filter_blocks(db_col: DBCol) -> bool {
     match db_col {
-        DBCol::FlatState => false,
-        _ => true,
+        | DBCol::FlatState => false,
+        | _ => true,
     }
 }
 
-fn rocksdb_block_based_options(store_config: &StoreConfig, db_col: DBCol) -> BlockBasedOptions {
+fn rocksdb_block_based_options(
+    store_config: &StoreConfig,
+    db_col: DBCol,
+) -> BlockBasedOptions {
     let cache_size = store_config.col_cache_size(db_col);
 
     let mut block_opts = BlockBasedOptions::default();
-    block_opts.set_block_size(store_config.block_size.as_u64().try_into().unwrap());
+    block_opts.set_block_size(
+        store_config
+            .block_size
+            .as_u64()
+            .try_into()
+            .unwrap(),
+    );
     // We create block_cache for each of the columns, so the total cache size is (num_of_columns - 2) * 32MiB
     // Plus the 128MiB from FlatState and 512MiB from State columns
     block_opts.set_block_cache(&Cache::new_lru_cache(cache_size.as_u64().try_into().unwrap()));
@@ -587,7 +650,11 @@ fn rocksdb_block_based_options(store_config: &StoreConfig, db_col: DBCol) -> Blo
     block_opts
 }
 
-fn rocksdb_column_options(col: DBCol, store_config: &StoreConfig, temp: Temperature) -> Options {
+fn rocksdb_column_options(
+    col: DBCol,
+    store_config: &StoreConfig,
+    temp: Temperature,
+) -> Options {
     let mut opts = Options::default();
     set_compression_options(&mut opts);
     opts.set_level_compaction_dynamic_level_bytes(true);
@@ -662,17 +729,27 @@ impl RocksDB {
     }
 
     /// Gets every int property in CF_PROPERTY_NAMES for every column in DBCol.
-    fn get_cf_statistics(&self, result: &mut StoreStatistics) {
-        for prop_name in CF_PROPERTY_NAMES.iter() {
+    fn get_cf_statistics(
+        &self,
+        result: &mut StoreStatistics,
+    ) {
+        for prop_name in CF_PROPERTY_NAMES.deref() {
             let values = self
                 .cf_handles()
                 .filter_map(|(col, handle)| {
-                    let prop = self.db.property_int_value_cf(handle, prop_name);
+                    let prop = self
+                        .db
+                        .property_int_value_cf(handle, prop_name);
                     Some(StatsValue::ColumnValue(col, prop.ok()?? as i64))
                 })
                 .collect::<Vec<_>>();
             if !values.is_empty() {
-                result.data.push((prop_name.as_str().into(), values));
+                // TODO(mina86): Once const_str_from_utf8 is stabilised we might
+                // be able convert this runtime UTF-8 validation into const.
+                let stat_name = prop_name.to_str().unwrap();
+                result
+                    .data
+                    .push((stat_name.to_string(), values));
             }
         }
     }
@@ -704,22 +781,26 @@ fn parse_statistics(
         // Each line gets split into words and we parse statistics according to this format.
         if let Some((stat_name, words)) = line.split_once(' ') {
             let mut values = vec![];
-            let mut words = words.split(" : ").flat_map(|v| v.split(" "));
+            let mut words = words
+                .split(" : ")
+                .flat_map(|v| v.split(" "));
             while let (Some(key), Some(val)) = (words.next(), words.next()) {
                 match key {
-                    "COUNT" => values.push(StatsValue::Count(val.parse::<i64>()?)),
-                    "SUM" => values.push(StatsValue::Sum(val.parse::<i64>()?)),
-                    p if p.starts_with("P") => values.push(StatsValue::Percentile(
+                    | "COUNT" => values.push(StatsValue::Count(val.parse::<i64>()?)),
+                    | "SUM" => values.push(StatsValue::Sum(val.parse::<i64>()?)),
+                    | p if p.starts_with("P") => values.push(StatsValue::Percentile(
                         key[1..].parse::<u32>()?,
                         val.parse::<f64>()?,
                     )),
-                    _ => {
+                    | _ => {
                         warn!(target: "stats", "Unsupported stats value: {key} in {line}");
                     }
                 }
             }
             // We push some stats to result, even if later parsing will fail.
-            result.data.push((stat_name.to_string(), values));
+            result
+                .data
+                .push((stat_name.to_string(), values));
         }
     }
     Ok(())
@@ -732,60 +813,60 @@ fn parse_statistics(
 /// named the same as the variant of the [`DBCol`] enum.
 fn col_name(col: DBCol) -> &'static str {
     match col {
-        DBCol::DbVersion => "col0",
-        DBCol::BlockMisc => "col1",
-        DBCol::Block => "col2",
-        DBCol::BlockHeader => "col3",
-        DBCol::BlockHeight => "col4",
-        DBCol::State => "col5",
-        DBCol::ChunkExtra => "col6",
-        DBCol::_TransactionResult => "col7",
-        DBCol::OutgoingReceipts => "col8",
-        DBCol::IncomingReceipts => "col9",
-        DBCol::_Peers => "col10",
-        DBCol::EpochInfo => "col11",
-        DBCol::BlockInfo => "col12",
-        DBCol::Chunks => "col13",
-        DBCol::PartialChunks => "col14",
-        DBCol::BlocksToCatchup => "col15",
-        DBCol::StateDlInfos => "col16",
-        DBCol::ChallengedBlocks => "col17",
-        DBCol::StateHeaders => "col18",
-        DBCol::InvalidChunks => "col19",
-        DBCol::BlockExtra => "col20",
-        DBCol::BlockPerHeight => "col21",
-        DBCol::StateParts => "col22",
-        DBCol::EpochStart => "col23",
-        DBCol::AccountAnnouncements => "col24",
-        DBCol::NextBlockHashes => "col25",
-        DBCol::EpochLightClientBlocks => "col26",
-        DBCol::_ReceiptIdToShardId => "col27",
-        DBCol::_NextBlockWithNewChunk => "col28",
-        DBCol::_LastBlockWithNewChunk => "col29",
-        DBCol::PeerComponent => "col30",
-        DBCol::ComponentEdges => "col31",
-        DBCol::LastComponentNonce => "col32",
-        DBCol::Transactions => "col33",
-        DBCol::_ChunkPerHeightShard => "col34",
-        DBCol::StateChanges => "col35",
-        DBCol::BlockRefCount => "col36",
-        DBCol::TrieChanges => "col37",
-        DBCol::BlockMerkleTree => "col38",
-        DBCol::ChunkHashesByHeight => "col39",
-        DBCol::BlockOrdinal => "col40",
-        DBCol::_GCCount => "col41",
-        DBCol::OutcomeIds => "col42",
-        DBCol::_TransactionRefCount => "col43",
-        DBCol::ProcessedBlockHeights => "col44",
-        DBCol::Receipts => "col45",
-        DBCol::CachedContractCode => "col46",
-        DBCol::EpochValidatorInfo => "col47",
-        DBCol::HeaderHashesByHeight => "col48",
-        DBCol::StateChangesForSplitStates => "col49",
+        | DBCol::DbVersion => "col0",
+        | DBCol::BlockMisc => "col1",
+        | DBCol::Block => "col2",
+        | DBCol::BlockHeader => "col3",
+        | DBCol::BlockHeight => "col4",
+        | DBCol::State => "col5",
+        | DBCol::ChunkExtra => "col6",
+        | DBCol::_TransactionResult => "col7",
+        | DBCol::OutgoingReceipts => "col8",
+        | DBCol::IncomingReceipts => "col9",
+        | DBCol::_Peers => "col10",
+        | DBCol::EpochInfo => "col11",
+        | DBCol::BlockInfo => "col12",
+        | DBCol::Chunks => "col13",
+        | DBCol::PartialChunks => "col14",
+        | DBCol::BlocksToCatchup => "col15",
+        | DBCol::StateDlInfos => "col16",
+        | DBCol::ChallengedBlocks => "col17",
+        | DBCol::StateHeaders => "col18",
+        | DBCol::InvalidChunks => "col19",
+        | DBCol::BlockExtra => "col20",
+        | DBCol::BlockPerHeight => "col21",
+        | DBCol::StateParts => "col22",
+        | DBCol::EpochStart => "col23",
+        | DBCol::AccountAnnouncements => "col24",
+        | DBCol::NextBlockHashes => "col25",
+        | DBCol::EpochLightClientBlocks => "col26",
+        | DBCol::_ReceiptIdToShardId => "col27",
+        | DBCol::_NextBlockWithNewChunk => "col28",
+        | DBCol::_LastBlockWithNewChunk => "col29",
+        | DBCol::PeerComponent => "col30",
+        | DBCol::ComponentEdges => "col31",
+        | DBCol::LastComponentNonce => "col32",
+        | DBCol::Transactions => "col33",
+        | DBCol::_ChunkPerHeightShard => "col34",
+        | DBCol::StateChanges => "col35",
+        | DBCol::BlockRefCount => "col36",
+        | DBCol::TrieChanges => "col37",
+        | DBCol::BlockMerkleTree => "col38",
+        | DBCol::ChunkHashesByHeight => "col39",
+        | DBCol::BlockOrdinal => "col40",
+        | DBCol::_GCCount => "col41",
+        | DBCol::OutcomeIds => "col42",
+        | DBCol::_TransactionRefCount => "col43",
+        | DBCol::ProcessedBlockHeights => "col44",
+        | DBCol::Receipts => "col45",
+        | DBCol::CachedContractCode => "col46",
+        | DBCol::EpochValidatorInfo => "col47",
+        | DBCol::HeaderHashesByHeight => "col48",
+        | DBCol::StateChangesForSplitStates => "col49",
         // If you’re adding a new column, do *not* create a new case for it.
         // All new columns are handled by this default case:
         #[allow(unreachable_patterns)]
-        _ => <&str>::from(col),
+        | _ => <&str>::from(col),
     }
 }
 
@@ -803,20 +884,34 @@ mod tests {
         let store = opener.open().unwrap().get_hot_store();
         let ptr = (&*store.storage) as *const (dyn Database + 'static);
         let rocksdb = unsafe { &*(ptr as *const RocksDB) };
-        assert_eq!(store.get(DBCol::State, &[1; 8]).unwrap(), None);
-        {
-            let mut store_update = store.store_update();
-            store_update.increment_refcount(DBCol::State, &[1; 8], &[1]);
-            store_update.commit().unwrap();
-        }
-        {
-            let mut store_update = store.store_update();
-            store_update.increment_refcount(DBCol::State, &[1; 8], &[1]);
-            store_update.commit().unwrap();
-        }
-        assert_eq!(store.get(DBCol::State, &[1; 8]).unwrap().as_deref(), Some(&[1][..]));
         assert_eq!(
-            rocksdb.get_raw_bytes(DBCol::State, &[1; 8]).unwrap().as_deref(),
+            store
+                .get(DBCol::State, &[1; 8])
+                .unwrap(),
+            None
+        );
+        {
+            let mut store_update = store.store_update();
+            store_update.increment_refcount(DBCol::State, &[1; 8], &[1]);
+            store_update.commit().unwrap();
+        }
+        {
+            let mut store_update = store.store_update();
+            store_update.increment_refcount(DBCol::State, &[1; 8], &[1]);
+            store_update.commit().unwrap();
+        }
+        assert_eq!(
+            store
+                .get(DBCol::State, &[1; 8])
+                .unwrap()
+                .as_deref(),
+            Some(&[1][..])
+        );
+        assert_eq!(
+            rocksdb
+                .get_raw_bytes(DBCol::State, &[1; 8])
+                .unwrap()
+                .as_deref(),
             Some(&[1, 2, 0, 0, 0, 0, 0, 0, 0][..])
         );
         {
@@ -824,9 +919,18 @@ mod tests {
             store_update.decrement_refcount(DBCol::State, &[1; 8]);
             store_update.commit().unwrap();
         }
-        assert_eq!(store.get(DBCol::State, &[1; 8]).unwrap().as_deref(), Some(&[1][..]));
         assert_eq!(
-            rocksdb.get_raw_bytes(DBCol::State, &[1; 8]).unwrap().as_deref(),
+            store
+                .get(DBCol::State, &[1; 8])
+                .unwrap()
+                .as_deref(),
+            Some(&[1][..])
+        );
+        assert_eq!(
+            rocksdb
+                .get_raw_bytes(DBCol::State, &[1; 8])
+                .unwrap()
+                .as_deref(),
             Some(&[1, 1, 0, 0, 0, 0, 0, 0, 0][..])
         );
         {
@@ -835,9 +939,20 @@ mod tests {
             store_update.commit().unwrap();
         }
         // Refcount goes to 0 -> get() returns None
-        assert_eq!(store.get(DBCol::State, &[1; 8]).unwrap(), None);
+        assert_eq!(
+            store
+                .get(DBCol::State, &[1; 8])
+                .unwrap(),
+            None
+        );
         // Internally there is an empty value
-        assert_eq!(rocksdb.get_raw_bytes(DBCol::State, &[1; 8]).unwrap().as_deref(), Some(&[][..]));
+        assert_eq!(
+            rocksdb
+                .get_raw_bytes(DBCol::State, &[1; 8])
+                .unwrap()
+                .as_deref(),
+            Some(&[][..])
+        );
 
         // single_thread_rocksdb makes compact hang forever
         if !cfg!(feature = "single_thread_rocksdb") {
@@ -848,16 +963,38 @@ mod tests {
             // it only once, we end up with an empty value for the key.  This is
             // surprising because I assumed that compaction filter would discard
             // empty values.
-            rocksdb.db.compact_range_cf(cf, none, none);
+            rocksdb
+                .db
+                .compact_range_cf(cf, none, none);
             assert_eq!(
-                rocksdb.get_raw_bytes(DBCol::State, &[1; 8]).unwrap().as_deref(),
+                rocksdb
+                    .get_raw_bytes(DBCol::State, &[1; 8])
+                    .unwrap()
+                    .as_deref(),
                 Some(&[][..])
             );
-            assert_eq!(store.get(DBCol::State, &[1; 8]).unwrap(), None);
+            assert_eq!(
+                store
+                    .get(DBCol::State, &[1; 8])
+                    .unwrap(),
+                None
+            );
 
-            rocksdb.db.compact_range_cf(cf, none, none);
-            assert_eq!(rocksdb.get_raw_bytes(DBCol::State, &[1; 8]).unwrap(), None);
-            assert_eq!(store.get(DBCol::State, &[1; 8]).unwrap(), None);
+            rocksdb
+                .db
+                .compact_range_cf(cf, none, none);
+            assert_eq!(
+                rocksdb
+                    .get_raw_bytes(DBCol::State, &[1; 8])
+                    .unwrap(),
+                None
+            );
+            assert_eq!(
+                store
+                    .get(DBCol::State, &[1; 8])
+                    .unwrap(),
+                None
+            );
         }
     }
 
@@ -892,7 +1029,11 @@ mod tests {
 
     #[test]
     fn test_delete_range() {
-        let store = NodeStorage::test_opener().1.open().unwrap().get_hot_store();
+        let store = NodeStorage::test_opener()
+            .1
+            .open()
+            .unwrap()
+            .get_hot_store();
         let keys = [vec![0], vec![1], vec![2], vec![3]];
         let column = DBCol::Block;
 

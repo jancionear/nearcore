@@ -18,19 +18,29 @@ impl PendingEventsSender {
         Self { client_index: 0, sender: Arc::new(f) }
     }
 
-    pub(crate) fn set_index(&mut self, index: usize) {
+    pub(crate) fn set_index(
+        &mut self,
+        index: usize,
+    ) {
         self.client_index = index;
     }
 
     /// Set the index of the actor that is sending the event.
     /// This is purely for debug purposes and does not affect the execution of the event.
-    pub fn for_index(mut self, index: usize) -> Self {
+    pub fn for_index(
+        mut self,
+        index: usize,
+    ) -> Self {
         self.set_index(index);
         self
     }
 
     /// Schedule a callback to be executed. TestLoop follows the fifo order of executing events.
-    pub fn send(&self, description: String, callback: TestLoopCallback) {
+    pub fn send(
+        &self,
+        description: String,
+        callback: TestLoopCallback,
+    ) {
         self.send_with_delay(description, callback, Duration::ZERO);
     }
 

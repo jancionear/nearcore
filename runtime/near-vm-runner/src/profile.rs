@@ -45,27 +45,44 @@ impl ProfileDataV3 {
     }
 
     #[inline]
-    pub fn merge(&mut self, other: &ProfileDataV3) {
-        for ((_, gas), (_, other_gas)) in
-            self.actions_profile.iter_mut().zip(other.actions_profile.iter())
+    pub fn merge(
+        &mut self,
+        other: &ProfileDataV3,
+    ) {
+        for ((_, gas), (_, other_gas)) in self
+            .actions_profile
+            .iter_mut()
+            .zip(other.actions_profile.iter())
         {
             *gas = gas.saturating_add(*other_gas);
         }
-        for ((_, gas), (_, other_gas)) in
-            self.wasm_ext_profile.iter_mut().zip(other.wasm_ext_profile.iter())
+        for ((_, gas), (_, other_gas)) in self
+            .wasm_ext_profile
+            .iter_mut()
+            .zip(other.wasm_ext_profile.iter())
         {
             *gas = gas.saturating_add(*other_gas);
         }
-        self.wasm_gas = self.wasm_gas.saturating_add(other.wasm_gas);
+        self.wasm_gas = self
+            .wasm_gas
+            .saturating_add(other.wasm_gas);
     }
 
     #[inline]
-    pub fn add_action_cost(&mut self, action: ActionCosts, value: Gas) {
+    pub fn add_action_cost(
+        &mut self,
+        action: ActionCosts,
+        value: Gas,
+    ) {
         self.actions_profile[action] = self.actions_profile[action].saturating_add(value);
     }
 
     #[inline]
-    pub fn add_ext_cost(&mut self, ext: ExtCosts, value: Gas) {
+    pub fn add_ext_cost(
+        &mut self,
+        ext: ExtCosts,
+        value: Gas,
+    ) {
         self.wasm_ext_profile[ext] = self.wasm_ext_profile[ext].saturating_add(value);
     }
 
@@ -77,16 +94,26 @@ impl ProfileDataV3 {
     /// This is because WasmInstruction is the hottest cost and is implemented
     /// with the help on the VM side, so we don't want to have profiling logic
     /// there both for simplicity and efficiency reasons.
-    pub fn compute_wasm_instruction_cost(&mut self, total_gas_burnt: Gas) {
-        self.wasm_gas =
-            total_gas_burnt.saturating_sub(self.action_gas()).saturating_sub(self.host_gas());
+    pub fn compute_wasm_instruction_cost(
+        &mut self,
+        total_gas_burnt: Gas,
+    ) {
+        self.wasm_gas = total_gas_burnt
+            .saturating_sub(self.action_gas())
+            .saturating_sub(self.host_gas());
     }
 
-    pub fn get_action_cost(&self, action: ActionCosts) -> Gas {
+    pub fn get_action_cost(
+        &self,
+        action: ActionCosts,
+    ) -> Gas {
         self.actions_profile[action]
     }
 
-    pub fn get_ext_cost(&self, ext: ExtCosts) -> Gas {
+    pub fn get_ext_cost(
+        &self,
+        ext: ExtCosts,
+    ) -> Gas {
         self.wasm_ext_profile[ext]
     }
 
@@ -95,15 +122,26 @@ impl ProfileDataV3 {
     }
 
     fn host_gas(&self) -> Gas {
-        self.wasm_ext_profile.as_slice().iter().copied().fold(0, Gas::saturating_add)
+        self.wasm_ext_profile
+            .as_slice()
+            .iter()
+            .copied()
+            .fold(0, Gas::saturating_add)
     }
 
     pub fn action_gas(&self) -> Gas {
-        self.actions_profile.as_slice().iter().copied().fold(0, Gas::saturating_add)
+        self.actions_profile
+            .as_slice()
+            .iter()
+            .copied()
+            .fold(0, Gas::saturating_add)
     }
 
     /// Returns total compute usage of host calls.
-    pub fn total_compute_usage(&self, ext_costs_config: &ExtCostsConfig) -> Compute {
+    pub fn total_compute_usage(
+        &self,
+        ext_costs_config: &ExtCostsConfig,
+    ) -> Compute {
         let ext_compute_cost = self
             .wasm_ext_profile
             .iter()
@@ -126,7 +164,9 @@ impl ProfileDataV3 {
 
         // We currently only support compute costs for host calls. In the future we might add
         // them for actions as well.
-        ext_compute_cost.saturating_add(self.action_gas()).saturating_add(self.get_wasm_cost())
+        ext_compute_cost
+            .saturating_add(self.action_gas())
+            .saturating_add(self.get_wasm_cost())
     }
 }
 
@@ -152,7 +192,10 @@ impl BorshDeserialize for ProfileDataV3 {
 }
 
 impl BorshSerialize for ProfileDataV3 {
-    fn serialize<W: std::io::Write>(&self, writer: &mut W) -> Result<(), std::io::Error> {
+    fn serialize<W: std::io::Write>(
+        &self,
+        writer: &mut W,
+    ) -> Result<(), std::io::Error> {
         let mut actions_costs: Vec<u64> = vec![0u64; ActionCosts::LENGTH];
         for (cost, gas) in self.actions_profile.iter() {
             actions_costs[borsh_action_index(cost)] = *gas;
@@ -199,7 +242,10 @@ const fn borsh_ext_index(ext: ExtCosts) -> usize {
 }
 
 impl fmt::Debug for ProfileDataV3 {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
         use num_rational::Ratio;
         let host_gas = self.host_gas();
         let action_gas = self.action_gas();

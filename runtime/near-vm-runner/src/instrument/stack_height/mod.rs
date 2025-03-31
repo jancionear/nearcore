@@ -106,8 +106,13 @@ impl Context {
     }
 
     /// Returns `stack_cost` for `func_idx`.
-    fn stack_cost(&self, func_idx: u32) -> Option<u32> {
-        self.func_stack_costs.get(func_idx as usize).cloned()
+    fn stack_cost(
+        &self,
+        func_idx: u32,
+    ) -> Option<u32> {
+        self.func_stack_costs
+            .get(func_idx as usize)
+            .cloned()
     }
 
     /// Returns stack limit specified by the rules.
@@ -141,8 +146,12 @@ pub fn inject_limiter(
 
 /// Generate a new global that will be used for tracking current stack height.
 fn generate_stack_height_global(module: &mut elements::Module) -> u32 {
-    let global_entry =
-        builder::global().value_type().i32().mutable().init_expr(Instruction::I32Const(0)).build();
+    let global_entry = builder::global()
+        .value_type()
+        .i32()
+        .mutable()
+        .init_expr(Instruction::I32Const(0))
+        .build();
 
     // Try to find an existing global section.
     for section in module.sections_mut() {
@@ -169,13 +178,15 @@ impl<'a> ModuleCtx<'a> {
     fn new(module: &'a elements::Module) -> Self {
         let func_imports = module.import_count(elements::ImportCountType::Function);
         let func_idx_to_sig_idx: Vec<u32> = {
-            let imported =
-                module.import_section().map(|is| is.entries()).unwrap_or(&[]).iter().filter_map(
-                    |entry| match entry.external() {
-                        elements::External::Function(idx) => Some(*idx),
-                        _ => None,
-                    },
-                );
+            let imported = module
+                .import_section()
+                .map(|is| is.entries())
+                .unwrap_or(&[])
+                .iter()
+                .filter_map(|entry| match entry.external() {
+                    | elements::External::Function(idx) => Some(*idx),
+                    | _ => None,
+                });
             let declared = module
                 .function_section()
                 .map(|fs| fs.entries())
@@ -187,16 +198,28 @@ impl<'a> ModuleCtx<'a> {
         Self { module, func_imports, func_idx_to_sig_idx }
     }
 
-    fn resolve_func_type(&self, func_idx: u32) -> Result<&'a elements::FunctionType, Error> {
-        let types = self.module.type_section().map(|ts| ts.types()).unwrap_or(&[]);
+    fn resolve_func_type(
+        &self,
+        func_idx: u32,
+    ) -> Result<&'a elements::FunctionType, Error> {
+        let types = self
+            .module
+            .type_section()
+            .map(|ts| ts.types())
+            .unwrap_or(&[]);
 
         let sig_idx = *self
             .func_idx_to_sig_idx
             .get(func_idx as usize)
             .ok_or_else(|| Error(format!("Function at index {} is not defined", func_idx)))?;
-        let Type::Function(ty) = types.get(sig_idx as usize).ok_or_else(|| {
-            Error(format!("Signature {} (specified by func {}) isn't defined", sig_idx, func_idx))
-        })?;
+        let Type::Function(ty) = types
+            .get(sig_idx as usize)
+            .ok_or_else(|| {
+                Error(format!(
+                    "Signature {} (specified by func {}) isn't defined",
+                    sig_idx, func_idx
+                ))
+            })?;
         Ok(ty)
     }
 }
@@ -223,7 +246,10 @@ fn compute_stack_costs(module: &elements::Module) -> Result<Vec<u32>, Error> {
 /// Stack cost of the given *defined* function is the sum of it's locals count (that is,
 /// number of arguments plus number of local variables) and the maximal stack
 /// height.
-fn compute_stack_cost(func_idx: u32, module_ctx: &ModuleCtx<'_>) -> Result<u32, Error> {
+fn compute_stack_cost(
+    func_idx: u32,
+    module_ctx: &ModuleCtx<'_>,
+) -> Result<u32, Error> {
     // To calculate the cost of a function we need to convert index from
     // function index space to defined function spaces.
     let defined_func_idx = func_idx
@@ -253,7 +279,10 @@ fn compute_stack_cost(func_idx: u32, module_ctx: &ModuleCtx<'_>) -> Result<u32, 
         .ok_or_else(|| Error("Overflow in adding locals_count and max_stack_height".into()))
 }
 
-fn instrument_functions(ctx: &Context, module: &mut elements::Module) -> Result<(), Error> {
+fn instrument_functions(
+    ctx: &Context,
+    module: &mut elements::Module,
+) -> Result<(), Error> {
     for section in module.sections_mut() {
         if let elements::Section::Code(code_section) = section {
             for func_body in code_section.bodies_mut() {
@@ -291,7 +320,10 @@ fn instrument_functions(ctx: &Context, module: &mut elements::Module) -> Result<
 ///
 /// drop
 /// ```
-fn instrument_function(ctx: &Context, func: &mut Instructions) -> Result<(), Error> {
+fn instrument_function(
+    ctx: &Context,
+    func: &mut Instructions,
+) -> Result<(), Error> {
     use Instruction::*;
 
     struct InstrumentCall {
@@ -306,13 +338,14 @@ fn instrument_function(ctx: &Context, func: &mut Instructions) -> Result<(), Err
         .enumerate()
         .filter_map(|(offset, instruction)| {
             if let Call(callee) = instruction {
-                ctx.stack_cost(*callee).and_then(|cost| {
-                    if cost > 0 {
-                        Some(InstrumentCall { callee: *callee, offset, cost })
-                    } else {
-                        None
-                    }
-                })
+                ctx.stack_cost(*callee)
+                    .and_then(|cost| {
+                        if cost > 0 {
+                            Some(InstrumentCall { callee: *callee, offset, cost })
+                        } else {
+                            None
+                        }
+                    })
             } else {
                 None
             }

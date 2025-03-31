@@ -123,7 +123,7 @@ async fn test_raw_conn_state_parts() {
     let mut part_id_received = -1i64;
     loop {
         match conn.recv().await {
-            Ok((msg, _timestamp)) => {
+            | Ok((msg, _timestamp)) => {
                 if let raw::Message::Direct(raw::DirectMessage::VersionedStateResponse(
                     state_response,
                 )) = msg
@@ -143,7 +143,7 @@ async fn test_raw_conn_state_parts() {
                     }
                 }
             }
-            Err(e) => {
+            | Err(e) => {
                 panic!("error receiving part: {:?}", e);
             }
         }
@@ -163,7 +163,9 @@ async fn test_listener() {
     let addr = tcp::ListenerAddr::reserve_for_test();
     let secret_key = SecretKey::from_random(KeyType::ED25519);
     let peer_id = PeerId::new(secret_key.public_key());
-    cfg.peer_store.boot_nodes.push(PeerInfo::new(peer_id, *addr));
+    cfg.peer_store
+        .boot_nodes
+        .push(PeerInfo::new(peer_id, *addr));
     cfg.outbound_disabled = false;
     let _pm = crate::peer_manager::testonly::start(
         clock.clock(),

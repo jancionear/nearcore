@@ -61,7 +61,10 @@ pub fn verify_approvals_and_threshold_orphan(
         block_height,
     );
 
-    for (validator, may_be_signature) in block_approvers.iter().zip(approvals.iter()) {
+    for (validator, may_be_signature) in block_approvers
+        .iter()
+        .zip(approvals.iter())
+    {
         if let Some(signature) = may_be_signature {
             if !signature.verify(message_to_sign.as_ref(), &validator.public_key) {
                 return Err(Error::InvalidApprovals);
@@ -80,11 +83,14 @@ pub fn verify_approvals_and_threshold_orphan(
 }
 
 fn get_heuristic_block_approvers_ordered(
-    epoch_info: &EpochInfo,
+    epoch_info: &EpochInfo
 ) -> Result<Vec<ApprovalStake>, EpochError> {
     let mut result = vec![];
     let mut validators: HashSet<AccountId> = HashSet::new();
-    for validator_id in epoch_info.block_producers_settlement().into_iter() {
+    for validator_id in epoch_info
+        .block_producers_settlement()
+        .into_iter()
+    {
         let validator_stake = epoch_info.get_validator(*validator_id);
         let account_id = validator_stake.account_id();
         if validators.insert(account_id.clone()) {

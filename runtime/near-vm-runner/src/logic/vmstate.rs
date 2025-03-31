@@ -64,20 +64,34 @@ impl<'a> Memory<'a> {
     ) -> Result<Cow<'s, [u8]>> {
         gas_counter.pay_base(read_memory_base)?;
         gas_counter.pay_per(read_memory_byte, slice.len)?;
-        self.0.view_memory(slice).map_err(|_| HostError::MemoryAccessViolation.into())
+        self.0
+            .view_memory(slice)
+            .map_err(|_| HostError::MemoryAccessViolation.into())
     }
 
     /// Like [`Self::view`] but does not pay gas fees.
-    pub(super) fn view_for_free(&self, slice: MemSlice) -> Result<Cow<[u8]>> {
-        self.0.view_memory(slice).map_err(|_| HostError::MemoryAccessViolation.into())
+    pub(super) fn view_for_free(
+        &self,
+        slice: MemSlice,
+    ) -> Result<Cow<[u8]>> {
+        self.0
+            .view_memory(slice)
+            .map_err(|_| HostError::MemoryAccessViolation.into())
     }
 
     /// Copies data from guest memory into provided buffer accounting for gas.
-    fn get_into(&self, gas_counter: &mut GasCounter, offset: u64, buf: &mut [u8]) -> Result<()> {
+    fn get_into(
+        &self,
+        gas_counter: &mut GasCounter,
+        offset: u64,
+        buf: &mut [u8],
+    ) -> Result<()> {
         gas_counter.pay_base(read_memory_base)?;
         let len = u64::try_from(buf.len()).map_err(|_| HostError::MemoryAccessViolation)?;
         gas_counter.pay_per(read_memory_byte, len)?;
-        self.0.read_memory(offset, buf).map_err(|_| HostError::MemoryAccessViolation.into())
+        self.0
+            .read_memory(offset, buf)
+            .map_err(|_| HostError::MemoryAccessViolation.into())
     }
 
     /// Copies data from provided buffer into guest memory accounting for gas.
@@ -89,12 +103,20 @@ impl<'a> Memory<'a> {
     ) -> Result<()> {
         gas_counter.pay_base(write_memory_base)?;
         gas_counter.pay_per(write_memory_byte, buf.len() as _)?;
-        self.0.write_memory(offset, buf).map_err(|_| HostError::MemoryAccessViolation.into())
+        self.0
+            .write_memory(offset, buf)
+            .map_err(|_| HostError::MemoryAccessViolation.into())
     }
 
     #[cfg(test)]
-    pub(super) fn set_for_free(&mut self, offset: u64, buf: &[u8]) -> Result<()> {
-        self.0.write_memory(offset, buf).map_err(|_| HostError::MemoryAccessViolation.into())
+    pub(super) fn set_for_free(
+        &mut self,
+        offset: u64,
+        buf: &[u8],
+    ) -> Result<()> {
+        self.0
+            .write_memory(offset, buf)
+            .map_err(|_| HostError::MemoryAccessViolation.into())
     }
 
     memory_get!(u128, get_u128);
@@ -145,13 +167,23 @@ impl Registers {
     }
 
     #[cfg(test)]
-    pub(super) fn get_for_free<'s>(&'s self, register_id: u64) -> Option<&'s [u8]> {
-        self.registers.get(&register_id).map(|data| &data[..])
+    pub(super) fn get_for_free<'s>(
+        &'s self,
+        register_id: u64,
+    ) -> Option<&'s [u8]> {
+        self.registers
+            .get(&register_id)
+            .map(|data| &data[..])
     }
 
     /// Returns length of register with given index or None if no such register.
-    pub(super) fn get_len(&self, register_id: u64) -> Option<u64> {
-        self.registers.get(&register_id).map(|data| data.len() as u64)
+    pub(super) fn get_len(
+        &self,
+        register_id: u64,
+    ) -> Option<u64> {
+        self.registers
+            .get(&register_id)
+            .map(|data| data.len() as u64)
     }
 
     /// Sets register with given index.
@@ -175,10 +207,10 @@ impl Registers {
         let entry = self.check_set_register(config, register_id, data_len)?;
         let data = data.into();
         match entry {
-            Entry::Occupied(mut entry) => {
+            | Entry::Occupied(mut entry) => {
                 entry.insert(data);
             }
-            Entry::Vacant(entry) => {
+            | Entry::Vacant(entry) => {
                 entry.insert(data);
             }
         };
@@ -209,8 +241,8 @@ impl Registers {
         let entry = self.registers.entry(register_id);
         let calc_usage = |len: u64| len + size_of::<u64>() as u64;
         let old_mem_usage = match &entry {
-            Entry::Occupied(entry) => calc_usage(entry.get().len() as u64),
-            Entry::Vacant(_) => 0,
+            | Entry::Occupied(entry) => calc_usage(entry.get().len() as u64),
+            | Entry::Vacant(_) => 0,
         };
         let usage = self
             .total_memory_usage
@@ -245,7 +277,9 @@ pub(super) fn get_memory_or_register<'a>(
     len: u64,
 ) -> Result<Cow<'a, [u8]>> {
     if len == u64::MAX {
-        registers.get(gas_counter, ptr).map(Cow::Borrowed)
+        registers
+            .get(gas_counter, ptr)
+            .map(Cow::Borrowed)
     } else {
         memory.view(gas_counter, MemSlice { ptr, len })
     }
@@ -277,32 +311,59 @@ mod tests {
         }
 
         #[track_caller]
-        fn assert_set_success(&mut self, register_id: u64, value: &str) {
-            self.regs.set(&mut self.gas, &self.cfg, register_id, value.as_bytes()).unwrap();
+        fn assert_set_success(
+            &mut self,
+            register_id: u64,
+            value: &str,
+        ) {
+            self.regs
+                .set(&mut self.gas, &self.cfg, register_id, value.as_bytes())
+                .unwrap();
             self.assert_read(register_id, Some(value));
         }
 
         #[track_caller]
-        fn assert_set_failure(&mut self, register_id: u64, value: &str) {
+        fn assert_set_failure(
+            &mut self,
+            register_id: u64,
+            value: &str,
+        ) {
             let want = Err(HostError::MemoryAccessViolation.into());
-            let got = self.regs.set(&mut self.gas, &self.cfg, register_id, value.as_bytes());
+            let got = self
+                .regs
+                .set(&mut self.gas, &self.cfg, register_id, value.as_bytes());
             assert_eq!(want, got);
         }
 
         #[track_caller]
-        fn assert_read(&mut self, register_id: u64, value: Option<&str>) {
+        fn assert_read(
+            &mut self,
+            register_id: u64,
+            value: Option<&str>,
+        ) {
             if let Some(value) = value {
-                assert_eq!(Ok(value.as_bytes()), self.regs.get(&mut self.gas, register_id));
+                assert_eq!(
+                    Ok(value.as_bytes()),
+                    self.regs
+                        .get(&mut self.gas, register_id)
+                );
                 assert_eq!(Some(value.len() as u64), self.regs.get_len(register_id));
             } else {
                 let err = HostError::InvalidRegisterId { register_id }.into();
-                assert_eq!(Err(err), self.regs.get(&mut self.gas, register_id));
+                assert_eq!(
+                    Err(err),
+                    self.regs
+                        .get(&mut self.gas, register_id)
+                );
                 assert_eq!(None, self.regs.get_len(register_id));
             }
         }
 
         #[track_caller]
-        fn assert_used_gas(&self, gas: u64) {
+        fn assert_used_gas(
+            &self,
+            gas: u64,
+        ) {
             assert_eq!((gas, gas), (self.gas.burnt_gas(), self.gas.used_gas()));
         }
     }

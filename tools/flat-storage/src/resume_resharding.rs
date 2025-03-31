@@ -28,12 +28,18 @@ pub(crate) fn resume_resharding(
     opener: StoreOpener,
 ) -> anyhow::Result<()> {
     let (chain, executor) = create_chain_and_executor(config, home_dir, opener)?;
-    let resharder = chain.resharding_manager.flat_storage_resharder.clone();
+    let resharder = chain
+        .resharding_manager
+        .flat_storage_resharder
+        .clone();
 
     let shard_uid = ShardUId::new(3, cmd.shard_id); // version is fixed at 3 in resharding V3
     let resharding_status = get_resharding_status_for_shard(&shard_uid, &chain)?;
 
-    chain.runtime_adapter.get_flat_storage_manager().create_flat_storage_for_shard(shard_uid)?;
+    chain
+        .runtime_adapter
+        .get_flat_storage_manager()
+        .create_flat_storage_for_shard(shard_uid)?;
 
     resharder.resume(shard_uid, &resharding_status)?;
 
@@ -50,7 +56,9 @@ fn create_chain_and_executor(
     home_dir: &Path,
     opener: StoreOpener,
 ) -> anyhow::Result<(Chain, Arc<SerialExecutor>)> {
-    let node_storage = opener.open_in_mode(near_store::Mode::ReadWriteExisting).unwrap();
+    let node_storage = opener
+        .open_in_mode(near_store::Mode::ReadWriteExisting)
+        .unwrap();
     let epoch_manager = EpochManager::new_arc_handle(
         node_storage.get_hot_store(),
         &config.genesis.config,
@@ -67,8 +75,13 @@ fn create_chain_and_executor(
     let chain_genesis = ChainGenesis::new(&config.genesis.config);
     let chain_config = ChainConfig {
         save_trie_changes: config.client_config.save_trie_changes,
-        background_migration_threads: config.client_config.client_background_migration_threads,
-        resharding_config: config.client_config.resharding_config.clone(),
+        background_migration_threads: config
+            .client_config
+            .client_background_migration_threads,
+        resharding_config: config
+            .client_config
+            .resharding_config
+            .clone(),
     };
     let executor = Arc::new(SerialExecutor::new(ChainStore::new(
         node_storage.get_hot_store(),
@@ -97,14 +110,17 @@ fn get_resharding_status_for_shard(
     chain: &Chain,
 ) -> anyhow::Result<FlatStorageReshardingStatus> {
     use near_store::flat::FlatStorageStatus::*;
-    let flat_storage_status =
-        chain.runtime_adapter.store().flat_store().get_flat_storage_status(*shard_uid)?;
+    let flat_storage_status = chain
+        .runtime_adapter
+        .store()
+        .flat_store()
+        .get_flat_storage_status(*shard_uid)?;
     match &flat_storage_status {
-        Disabled | Empty | Creation(_) | Ready(_) => Err(anyhow!(
+        | Disabled | Empty | Creation(_) | Ready(_) => Err(anyhow!(
             "resharding is not in progress! flat storage status: {:?}",
             flat_storage_status
         )),
-        Resharding(status) => Ok(status.clone()),
+        | Resharding(status) => Ok(status.clone()),
     }
 }
 
@@ -125,48 +141,69 @@ impl SerialExecutor {
     fn run(&self) -> anyhow::Result<bool> {
         let task = self.tasks.lock().unwrap().pop_front();
         match task {
-            Some(task) => {
+            | Some(task) => {
                 match task(&self.chain_store.lock().unwrap()) {
-                    FlatStorageReshardingTaskResult::Successful { num_batches_done } => {
+                    | FlatStorageReshardingTaskResult::Successful { num_batches_done } => {
                         info!(target: "resharding", num_batches_done, "task completed");
                     }
-                    FlatStorageReshardingTaskResult::Failed => {
+                    | FlatStorageReshardingTaskResult::Failed => {
                         return Err(anyhow!("resharding task has failed!"));
                     }
-                    FlatStorageReshardingTaskResult::Cancelled => {
+                    | FlatStorageReshardingTaskResult::Cancelled => {
                         info!(target: "resharding", "task cancelled")
                     }
-                    FlatStorageReshardingTaskResult::Postponed => {
+                    | FlatStorageReshardingTaskResult::Postponed => {
                         info!(target: "resharding", "task postponed - retrying");
-                        self.tasks.lock().unwrap().push_back(task);
+                        self.tasks
+                            .lock()
+                            .unwrap()
+                            .push_back(task);
                     }
                 }
                 Ok(true)
             }
-            None => Ok(false),
+            | None => Ok(false),
         }
     }
 }
 
 impl CanSend<FlatStorageSplitShardRequest> for SerialExecutor {
-    fn send(&self, msg: FlatStorageSplitShardRequest) {
-        let task =
-            Box::new(move |chain_store: &ChainStore| msg.resharder.split_shard_task(chain_store));
-        self.tasks.lock().unwrap().push_back(task);
+    fn send(
+        &self,
+        msg: FlatStorageSplitShardRequest,
+    ) {
+        let task = Box::new(move |chain_store: &ChainStore| {
+            msg.resharder
+                .split_shard_task(chain_store)
+        });
+        self.tasks
+            .lock()
+            .unwrap()
+            .push_back(task);
     }
 }
 
 impl CanSend<FlatStorageShardCatchupRequest> for SerialExecutor {
-    fn send(&self, msg: FlatStorageShardCatchupRequest) {
+    fn send(
+        &self,
+        msg: FlatStorageShardCatchupRequest,
+    ) {
         let task = Box::new(move |chain_store: &ChainStore| {
-            msg.resharder.shard_catchup_task(msg.shard_uid, chain_store)
+            msg.resharder
+                .shard_catchup_task(msg.shard_uid, chain_store)
         });
-        self.tasks.lock().unwrap().push_back(task);
+        self.tasks
+            .lock()
+            .unwrap()
+            .push_back(task);
     }
 }
 
 impl CanSend<MemtrieReloadRequest> for SerialExecutor {
-    fn send(&self, _: MemtrieReloadRequest) {
+    fn send(
+        &self,
+        _: MemtrieReloadRequest,
+    ) {
         // no op
     }
 }

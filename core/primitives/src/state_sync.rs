@@ -108,80 +108,89 @@ impl ShardStateSyncResponseHeader {
     #[inline]
     pub fn take_chunk(self) -> ShardChunk {
         match self {
-            Self::V1(header) => ShardChunk::V1(header.chunk),
-            Self::V2(header) => header.chunk,
+            | Self::V1(header) => ShardChunk::V1(header.chunk),
+            | Self::V2(header) => header.chunk,
         }
     }
 
     #[inline]
     pub fn cloned_chunk(&self) -> ShardChunk {
         match self {
-            Self::V1(header) => ShardChunk::V1(header.chunk.clone()),
-            Self::V2(header) => header.chunk.clone(),
+            | Self::V1(header) => ShardChunk::V1(header.chunk.clone()),
+            | Self::V2(header) => header.chunk.clone(),
         }
     }
 
     #[inline]
     pub fn cloned_prev_chunk_header(&self) -> Option<ShardChunkHeader> {
         match self {
-            Self::V1(header) => header.prev_chunk_header.clone().map(ShardChunkHeader::V1),
-            Self::V2(header) => header.prev_chunk_header.clone(),
+            | Self::V1(header) => header
+                .prev_chunk_header
+                .clone()
+                .map(ShardChunkHeader::V1),
+            | Self::V2(header) => header.prev_chunk_header.clone(),
         }
     }
 
     #[inline]
     pub fn chunk_height_included(&self) -> BlockHeight {
         match self {
-            Self::V1(header) => header.chunk.header.height_included,
-            Self::V2(header) => header.chunk.height_included(),
+            | Self::V1(header) => header.chunk.header.height_included,
+            | Self::V2(header) => header.chunk.height_included(),
         }
     }
 
     #[inline]
     pub fn chunk_prev_state_root(&self) -> StateRoot {
         match self {
-            Self::V1(header) => header.chunk.header.inner.prev_state_root,
-            Self::V2(header) => header.chunk.prev_state_root(),
+            | Self::V1(header) => {
+                header
+                    .chunk
+                    .header
+                    .inner
+                    .prev_state_root
+            }
+            | Self::V2(header) => header.chunk.prev_state_root(),
         }
     }
 
     #[inline]
     pub fn chunk_proof(&self) -> &MerklePath {
         match self {
-            Self::V1(header) => &header.chunk_proof,
-            Self::V2(header) => &header.chunk_proof,
+            | Self::V1(header) => &header.chunk_proof,
+            | Self::V2(header) => &header.chunk_proof,
         }
     }
 
     #[inline]
     pub fn prev_chunk_proof(&self) -> &Option<MerklePath> {
         match self {
-            Self::V1(header) => &header.prev_chunk_proof,
-            Self::V2(header) => &header.prev_chunk_proof,
+            | Self::V1(header) => &header.prev_chunk_proof,
+            | Self::V2(header) => &header.prev_chunk_proof,
         }
     }
 
     #[inline]
     pub fn incoming_receipts_proofs(&self) -> &[ReceiptProofResponse] {
         match self {
-            Self::V1(header) => &header.incoming_receipts_proofs,
-            Self::V2(header) => &header.incoming_receipts_proofs,
+            | Self::V1(header) => &header.incoming_receipts_proofs,
+            | Self::V2(header) => &header.incoming_receipts_proofs,
         }
     }
 
     #[inline]
     pub fn root_proofs(&self) -> &[Vec<RootProof>] {
         match self {
-            Self::V1(header) => &header.root_proofs,
-            Self::V2(header) => &header.root_proofs,
+            | Self::V1(header) => &header.root_proofs,
+            | Self::V2(header) => &header.root_proofs,
         }
     }
 
     #[inline]
     pub fn state_root_node(&self) -> &StateRootNode {
         match self {
-            Self::V1(header) => &header.state_root_node,
-            Self::V2(header) => &header.state_root_node,
+            | Self::V1(header) => &header.state_root_node,
+            | Self::V2(header) => &header.state_root_node,
         }
     }
 
@@ -221,56 +230,70 @@ pub enum ShardStateSyncResponse {
 impl ShardStateSyncResponse {
     pub fn part_id(&self) -> Option<u64> {
         match self {
-            Self::V1(response) => response.part_id(),
-            Self::V2(response) => response.part.as_ref().map(|(part_id, _)| *part_id),
-            Self::V3(response) => response.part.as_ref().map(|(part_id, _)| *part_id),
+            | Self::V1(response) => response.part_id(),
+            | Self::V2(response) => response
+                .part
+                .as_ref()
+                .map(|(part_id, _)| *part_id),
+            | Self::V3(response) => response
+                .part
+                .as_ref()
+                .map(|(part_id, _)| *part_id),
         }
     }
 
     pub fn take_header(self) -> Option<ShardStateSyncResponseHeader> {
         match self {
-            Self::V1(response) => response.header.map(ShardStateSyncResponseHeader::V1),
-            Self::V2(response) => response.header.map(ShardStateSyncResponseHeader::V2),
-            Self::V3(response) => response.header.map(ShardStateSyncResponseHeader::V2),
+            | Self::V1(response) => response
+                .header
+                .map(ShardStateSyncResponseHeader::V1),
+            | Self::V2(response) => response
+                .header
+                .map(ShardStateSyncResponseHeader::V2),
+            | Self::V3(response) => response
+                .header
+                .map(ShardStateSyncResponseHeader::V2),
         }
     }
 
     pub fn part(&self) -> &Option<(u64, Vec<u8>)> {
         match self {
-            Self::V1(response) => &response.part,
-            Self::V2(response) => &response.part,
-            Self::V3(response) => &response.part,
+            | Self::V1(response) => &response.part,
+            | Self::V2(response) => &response.part,
+            | Self::V3(response) => &response.part,
         }
     }
 
     pub fn take_part(self) -> Option<(u64, Vec<u8>)> {
         match self {
-            Self::V1(response) => response.part,
-            Self::V2(response) => response.part,
-            Self::V3(response) => response.part,
+            | Self::V1(response) => response.part,
+            | Self::V2(response) => response.part,
+            | Self::V3(response) => response.part,
         }
     }
 
     pub fn can_generate(&self) -> bool {
         match self {
-            Self::V1(_response) => false,
-            Self::V2(_response) => false,
-            Self::V3(response) => response.can_generate,
+            | Self::V1(_response) => false,
+            | Self::V2(_response) => false,
+            | Self::V3(response) => response.can_generate,
         }
     }
 
     pub fn cached_parts(&self) -> &Option<CachedParts> {
         match self {
-            Self::V1(_response) => &None,
-            Self::V2(_response) => &None,
-            Self::V3(response) => &response.cached_parts,
+            | Self::V1(_response) => &None,
+            | Self::V2(_response) => &None,
+            | Self::V3(response) => &response.cached_parts,
         }
     }
 }
 
 impl ShardStateSyncResponseV1 {
     pub fn part_id(&self) -> Option<u64> {
-        self.part.as_ref().map(|(part_id, _)| *part_id)
+        self.part
+            .as_ref()
+            .map(|(part_id, _)| *part_id)
     }
 }
 

@@ -10,10 +10,16 @@ use std::sync::Arc;
 /// to a foreign implementor of this trait.
 pub trait Tunables: Sync {
     /// Construct a `MemoryStyle` for the provided `MemoryType`
-    fn memory_style(&self, memory: &MemoryType) -> MemoryStyle;
+    fn memory_style(
+        &self,
+        memory: &MemoryType,
+    ) -> MemoryStyle;
 
     /// Construct a `TableStyle` for the provided `TableType`
-    fn table_style(&self, table: &TableType) -> TableStyle;
+    fn table_style(
+        &self,
+        table: &TableType,
+    ) -> TableStyle;
 
     /// Create a memory owned by the host given a [`MemoryType`] and a [`MemoryStyle`].
     fn create_host_memory(
@@ -58,18 +64,27 @@ pub trait Tunables: Sync {
     fn gas_cfg(&self) -> Box<dyn finite_wasm::wasmparser::VisitOperator<Output = u64>>;
 
     /// Cost for initializing a stack frame
-    fn stack_init_gas_cost(&self, frame_size: u64) -> u64;
+    fn stack_init_gas_cost(
+        &self,
+        frame_size: u64,
+    ) -> u64;
 }
 
 #[doc(hidden)]
 pub struct TestTunables;
 
 impl Tunables for TestTunables {
-    fn memory_style(&self, _memory: &MemoryType) -> MemoryStyle {
+    fn memory_style(
+        &self,
+        _memory: &MemoryType,
+    ) -> MemoryStyle {
         unimplemented!()
     }
 
-    fn table_style(&self, _table: &TableType) -> TableStyle {
+    fn table_style(
+        &self,
+        _table: &TableType,
+    ) -> TableStyle {
         unimplemented!()
     }
 
@@ -115,7 +130,10 @@ impl Tunables for TestTunables {
         unimplemented!()
     }
 
-    fn stack_init_gas_cost(&self, _frame_size: u64) -> u64 {
+    fn stack_init_gas_cost(
+        &self,
+        _frame_size: u64,
+    ) -> u64 {
         unimplemented!()
     }
 }

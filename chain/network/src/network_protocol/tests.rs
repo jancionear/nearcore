@@ -117,10 +117,18 @@ fn serialize_deserialize() -> anyhow::Result<()> {
         PeerMessage::RequestUpdateNonce(data::make_partial_edge(&mut rng)),
         PeerMessage::PeersRequest(PeersRequest { max_peers: None, max_direct_peers: None }),
         PeerMessage::PeersResponse(PeersResponse {
-            peers: (0..5).map(|_| data::make_peer_info(&mut rng)).collect(),
+            peers: (0..5)
+                .map(|_| data::make_peer_info(&mut rng))
+                .collect(),
             direct_peers: vec![], // TODO: populate this field once borsh support is dropped
         }),
-        PeerMessage::BlockHeadersRequest(chain.blocks.iter().map(|b| *b.hash()).collect()),
+        PeerMessage::BlockHeadersRequest(
+            chain
+                .blocks
+                .iter()
+                .map(|b| *b.hash())
+                .collect(),
+        ),
         PeerMessage::BlockHeaders(chain.get_block_headers()),
         PeerMessage::BlockRequest(*chain.blocks[5].hash()),
         PeerMessage::Block(chain.blocks[5].clone()),
@@ -156,12 +164,15 @@ fn serialize_deserialize() -> anyhow::Result<()> {
     }
 
     // Encodings should never be compatible.
-    for (from, to) in [(Encoding::Proto, Encoding::Borsh), (Encoding::Borsh, Encoding::Proto)] {
+    for (from, to) in [
+        (Encoding::Proto, Encoding::Borsh),
+        (Encoding::Borsh, Encoding::Proto),
+    ] {
         for m in &msgs {
             let bytes = &m.serialize(from);
             match PeerMessage::deserialize(to, bytes) {
-                Err(_) => {}
-                Ok(m2) => {
+                | Err(_) => {}
+                | Ok(m2) => {
                     bail!("from={from:?},to={to:?}: deserialize(serialize({m})) = {m2}, want error")
                 }
             }

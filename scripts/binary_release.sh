@@ -26,7 +26,6 @@ os=$(uname)
 arch=$(uname -m)
 os_and_arch=${os}-${arch}
 
-# cspell:words czvf
 function tar_binary {
   mkdir -p $1/${os_and_arch}
   cp target/release/$1 $1/${os_and_arch}/

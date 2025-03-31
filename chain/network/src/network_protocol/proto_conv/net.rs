@@ -21,8 +21,8 @@ impl From<&SocketAddr> for proto::SocketAddr {
     fn from(x: &SocketAddr) -> Self {
         Self {
             ip: match x.ip() {
-                IpAddr::V4(ip) => ip.octets().to_vec(),
-                IpAddr::V6(ip) => ip.octets().to_vec(),
+                | IpAddr::V4(ip) => ip.octets().to_vec(),
+                | IpAddr::V6(ip) => ip.octets().to_vec(),
             },
             port: x.port() as u32,
             ..Self::default()
@@ -34,9 +34,9 @@ impl TryFrom<&proto::SocketAddr> for SocketAddr {
     type Error = ParseSocketAddrError;
     fn try_from(x: &proto::SocketAddr) -> Result<Self, Self::Error> {
         let ip = match x.ip.len() {
-            4 => IpAddr::from(<[u8; 4]>::try_from(&x.ip[..]).unwrap()),
-            16 => IpAddr::from(<[u8; 16]>::try_from(&x.ip[..]).unwrap()),
-            _ => return Err(Self::Error::InvalidIP),
+            | 4 => IpAddr::from(<[u8; 4]>::try_from(&x.ip[..]).unwrap()),
+            | 16 => IpAddr::from(<[u8; 16]>::try_from(&x.ip[..]).unwrap()),
+            | _ => return Err(Self::Error::InvalidIP),
         };
         let port = u16::try_from(x.port).map_err(|_| Self::Error::InvalidPort)?;
         Ok(SocketAddr::new(ip, port))

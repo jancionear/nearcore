@@ -267,10 +267,12 @@ fn main() -> Result<()> {
     let _subscriber = near_o11y::default_subscriber(env_filter, &Default::default()).global();
     let opts: Opts = Opts::parse();
 
-    let home_dir = opts.home_dir.unwrap_or_else(near_indexer::get_default_home);
+    let home_dir = opts
+        .home_dir
+        .unwrap_or_else(near_indexer::get_default_home);
 
     match opts.subcmd {
-        SubCommand::Run => {
+        | SubCommand::Run => {
             let indexer_config = near_indexer::IndexerConfig {
                 home_dir,
                 sync_mode: near_indexer::SyncModeEnum::FromInterruption,
@@ -286,7 +288,7 @@ fn main() -> Result<()> {
             });
             system.run()?;
         }
-        SubCommand::Init(config) => near_indexer::indexer_init_configs(&home_dir, config.into())?,
+        | SubCommand::Init(config) => near_indexer::indexer_init_configs(&home_dir, config.into())?,
     }
     Ok(())
 }

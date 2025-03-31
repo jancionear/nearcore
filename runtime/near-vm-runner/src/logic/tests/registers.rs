@@ -7,7 +7,9 @@ fn test_one_register() {
     let mut logic_builder = VMLogicBuilder::default();
     let mut logic = logic_builder.build();
 
-    logic.wrapped_internal_write_register(0, &[0, 1, 2]).unwrap();
+    logic
+        .wrapped_internal_write_register(0, &[0, 1, 2])
+        .unwrap();
     assert_eq!(logic.register_len(0).unwrap(), 3u64);
     logic.assert_read_register(&[0, 1, 2], 0);
 }
@@ -28,12 +30,17 @@ fn test_non_existent_register() {
 #[test]
 fn test_many_registers() {
     let mut logic_builder = VMLogicBuilder::default();
-    let max_registers = logic_builder.config.limit_config.max_number_registers;
+    let max_registers = logic_builder
+        .config
+        .limit_config
+        .max_number_registers;
     let mut logic = logic_builder.build();
 
     for i in 0..max_registers {
         let value = (i * 10u64).to_le_bytes();
-        logic.wrapped_internal_write_register(i, &value[..]).unwrap();
+        logic
+            .wrapped_internal_write_register(i, &value[..])
+            .unwrap();
         logic.assert_read_register(&value[..], i);
     }
 
@@ -47,7 +54,10 @@ fn test_many_registers() {
 #[test]
 fn test_max_register_size() {
     let mut logic_builder = VMLogicBuilder::free();
-    let max_register_size = logic_builder.config.limit_config.max_register_size;
+    let max_register_size = logic_builder
+        .config
+        .limit_config
+        .max_register_size;
     let mut logic = logic_builder.build();
 
     let value = vec![0u8; (max_register_size + 1) as usize];
@@ -66,12 +76,16 @@ fn test_max_register_memory_limit() {
     logic_builder.config = config.clone();
     let mut logic = logic_builder.build();
 
-    let max_registers =
-        config.limit_config.registers_memory_limit / config.limit_config.max_register_size;
+    let max_registers = config
+        .limit_config
+        .registers_memory_limit
+        / config.limit_config.max_register_size;
 
     for i in 0..max_registers {
         let value = vec![1u8; config.limit_config.max_register_size as usize];
-        logic.wrapped_internal_write_register(i, &value).expect("should be written successfully");
+        logic
+            .wrapped_internal_write_register(i, &value)
+            .expect("should be written successfully");
     }
     let last = vec![1u8; config.limit_config.max_register_size as usize];
     assert_eq!(

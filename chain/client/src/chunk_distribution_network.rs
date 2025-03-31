@@ -100,21 +100,24 @@ fn request_missing_chunk<C>(
     let shard_id = header.shard_id();
     debug!(target: "client", ?shard_id, chunk_hash=?header.chunk_hash(), "request_missing_chunk");
     near_performance_metrics::actix::spawn("ChunkDistributionNetwork", async move {
-        match client.lookup_chunk(prev_hash, shard_id).await {
-            Ok(Some(chunk)) => {
+        match client
+            .lookup_chunk(prev_hash, shard_id)
+            .await
+        {
+            | Ok(Some(chunk)) => {
                 adapter.send(ShardsManagerRequestFromClient::ProcessOrRequestChunk {
                     candidate_chunk: chunk,
                     request_header: header,
                     prev_hash,
                 });
             }
-            Ok(None) => {
+            | Ok(None) => {
                 adapter.send(ShardsManagerRequestFromClient::RequestChunks {
                     chunks_to_request: vec![header],
                     prev_hash,
                 });
             }
-            Err(err) => {
+            | Err(err) => {
                 error!(target: "client", ?err, "Failed to find chunk via Chunk Distribution Network");
                 adapter.send(ShardsManagerRequestFromClient::RequestChunks {
                     chunks_to_request: vec![header],
@@ -138,8 +141,11 @@ fn request_orphan_chunk<C>(
     let shard_id = header.shard_id();
     let thread_local_shards_manager_adapter = adapter.clone();
     near_performance_metrics::actix::spawn("ChunkDistributionNetwork", async move {
-        match client.lookup_chunk(ancestor_hash, shard_id).await {
-            Ok(Some(chunk)) => {
+        match client
+            .lookup_chunk(ancestor_hash, shard_id)
+            .await
+        {
+            | Ok(Some(chunk)) => {
                 thread_local_shards_manager_adapter.send(
                     ShardsManagerRequestFromClient::ProcessOrRequestChunkForOrphan {
                         candidate_chunk: chunk,
@@ -149,7 +155,7 @@ fn request_orphan_chunk<C>(
                     },
                 );
             }
-            Ok(None) => {
+            | Ok(None) => {
                 thread_local_shards_manager_adapter.send(
                     ShardsManagerRequestFromClient::RequestChunksForOrphan {
                         chunks_to_request: vec![header],
@@ -158,7 +164,7 @@ fn request_orphan_chunk<C>(
                     },
                 );
             }
-            Err(err) => {
+            | Err(err) => {
                 error!(target: "client", ?err, "Failed to find chunk via Chunk Distribution Network");
                 thread_local_shards_manager_adapter.send(
                     ShardsManagerRequestFromClient::RequestChunksForOrphan {
@@ -182,11 +188,14 @@ impl ChunkDistributionClient for ChunkDistributionNetwork {
         shard_id: ShardId,
     ) -> Result<Option<PartialEncodedChunk>, Self::Error> {
         let url = &self.config.uris.get;
-        let request = self
-            .client
-            .get(url)
-            .query(&[("prev_hash", prev_hash.to_string()), ("shard_id", shard_id.to_string())]);
-        let response = request.send().await?.error_for_status()?;
+        let request = self.client.get(url).query(&[
+            ("prev_hash", prev_hash.to_string()),
+            ("shard_id", shard_id.to_string()),
+        ]);
+        let response = request
+            .send()
+            .await?
+            .error_for_status()?;
         let chunk = PartialEncodedChunk::deserialize(&mut response.bytes().await?.as_ref()).ok();
         Ok(chunk)
     }
@@ -206,7 +215,10 @@ impl ChunkDistributionClient for ChunkDistributionNetwork {
                 ("shard_id", chunk.shard_id().to_string()),
             ])
             .body(bytes);
-        let response = request.send().await?.error_for_status()?;
+        let response = request
+            .send()
+            .await?
+            .error_for_status()?;
         Ok(response)
     }
 }
@@ -312,8 +324,12 @@ mod tests {
         // is told to process the chunk directly
         let known_chunk_1 = mock_shard_chunk(1, ShardId::new(0));
         let known_chunk_2 = mock_shard_chunk(2, ShardId::new(0));
-        client.publish_chunk(&known_chunk_1).now_or_never();
-        client.publish_chunk(&known_chunk_2).now_or_never();
+        client
+            .publish_chunk(&known_chunk_1)
+            .now_or_never();
+        client
+            .publish_chunk(&known_chunk_2)
+            .now_or_never();
         let blocks_missing_chunks = vec![BlockMissingChunks {
             prev_hash: *known_chunk_1.prev_block(),
             missing_chunks: vec![known_chunk_1.cloned_header()],
@@ -393,9 +409,17 @@ mod tests {
         });
     }
 
-    fn mock_shard_chunk(height: u64, shard_id: ShardId) -> PartialEncodedChunk {
-        let prev_block_hash =
-            hash(&[height.to_le_bytes().as_slice(), shard_id.to_le_bytes().as_slice()].concat());
+    fn mock_shard_chunk(
+        height: u64,
+        shard_id: ShardId,
+    ) -> PartialEncodedChunk {
+        let prev_block_hash = hash(
+            &[
+                height.to_le_bytes().as_slice(),
+                shard_id.to_le_bytes().as_slice(),
+            ]
+            .concat(),
+        );
         let mut mock_hashes = MockHashes::new(prev_block_hash);
 
         let signer = EmptyValidatorSigner::default().into();
@@ -437,7 +461,10 @@ mod tests {
             prev_hash: CryptoHash,
             shard_id: ShardId,
         ) -> impl Future<Output = Result<Option<PartialEncodedChunk>, Self::Error>> {
-            let chunk = self.known_chunks.get(&(prev_hash, shard_id)).cloned();
+            let chunk = self
+                .known_chunks
+                .get(&(prev_hash, shard_id))
+                .cloned();
             futures::future::ready(Ok(chunk))
         }
 
@@ -447,7 +474,8 @@ mod tests {
         ) -> impl Future<Output = Result<Self::Response, Self::Error>> {
             let prev_hash = *chunk.prev_block();
             let shard_id = chunk.shard_id();
-            self.known_chunks.insert((prev_hash, shard_id), chunk.clone());
+            self.known_chunks
+                .insert((prev_hash, shard_id), chunk.clone());
             futures::future::ready(Ok(()))
         }
     }
@@ -484,7 +512,10 @@ mod tests {
         }
     }
     impl<M: Sync + Send + 'static> CanSend<M> for MockSender<M> {
-        fn send(&self, message: M) {
+        fn send(
+            &self,
+            message: M,
+        ) {
             self.inner.send(message).unwrap();
         }
     }

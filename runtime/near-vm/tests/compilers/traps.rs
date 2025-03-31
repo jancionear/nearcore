@@ -33,9 +33,14 @@ fn test_trap_return(config: crate::Config) -> Result<()> {
             }
         },
     )?;
-    let run_func = instance.lookup_function("run").expect("expected function export");
+    let run_func = instance
+        .lookup_function("run")
+        .expect("expected function export");
 
-    let e = run_func.call(&[]).err().expect("error calling function");
+    let e = run_func
+        .call(&[])
+        .err()
+        .expect("error calling function");
 
     assert_eq!(e.message(), "test 123");
 
@@ -59,9 +64,14 @@ fn test_trap_trace(config: crate::Config) -> Result<()> {
         InstanceConfig::with_stack_limit(1000000),
         &imports! {},
     )?;
-    let run_func = instance.lookup_function("run").expect("expected function export");
+    let run_func = instance
+        .lookup_function("run")
+        .expect("expected function export");
 
-    let e = run_func.call(&[]).err().expect("error calling function");
+    let e = run_func
+        .call(&[])
+        .err()
+        .expect("error calling function");
 
     let trace = e.trace();
     assert_eq!(trace.len(), 2);
@@ -100,9 +110,14 @@ fn test_trap_trace_cb(config: crate::Config) -> Result<()> {
             }
         },
     )?;
-    let run_func = instance.lookup_function("run").expect("expected function export");
+    let run_func = instance
+        .lookup_function("run")
+        .expect("expected function export");
 
-    let e = run_func.call(&[]).err().expect("error calling function");
+    let e = run_func
+        .call(&[])
+        .err()
+        .expect("error calling function");
 
     let trace = e.trace();
     println!("Trace {:?}", trace);
@@ -133,9 +148,14 @@ fn test_trap_stack_overflow(config: crate::Config) -> Result<()> {
         InstanceConfig::with_stack_limit(1000000),
         &imports! {},
     )?;
-    let run_func = instance.lookup_function("run").expect("expected function export");
+    let run_func = instance
+        .lookup_function("run")
+        .expect("expected function export");
 
-    let e = run_func.call(&[]).err().expect("error calling function");
+    let e = run_func
+        .call(&[])
+        .err()
+        .expect("error calling function");
 
     let trace = e.trace();
     assert!(trace.len() >= 32);
@@ -144,7 +164,9 @@ fn test_trap_stack_overflow(config: crate::Config) -> Result<()> {
         assert_eq!(trace[i].func_index(), 0);
         assert_eq!(trace[i].function_name(), Some("run"));
     }
-    assert!(e.message().contains("call stack exhausted"));
+    assert!(e
+        .message()
+        .contains("call stack exhausted"));
 
     Ok(())
 }
@@ -168,9 +190,14 @@ fn trap_display_pretty(config: crate::Config) -> Result<()> {
         InstanceConfig::with_stack_limit(1000000),
         &imports! {},
     )?;
-    let run_func = instance.lookup_function("bar").expect("expected function export");
+    let run_func = instance
+        .lookup_function("bar")
+        .expect("expected function export");
 
-    let e = run_func.call(&[]).err().expect("error calling function");
+    let e = run_func
+        .call(&[])
+        .err()
+        .expect("error calling function");
     assert_eq!(
         e.to_string(),
         "\
@@ -221,9 +248,14 @@ fn trap_display_multi_module(config: crate::Config) -> Result<()> {
             }
         },
     )?;
-    let bar2 = instance.lookup_function("bar2").expect("expected function export");
+    let bar2 = instance
+        .lookup_function("bar2")
+        .expect("expected function export");
 
-    let e = bar2.call(&[]).err().expect("error calling function");
+    let e = bar2
+        .call(&[])
+        .err()
+        .expect("error calling function");
     assert_eq!(
         e.to_string(),
         "\
@@ -263,10 +295,10 @@ fn trap_start_function_import(config: crate::Config) -> Result<()> {
     .err()
     .unwrap();
     match err {
-        InstantiationError::Start(err) => {
+        | InstantiationError::Start(err) => {
             assert_eq!(err.message(), "user trap");
         }
-        _ => {
+        | _ => {
             panic!("It should be a start error")
         }
     }
@@ -385,11 +417,15 @@ fn mismatched_arguments(config: crate::Config) -> Result<()> {
         "Parameters of type [] did not match signature [I32] -> []"
     );
     assert_eq!(
-        func.call(&[Val::F32(0.0)]).unwrap_err().message(),
+        func.call(&[Val::F32(0.0)])
+            .unwrap_err()
+            .message(),
         "Parameters of type [F32] did not match signature [I32] -> []",
     );
     assert_eq!(
-        func.call(&[Val::I32(0), Val::I32(1)]).unwrap_err().message(),
+        func.call(&[Val::I32(0), Val::I32(1)])
+            .unwrap_err()
+            .message(),
         "Parameters of type [I32, I32] did not match signature [I32] -> []"
     );
     Ok(())

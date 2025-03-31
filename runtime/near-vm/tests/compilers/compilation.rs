@@ -5,10 +5,15 @@ use near_vm_engine::universal::{MemoryPool, Universal};
 use near_vm_test_api::*;
 use near_vm_vm::Artifact;
 
-fn slow_to_compile_contract(n_fns: usize, n_locals: usize) -> Vec<u8> {
+fn slow_to_compile_contract(
+    n_fns: usize,
+    n_locals: usize,
+) -> Vec<u8> {
     let fns = format!("(func (local {}))\n", "i32 ".repeat(n_locals)).repeat(n_fns);
     let wat = format!(r#"(module {} (func (export "main")))"#, fns);
-    wat2wasm(wat.as_bytes()).unwrap().to_vec()
+    wat2wasm(wat.as_bytes())
+        .unwrap()
+        .to_vec()
 }
 
 fn compile_uncached<'a>(
@@ -39,11 +44,11 @@ fn compilation_test() {
     for factor in 1..1000 {
         let code = slow_to_compile_contract(3, 25 * factor);
         match compile_uncached(&store, &engine, &code, false) {
-            Ok(art) => {
+            | Ok(art) => {
                 let serialized = art.serialize().unwrap();
                 println!("{}: artifact is compiled, size is {}", factor, serialized.len());
             }
-            Err(err) => {
+            | Err(err) => {
                 println!("err is {:?}", err);
             }
         }
@@ -76,21 +81,29 @@ fn profiling() {
     let wasm = wat2wasm(wat.as_bytes()).unwrap();
     let compiler = Singlepass::default();
     let pool = MemoryPool::new(1, 0x10000).unwrap();
-    let engine = Arc::new(Universal::new(compiler).code_memory_pool(pool).engine());
+    let engine = Arc::new(
+        Universal::new(compiler)
+            .code_memory_pool(pool)
+            .engine(),
+    );
     let store = Store::new(Arc::clone(&engine));
     match compile_uncached(&store, &engine, &wasm, false) {
-        Ok(art) => unsafe {
+        | Ok(art) => unsafe {
             let serialized = art.serialize().unwrap();
             let executable =
                 near_vm_engine::universal::UniversalExecutableRef::deserialize(&serialized)
                     .unwrap();
-            let artifact = engine.load_universal_executable_ref(&executable).unwrap();
+            let artifact = engine
+                .load_universal_executable_ref(&executable)
+                .unwrap();
             let info = artifact
                 .functions()
                 .iter()
                 .filter_map(|(idx, _)| {
                     let extent = artifact.function_extent(idx)?;
-                    let idx = artifact.import_counts().function_index(idx);
+                    let idx = artifact
+                        .import_counts()
+                        .function_index(idx);
                     let name = executable.function_name(idx)?;
                     Some((name, extent))
                 })
@@ -101,7 +114,7 @@ fn profiling() {
             assert_eq!("f2", info[2].0);
             assert_eq!("f3", info[3].0);
         },
-        Err(_) => {
+        | Err(_) => {
             assert!(false)
         }
     }

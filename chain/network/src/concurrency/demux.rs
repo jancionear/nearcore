@@ -97,7 +97,8 @@ impl<Arg: 'static + Send, Res: 'static + Send> Demux<Arg, Res> {
             stream
                 .send(Call { arg, out: send, handler: f.wrap() })
                 .map_err(|_| ServiceStoppedError)?;
-            recv.await.map_err(|_| ServiceStoppedError)
+            recv.await
+                .map_err(|_| ServiceStoppedError)
         }
     }
 
@@ -114,7 +115,9 @@ impl<Arg: 'static + Send, Res: 'static + Send> Demux<Arg, Res> {
             let mut closed = false;
             let mut tokens = rl.burst;
             let mut next_token = None;
-            let interval = (time::Duration::SECOND / rl.qps).try_into().unwrap();
+            let interval = (time::Duration::SECOND / rl.qps)
+                .try_into()
+                .unwrap();
             while !(calls.is_empty() && closed) {
                 // Restarting the timer every time a new request comes could
                 // cause a starvation, so we compute the next token arrival time

@@ -18,7 +18,10 @@ macro_rules! le_bytes {
     )
 }
 
-fn parse_le_bytes(s: &str, buf: &mut Vec<u8>) {
+fn parse_le_bytes(
+    s: &str,
+    buf: &mut Vec<u8>,
+) {
     if s == "," {
         return;
     }
@@ -26,7 +29,9 @@ fn parse_le_bytes(s: &str, buf: &mut Vec<u8>) {
         buf.push(byte.parse::<u8>().unwrap());
         return;
     }
-    let s = s.strip_prefix("0x").expect("0x prefix was expected");
+    let s = s
+        .strip_prefix("0x")
+        .expect("0x prefix was expected");
     let zeros = "0".repeat(64 - s.len());
     let s = format!("{zeros}{s}");
     let hi = u128::from_str_radix(&s[..32], 16).unwrap();
@@ -57,7 +62,10 @@ fn render_le_bytes(p: &[u8]) -> String {
 }
 
 #[track_caller]
-fn assert_eq_points(left: &[u8], right: &[u8]) {
+fn assert_eq_points(
+    left: &[u8],
+    right: &[u8],
+) {
     assert_eq!(
         left,
         right,
@@ -73,36 +81,51 @@ fn check_result<T, U>(
     expected: Result<U, &str>,
 ) -> Option<(T, U)> {
     match (actual, expected) {
-        (Ok(actual), Ok(expected)) => Some((actual, expected)),
-        (Err(VMLogicError::HostError(HostError::AltBn128InvalidInput { msg: err })), Err(msg)) => {
+        | (Ok(actual), Ok(expected)) => Some((actual, expected)),
+        | (
+            Err(VMLogicError::HostError(HostError::AltBn128InvalidInput { msg: err })),
+            Err(msg),
+        ) => {
             assert!(err.contains(msg), "expected `{msg}` error, got {err}");
             None
         }
-        (Ok(_), Err(msg)) => panic!("expected `{msg}` error"),
-        (Err(err), _) => panic!("unexpected eror: `{}`", err),
+        | (Ok(_), Err(msg)) => panic!("expected `{msg}` error"),
+        | (Err(err), _) => panic!("unexpected eror: `{}`", err),
     }
 }
 
 #[test]
 fn test_alt_bn128_g1_multiexp() {
     #[track_caller]
-    fn check(input: &[u8], expected: Result<&[u8], &str>) {
+    fn check(
+        input: &[u8],
+        expected: Result<&[u8], &str>,
+    ) {
         let mut logic_builder = VMLogicBuilder::default();
         let mut logic = logic_builder.build();
         let input = logic.internal_mem_write(input);
 
         let res = logic.alt_bn128_g1_multiexp(input.len, input.ptr, 0);
         if let Some(((), expected)) = check_result(res, expected) {
-            let got = logic.registers().get_for_free(0).unwrap();
+            let got = logic
+                .registers()
+                .get_for_free(0)
+                .unwrap();
             assert_eq_points(&expected, got);
         }
     }
     #[track_caller]
-    fn check_ok(input: &[u8], expcted: &[u8]) {
+    fn check_ok(
+        input: &[u8],
+        expcted: &[u8],
+    ) {
         check(input, Ok(expcted))
     }
     #[track_caller]
-    fn check_err(input: &[u8], expected_err: &str) {
+    fn check_err(
+        input: &[u8],
+        expected_err: &str,
+    ) {
         check(input, Err(expected_err))
     }
 
@@ -150,23 +173,35 @@ fn test_alt_bn128_g1_multiexp() {
 #[test]
 fn test_alt_bn128_g1_sum() {
     #[track_caller]
-    fn check(input: &[u8], expected: Result<&[u8], &str>) {
+    fn check(
+        input: &[u8],
+        expected: Result<&[u8], &str>,
+    ) {
         let mut logic_builder = VMLogicBuilder::default();
         let mut logic = logic_builder.build();
         let input = logic.internal_mem_write(input);
 
         let res = logic.alt_bn128_g1_sum(input.len, input.ptr, 0);
         if let Some(((), expected)) = check_result(res, expected) {
-            let got = logic.registers().get_for_free(0).unwrap();
+            let got = logic
+                .registers()
+                .get_for_free(0)
+                .unwrap();
             assert_eq_points(&expected, got);
         }
     }
     #[track_caller]
-    fn check_ok(input: &[u8], expcted: &[u8]) {
+    fn check_ok(
+        input: &[u8],
+        expcted: &[u8],
+    ) {
         check(input, Ok(expcted))
     }
     #[track_caller]
-    fn check_err(input: &[u8], expected_err: &str) {
+    fn check_err(
+        input: &[u8],
+        expected_err: &str,
+    ) {
         check(input, Err(expected_err))
     }
 
@@ -214,7 +249,10 @@ fn test_alt_bn128_g1_sum() {
 #[test]
 fn test_alt_bn128_pairing_check() {
     #[track_caller]
-    fn check(input: &[u8], expected: Result<u64, &str>) {
+    fn check(
+        input: &[u8],
+        expected: Result<u64, &str>,
+    ) {
         let mut logic_builder = VMLogicBuilder::default();
         let mut logic = logic_builder.build();
         let input = logic.internal_mem_write(input);
@@ -225,11 +263,17 @@ fn test_alt_bn128_pairing_check() {
         }
     }
     #[track_caller]
-    fn check_ok(input: &[u8], expcted: u64) {
+    fn check_ok(
+        input: &[u8],
+        expcted: u64,
+    ) {
         check(input, Ok(expcted))
     }
     #[track_caller]
-    fn check_err(input: &[u8], expected_err: &str) {
+    fn check_err(
+        input: &[u8],
+        expected_err: &str,
+    ) {
         check(input, Err(expected_err))
     }
 

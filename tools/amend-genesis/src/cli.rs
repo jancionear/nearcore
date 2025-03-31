@@ -112,7 +112,8 @@ impl AmendGenesisCommand {
             self.shard_layout_file.as_deref(),
             &genesis_changes,
             self.num_bytes_account.unwrap_or(100),
-            self.num_extra_bytes_record.unwrap_or(40),
+            self.num_extra_bytes_record
+                .unwrap_or(40),
         )
     }
 }

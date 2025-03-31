@@ -17,20 +17,23 @@ pub enum Color {
 }
 
 impl Color {
-    pub fn as_ansi(self, foreground: bool) -> String {
+    pub fn as_ansi(
+        self,
+        foreground: bool,
+    ) -> String {
         let color = match self {
-            Color::Gray { shade } => return Color::Color256(0xE8 + shade).as_ansi(foreground),
-            Color::Color256(n) => {
+            | Color::Gray { shade } => return Color::Color256(0xE8 + shade).as_ansi(foreground),
+            | Color::Color256(n) => {
                 return format!("\x1b[{};5;{}m", if foreground { 38 } else { 48 }, n)
             }
-            Color::Black => 0,
-            Color::Red => 1,
-            Color::Green => 2,
-            Color::Yellow => 3,
-            Color::Blue => 4,
-            Color::Magenta => 5,
-            Color::Cyan => 6,
-            Color::White => 7,
+            | Color::Black => 0,
+            | Color::Red => 1,
+            | Color::Green => 2,
+            | Color::Yellow => 3,
+            | Color::Blue => 4,
+            | Color::Magenta => 5,
+            | Color::Cyan => 6,
+            | Color::White => 7,
         };
         format!("\x1b[{}m", color + if foreground { 30 } else { 40 })
     }

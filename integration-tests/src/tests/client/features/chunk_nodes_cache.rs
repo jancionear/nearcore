@@ -24,11 +24,19 @@ fn process_transaction(
     protocol_version: ProtocolVersion,
 ) -> CryptoHash {
     let tip = env.clients[0].chain.head().unwrap();
-    let epoch_id =
-        env.clients[0].epoch_manager.get_epoch_id_from_prev_block(&tip.last_block_hash).unwrap();
-    let block_producer =
-        env.clients[0].epoch_manager.get_block_producer(&epoch_id, tip.height).unwrap();
-    let last_block_hash = *env.clients[0].chain.get_block_by_height(tip.height).unwrap().hash();
+    let epoch_id = env.clients[0]
+        .epoch_manager
+        .get_epoch_id_from_prev_block(&tip.last_block_hash)
+        .unwrap();
+    let block_producer = env.clients[0]
+        .epoch_manager
+        .get_block_producer(&epoch_id, tip.height)
+        .unwrap();
+    let last_block_hash = *env.clients[0]
+        .chain
+        .get_block_by_height(tip.height)
+        .unwrap()
+        .hash();
     let next_height = tip.height + 1;
     let gas = 20_000_000_000_000;
     let tx = SignedTransaction::from_actions(
@@ -57,7 +65,10 @@ fn process_transaction(
     assert_eq!(env.clients[0].process_tx(tx, false, false), ProcessTxResponse::ValidTx);
 
     for i in next_height..next_height + num_blocks {
-        let mut block = env.clients[0].produce_block(i).unwrap().unwrap();
+        let mut block = env.clients[0]
+            .produce_block(i)
+            .unwrap()
+            .unwrap();
         set_block_protocol_version(&mut block, block_producer.clone(), protocol_version);
         env.process_block(0, block.clone(), Provenance::PRODUCED);
     }
@@ -83,7 +94,13 @@ fn process_transaction(
 /// cache. 4nd run should give the same results, because caching must not affect different chunks.
 #[test]
 fn compare_node_counts() {
-    let mut genesis = Genesis::test(vec!["test0".parse().unwrap(), "test1".parse().unwrap()], 1);
+    let mut genesis = Genesis::test(
+        vec![
+            "test0".parse().unwrap(),
+            "test1".parse().unwrap(),
+        ],
+        1,
+    );
     let epoch_length = 10;
     let num_blocks = 5;
 
@@ -117,18 +134,34 @@ fn compare_node_counts() {
                 process_transaction(&mut env, &signer, 2 * epoch_length, old_protocol_version + 1)
             };
 
-            let final_result = env.clients[0].chain.get_final_transaction_result(&tx_hash).unwrap();
+            let final_result = env.clients[0]
+                .chain
+                .get_final_transaction_result(&tx_hash)
+                .unwrap();
             assert_matches!(final_result.status, FinalExecutionStatus::SuccessValue(_));
-            let transaction_outcome = env.clients[0].chain.get_execution_outcome(&tx_hash).unwrap();
-            let receipt_ids = transaction_outcome.outcome_with_id.outcome.receipt_ids;
+            let transaction_outcome = env.clients[0]
+                .chain
+                .get_execution_outcome(&tx_hash)
+                .unwrap();
+            let receipt_ids = transaction_outcome
+                .outcome_with_id
+                .outcome
+                .receipt_ids;
             assert_eq!(receipt_ids.len(), 1);
-            let receipt_execution_outcome =
-                env.clients[0].chain.get_execution_outcome(&receipt_ids[0]).unwrap();
-            let metadata = receipt_execution_outcome.outcome_with_id.outcome.metadata;
+            let receipt_execution_outcome = env.clients[0]
+                .chain
+                .get_execution_outcome(&receipt_ids[0])
+                .unwrap();
+            let metadata = receipt_execution_outcome
+                .outcome_with_id
+                .outcome
+                .metadata;
             match metadata {
-                ExecutionMetadata::V1 => panic!("ExecutionMetadata cannot be empty"),
-                ExecutionMetadata::V2(_profile_data) => panic!("expected newest ExecutionMetadata"),
-                ExecutionMetadata::V3(profile_data) => TrieNodesCount {
+                | ExecutionMetadata::V1 => panic!("ExecutionMetadata cannot be empty"),
+                | ExecutionMetadata::V2(_profile_data) => {
+                    panic!("expected newest ExecutionMetadata")
+                }
+                | ExecutionMetadata::V3(profile_data) => TrieNodesCount {
                     db_reads: {
                         let cost = profile_data.get_ext_cost(ExtCosts::touching_trie_node);
                         assert_eq!(cost % touching_trie_node_cost, 0);

@@ -55,12 +55,20 @@ impl AnalyseGasUsageCommand {
         // Create a ChainStore and EpochManager that will be used to read blockchain data.
         let mut near_config = load_config(home, genesis_validation).unwrap();
         let node_storage = open_storage(&home, &mut near_config).unwrap();
-        let store = node_storage.get_split_store().unwrap_or_else(|| node_storage.get_hot_store());
+        let store = node_storage
+            .get_split_store()
+            .unwrap_or_else(|| node_storage.get_hot_store());
         let chain_store = Rc::new(ChainStore::new(
             store.clone(),
-            near_config.genesis.config.genesis_height,
+            near_config
+                .genesis
+                .config
+                .genesis_height,
             false,
-            near_config.genesis.config.transaction_validity_period,
+            near_config
+                .genesis
+                .config
+                .transaction_validity_period,
         ));
         let epoch_manager =
             EpochManager::new_from_genesis_config(store, &near_config.genesis.config).unwrap();
@@ -76,8 +84,8 @@ impl AnalyseGasUsageCommand {
         );
 
         let blocks_iter = match blocks_iter_opt {
-            Some(iter) => iter,
-            None => {
+            | Some(iter) => iter,
+            | None => {
                 println!("No arguments, defaulting to last 100 blocks");
                 Box::new(LastNBlocksIterator::new(100, chain_store.clone()))
             }
@@ -112,9 +120,18 @@ impl GasUsageInShard {
         GasUsageInShard { used_gas_per_account: BTreeMap::new() }
     }
 
-    pub fn add_used_gas(&mut self, account: AccountId, used_gas: BigGas) {
-        let account_gas = self.used_gas_per_account.entry(account).or_insert(0);
-        *account_gas = account_gas.checked_add(used_gas).unwrap();
+    pub fn add_used_gas(
+        &mut self,
+        account: AccountId,
+        used_gas: BigGas,
+    ) {
+        let account_gas = self
+            .used_gas_per_account
+            .entry(account)
+            .or_insert(0);
+        *account_gas = account_gas
+            .checked_add(used_gas)
+            .unwrap();
     }
 
     pub fn used_gas_total(&self) -> BigGas {
@@ -125,7 +142,10 @@ impl GasUsageInShard {
         result
     }
 
-    pub fn merge(&mut self, other: &GasUsageInShard) {
+    pub fn merge(
+        &mut self,
+        other: &GasUsageInShard,
+    ) {
         for (account_id, used_gas) in &other.used_gas_per_account {
             self.add_used_gas(account_id.clone(), *used_gas);
         }
@@ -156,7 +176,9 @@ impl GasUsageInShard {
             }
 
             gas_left = gas_left.checked_add(*used_gas).unwrap();
-            gas_right = gas_right.checked_sub(*used_gas).unwrap();
+            gas_right = gas_right
+                .checked_sub(*used_gas)
+                .unwrap();
         }
         best_split
     }
@@ -166,8 +188,8 @@ impl GasUsageInShard {
 
         for (account, used_gas) in &self.used_gas_per_account {
             match &mut result {
-                None => result = Some((account.clone(), *used_gas)),
-                Some((best_account, best_gas)) => {
+                | None => result = Some((account.clone(), *used_gas)),
+                | Some((best_account, best_gas)) => {
                     if *used_gas > *best_gas {
                         *best_account = account.clone();
                         *best_gas = *used_gas
@@ -190,11 +212,17 @@ impl GasUsageStats {
         GasUsageStats { shards: BTreeMap::new() }
     }
 
-    pub fn add_gas_usage_in_shard(&mut self, shard_uid: ShardUId, shard_usage: GasUsageInShard) {
+    pub fn add_gas_usage_in_shard(
+        &mut self,
+        shard_uid: ShardUId,
+        shard_usage: GasUsageInShard,
+    ) {
         match self.shards.get_mut(&shard_uid) {
-            Some(existing_shard_usage) => existing_shard_usage.merge(&shard_usage),
-            None => {
-                let _ = self.shards.insert(shard_uid, shard_usage);
+            | Some(existing_shard_usage) => existing_shard_usage.merge(&shard_usage),
+            | None => {
+                let _ = self
+                    .shards
+                    .insert(shard_uid, shard_usage);
             }
         }
     }
@@ -202,12 +230,17 @@ impl GasUsageStats {
     pub fn used_gas_total(&self) -> BigGas {
         let mut result: BigGas = 0;
         for shard_usage in self.shards.values() {
-            result = result.checked_add(shard_usage.used_gas_total()).unwrap();
+            result = result
+                .checked_add(shard_usage.used_gas_total())
+                .unwrap();
         }
         result
     }
 
-    pub fn merge(&mut self, other: GasUsageStats) {
+    pub fn merge(
+        &mut self,
+        other: GasUsageStats,
+    ) {
         for (shard_uid, shard_usage) in other.shards {
             self.add_gas_usage_in_shard(shard_uid, shard_usage);
         }
@@ -219,9 +252,13 @@ fn get_gas_usage_in_block(
     chain_store: &ChainStore,
     epoch_manager: &EpochManager,
 ) -> GasUsageStats {
-    let block_info = epoch_manager.get_block_info(block.hash()).unwrap();
+    let block_info = epoch_manager
+        .get_block_info(block.hash())
+        .unwrap();
     let epoch_id = block_info.epoch_id();
-    let shard_layout = epoch_manager.get_shard_layout(epoch_id).unwrap();
+    let shard_layout = epoch_manager
+        .get_shard_layout(epoch_id)
+        .unwrap();
 
     let mut result = GasUsageStats::new();
 
@@ -234,8 +271,9 @@ fn get_gas_usage_in_block(
 
         // The outcome of each transaction and receipt executed in this chunk is saved in the database as an ExecutionOutcome.
         // Go through all ExecutionOutcomes from this chunk and record the gas usage.
-        let outcome_ids =
-            chain_store.get_outcomes_by_block_hash_and_shard_id(block.hash(), shard_id).unwrap();
+        let outcome_ids = chain_store
+            .get_outcomes_by_block_hash_and_shard_id(block.hash(), shard_id)
+            .unwrap();
         for outcome_id in outcome_ids {
             let outcome = chain_store
                 .get_outcome_by_id_and_block_hash(&outcome_id, block.hash())
@@ -267,8 +305,13 @@ impl BiggestAccountsFinder {
         BiggestAccountsFinder { accounts: BTreeSet::new(), accounts_num }
     }
 
-    pub fn add_account_stats(&mut self, account: AccountId, used_gas: BigGas) {
-        self.accounts.insert((used_gas, account));
+    pub fn add_account_stats(
+        &mut self,
+        account: AccountId,
+        used_gas: BigGas,
+    ) {
+        self.accounts
+            .insert((used_gas, account));
 
         // If there are more accounts than desired, remove the one with the smallest gas usage
         while self.accounts.len() > self.accounts_num {
@@ -277,13 +320,19 @@ impl BiggestAccountsFinder {
     }
 
     pub fn get_biggest_accounts(&self) -> impl Iterator<Item = (AccountId, BigGas)> + '_ {
-        self.accounts.iter().rev().map(|(gas, account)| (account.clone(), *gas))
+        self.accounts
+            .iter()
+            .rev()
+            .map(|(gas, account)| (account.clone(), *gas))
     }
 }
 
 // Calculates how much percent of `big` is `small` and returns it as a string.
 // Example: as_percentage_of(10, 100) == "10.0%"
-fn as_percentage_of(small: BigGas, big: BigGas) -> String {
+fn as_percentage_of(
+    small: BigGas,
+    big: BigGas,
+) -> String {
     if big > 0 {
         format!("{:.1}%", small as f64 / big as f64 * 100.0)
     } else {
@@ -301,7 +350,9 @@ fn display_shard_split_stats<'a>(
 
     for (account, used_gas) in accounts {
         accounts_num += 1;
-        total_split_half_gas = total_split_half_gas.checked_add(*used_gas).unwrap();
+        total_split_half_gas = total_split_half_gas
+            .checked_add(*used_gas)
+            .unwrap();
         top_3_finder.add_account_stats(account.clone(), *used_gas);
     }
 
@@ -314,7 +365,10 @@ fn display_shard_split_stats<'a>(
     );
     println!("{}Accounts: {}", indent, accounts_num);
     println!("{}Top 3 accounts:", indent);
-    for (i, (account, used_gas)) in top_3_finder.get_biggest_accounts().enumerate() {
+    for (i, (account, used_gas)) in top_3_finder
+        .get_biggest_accounts()
+        .enumerate()
+    {
         println!("{}  #{}: {}", indent, i + 1, account);
         println!(
             "{}      Used gas: {} ({} of shard)",
@@ -383,31 +437,37 @@ fn analyse_gas_usage(
             );
         }
         match shard_usage.calculate_split() {
-            Some(shard_split) => {
+            | Some(shard_split) => {
                 println!("  Optimal split:");
                 println!("    boundary_account: {}", shard_split.boundary_account);
-                let boundary_account_gas =
-                    *shard_usage.used_gas_per_account.get(&shard_split.boundary_account).unwrap();
+                let boundary_account_gas = *shard_usage
+                    .used_gas_per_account
+                    .get(&shard_split.boundary_account)
+                    .unwrap();
                 println!("    gas(boundary_account): {}", display_gas(boundary_account_gas));
                 println!(
                     "    Gas distribution (left, boundary_acc, right): ({}, {}, {})",
                     as_percentage_of(shard_split.gas_left, shard_total_gas),
                     as_percentage_of(boundary_account_gas, shard_total_gas),
                     as_percentage_of(
-                        shard_split.gas_right.saturating_sub(boundary_account_gas),
+                        shard_split
+                            .gas_right
+                            .saturating_sub(boundary_account_gas),
                         shard_total_gas
                     )
                 );
                 println!("    Left (account < boundary_account):");
-                let left_accounts =
-                    shard_usage.used_gas_per_account.range(..shard_split.boundary_account.clone());
+                let left_accounts = shard_usage
+                    .used_gas_per_account
+                    .range(..shard_split.boundary_account.clone());
                 display_shard_split_stats(left_accounts, shard_total_gas);
                 println!("    Right (account >= boundary_account):");
-                let right_accounts =
-                    shard_usage.used_gas_per_account.range(shard_split.boundary_account..);
+                let right_accounts = shard_usage
+                    .used_gas_per_account
+                    .range(shard_split.boundary_account..);
                 display_shard_split_stats(right_accounts, shard_total_gas);
             }
-            None => println!("  No optimal split for this shard"),
+            | None => println!("  No optimal split for this shard"),
         }
         println!("");
     }
@@ -420,7 +480,10 @@ fn analyse_gas_usage(
         }
     }
     println!("10 biggest accounts by gas usage:");
-    for (i, (account, gas_usage)) in biggest_accounts_finder.get_biggest_accounts().enumerate() {
+    for (i, (account, gas_usage)) in biggest_accounts_finder
+        .get_biggest_accounts()
+        .enumerate()
+    {
         println!("#{}: {}", i + 1, account);
         println!(
             "    Used gas: {} ({} of total)",

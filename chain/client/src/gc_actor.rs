@@ -57,7 +57,9 @@ impl GCActor {
 
     fn clear_data(&mut self) -> Result<(), near_chain::Error> {
         let signer = self.validator_signer.get();
-        let me = signer.as_ref().map(|signer| signer.validator_id());
+        let me = signer
+            .as_ref()
+            .map(|signer| signer.validator_id());
         // A RPC node should do regular garbage collection.
         if !self.is_archive {
             return self.store.clear_data(
@@ -91,10 +93,14 @@ impl GCActor {
 
         // An archival node with legacy storage or in the midst of migration to split
         // storage should do the legacy clear_archive_data.
-        self.store.clear_archive_data(self.gc_config.gc_blocks_limit, self.runtime_adapter.clone())
+        self.store
+            .clear_archive_data(self.gc_config.gc_blocks_limit, self.runtime_adapter.clone())
     }
 
-    fn gc(&mut self, ctx: &mut dyn DelayedActionRunner<Self>) {
+    fn gc(
+        &mut self,
+        ctx: &mut dyn DelayedActionRunner<Self>,
+    ) {
         if !self.no_gc {
             let timer = metrics::GC_TIME.start_timer();
             if let Err(e) = self.clear_data() {
@@ -110,7 +116,10 @@ impl GCActor {
 }
 
 impl Actor for GCActor {
-    fn start_actor(&mut self, ctx: &mut dyn DelayedActionRunner<Self>) {
+    fn start_actor(
+        &mut self,
+        ctx: &mut dyn DelayedActionRunner<Self>,
+    ) {
         self.gc(ctx);
     }
 }
@@ -125,12 +134,15 @@ pub enum NetworkAdversarialMessage {
 
 #[cfg(feature = "test_features")]
 impl Handler<NetworkAdversarialMessage> for GCActor {
-    fn handle(&mut self, msg: NetworkAdversarialMessage) {
+    fn handle(
+        &mut self,
+        msg: NetworkAdversarialMessage,
+    ) {
         match msg {
-            NetworkAdversarialMessage::StopGC => {
+            | NetworkAdversarialMessage::StopGC => {
                 self.no_gc = true;
             }
-            NetworkAdversarialMessage::ResumeGC => {
+            | NetworkAdversarialMessage::ResumeGC => {
                 self.no_gc = false;
             }
         }

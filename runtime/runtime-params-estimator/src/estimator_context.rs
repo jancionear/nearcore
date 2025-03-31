@@ -65,14 +65,19 @@ impl<'c> EstimatorContext<'c> {
 
     pub(crate) fn testbed(&mut self) -> Testbed<'_> {
         // Copies dump from another directory and loads the state from it.
-        let workdir = tempfile::Builder::new().prefix("runtime_testbed").tempdir().unwrap();
+        let workdir = tempfile::Builder::new()
+            .prefix("runtime_testbed")
+            .tempdir()
+            .unwrap();
         let StateDump { store, roots } = StateDump::from_dir(
             &self.config.state_dump_path,
             workdir.path(),
             self.config.in_memory_db,
         );
         // Ensure decent RocksDB SST file layout.
-        store.compact().expect("compaction failed");
+        store
+            .compact()
+            .expect("compaction failed");
 
         assert!(roots.len() <= 1, "Parameter estimation works with one shard only.");
         assert!(!roots.is_empty(), "No state roots found.");
@@ -89,16 +94,20 @@ impl<'c> EstimatorContext<'c> {
             }),
         );
         store_update.commit().unwrap();
-        flat_storage_manager.create_flat_storage_for_shard(shard_uid).unwrap();
+        flat_storage_manager
+            .create_flat_storage_for_shard(shard_uid)
+            .unwrap();
 
-        let flat_storage = flat_storage_manager.get_flat_storage_for_shard(shard_uid).unwrap();
+        let flat_storage = flat_storage_manager
+            .get_flat_storage_for_shard(shard_uid)
+            .unwrap();
         self.generate_deltas(&flat_storage);
 
         // Create ShardTries with relevant settings adjusted for estimator.
         let mut trie_config = near_store::TrieConfig::default();
         trie_config.enable_receipt_prefetching = true;
         if self.config.memtrie {
-            trie_config.load_memtries_for_shards = vec![shard_uid];
+            trie_config.load_mem_tries_for_shards = vec![shard_uid];
         }
         let tries = ShardTries::new(
             store.trie_store(),
@@ -111,7 +120,7 @@ impl<'c> EstimatorContext<'c> {
             // NOTE: Since the store loaded from the state dump only contains the state, we directly provide the state root
             // instead of  letting the loader code to locate it from the ChunkExtra (which is missing from the store).
             tries
-                .load_memtrie(&shard_uid, Some(root), true)
+                .load_mem_trie(&shard_uid, Some(root), true)
                 .context("Failed load memtries for single shard")
                 .unwrap();
         }
@@ -136,8 +145,10 @@ impl<'c> EstimatorContext<'c> {
     }
 
     fn make_apply_state(cache: FilesystemContractRuntimeCache) -> ApplyState {
-        let mut runtime_config =
-            RuntimeConfigStore::new(None).get_config(PROTOCOL_VERSION).as_ref().clone();
+        let mut runtime_config = RuntimeConfigStore::new(None)
+            .get_config(PROTOCOL_VERSION)
+            .as_ref()
+            .clone();
         let wasm_config = Arc::make_mut(&mut runtime_config.wasm_config);
         wasm_config.enable_all_features();
         wasm_config.make_free();
@@ -158,7 +169,9 @@ impl<'c> EstimatorContext<'c> {
 
             ..wasm_config.limit_config
         };
-        runtime_config.account_creation_config.min_allowed_top_level_account_length = 0;
+        runtime_config
+            .account_creation_config
+            .min_allowed_top_level_account_length = 0;
         // Disable congestion control to simplify measuring large workloads.
         runtime_config.congestion_control_config = CongestionControlConfig::test_disabled();
 
@@ -203,7 +216,10 @@ impl<'c> EstimatorContext<'c> {
     /// The blocks aren't valid, nor are the values stored anywhere. They only
     /// exist within `FlatStorage` and simulate the performance decrease
     /// observed when the flat head lags behind.
-    fn generate_deltas(&self, flat_storage: &FlatStorage) {
+    fn generate_deltas(
+        &self,
+        flat_storage: &FlatStorage,
+    ) {
         // Assumption: One delta per non-final block, which is configurable.
         // There could be forks but that's considered to e outside the normal
         // operating conditions for this estimation.
@@ -304,7 +320,11 @@ impl Testbed<'_> {
         res
     }
 
-    pub(crate) fn process_block(&mut self, block: Vec<SignedTransaction>, block_latency: usize) {
+    pub(crate) fn process_block(
+        &mut self,
+        block: Vec<SignedTransaction>,
+        block_latency: usize,
+    ) {
         let allow_failures = false;
         self.process_block_impl(&block, allow_failures);
         let extra_blocks = self.process_blocks_until_no_receipts(allow_failures);
@@ -327,7 +347,11 @@ impl Testbed<'_> {
 
     pub(crate) fn clear_caches(&mut self) {
         // Flush out writes hanging in memtable
-        self.tries.store().store().flush().unwrap();
+        self.tries
+            .store()
+            .store()
+            .flush()
+            .unwrap();
 
         // OS caches:
         // - only required in time based measurements, since ICount looks at syscalls directly.
@@ -364,7 +388,9 @@ impl Testbed<'_> {
         let store = self.tries.store();
         let mut store_update = store.store_update();
         let shard_uid = ShardUId::single_shard();
-        self.root = self.tries.apply_all(&apply_result.trie_changes, shard_uid, &mut store_update);
+        self.root = self
+            .tries
+            .apply_all(&apply_result.trie_changes, shard_uid, &mut store_update);
         if self.config.memtrie {
             let memtrie_root = self
                 .tries
@@ -400,8 +426,8 @@ impl Testbed<'_> {
             for outcome in &apply_result.outcomes {
                 total_burnt_gas += outcome.outcome.gas_burnt;
                 match &outcome.outcome.status {
-                    ExecutionStatus::Failure(e) => panic!("Execution failed {:#?}", e),
-                    _ => (),
+                    | ExecutionStatus::Failure(e) => panic!("Execution failed {:#?}", e),
+                    | _ => (),
                 }
             }
         }
@@ -410,7 +436,10 @@ impl Testbed<'_> {
     }
 
     /// Returns the number of blocks required to reach quiescence
-    fn process_blocks_until_no_receipts(&mut self, allow_failures: bool) -> usize {
+    fn process_blocks_until_no_receipts(
+        &mut self,
+        allow_failures: bool,
+    ) -> usize {
         let mut n = 0;
         while self.has_unprocessed_receipts() {
             self.process_block_impl(&[], allow_failures);
@@ -426,7 +455,11 @@ impl Testbed<'_> {
 
         // Check congestion info to see if there are any queued receipts.
         for (_, extended_congestion_info) in self.apply_state.congestion_info.iter() {
-            if extended_congestion_info.congestion_info.receipt_bytes() > 0 {
+            if extended_congestion_info
+                .congestion_info
+                .receipt_bytes()
+                > 0
+            {
                 return true;
             }
         }
@@ -476,7 +509,11 @@ impl Testbed<'_> {
     /// Process only the execution step of an action receipt.
     ///
     /// Use this method to estimate action exec costs.
-    pub(crate) fn apply_action_receipt(&mut self, receipt: &Receipt, metric: GasMetric) -> GasCost {
+    pub(crate) fn apply_action_receipt(
+        &mut self,
+        receipt: &Receipt,
+        metric: GasMetric,
+    ) -> GasCost {
         let mut state_update = TrieUpdate::new(self.trie());
         let mut outgoing_receipts = vec![];
         let mut validator_proposals = vec![];
@@ -496,9 +533,9 @@ impl Testbed<'_> {
         .expect("applying receipt in estimator should not fail");
         let gas = clock.elapsed();
         match exec_result.outcome.status {
-            ExecutionStatus::Unknown => panic!("receipt not applied"),
-            ExecutionStatus::Failure(err) => panic!("failed apply, {err:?}"),
-            ExecutionStatus::SuccessValue(_) | ExecutionStatus::SuccessReceiptId(_) => (),
+            | ExecutionStatus::Unknown => panic!("receipt not applied"),
+            | ExecutionStatus::Failure(err) => panic!("failed apply, {err:?}"),
+            | ExecutionStatus::SuccessValue(_) | ExecutionStatus::SuccessReceiptId(_) => (),
         }
         gas
     }
@@ -509,12 +546,8 @@ impl Testbed<'_> {
         // will be at the same number.
         let tip_height = self.config.finality_lag;
         let tip = fs_fake_block_height_to_hash(tip_height as u64);
-        self.tries.get_trie_with_block_hash_for_shard(
-            ShardUId::single_shard(),
-            self.root,
-            &tip,
-            false,
-        )
+        self.tries
+            .get_trie_with_block_hash_for_shard(ShardUId::single_shard(), self.root, &tip, false)
     }
 }
 

@@ -33,8 +33,9 @@ impl AdversarialBehaviorTestData {
         let num_block_producers = 4;
         let epoch_length = EPOCH_LENGTH;
 
-        let accounts: Vec<AccountId> =
-            (0..num_clients).map(|i| format!("test{}", i).parse().unwrap()).collect();
+        let accounts: Vec<AccountId> = (0..num_clients)
+            .map(|i| format!("test{}", i).parse().unwrap())
+            .collect();
         let clock = FakeClock::new(Utc::UNIX_EPOCH);
         let mut genesis = Genesis::test(accounts, num_validators as u64);
         {
@@ -71,28 +72,31 @@ impl AdversarialBehaviorTestData {
         requests: NetworkRequests,
     ) -> Option<NetworkRequests> {
         match requests {
-            NetworkRequests::PartialEncodedChunkRequest { .. } => {
-                self.env.process_partial_encoded_chunk_request(
-                    client_id,
-                    PeerManagerMessageRequest::NetworkRequests(requests),
-                );
+            | NetworkRequests::PartialEncodedChunkRequest { .. } => {
+                self.env
+                    .process_partial_encoded_chunk_request(
+                        client_id,
+                        PeerManagerMessageRequest::NetworkRequests(requests),
+                    );
                 None
             }
-            NetworkRequests::PartialEncodedChunkMessage { account_id, partial_encoded_chunk } => {
-                self.env.shards_manager(&account_id).send(
-                    ShardsManagerRequestFromNetwork::ProcessPartialEncodedChunk(
+            | NetworkRequests::PartialEncodedChunkMessage { account_id, partial_encoded_chunk } => {
+                self.env
+                    .shards_manager(&account_id)
+                    .send(ShardsManagerRequestFromNetwork::ProcessPartialEncodedChunk(
                         partial_encoded_chunk.into(),
-                    ),
-                );
+                    ));
                 None
             }
-            NetworkRequests::PartialEncodedChunkForward { account_id, forward } => {
-                self.env.shards_manager(&account_id).send(
-                    ShardsManagerRequestFromNetwork::ProcessPartialEncodedChunkForward(forward),
-                );
+            | NetworkRequests::PartialEncodedChunkForward { account_id, forward } => {
+                self.env
+                    .shards_manager(&account_id)
+                    .send(ShardsManagerRequestFromNetwork::ProcessPartialEncodedChunkForward(
+                        forward,
+                    ));
                 None
             }
-            _ => Some(requests),
+            | _ => Some(requests),
         }
     }
 
@@ -103,7 +107,8 @@ impl AdversarialBehaviorTestData {
             // NOTE(hpmv): Additionally dial time forward to trigger a full fetch. Why? Probably
             // because during epoch transitions we don't exactly get this correct. But honestly,
             // I don't know what I'm doing and it doesn't matter for the test.
-            self.clock.advance(CHUNK_REQUEST_SWITCH_TO_FULL_FETCH);
+            self.clock
+                .advance(CHUNK_REQUEST_SWITCH_TO_FULL_FETCH);
             for i in 0..self.num_validators {
                 self.env.shards_manager_adapters[i].send(ShardsManagerResendChunkRequests);
             }
@@ -111,16 +116,18 @@ impl AdversarialBehaviorTestData {
             for i in 0..self.num_validators {
                 let network_adapter = self.env.network_adapters[i].clone();
                 any_message_processed |= network_adapter.handle_filtered(|request| match request {
-                    PeerManagerMessageRequest::NetworkRequests(requests) => {
-                        self.process_one_peer_message(i, requests).map(|ignored_request| {
+                    | PeerManagerMessageRequest::NetworkRequests(requests) => self
+                        .process_one_peer_message(i, requests)
+                        .map(|ignored_request| {
                             PeerManagerMessageRequest::NetworkRequests(ignored_request)
-                        })
-                    }
-                    _ => Some(request),
+                        }),
+                    | _ => Some(request),
                 });
             }
             for i in 0..self.env.clients.len() {
-                any_message_processed |= self.env.process_shards_manager_responses(i);
+                any_message_processed |= self
+                    .env
+                    .process_shards_manager_responses(i);
             }
             if !any_message_processed {
                 break;
@@ -133,24 +140,39 @@ impl AdversarialBehaviorTestData {
 fn slow_test_non_adversarial_case() {
     init_test_logger();
     let mut test = AdversarialBehaviorTestData::new();
-    let epoch_manager = test.env.clients[0].epoch_manager.clone();
+    let epoch_manager = test.env.clients[0]
+        .epoch_manager
+        .clone();
     for height in 1..=EPOCH_LENGTH * 4 + 5 {
         debug!(target: "test", "======= Height {} ======", height);
         test.process_all_actor_messages();
         let epoch_id = epoch_manager
             .get_epoch_id_from_prev_block(
-                &test.env.clients[0].chain.head().unwrap().last_block_hash,
+                &test.env.clients[0]
+                    .chain
+                    .head()
+                    .unwrap()
+                    .last_block_hash,
             )
             .unwrap();
-        let block_producer = epoch_manager.get_block_producer(&epoch_id, height).unwrap();
+        let block_producer = epoch_manager
+            .get_block_producer(&epoch_id, height)
+            .unwrap();
 
-        let block = test.env.client(&block_producer).produce_block(height).unwrap().unwrap();
+        let block = test
+            .env
+            .client(&block_producer)
+            .produce_block(height)
+            .unwrap()
+            .unwrap();
         assert_eq!(block.header().height(), height);
 
         if height > 1 {
             assert_eq!(block.header().prev_height().unwrap(), height - 1);
-            let prev_block =
-                test.env.clients[0].chain.get_block(&block.header().prev_hash()).unwrap();
+            let prev_block = test.env.clients[0]
+                .chain
+                .get_block(&block.header().prev_hash())
+                .unwrap();
             for i in 0..4 {
                 // TODO: mysteriously we might miss a chunk around epoch boundaries.
                 // Figure out why...
@@ -165,7 +187,9 @@ fn slow_test_non_adversarial_case() {
 
         for i in 0..test.num_validators {
             debug!(target: "test", "Processing block {} as validator #{}", height, i);
-            let signer = test.env.clients[i].validator_signer.get();
+            let signer = test.env.clients[i]
+                .validator_signer
+                .get();
             let _ = test.env.clients[i].start_process_block(
                 block.clone().into(),
                 if i == 0 { Provenance::PRODUCED } else { Provenance::NONE },
@@ -187,24 +211,46 @@ fn slow_test_non_adversarial_case() {
                 i
             );
             assert_eq!(&accepted_blocks[0], block.header().hash());
-            assert_eq!(test.env.clients[i].chain.head().unwrap().height, height);
+            assert_eq!(
+                test.env.clients[i]
+                    .chain
+                    .head()
+                    .unwrap()
+                    .height,
+                height
+            );
         }
 
         test.process_all_actor_messages();
-        test.env.propagate_chunk_state_witnesses_and_endorsements(false);
+        test.env
+            .propagate_chunk_state_witnesses_and_endorsements(false);
     }
 
     // Sanity check that the final chain head is what we expect
-    assert_eq!(test.env.clients[0].chain.head().unwrap().height, EPOCH_LENGTH * 4 + 5);
-    let final_prev_block_hash = test.env.clients[0].chain.head().unwrap().prev_block_hash;
-    let final_epoch_id =
-        epoch_manager.get_epoch_id_from_prev_block(&final_prev_block_hash).unwrap();
+    assert_eq!(
+        test.env.clients[0]
+            .chain
+            .head()
+            .unwrap()
+            .height,
+        EPOCH_LENGTH * 4 + 5
+    );
+    let final_prev_block_hash = test.env.clients[0]
+        .chain
+        .head()
+        .unwrap()
+        .prev_block_hash;
+    let final_epoch_id = epoch_manager
+        .get_epoch_id_from_prev_block(&final_prev_block_hash)
+        .unwrap();
     let final_block_producers = epoch_manager
         .get_epoch_block_producers_ordered(&final_epoch_id, &final_prev_block_hash)
         .unwrap();
     // No producers should be kicked out.
     assert_eq!(final_block_producers.len(), 4);
-    let final_chunk_producers = epoch_manager.get_epoch_chunk_producers(&final_epoch_id).unwrap();
+    let final_chunk_producers = epoch_manager
+        .get_epoch_chunk_producers(&final_epoch_id)
+        .unwrap();
     assert_eq!(final_chunk_producers.len(), 8);
 }
 
@@ -212,13 +258,19 @@ fn slow_test_non_adversarial_case() {
 // if we mark this with features we'd also have to mark a bunch of imports as features.
 #[allow(dead_code)]
 fn test_banning_chunk_producer_when_seeing_invalid_chunk_base(
-    mut test: AdversarialBehaviorTestData,
+    mut test: AdversarialBehaviorTestData
 ) {
     let uses_stateless_validation =
         checked_feature!("stable", StatelessValidation, PROTOCOL_VERSION);
-    let epoch_manager = test.env.clients[0].epoch_manager.clone();
-    let bad_chunk_producer =
-        test.env.clients[7].validator_signer.get().unwrap().validator_id().clone();
+    let epoch_manager = test.env.clients[0]
+        .epoch_manager
+        .clone();
+    let bad_chunk_producer = test.env.clients[7]
+        .validator_signer
+        .get()
+        .unwrap()
+        .validator_id()
+        .clone();
     let mut epochs_seen_invalid_chunk: HashSet<EpochId> = HashSet::new();
     let mut last_block_skipped = false;
     for height in 1..=EPOCH_LENGTH * 4 + 5 {
@@ -226,13 +278,26 @@ fn test_banning_chunk_producer_when_seeing_invalid_chunk_base(
         test.process_all_actor_messages();
         let epoch_id = epoch_manager
             .get_epoch_id_from_prev_block(
-                &test.env.clients[0].chain.head().unwrap().last_block_hash,
+                &test.env.clients[0]
+                    .chain
+                    .head()
+                    .unwrap()
+                    .last_block_hash,
             )
             .unwrap();
-        let block_producer = epoch_manager.get_block_producer(&epoch_id, height).unwrap();
-        let shard_layout = epoch_manager.get_shard_layout(&epoch_id).unwrap();
+        let block_producer = epoch_manager
+            .get_block_producer(&epoch_id, height)
+            .unwrap();
+        let shard_layout = epoch_manager
+            .get_shard_layout(&epoch_id)
+            .unwrap();
 
-        let block = test.env.client(&block_producer).produce_block(height).unwrap().unwrap();
+        let block = test
+            .env
+            .client(&block_producer)
+            .produce_block(height)
+            .unwrap()
+            .unwrap();
         assert_eq!(block.header().height(), height);
 
         let mut invalid_chunks_in_this_block: HashSet<ShardId> = HashSet::new();
@@ -281,10 +346,14 @@ fn test_banning_chunk_producer_when_seeing_invalid_chunk_base(
             this_block_should_be_skipped, last_block_skipped);
 
         if height > 1 {
-            let prev_block =
-                test.env.clients[0].chain.get_block(&block.header().prev_hash()).unwrap();
+            let prev_block = test.env.clients[0]
+                .chain
+                .get_block(&block.header().prev_hash())
+                .unwrap();
             for shard_id in shard_layout.shard_ids() {
-                let shard_index = shard_layout.get_shard_index(shard_id).unwrap();
+                let shard_index = shard_layout
+                    .get_shard_index(shard_id)
+                    .unwrap();
                 if invalid_chunks_in_this_block.contains(&shard_id) && !this_block_should_be_skipped
                 {
                     assert_eq!(
@@ -309,7 +378,9 @@ fn test_banning_chunk_producer_when_seeing_invalid_chunk_base(
         // The block producer of course has the complete block so we can process that.
         for i in 0..test.num_validators {
             debug!(target: "test", "Processing block {} as validator #{}", height, i);
-            let signer = test.env.clients[i].validator_signer.get();
+            let signer = test.env.clients[i]
+                .validator_signer
+                .get();
             let _ = test.env.clients[i].start_process_block(
                 block.clone().into(),
                 if i == 0 { Provenance::PRODUCED } else { Provenance::NONE },
@@ -339,27 +410,49 @@ fn test_banning_chunk_producer_when_seeing_invalid_chunk_base(
                     i
                 );
                 assert_eq!(&accepted_blocks[0], block.header().hash());
-                assert_eq!(test.env.clients[i].chain.head().unwrap().height, height);
+                assert_eq!(
+                    test.env.clients[i]
+                        .chain
+                        .head()
+                        .unwrap()
+                        .height,
+                    height
+                );
             }
         }
         test.process_all_actor_messages();
-        test.env.propagate_chunk_state_witnesses_and_endorsements(true);
+        test.env
+            .propagate_chunk_state_witnesses_and_endorsements(true);
         last_block_skipped = this_block_should_be_skipped;
     }
 
     // Sanity check that the final chain head is what we expect
-    assert_eq!(test.env.clients[0].chain.head().unwrap().height, EPOCH_LENGTH * 4 + 5);
+    assert_eq!(
+        test.env.clients[0]
+            .chain
+            .head()
+            .unwrap()
+            .height,
+        EPOCH_LENGTH * 4 + 5
+    );
     // Bad validator should've been kicked out in the third epoch, so it only had two chances
     // to produce bad chunks. Other validators should not be kicked out.
     assert_eq!(epochs_seen_invalid_chunk.len(), 2);
-    let final_prev_block_hash = test.env.clients[0].chain.head().unwrap().prev_block_hash;
-    let final_epoch_id =
-        epoch_manager.get_epoch_id_from_prev_block(&final_prev_block_hash).unwrap();
+    let final_prev_block_hash = test.env.clients[0]
+        .chain
+        .head()
+        .unwrap()
+        .prev_block_hash;
+    let final_epoch_id = epoch_manager
+        .get_epoch_id_from_prev_block(&final_prev_block_hash)
+        .unwrap();
     let final_block_producers = epoch_manager
         .get_epoch_block_producers_ordered(&final_epoch_id, &final_prev_block_hash)
         .unwrap();
     assert!(final_block_producers.len() >= 3); // 3 validators if the bad validator was a block producer
-    let final_chunk_producers = epoch_manager.get_epoch_chunk_producers(&final_epoch_id).unwrap();
+    let final_chunk_producers = epoch_manager
+        .get_epoch_chunk_producers(&final_epoch_id)
+        .unwrap();
     assert_eq!(final_chunk_producers.len(), 7);
 }
 

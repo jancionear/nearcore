@@ -24,7 +24,10 @@ pub struct ThreadNode {
     account_id: AccountId,
 }
 
-fn start_thread(config: NearConfig, path: PathBuf) -> ShutdownableThread {
+fn start_thread(
+    config: NearConfig,
+    path: PathBuf,
+) -> ShutdownableThread {
     ShutdownableThread::start("test", move || {
         start_with_config(&path, config).expect("start_with_config");
     })
@@ -36,7 +39,10 @@ impl Node for ThreadNode {
     }
 
     fn account_id(&self) -> Option<AccountId> {
-        self.config.validator_signer.get().map(|vs| vs.validator_id().clone())
+        self.config
+            .validator_signer
+            .get()
+            .map(|vs| vs.validator_id().clone())
     }
 
     fn start(&mut self) {
@@ -47,8 +53,8 @@ impl Node for ThreadNode {
     fn kill(&mut self) {
         let state = std::mem::replace(&mut self.state, ThreadNodeState::Stopped);
         match state {
-            ThreadNodeState::Stopped => panic!("Node is not running"),
-            ThreadNodeState::Running(handle) => {
+            | ThreadNodeState::Stopped => panic!("Node is not running"),
+            | ThreadNodeState::Running(handle) => {
                 handle.shutdown();
                 self.state = ThreadNodeState::Stopped;
             }
@@ -61,8 +67,8 @@ impl Node for ThreadNode {
 
     fn is_running(&self) -> bool {
         match self.state {
-            ThreadNodeState::Stopped => false,
-            ThreadNodeState::Running(_) => true,
+            | ThreadNodeState::Stopped => false,
+            | ThreadNodeState::Running(_) => true,
         }
     }
 
@@ -86,13 +92,21 @@ impl Node for ThreadNode {
 impl ThreadNode {
     /// Side effects: create storage, open database, lock database
     pub fn new(config: NearConfig) -> ThreadNode {
-        let account_id = config.validator_signer.get().unwrap().validator_id().clone();
+        let account_id = config
+            .validator_signer
+            .get()
+            .unwrap()
+            .validator_id()
+            .clone();
         let signer = Arc::new(InMemorySigner::test_signer(&account_id));
         ThreadNode {
             config,
             state: ThreadNodeState::Stopped,
             signer,
-            dir: tempfile::Builder::new().prefix("thread_node").tempdir().unwrap(),
+            dir: tempfile::Builder::new()
+                .prefix("thread_node")
+                .tempdir()
+                .unwrap(),
             account_id,
         }
     }

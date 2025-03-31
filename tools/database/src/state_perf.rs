@@ -32,7 +32,10 @@ pub(crate) struct StatePerfCommand {
 }
 
 impl StatePerfCommand {
-    pub(crate) fn run(&self, home: &Path) -> anyhow::Result<()> {
+    pub(crate) fn run(
+        &self,
+        home: &Path,
+    ) -> anyhow::Result<()> {
         let rocksdb = Arc::new(open_rocksdb(home, near_store::Mode::ReadOnly)?);
         let store = near_store::NodeStorage::new(rocksdb).get_hot_store();
         eprintln!("Start State perf test");
@@ -49,7 +52,9 @@ impl StatePerfCommand {
             if include_sample {
                 perf_context.reset();
             }
-            trie_storage.retrieve_raw_bytes(&value_ref.hash).unwrap();
+            trie_storage
+                .retrieve_raw_bytes(&value_ref.hash)
+                .unwrap();
             if include_sample {
                 perf_context.record();
             }
@@ -100,7 +105,10 @@ impl Measurements {
 }
 
 impl Display for Measurements {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+    ) -> std::fmt::Result {
         write!(
             f,
             "avg observed_latency: {:?}, block_read_time: {:?}, samples with merge: {}",
@@ -129,22 +137,27 @@ impl PerfContext {
 
     fn record(&mut self) {
         let observed_latency = self.start.elapsed();
-        let block_read_cnt =
-            self.rocksdb_context.metric(rocksdb::PerfMetric::BlockReadCount) as usize;
-        let read_block_latency =
-            Duration::from_nanos(self.rocksdb_context.metric(rocksdb::PerfMetric::BlockReadTime));
+        let block_read_cnt = self
+            .rocksdb_context
+            .metric(rocksdb::PerfMetric::BlockReadCount) as usize;
+        let read_block_latency = Duration::from_nanos(
+            self.rocksdb_context
+                .metric(rocksdb::PerfMetric::BlockReadTime),
+        );
         assert!(observed_latency > read_block_latency);
         // This is a hack to check if at least one merge operator was executed during this request,
         // will be replaced by a proper metric after `internal_merge_point_lookup_count` is added to
         // rust-rocksdb
-        let has_merge =
-            self.rocksdb_context.metric(rocksdb::PerfMetric::MergeOperatorTimeNanos) > 0;
-        self.measurements_per_block_reads.entry(block_read_cnt).or_default().record(
-            observed_latency,
-            read_block_latency,
-            has_merge,
-        );
-        self.measurements_overall.record(observed_latency, read_block_latency, has_merge);
+        let has_merge = self
+            .rocksdb_context
+            .metric(rocksdb::PerfMetric::MergeOperatorTimeNanos)
+            > 0;
+        self.measurements_per_block_reads
+            .entry(block_read_cnt)
+            .or_default()
+            .record(observed_latency, read_block_latency, has_merge);
+        self.measurements_overall
+            .record(observed_latency, read_block_latency, has_merge);
     }
 
     fn format(&self) -> String {
@@ -163,17 +176,23 @@ impl PerfContext {
     }
 }
 
-fn generate_state_requests(store: FlatStoreAdapter, samples: usize) -> Vec<(ShardUId, ValueRef)> {
+fn generate_state_requests(
+    store: FlatStoreAdapter,
+    samples: usize,
+) -> Vec<(ShardUId, ValueRef)> {
     eprintln!("Generate {samples} requests to State");
-    let shard_uids = ShardLayout::get_simple_nightshade_layout().shard_uids().collect::<Vec<_>>();
+    let shard_uids = ShardLayout::get_simple_nightshade_layout()
+        .shard_uids()
+        .collect::<Vec<_>>();
     let num_shards = shard_uids.len();
     let mut ret = Vec::new();
     let progress = ProgressBar::new(samples as u64);
     for shard_uid in shard_uids {
         let shard_samples = samples / num_shards;
         let mut keys_read = std::collections::HashSet::new();
-        for value_ref in
-            store.iter(shard_uid).flat_map(|res| res.map(|(_, value)| value.to_value_ref()))
+        for value_ref in store
+            .iter(shard_uid)
+            .flat_map(|res| res.map(|(_, value)| value.to_value_ref()))
         {
             if value_ref.length > 4096 || !keys_read.insert(value_ref.hash) {
                 continue;
@@ -192,7 +211,10 @@ fn generate_state_requests(store: FlatStoreAdapter, samples: usize) -> Vec<(Shar
     ret
 }
 
-fn format_samples(positive: usize, total: usize) -> String {
+fn format_samples(
+    positive: usize,
+    total: usize,
+) -> String {
     format!(
         "{positive} ({:.2}%)",
         if total == 0 { 0.0 } else { 100.0 * positive as f64 / total as f64 }

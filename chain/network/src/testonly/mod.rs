@@ -31,7 +31,10 @@ impl<'a, T: Hash + Eq> AsSet<'a, T> for [&'a T] {
 }
 
 #[track_caller]
-pub fn assert_is_superset<'a, T: Debug + Hash + Eq>(sup: &HashSet<&'a T>, sub: &HashSet<&'a T>) {
+pub fn assert_is_superset<'a, T: Debug + Hash + Eq>(
+    sup: &HashSet<&'a T>,
+    sub: &HashSet<&'a T>,
+) {
     if !sup.is_superset(sub) {
         panic!("expected a super set, got diff:\n{}", Comparison::new(sup, sub));
     }

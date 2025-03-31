@@ -62,7 +62,10 @@ pub struct MiddlewareError {
 
 impl MiddlewareError {
     /// Create a new `MiddlewareError`
-    pub fn new<A: Into<String>, B: Into<String>>(name: A, message: B) -> Self {
+    pub fn new<A: Into<String>, B: Into<String>>(
+        name: A,
+        message: B,
+    ) -> Self {
         Self { name: name.into(), message: message.into() }
     }
 }
@@ -138,11 +141,11 @@ mod tests {
     fn middleware_error_be_converted_to_wasm_error() {
         let error = WasmError::from(MiddlewareError::new("manipulator3000", "foo"));
         match error {
-            WasmError::Middleware(MiddlewareError { name, message }) => {
+            | WasmError::Middleware(MiddlewareError { name, message }) => {
                 assert_eq!(name, "manipulator3000");
                 assert_eq!(message, "foo");
             }
-            err => panic!("Unexpected error: {:?}", err),
+            | err => panic!("Unexpected error: {:?}", err),
         }
     }
 }

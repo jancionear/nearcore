@@ -29,7 +29,8 @@ impl TransactionGroup {
     /// It also stores all hashes of returned transactions.
     pub fn next(&mut self) -> Option<SignedTransaction> {
         if let Some(tx) = self.transactions.pop() {
-            self.removed_transaction_hashes.push(tx.get_hash());
+            self.removed_transaction_hashes
+                .push(tx.get_hash());
             self.removed_transaction_size += tx.get_size();
             Some(tx)
         } else {

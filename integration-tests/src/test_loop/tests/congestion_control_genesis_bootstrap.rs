@@ -28,7 +28,10 @@ fn test_congestion_control_genesis_bootstrap() {
     let builder = TestLoopBuilder::new();
 
     let accounts = ["test0", "test1"];
-    let clients: Vec<AccountId> = accounts.iter().map(|account| account.parse().unwrap()).collect();
+    let clients: Vec<AccountId> = accounts
+        .iter()
+        .map(|account| account.parse().unwrap())
+        .collect();
 
     let epoch_length = 100;
     let shard_layout = ShardLayout::simple_v1(&["account3", "account5", "account7"]);
@@ -56,7 +59,14 @@ fn test_congestion_control_genesis_bootstrap() {
 
     for i in 0..clients.len() {
         check_genesis_congestion_info_in_store(
-            &mut test_loop.data.get_mut(&node_datas[i].client_sender.actor_handle()).client,
+            &mut test_loop
+                .data
+                .get_mut(
+                    &node_datas[i]
+                        .client_sender
+                        .actor_handle(),
+                )
+                .client,
         );
     }
 
@@ -67,8 +77,13 @@ fn test_congestion_control_genesis_bootstrap() {
 fn check_genesis_congestion_info_in_store(client: &mut Client) {
     let gc_config = client.config.gc.clone();
     let signer = client.validator_signer.get();
-    let me = signer.as_ref().map(|signer| signer.validator_id());
-    client.chain.clear_data(&gc_config, me).unwrap();
+    let me = signer
+        .as_ref()
+        .map(|signer| signer.validator_id());
+    client
+        .chain
+        .clear_data(&gc_config, me)
+        .unwrap();
 
     let infos = near_store::get_genesis_congestion_infos(&client.chain.chain_store().store())
         .unwrap()

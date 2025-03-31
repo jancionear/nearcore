@@ -64,9 +64,9 @@ enum DBCol {
 impl DBCol {
     fn name(&self) -> &'static str {
         match self {
-            Self::Misc => "miscellaneous",
-            Self::Nonces => "nonces",
-            Self::AccessKeyOutcomes => "access_key_outcomes",
+            | Self::Misc => "miscellaneous",
+            | Self::Nonces => "nonces",
+            | Self::AccessKeyOutcomes => "access_key_outcomes",
         }
     }
 }
@@ -84,19 +84,28 @@ struct TxRef {
 }
 
 impl std::fmt::Display for TxRef {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+    ) -> std::fmt::Result {
         write!(f, "source #{} shard {} tx {}", self.source_height, self.shard_id, self.tx_idx)
     }
 }
 
 impl PartialOrd for TxRef {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+    fn partial_cmp(
+        &self,
+        other: &Self,
+    ) -> Option<std::cmp::Ordering> {
         Some(self.cmp(other))
     }
 }
 
 impl Ord for TxRef {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+    fn cmp(
+        &self,
+        other: &Self,
+    ) -> std::cmp::Ordering {
         self.source_height
             .cmp(&other.source_height)
             .then_with(|| self.tx_idx.cmp(&other.tx_idx))
@@ -111,7 +120,10 @@ enum NonceUpdater {
 }
 
 // returns bytes that serve as the key corresponding to this pair in the Nonces column
-fn nonce_col_key(account_id: &AccountId, public_key: &PublicKey) -> Vec<u8> {
+fn nonce_col_key(
+    account_id: &AccountId,
+    public_key: &PublicKey,
+) -> Vec<u8> {
     borsh::to_vec(&(account_id.clone(), public_key.clone())).unwrap()
 }
 
@@ -151,7 +163,11 @@ fn read_target_nonce(
 ) -> anyhow::Result<Option<LatestTargetNonce>> {
     let db_key = nonce_col_key(account_id, public_key);
     Ok(db
-        .get_cf(db.cf_handle(DBCol::Nonces.name()).unwrap(), &db_key)?
+        .get_cf(
+            db.cf_handle(DBCol::Nonces.name())
+                .unwrap(),
+            &db_key,
+        )?
         .map(|v| LatestTargetNonce::try_from_slice(&v).unwrap()))
 }
 
@@ -164,7 +180,8 @@ fn put_target_nonce(
     tracing::trace!(target: "mirror", "storing {:?} in DB for ({}, {:?})", &nonce, account_id, public_key);
     let db_key = nonce_col_key(account_id, public_key);
     db.put_cf(
-        db.cf_handle(DBCol::Nonces.name()).unwrap(),
+        db.cf_handle(DBCol::Nonces.name())
+            .unwrap(),
         &db_key,
         &borsh::to_vec(&nonce).unwrap(),
     )?;
@@ -184,7 +201,8 @@ fn read_pending_outcome(
 ) -> anyhow::Result<Option<HashSet<(AccountId, PublicKey)>>> {
     Ok(db
         .get_cf(
-            db.cf_handle(DBCol::AccessKeyOutcomes.name()).unwrap(),
+            db.cf_handle(DBCol::AccessKeyOutcomes.name())
+                .unwrap(),
             &borsh::to_vec(&id).unwrap(),
         )?
         .map(|v| HashSet::try_from_slice(&v).unwrap()))
@@ -197,21 +215,29 @@ fn put_pending_outcome(
 ) -> anyhow::Result<()> {
     tracing::trace!(target: "mirror", "storing {:?} in DB for {:?}", &access_keys, &id);
     Ok(db.put_cf(
-        db.cf_handle(DBCol::AccessKeyOutcomes.name()).unwrap(),
+        db.cf_handle(DBCol::AccessKeyOutcomes.name())
+            .unwrap(),
         &borsh::to_vec(&id).unwrap(),
         &borsh::to_vec(&access_keys).unwrap(),
     )?)
 }
 
-fn delete_pending_outcome(db: &DB, id: &CryptoHash) -> anyhow::Result<()> {
+fn delete_pending_outcome(
+    db: &DB,
+    id: &CryptoHash,
+) -> anyhow::Result<()> {
     tracing::trace!(target: "mirror", "deleting {:?} from DB", &id);
     Ok(db.delete_cf(
-        db.cf_handle(DBCol::AccessKeyOutcomes.name()).unwrap(),
+        db.cf_handle(DBCol::AccessKeyOutcomes.name())
+            .unwrap(),
         &borsh::to_vec(&id).unwrap(),
     )?)
 }
 
-fn set_last_source_height(db: &DB, height: BlockHeight) -> anyhow::Result<()> {
+fn set_last_source_height(
+    db: &DB,
+    height: BlockHeight,
+) -> anyhow::Result<()> {
     // TODO: we should instead save something like the
     // (block_height, shard_id, idx_in_chunk) of the last
     // transaction sent. Currently we set last_source_height after
@@ -220,7 +246,8 @@ fn set_last_source_height(db: &DB, height: BlockHeight) -> anyhow::Result<()> {
     // txs, we'll send some that we already sent next time we
     // start. Not a giant problem but kind of unclean.
     db.put_cf(
-        db.cf_handle(DBCol::Misc.name()).unwrap(),
+        db.cf_handle(DBCol::Misc.name())
+            .unwrap(),
         "last_source_height",
         borsh::to_vec(&height).unwrap(),
     )?;
@@ -229,7 +256,11 @@ fn set_last_source_height(db: &DB, height: BlockHeight) -> anyhow::Result<()> {
 
 fn get_last_source_height(db: &DB) -> anyhow::Result<Option<BlockHeight>> {
     Ok(db
-        .get_cf(db.cf_handle(DBCol::Misc.name()).unwrap(), "last_source_height")?
+        .get_cf(
+            db.cf_handle(DBCol::Misc.name())
+                .unwrap(),
+            "last_source_height",
+        )?
         .map(|v| BlockHeight::try_from_slice(&v).unwrap()))
 }
 
@@ -261,8 +292,8 @@ impl ChainError {
 impl From<GetBlockError> for ChainError {
     fn from(err: GetBlockError) -> Self {
         match err {
-            GetBlockError::UnknownBlock { .. } => Self::Unknown,
-            _ => Self::other(err),
+            | GetBlockError::UnknownBlock { .. } => Self::Unknown,
+            | _ => Self::other(err),
         }
     }
 }
@@ -270,8 +301,8 @@ impl From<GetBlockError> for ChainError {
 impl From<GetChunkError> for ChainError {
     fn from(err: GetChunkError) -> Self {
         match err {
-            GetChunkError::UnknownBlock { .. } => Self::Unknown,
-            _ => Self::other(err),
+            | GetChunkError::UnknownBlock { .. } => Self::Unknown,
+            | _ => Self::other(err),
         }
     }
 }
@@ -279,8 +310,8 @@ impl From<GetChunkError> for ChainError {
 impl From<near_chain_primitives::Error> for ChainError {
     fn from(err: near_chain_primitives::Error) -> Self {
         match err {
-            near_chain_primitives::Error::DBNotFoundErr(_) => Self::Unknown,
-            _ => Self::other(err),
+            | near_chain_primitives::Error::DBNotFoundErr(_) => Self::Unknown,
+            | _ => Self::other(err),
         }
     }
 }
@@ -288,10 +319,10 @@ impl From<near_chain_primitives::Error> for ChainError {
 impl From<GetExecutionOutcomeError> for ChainError {
     fn from(err: GetExecutionOutcomeError) -> Self {
         match err {
-            GetExecutionOutcomeError::UnknownBlock { .. }
+            | GetExecutionOutcomeError::UnknownBlock { .. }
             | GetExecutionOutcomeError::UnknownTransactionOrReceipt { .. }
             | GetExecutionOutcomeError::NotConfirmed { .. } => Self::Unknown,
-            _ => Self::other(err),
+            | _ => Self::other(err),
         }
     }
 }
@@ -299,8 +330,8 @@ impl From<GetExecutionOutcomeError> for ChainError {
 impl From<GetReceiptError> for ChainError {
     fn from(err: GetReceiptError) -> Self {
         match err {
-            GetReceiptError::UnknownReceipt(_) => Self::Unknown,
-            _ => Self::other(err),
+            | GetReceiptError::UnknownReceipt(_) => Self::Unknown,
+            | _ => Self::other(err),
         }
     }
 }
@@ -308,13 +339,13 @@ impl From<GetReceiptError> for ChainError {
 impl From<QueryError> for ChainError {
     fn from(err: QueryError) -> Self {
         match err {
-            QueryError::UnavailableShard { .. }
+            | QueryError::UnavailableShard { .. }
             | QueryError::UnknownAccount { .. }
             | QueryError::NoContractCode { .. }
             | QueryError::UnknownAccessKey { .. }
             | QueryError::GarbageCollectedBlock { .. }
             | QueryError::UnknownBlock { .. } => Self::Unknown,
-            _ => Self::other(err),
+            | _ => Self::other(err),
         }
     }
 }
@@ -322,10 +353,10 @@ impl From<QueryError> for ChainError {
 impl From<RuntimeQueryError> for ChainError {
     fn from(err: RuntimeQueryError) -> Self {
         match err {
-            RuntimeQueryError::UnknownAccount { .. }
+            | RuntimeQueryError::UnknownAccount { .. }
             | RuntimeQueryError::NoContractCode { .. }
             | RuntimeQueryError::UnknownAccessKey { .. } => Self::Unknown,
-            _ => Self::other(err),
+            | _ => Self::other(err),
         }
     }
 }
@@ -342,13 +373,22 @@ trait ChainAccess {
         num_initial_blocks: usize,
     ) -> anyhow::Result<Vec<BlockHeight>>;
 
-    async fn block_height_to_hash(&self, height: BlockHeight) -> Result<CryptoHash, ChainError>;
+    async fn block_height_to_hash(
+        &self,
+        height: BlockHeight,
+    ) -> Result<CryptoHash, ChainError>;
 
     async fn head_height(&self) -> Result<BlockHeight, ChainError>;
 
-    async fn get_txs(&self, height: BlockHeight) -> Result<SourceBlock, ChainError>;
+    async fn get_txs(
+        &self,
+        height: BlockHeight,
+    ) -> Result<SourceBlock, ChainError>;
 
-    async fn get_next_block_height(&self, height: BlockHeight) -> Result<BlockHeight, ChainError>;
+    async fn get_next_block_height(
+        &self,
+        height: BlockHeight,
+    ) -> Result<BlockHeight, ChainError>;
 
     async fn get_outcome(
         &self,
@@ -374,13 +414,16 @@ trait ChainAccess {
             .outcome
             .status
         {
-            ExecutionStatusView::SuccessReceiptId(id) => Ok(Some(id)),
-            ExecutionStatusView::Failure(_) | ExecutionStatusView::Unknown => Ok(None),
-            ExecutionStatusView::SuccessValue(_) => unreachable!(),
+            | ExecutionStatusView::SuccessReceiptId(id) => Ok(Some(id)),
+            | ExecutionStatusView::Failure(_) | ExecutionStatusView::Unknown => Ok(None),
+            | ExecutionStatusView::SuccessValue(_) => unreachable!(),
         }
     }
 
-    async fn get_receipt(&self, id: &CryptoHash) -> Result<Arc<Receipt>, ChainError>;
+    async fn get_receipt(
+        &self,
+        id: &CryptoHash,
+    ) -> Result<Arc<Receipt>, ChainError>;
 
     // returns all public keys with full permissions for the given account
     async fn get_full_access_keys(
@@ -466,30 +509,33 @@ impl MappedTxProvenance {
 }
 
 impl std::fmt::Display for MappedTxProvenance {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+    ) -> std::fmt::Result {
         match self {
-            Self::MappedSourceTx(height, shard_id, idx) => {
+            | Self::MappedSourceTx(height, shard_id, idx) => {
                 write!(f, "source #{} shard {} tx #{}", height, shard_id, idx)
             }
-            Self::TxAddKey(height, shard_id, idx) => {
+            | Self::TxAddKey(height, shard_id, idx) => {
                 write!(f, "extra AddKey for source #{} shard {} tx #{}", height, shard_id, idx)
             }
-            Self::ReceiptAddKey(height, shard_id, idx) => {
+            | Self::ReceiptAddKey(height, shard_id, idx) => {
                 write!(f, "extra AddKey for source #{} shard {} receipt #{}", height, shard_id, idx)
             }
-            Self::TxCreateAccount(height, shard_id, idx) => write!(
+            | Self::TxCreateAccount(height, shard_id, idx) => write!(
                 f,
                 "extra CreateAccount for source #{} shard {} tx #{}",
                 height, shard_id, idx
             ),
-            Self::ReceiptCreateAccount(height, shard_id, idx) => {
+            | Self::ReceiptCreateAccount(height, shard_id, idx) => {
                 write!(
                     f,
                     "extra CreateAccount for source #{} shard {} receipt #{}",
                     height, shard_id, idx
                 )
             }
-            Self::Unstake(hash) => {
+            | Self::Unstake(hash) => {
                 write!(f, "unstake after stake receipt in target block {}", hash,)
             }
         }
@@ -594,7 +640,10 @@ impl MappedTx {
         }
     }
 
-    fn inc_nonce(&mut self, target_secret_key: &SecretKey) {
+    fn inc_nonce(
+        &mut self,
+        target_secret_key: &SecretKey,
+    ) {
         let mut tx = self.target_tx.transaction.clone();
         *tx.nonce_mut() += 1;
         self.target_tx =
@@ -609,12 +658,20 @@ enum TargetChainTx {
 }
 
 impl TargetChainTx {
-    fn set_nonce(&mut self, nonce: Nonce) {
+    fn set_nonce(
+        &mut self,
+        nonce: Nonce,
+    ) {
         match self {
-            Self::AwaitingNonce(t) => {
+            | Self::AwaitingNonce(t) => {
                 *t.target_tx.nonce_mut() = nonce;
                 let target_tx = SignedTransaction::new(
-                    t.target_secret_key.sign(&t.target_tx.get_hash_and_size().0.as_ref()),
+                    t.target_secret_key.sign(
+                        &t.target_tx
+                            .get_hash_and_size()
+                            .0
+                            .as_ref(),
+                    ),
                     t.target_tx.clone(),
                 );
                 *self = Self::Ready(MappedTx {
@@ -626,19 +683,22 @@ impl TargetChainTx {
                     sent_successfully: false,
                 });
             }
-            Self::Ready(_) => unreachable!(),
+            | Self::Ready(_) => unreachable!(),
         };
     }
 
     // For an AwaitingNonce(_), set the nonce and sign the transaction, changing self into Ready(_).
     // must not be called if self is Ready(_)
-    fn try_set_nonce(&mut self, nonce: Option<Nonce>) {
+    fn try_set_nonce(
+        &mut self,
+        nonce: Option<Nonce>,
+    ) {
         let nonce = match self {
-            Self::AwaitingNonce(t) => match std::cmp::max(t.target_nonce.nonce, nonce) {
-                Some(n) => n,
-                None => return,
+            | Self::AwaitingNonce(t) => match std::cmp::max(t.target_nonce.nonce, nonce) {
+                | Some(n) => n,
+                | None => return,
             },
-            Self::Ready(_) => unreachable!(),
+            | Self::Ready(_) => unreachable!(),
         };
         self.set_nonce(nonce);
     }
@@ -701,18 +761,21 @@ impl TargetChainTx {
 
     fn target_nonce(&self) -> TargetNonce {
         match self {
-            Self::Ready(t) => TargetNonce {
+            | Self::Ready(t) => TargetNonce {
                 nonce: Some(t.target_tx.transaction.nonce()),
                 pending_outcomes: HashSet::new(),
             },
-            Self::AwaitingNonce(t) => t.target_nonce.clone(),
+            | Self::AwaitingNonce(t) => t.target_nonce.clone(),
         }
     }
 
-    fn inc_target_nonce(&mut self, target_secret_key: &SecretKey) {
+    fn inc_target_nonce(
+        &mut self,
+        target_secret_key: &SecretKey,
+    ) {
         match self {
-            Self::Ready(t) => t.inc_nonce(target_secret_key),
-            Self::AwaitingNonce(t) => {
+            | Self::Ready(t) => t.inc_nonce(target_secret_key),
+            | Self::AwaitingNonce(t) => {
                 if let Some(n) = &mut t.target_nonce.nonce {
                     *n += 1;
                 }
@@ -751,16 +814,19 @@ impl From<&MappedBlock> for TxBatch {
                 .chunks
                 .iter()
                 .flat_map(|c| {
-                    c.txs.iter().enumerate().map(move |(tx_idx, tx)| {
-                        (
-                            TxRef {
-                                source_height: block.source_height,
-                                shard_id: c.shard_id,
-                                tx_idx,
-                            },
-                            tx.clone(),
-                        )
-                    })
+                    c.txs
+                        .iter()
+                        .enumerate()
+                        .map(move |(tx_idx, tx)| {
+                            (
+                                TxRef {
+                                    source_height: block.source_height,
+                                    shard_id: c.shard_id,
+                                    tx_idx,
+                                },
+                                tx.clone(),
+                            )
+                        })
                 })
                 .collect(),
         }
@@ -781,15 +847,15 @@ async fn account_exists(
         )
         .await?
     {
-        Ok(res) => match res.kind {
-            QueryResponseKind::ViewAccount(_) => Ok(true),
-            other => {
+        | Ok(res) => match res.kind {
+            | QueryResponseKind::ViewAccount(_) => Ok(true),
+            | other => {
                 panic!("Received unexpected QueryResponse after Querying Account: {:?}", other);
             }
         },
-        Err(e) => match &e {
-            QueryError::UnknownAccount { .. } => Ok(false),
-            _ => Err(e.into()),
+        | Err(e) => match &e {
+            | QueryError::UnknownAccount { .. } => Ok(false),
+            | _ => Err(e.into()),
         },
     }
 }
@@ -813,15 +879,15 @@ async fn fetch_access_key_nonce(
         .await
         .unwrap()
     {
-        Ok(res) => match res.kind {
-            QueryResponseKind::AccessKey(access_key) => Ok(Some(access_key.nonce)),
-            other => {
+        | Ok(res) => match res.kind {
+            | QueryResponseKind::AccessKey(access_key) => Ok(Some(access_key.nonce)),
+            | other => {
                 panic!("Received unexpected QueryResponse after Querying Access Key: {:?}", other);
             }
         },
-        Err(e) => match &e {
-            QueryError::UnknownAccessKey { .. } => Ok(None),
-            _ => Err(e.into()),
+        | Err(e) => match &e {
+            | QueryError::UnknownAccessKey { .. } => Ok(None),
+            | _ => Err(e.into()),
         },
     }
 }
@@ -838,8 +904,8 @@ impl<T: ChainAccess> TxMirror<T> {
             nearcore::config::load_config(target_home, GenesisValidationMode::UnsafeFast)
                 .with_context(|| format!("Error loading target config from {:?}", target_home))?;
         let db = match mirror_db_path {
-            Some(mirror_db_path) => open_db(mirror_db_path),
-            None => {
+            | Some(mirror_db_path) => open_db(mirror_db_path),
+            | None => {
                 // keep backward compatibility
                 let mirror_db_path = near_store::NodeStorage::opener(
                     target_home,
@@ -858,7 +924,10 @@ impl<T: ChainAccess> TxMirror<T> {
         Ok(Self {
             source_chain_access,
             db,
-            target_genesis_height: target_config.genesis.config.genesis_height,
+            target_genesis_height: target_config
+                .genesis
+                .config
+                .genesis_height,
             target_min_block_production_delay: target_config
                 .client_config
                 .min_block_production_delay
@@ -875,7 +944,7 @@ impl<T: ChainAccess> TxMirror<T> {
     ) -> anyhow::Result<()> {
         for tx in txs {
             match tx {
-                TargetChainTx::Ready(tx) => {
+                | TargetChainTx::Ready(tx) => {
                     match target_client
                         .send(
                             ProcessTxRequest {
@@ -887,11 +956,13 @@ impl<T: ChainAccess> TxMirror<T> {
                         )
                         .await?
                     {
-                        ProcessTxResponse::RequestRouted => {
-                            crate::metrics::TRANSACTIONS_SENT.with_label_values(&["ok"]).inc();
+                        | ProcessTxResponse::RequestRouted => {
+                            crate::metrics::TRANSACTIONS_SENT
+                                .with_label_values(&["ok"])
+                                .inc();
                             tx.sent_successfully = true;
                         }
-                        ProcessTxResponse::InvalidTx(e) => {
+                        | ProcessTxResponse::InvalidTx(e) => {
                             // TODO: here if we're getting an error because the tx was already included, it is possible
                             // that some other instance of this code ran and made progress already. For now we can assume
                             // only once instance of this code will run, but this is the place to detect if that's not the case.
@@ -899,9 +970,11 @@ impl<T: ChainAccess> TxMirror<T> {
                                 target: "mirror", "Tried to send an invalid tx for ({}, {:?}) from {}: {:?}",
                                 tx.target_tx.transaction.signer_id(), tx.target_tx.transaction.public_key(), &tx.provenance, e
                             );
-                            crate::metrics::TRANSACTIONS_SENT.with_label_values(&["invalid"]).inc();
+                            crate::metrics::TRANSACTIONS_SENT
+                                .with_label_values(&["invalid"])
+                                .inc();
                         }
-                        r => {
+                        | r => {
                             tracing::error!(
                                 target: "mirror", "Unexpected response sending tx from {}: {:?}. The transaction was not sent",
                                 &tx.provenance, r
@@ -912,7 +985,7 @@ impl<T: ChainAccess> TxMirror<T> {
                         }
                     }
                 }
-                TargetChainTx::AwaitingNonce(tx) => {
+                | TargetChainTx::AwaitingNonce(tx) => {
                     // TODO: here we should just save this transaction for later and send it when it's known
                     tracing::warn!(
                         target: "mirror", "skipped sending transaction for ({}, {:?}) because valid target chain nonce not known",
@@ -936,7 +1009,7 @@ impl<T: ChainAccess> TxMirror<T> {
         let mut full_key_added = false;
         for action in tx.transaction.actions().iter() {
             match &action {
-                Action::AddKey(add_key) => {
+                | Action::AddKey(add_key) => {
                     if add_key.access_key.permission == AccessKeyPermission::FullAccess {
                         full_key_added = true;
                     }
@@ -954,16 +1027,19 @@ impl<T: ChainAccess> TxMirror<T> {
                         access_key: add_key.access_key.clone(),
                     })));
                 }
-                Action::DeleteKey(delete_key) => {
+                | Action::DeleteKey(delete_key) => {
                     let replacement =
                         crate::key_mapping::map_key(&delete_key.public_key, self.secret.as_ref());
                     let public_key = replacement.public_key();
 
                     actions.push(Action::DeleteKey(Box::new(DeleteKeyAction { public_key })));
                 }
-                Action::Transfer(_) => {
+                | Action::Transfer(_) => {
                     // TODO(eth-implicit) Change back to is_implicit() when ETH-implicit accounts are supported.
-                    if tx.transaction.receiver_id().get_account_type()
+                    if tx
+                        .transaction
+                        .receiver_id()
+                        .get_account_type()
                         == AccountType::NearImplicitAccount
                         && tx.transaction.actions().len() == 1
                     {
@@ -971,9 +1047,12 @@ impl<T: ChainAccess> TxMirror<T> {
                             &tx.transaction.receiver_id(),
                             self.secret.as_ref(),
                         );
-                        if !account_exists(target_view_client, &target_account).await.with_context(
-                            || format!("failed checking existence for account {}", &target_account),
-                        )? {
+                        if !account_exists(target_view_client, &target_account)
+                            .await
+                            .with_context(|| {
+                                format!("failed checking existence for account {}", &target_account)
+                            })?
+                        {
                             if target_account.get_account_type() == AccountType::NearImplicitAccount
                             {
                                 let public_key =
@@ -986,12 +1065,12 @@ impl<T: ChainAccess> TxMirror<T> {
                     actions.push(action.clone());
                 }
                 // We don't want to mess with the set of validators in the target chain
-                Action::Stake(_) => {}
-                Action::CreateAccount(_) => {
+                | Action::Stake(_) => {}
+                | Action::CreateAccount(_) => {
                     account_created = true;
                     actions.push(action.clone());
                 }
-                Action::DeleteAccount(d) => {
+                | Action::DeleteAccount(d) => {
                     actions.push(Action::DeleteAccount(DeleteAccountAction {
                         beneficiary_id: crate::key_mapping::map_account(
                             &d.beneficiary_id,
@@ -1000,7 +1079,7 @@ impl<T: ChainAccess> TxMirror<T> {
                     }));
                 }
                 // TODO: handle delegate actions
-                _ => actions.push(action.clone()),
+                | _ => actions.push(action.clone()),
             };
         }
         if account_created && !full_key_added {
@@ -1031,8 +1110,8 @@ impl<T: ChainAccess> TxMirror<T> {
         let target_public_key = target_secret_key.public_key();
         // TODO: clean up this function. The logic is hard to follow
         let target_nonce = match source_height.as_ref() {
-            Some(_) => None,
-            None => Some(
+            | Some(_) => None,
+            | None => Some(
                 crate::chain_tracker::TxTracker::insert_nonce(
                     tracker,
                     tx_block_queue,
@@ -1046,7 +1125,7 @@ impl<T: ChainAccess> TxMirror<T> {
             ),
         };
         let target_nonce = match source_height {
-            Some(source_height) => {
+            | Some(source_height) => {
                 crate::chain_tracker::TxTracker::next_nonce(
                     tracker,
                     target_view_client,
@@ -1057,7 +1136,7 @@ impl<T: ChainAccess> TxMirror<T> {
                 )
                 .await?
             }
-            None => target_nonce.unwrap(),
+            | None => target_nonce.unwrap(),
         };
 
         if target_nonce.pending_outcomes.is_empty() && target_nonce.nonce.is_some() {
@@ -1115,7 +1194,7 @@ impl<T: ChainAccess> TxMirror<T> {
             .get_full_access_keys(&predecessor_id, &block_hash)
             .await
         {
-            Ok(keys) => {
+            | Ok(keys) => {
                 let mut key = None;
                 let mut first_key = None;
                 for k in keys.iter() {
@@ -1147,8 +1226,8 @@ impl<T: ChainAccess> TxMirror<T> {
                     }
                 }
                 match key {
-                    Some(key) => key,
-                    None => {
+                    | Some(key) => key,
+                    | None => {
                         tracing::debug!(
                             target: "mirror", "trying to prepare a transaction with the default extra key for {} because no full access key for {} in the source chain is known at block {}",
                             &provenance, &target_signer_id, &block_hash,
@@ -1157,7 +1236,7 @@ impl<T: ChainAccess> TxMirror<T> {
                     }
                 }
             }
-            Err(e) => {
+            | Err(e) => {
                 return Err(e)
                     .with_context(|| format!("failed fetching access key for {}", &predecessor_id))
             }
@@ -1173,7 +1252,7 @@ impl<T: ChainAccess> TxMirror<T> {
 
         for a in actions {
             match a {
-                Action::AddKey(a) => {
+                | Action::AddKey(a) => {
                     if a.access_key.permission == AccessKeyPermission::FullAccess {
                         full_key_added = true;
                     }
@@ -1187,21 +1266,21 @@ impl<T: ChainAccess> TxMirror<T> {
                         access_key: a.access_key.clone(),
                     })));
                 }
-                Action::CreateAccount(_) => {
+                | Action::CreateAccount(_) => {
                     account_created = true;
                     target_actions.push(Action::CreateAccount(CreateAccountAction {}))
                 }
-                Action::Transfer(_) => {
+                | Action::Transfer(_) => {
                     if provenance.is_create_account() {
                         target_actions.push(a.clone())
                     }
                 }
-                Action::Stake(_) => {
+                | Action::Stake(_) => {
                     if provenance.is_unstake() {
                         target_actions.push(a.clone());
                     }
                 }
-                _ => {}
+                | _ => {}
             };
         }
         if account_created && !full_key_added {
@@ -1261,16 +1340,20 @@ impl<T: ChainAccess> TxMirror<T> {
         }
 
         for id in outcome.outcome.receipt_ids.iter() {
-            let receipt = match self.source_chain_access.get_receipt(id).await {
-                Ok(r) => r,
-                Err(ChainError::Unknown) => {
+            let receipt = match self
+                .source_chain_access
+                .get_receipt(id)
+                .await
+            {
+                | Ok(r) => r,
+                | Err(ChainError::Unknown) => {
                     tracing::warn!(
                         target: "mirror", "receipt {} appears in the list output by receipt {}, but can't find it in the source chain",
                         id, receipt_id,
                     );
                     continue;
                 }
-                Err(ChainError::Other(e)) => return Err(e),
+                | Err(ChainError::Other(e)) => return Err(e),
             };
 
             if let ReceiptEnum::Action(r) | ReceiptEnum::PromiseYield(r) = receipt.receipt() {
@@ -1287,9 +1370,9 @@ impl<T: ChainAccess> TxMirror<T> {
                 let mut account_created = false;
                 for a in r.actions.iter() {
                     match a {
-                        Action::AddKey(_) => key_added = true,
-                        Action::CreateAccount(_) => account_created = true,
-                        _ => {}
+                        | Action::AddKey(_) => key_added = true,
+                        | Action::CreateAccount(_) => account_created = true,
+                        | _ => {}
                     };
                 }
                 if provenance.is_create_account() {
@@ -1356,7 +1439,11 @@ impl<T: ChainAccess> TxMirror<T> {
         // is only logically included, and we won't see it in the receipts in any chunk,
         // so handle that case here
         if tx.transaction.signer_id() == tx.transaction.receiver_id()
-            && tx.transaction.actions().iter().any(|a| matches!(a, Action::FunctionCall(_)))
+            && tx
+                .transaction
+                .actions()
+                .iter()
+                .any(|a| matches!(a, Action::FunctionCall(_)))
         {
             let tx_hash = tx.get_hash();
             if let Some(receipt_id) = self
@@ -1397,7 +1484,10 @@ impl<T: ChainAccess> TxMirror<T> {
         txs: &mut Vec<TargetChainTx>,
     ) -> anyhow::Result<()> {
         if let ReceiptEnum::Action(r) | ReceiptEnum::PromiseYield(r) = receipt.receipt() {
-            if r.actions.iter().any(|a| matches!(a, Action::FunctionCall(_))) {
+            if r.actions
+                .iter()
+                .any(|a| matches!(a, Action::FunctionCall(_)))
+            {
                 self.add_function_call_keys(
                     tracker,
                     tx_block_queue,
@@ -1427,8 +1517,11 @@ impl<T: ChainAccess> TxMirror<T> {
         target_view_client: &Addr<ViewClientActor>,
         txs: &mut Vec<TargetChainTx>,
     ) -> anyhow::Result<()> {
-        let source_block =
-            self.source_chain_access.get_txs(create_account_height).await.with_context(|| {
+        let source_block = self
+            .source_chain_access
+            .get_txs(create_account_height)
+            .await
+            .with_context(|| {
                 format!("Failed fetching chunks for source chain #{}", create_account_height)
             })?;
         for ch in source_block.chunks {
@@ -1480,8 +1573,11 @@ impl<T: ChainAccess> TxMirror<T> {
         tx_block_queue: &Mutex<VecDeque<MappedBlock>>,
         target_view_client: &Addr<ViewClientActor>,
     ) -> anyhow::Result<MappedBlock> {
-        let source_block =
-            self.source_chain_access.get_txs(source_height).await.with_context(|| {
+        let source_block = self
+            .source_chain_access
+            .get_txs(source_height)
+            .await
+            .with_context(|| {
                 format!("Failed fetching chunks for source chain #{}", source_height)
             })?;
 
@@ -1490,8 +1586,9 @@ impl<T: ChainAccess> TxMirror<T> {
             let mut txs = Vec::new();
 
             for (idx, source_tx) in ch.transactions.into_iter().enumerate() {
-                let (actions, nonce_updates) =
-                    self.map_actions(target_view_client, &source_tx).await?;
+                let (actions, nonce_updates) = self
+                    .map_actions(target_view_client, &source_tx)
+                    .await?;
                 if actions.is_empty() {
                     // If this is a tx containing only stake actions, skip it.
                     continue;
@@ -1515,8 +1612,14 @@ impl<T: ChainAccess> TxMirror<T> {
                         tracker,
                         tx_block_queue,
                         target_view_client,
-                        source_tx.transaction.signer_id().clone(),
-                        source_tx.transaction.receiver_id().clone(),
+                        source_tx
+                            .transaction
+                            .signer_id()
+                            .clone(),
+                        source_tx
+                            .transaction
+                            .receiver_id()
+                            .clone(),
                         target_signer_id,
                         target_receiver_id,
                         &target_private_key,
@@ -1606,8 +1709,8 @@ impl<T: ChainAccess> TxMirror<T> {
                     .await?;
 
             let next_height = match next_height {
-                Some(h) => h,
-                None => return Ok(()),
+                | Some(h) => h,
+                | None => return Ok(()),
             };
             // if we have a stop height, just send the last few blocks without worrying about
             // extra create account txs, otherwise wait until we get more blocks
@@ -1667,7 +1770,10 @@ impl<T: ChainAccess> TxMirror<T> {
                 &mut txs,
                 predecessor_id,
                 receiver_id.clone(),
-                &[Action::Stake(Box::new(StakeAction { public_key, stake: 0 }))],
+                &[Action::Stake(Box::new(StakeAction {
+                    public_key,
+                    stake: 0,
+                }))],
                 target_hash,
                 MappedTxProvenance::Unstake(*target_hash),
                 None,
@@ -1703,7 +1809,7 @@ impl<T: ChainAccess> TxMirror<T> {
             let tx_batch = {
                 let tx_block_queue = tx_block_queue.lock().unwrap();
                 let b = match sent_source_height {
-                    Some(sent_source_height) => {
+                    | Some(sent_source_height) => {
                         let mut block_idx = None;
                         for (idx, b) in tx_block_queue.iter().enumerate() {
                             if b.source_height > sent_source_height {
@@ -1712,18 +1818,18 @@ impl<T: ChainAccess> TxMirror<T> {
                             }
                         }
                         match block_idx {
-                            Some(idx) => tx_block_queue.get(idx),
-                            None => None,
+                            | Some(idx) => tx_block_queue.get(idx),
+                            | None => None,
                         }
                     }
-                    None => tx_block_queue.get(0),
+                    | None => tx_block_queue.get(0),
                 };
                 b.map(|b| TxBatch::from(b))
             };
 
             let mut tx_batch = match tx_batch {
-                Some(b) => b,
-                None => {
+                | Some(b) => b,
+                | None => {
                     tokio::time::sleep(Duration::from_millis(200)).await;
                     continue;
                 }
@@ -1734,13 +1840,19 @@ impl<T: ChainAccess> TxMirror<T> {
             tracing::debug!(target: "mirror", "Sending transactions for source block #{}", tx_batch.source_height);
             Self::send_transactions(
                 &target_client,
-                tx_batch.txs.iter_mut().map(|(_tx_ref, tx)| tx),
+                tx_batch
+                    .txs
+                    .iter_mut()
+                    .map(|(_tx_ref, tx)| tx),
             )
             .await?;
             set_last_source_height(&db, tx_batch.source_height)?;
             sent_source_height = Some(tx_batch.source_height);
 
-            blocks_sent.send(tx_batch).await.unwrap();
+            blocks_sent
+                .send(tx_batch)
+                .await
+                .unwrap();
 
             let send_delay = *send_delay.lock().unwrap();
             tracing::debug!(target: "mirror", "Sleeping for {:?} until sending more transactions", &send_delay);
@@ -1780,7 +1892,9 @@ impl<T: ChainAccess> TxMirror<T> {
         .await?;
         *target_height.write().unwrap() = first_target_height;
         *target_head.write().unwrap() = first_target_head;
-        clients_tx.send((target_client.clone(), target_view_client.clone())).unwrap();
+        clients_tx
+            .send((target_client.clone(), target_view_client.clone()))
+            .unwrap();
 
         loop {
             let msg = target_stream.recv().await.unwrap();
@@ -1790,8 +1904,14 @@ impl<T: ChainAccess> TxMirror<T> {
                 let mut tracker = tracker.lock().unwrap();
                 tracker.on_target_block(&tx_block_queue, db.as_ref(), msg)?
             };
-            if !target_block_info.staked_accounts.is_empty() {
-                accounts_to_unstake.send(target_block_info.staked_accounts).await.unwrap();
+            if !target_block_info
+                .staked_accounts
+                .is_empty()
+            {
+                accounts_to_unstake
+                    .send(target_block_info.staked_accounts)
+                    .await
+                    .unwrap();
             }
             for access_key_update in target_block_info.access_key_updates {
                 let nonce = crate::fetch_access_key_nonce(
@@ -1884,7 +2004,7 @@ impl<T: ChainAccess> TxMirror<T> {
     }
 
     async fn target_chain_head(
-        target_view_client: &Addr<ViewClientActor>,
+        target_view_client: &Addr<ViewClientActor>
     ) -> anyhow::Result<(BlockHeight, CryptoHash)> {
         let header = target_view_client
             .send(GetBlock(BlockReference::Finality(Finality::Final)).with_span_context())
@@ -1918,12 +2038,12 @@ impl<T: ChainAccess> TxMirror<T> {
             }
 
             match head {
-                Some((head_height, head_hash)) => {
+                | Some((head_height, head_hash)) => {
                     if height >= head_height {
                         return Ok((head_height, head_hash));
                     }
                 }
-                None => {
+                | None => {
                     if !Self::target_chain_syncing(target_client).await {
                         head = Some(Self::target_chain_head(target_view_client).await?);
                     }
@@ -1940,8 +2060,10 @@ impl<T: ChainAccess> TxMirror<T> {
         let last_stored_height = get_last_source_height(&self.db)?;
         let last_height = last_stored_height.unwrap_or(self.target_genesis_height - 1);
 
-        let next_heights =
-            self.source_chain_access.init(last_height, CREATE_ACCOUNT_DELTA + 1).await?;
+        let next_heights = self
+            .source_chain_access
+            .init(last_height, CREATE_ACCOUNT_DELTA + 1)
+            .await?;
 
         if next_heights.is_empty() {
             anyhow::bail!("no new blocks after #{}", last_height);
@@ -2000,7 +2122,9 @@ impl<T: ChainAccess> TxMirror<T> {
                 target_head2,
             )
             .await;
-            target_indexer_done_tx.send(res).unwrap();
+            target_indexer_done_tx
+                .send(res)
+                .unwrap();
         });
 
         // wait til we set the values in target_height and target_head after receiving a message from the indexer
@@ -2037,7 +2161,11 @@ impl<T: ChainAccess> TxMirror<T> {
                 )
                 .await?;
             }
-            if block.chunks.iter().any(|c| !c.txs.is_empty()) {
+            if block
+                .chunks
+                .iter()
+                .any(|c| !c.txs.is_empty())
+            {
                 tracing::debug!(target: "mirror", "sending extra create account transactions for the first {} blocks", CREATE_ACCOUNT_DELTA);
                 let mut b = {
                     crate::chain_tracker::TxTracker::queue_block(
@@ -2126,18 +2254,21 @@ async fn run<P: AsRef<Path>>(
     config_path: Option<P>,
 ) -> anyhow::Result<()> {
     let config: MirrorConfig = match config_path {
-        Some(p) => {
+        | Some(p) => {
             let c = std::fs::read_to_string(p.as_ref())
                 .with_context(|| format!("Could not read config from {}", p.as_ref().display()))?;
             serde_json::from_str(&c)
                 .with_context(|| format!("Could not parse config from {}", p.as_ref().display()))?
         }
-        None => Default::default(),
+        | None => Default::default(),
     };
     if !online_source {
         let source_chain_access = crate::offline::ChainAccess::new(source_home)?;
         let stop_height = stop_height.unwrap_or(
-            source_chain_access.head_height().await.context("could not fetch source chain head")?,
+            source_chain_access
+                .head_height()
+                .await
+                .context("could not fetch source chain head")?,
         );
         TxMirror::new(
             source_chain_access,

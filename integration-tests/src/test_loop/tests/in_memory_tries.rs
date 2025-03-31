@@ -33,9 +33,16 @@ fn test_load_memtrie_after_empty_chunks() {
     let accounts = (num_accounts - num_clients..num_accounts)
         .map(|i| format!("account{}", i).parse().unwrap())
         .collect::<Vec<AccountId>>();
-    let client_accounts = accounts.iter().take(num_clients).cloned().collect_vec();
+    let client_accounts = accounts
+        .iter()
+        .take(num_clients)
+        .cloned()
+        .collect_vec();
     let validators_spec = ValidatorsSpec::desired_roles(
-        &client_accounts.iter().map(|t| t.as_str()).collect_vec(),
+        &client_accounts
+            .iter()
+            .map(|t| t.as_str())
+            .collect_vec(),
         &[],
     );
 
@@ -47,7 +54,11 @@ fn test_load_memtrie_after_empty_chunks() {
             validators_spec,
             accounts: &accounts,
         },
-        |genesis_builder| genesis_builder.genesis_height(10000).transaction_validity_period(1000),
+        |genesis_builder| {
+            genesis_builder
+                .genesis_height(10000)
+                .transaction_validity_period(1000)
+        },
         |epoch_config_builder| epoch_config_builder,
     );
 
@@ -60,21 +71,37 @@ fn test_load_memtrie_after_empty_chunks() {
     execute_money_transfers(&mut test_loop, &node_datas, &accounts).unwrap();
 
     // Make sure the chain progresses for several epochs.
-    let client_handle = node_datas[0].client_sender.actor_handle();
+    let client_handle = node_datas[0]
+        .client_sender
+        .actor_handle();
     test_loop.run_until(
         |test_loop_data| {
-            test_loop_data.get(&client_handle).client.chain.head().unwrap().height
+            test_loop_data
+                .get(&client_handle)
+                .client
+                .chain
+                .head()
+                .unwrap()
+                .height
                 > 10000 + epoch_length * 10
         },
         Duration::seconds(10),
     );
 
     // Find client currently tracking shard with index 0.
-    let shard_uid = shard_layout.shard_uids().next().unwrap();
+    let shard_uid = shard_layout
+        .shard_uids()
+        .next()
+        .unwrap();
     let shard_id = shard_uid.shard_id();
     let clients = node_datas
         .iter()
-        .map(|data| &test_loop.data.get(&data.client_sender.actor_handle()).client)
+        .map(|data| {
+            &test_loop
+                .data
+                .get(&data.client_sender.actor_handle())
+                .client
+        })
         .collect_vec();
     let idx = {
         let current_tracked_shards = clients.tracked_shards_for_each_client();
@@ -87,11 +114,14 @@ fn test_load_memtrie_after_empty_chunks() {
     };
 
     // Unload memtrie and load it back, check that it doesn't panic.
-    clients[idx].runtime_adapter.get_tries().unload_memtrie(&shard_uid);
     clients[idx]
         .runtime_adapter
         .get_tries()
-        .load_memtrie(&shard_uid, None, true)
+        .unload_mem_trie(&shard_uid);
+    clients[idx]
+        .runtime_adapter
+        .get_tries()
+        .load_mem_trie(&shard_uid, None, true)
         .expect("Couldn't load memtrie");
 
     // Give the test a chance to finish off remaining events in the event loop, which can

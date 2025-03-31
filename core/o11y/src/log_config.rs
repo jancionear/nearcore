@@ -23,7 +23,10 @@ pub struct LogConfig {
 }
 
 impl LogConfig {
-    pub fn write_to_file(&self, path: &Path) -> std::io::Result<()> {
+    pub fn write_to_file(
+        &self,
+        path: &Path,
+    ) -> std::io::Result<()> {
         let mut file = File::create(path)?;
         let str = serde_json::to_string_pretty(self)?;
         file.write_all(str.as_bytes())

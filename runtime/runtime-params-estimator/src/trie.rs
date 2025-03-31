@@ -240,16 +240,24 @@ fn read_node_from_accounting_cache_ext(
             testbed.process_block(setup_block, 0);
 
             // Collect keys of the inserted nodes and select a subset for testing.
-            let all_value_hashes: Vec<_> = values.iter().map(|value| hash(value)).collect();
-            let measured_value_hashes: Vec<_> =
-                all_value_hashes.iter().step_by(data_spread_factor).cloned().collect();
+            let all_value_hashes: Vec<_> = values
+                .iter()
+                .map(|value| hash(value))
+                .collect();
+            let measured_value_hashes: Vec<_> = all_value_hashes
+                .iter()
+                .step_by(data_spread_factor)
+                .cloned()
+                .collect();
             let unmeasured_value_hashes = &all_value_hashes[0..num_warmup_values];
             assert_eq!(measured_value_hashes.len(), num_values);
 
             // Create a new cache and load nodes into it as preparation.
             let caching_storage = testbed.trie_caching_storage();
             let mut accounting_cache = TrieAccountingCache::new(None);
-            accounting_cache.enable_switch().set(true);
+            accounting_cache
+                .enable_switch()
+                .set(true);
             let _dummy_sum = read_raw_nodes_from_storage(
                 &caching_storage,
                 &mut accounting_cache,
@@ -259,7 +267,10 @@ fn read_node_from_accounting_cache_ext(
             // Remove trie nodes from CPU caches by filling the caches with useless data.
             // (To measure latency from main memory, not CPU caches)
             if spoil_l3 {
-                let dummy_count = dummy_data.iter().filter(|n| **n == i as u8).count();
+                let dummy_count = dummy_data
+                    .iter()
+                    .filter(|n| **n == i as u8)
+                    .count();
                 SINK.fetch_add(dummy_count, Ordering::SeqCst);
             }
 
@@ -298,8 +309,9 @@ fn read_raw_nodes_from_storage(
 ) -> usize {
     keys.iter()
         .map(|key| {
-            let bytes =
-                accounting_cache.retrieve_raw_bytes_with_accounting(key, caching_storage).unwrap();
+            let bytes = accounting_cache
+                .retrieve_raw_bytes_with_accounting(key, caching_storage)
+                .unwrap();
             near_store::estimator::decode_extension_node(&bytes).len()
         })
         .sum()

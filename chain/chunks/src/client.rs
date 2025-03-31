@@ -47,12 +47,20 @@ pub struct ShardedTransactionPool {
 }
 
 impl ShardedTransactionPool {
-    pub fn new(rng_seed: RngSeed, pool_size_limit: Option<u64>) -> Self {
+    pub fn new(
+        rng_seed: RngSeed,
+        pool_size_limit: Option<u64>,
+    ) -> Self {
         Self { tx_pools: HashMap::new(), rng_seed, pool_size_limit }
     }
 
-    pub fn get_pool_iterator(&mut self, shard_uid: ShardUId) -> Option<PoolIteratorWrapper<'_>> {
-        self.tx_pools.get_mut(&shard_uid).map(|pool| pool.pool_iterator())
+    pub fn get_pool_iterator(
+        &mut self,
+        shard_uid: ShardUId,
+    ) -> Option<PoolIteratorWrapper<'_>> {
+        self.tx_pools
+            .get_mut(&shard_uid)
+            .map(|pool| pool.pool_iterator())
     }
 
     /// Tries to insert the transaction into the pool for a given shard.
@@ -61,10 +69,15 @@ impl ShardedTransactionPool {
         shard_uid: ShardUId,
         tx: SignedTransaction,
     ) -> InsertTransactionResult {
-        self.pool_for_shard(shard_uid).insert_transaction(tx)
+        self.pool_for_shard(shard_uid)
+            .insert_transaction(tx)
     }
 
-    pub fn remove_transactions(&mut self, shard_uid: ShardUId, transactions: &[SignedTransaction]) {
+    pub fn remove_transactions(
+        &mut self,
+        shard_uid: ShardUId,
+        transactions: &[SignedTransaction],
+    ) {
         if let Some(pool) = self.tx_pools.get_mut(&shard_uid) {
             pool.remove_transactions(transactions)
         }
@@ -74,7 +87,10 @@ impl ShardedTransactionPool {
     /// This seed is used to randomize the transaction pool.
     /// For better security we want the seed to different in each shard.
     /// For testing purposes we want it to be the reproducible and derived from the `self.rng_seed` and `shard_id`
-    fn random_seed(base_seed: &RngSeed, shard_id: ShardId) -> RngSeed {
+    fn random_seed(
+        base_seed: &RngSeed,
+        shard_id: ShardId,
+    ) -> RngSeed {
         let shard_id: u16 = shard_id.into();
         let mut res = *base_seed;
         res[0] = shard_id as u8;
@@ -82,14 +98,19 @@ impl ShardedTransactionPool {
         res
     }
 
-    fn pool_for_shard(&mut self, shard_uid: ShardUId) -> &mut TransactionPool {
-        self.tx_pools.entry(shard_uid).or_insert_with(|| {
-            TransactionPool::new(
-                Self::random_seed(&self.rng_seed, shard_uid.shard_id()),
-                self.pool_size_limit,
-                &shard_uid.to_string(),
-            )
-        })
+    fn pool_for_shard(
+        &mut self,
+        shard_uid: ShardUId,
+    ) -> &mut TransactionPool {
+        self.tx_pools
+            .entry(shard_uid)
+            .or_insert_with(|| {
+                TransactionPool::new(
+                    Self::random_seed(&self.rng_seed, shard_uid.shard_id()),
+                    self.pool_size_limit,
+                    &shard_uid.to_string(),
+                )
+            })
     }
 
     pub fn debug_status(&self) -> String {
@@ -111,8 +132,8 @@ impl ShardedTransactionPool {
         let pool = self.pool_for_shard(shard_uid);
         for tx in transactions {
             reintroduced_count += match pool.insert_transaction(tx.clone()) {
-                InsertTransactionResult::Success | InsertTransactionResult::Duplicate => 1,
-                InsertTransactionResult::NoSpaceLeft => 0,
+                | InsertTransactionResult::Success | InsertTransactionResult::Duplicate => 1,
+                | InsertTransactionResult::NoSpaceLeft => 0,
             }
         }
         reintroduced_count
@@ -123,7 +144,11 @@ impl ShardedTransactionPool {
     /// It works by emptying the pools for old shard uids and re-inserting the
     /// transactions back to the pool with the new shard uids.
     /// TODO(resharding) check if this logic works in resharding V3
-    pub fn reshard(&mut self, old_shard_layout: &ShardLayout, new_shard_layout: &ShardLayout) {
+    pub fn reshard(
+        &mut self,
+        old_shard_layout: &ShardLayout,
+        new_shard_layout: &ShardLayout,
+    ) {
         tracing::debug!(
             target: "resharding",
             old_shard_layout_version = old_shard_layout.version(),
@@ -203,8 +228,12 @@ mod tests {
         shard_id_to_accounts.insert(ShardId::new(1), vec!["aurora"]);
         shard_id_to_accounts.insert(ShardId::new(2), vec!["aurora-0", "bob", "kkk"]);
         // this shard is split, make sure there are accounts for both shards 3' and 4'
-        shard_id_to_accounts
-            .insert(ShardId::new(3), vec!["mmm", "rrr", "sweat", "ttt", "www", "zzz"]);
+        shard_id_to_accounts.insert(
+            ShardId::new(3),
+            vec![
+                "mmm", "rrr", "sweat", "ttt", "www", "zzz",
+            ],
+        );
 
         let deposit = 222;
 
@@ -220,10 +249,14 @@ mod tests {
             let &receiver_shard_id = shard_ids.choose(&mut rng).unwrap();
             let nonce = i as u64;
 
-            let signer_id = *shard_id_to_accounts[&signer_shard_id].choose(&mut rng).unwrap();
+            let signer_id = *shard_id_to_accounts[&signer_shard_id]
+                .choose(&mut rng)
+                .unwrap();
             let signer_id = AccountId::from_str(signer_id).unwrap();
 
-            let receiver_id = *shard_id_to_accounts[&receiver_shard_id].choose(&mut rng).unwrap();
+            let receiver_id = *shard_id_to_accounts[&receiver_shard_id]
+                .choose(&mut rng)
+                .unwrap();
             let receiver_id = AccountId::from_str(receiver_id).unwrap();
 
             let signer = InMemorySigner::from_seed(signer_id.clone(), KeyType::ED25519, "seed");
@@ -262,7 +295,9 @@ mod tests {
             let mut total = 0;
             for shard_id in shard_ids {
                 let shard_uid = ShardUId::new(new_shard_layout.version(), shard_id);
-                let mut pool_iter = pool.get_pool_iterator(shard_uid).unwrap();
+                let mut pool_iter = pool
+                    .get_pool_iterator(shard_uid)
+                    .unwrap();
                 while let Some(group) = pool_iter.next() {
                     while let Some(tx) = group.next() {
                         total += 1;

@@ -63,10 +63,20 @@ pub(crate) fn fork_before_resharding_block(double_signing: bool) -> LoopAction {
             }
             let client_actor =
                 retrieve_client_actor(node_datas, test_loop_data, &client_account_id);
-            let tip = client_actor.client.chain.head().unwrap();
+            let tip = client_actor
+                .client
+                .chain
+                .head()
+                .unwrap();
 
             // If there's a new shard layout force a chain fork.
-            if next_block_has_new_shard_layout(client_actor.client.epoch_manager.as_ref(), &tip) {
+            if next_block_has_new_shard_layout(
+                client_actor
+                    .client
+                    .epoch_manager
+                    .as_ref(),
+                &tip,
+            ) {
                 println!("creating chain fork at height {}", tip.height);
                 let height_selection = if double_signing {
                     // In the double signing scenario we want a new block on top of prev block, with consecutive height.
@@ -102,7 +112,11 @@ pub(crate) fn execute_money_transfers(account_ids: Vec<AccountId>) -> LoopAction
               client_account_id: AccountId| {
             let client_actor =
                 retrieve_client_actor(node_datas, test_loop_data, &client_account_id);
-            let tip = client_actor.client.chain.head().unwrap();
+            let tip = client_actor
+                .client
+                .chain
+                .head()
+                .unwrap();
 
             // Run this action only once at every block height.
             if latest_height.get() == tip.height {
@@ -116,13 +130,21 @@ pub(crate) fn execute_money_transfers(account_ids: Vec<AccountId>) -> LoopAction
             let mut rng: ChaCha20Rng = SeedableRng::from_seed(slice);
 
             for _ in 0..NUM_TRANSFERS_PER_BLOCK {
-                let sender = account_ids.choose(&mut rng).unwrap().clone();
-                let receiver = account_ids.choose(&mut rng).unwrap().clone();
+                let sender = account_ids
+                    .choose(&mut rng)
+                    .unwrap()
+                    .clone();
+                let receiver = account_ids
+                    .choose(&mut rng)
+                    .unwrap()
+                    .clone();
 
                 let clients = node_datas
                     .iter()
                     .map(|test_data| {
-                        &test_loop_data.get(&test_data.client_sender.actor_handle()).client
+                        &test_loop_data
+                            .get(&test_data.client_sender.actor_handle())
+                            .client
                     })
                     .collect_vec();
 
@@ -164,7 +186,11 @@ pub(crate) fn execute_storage_operations(
               client_account_id: AccountId| {
             let client_actor =
                 retrieve_client_actor(node_datas, test_loop_data, &client_account_id);
-            let tip = client_actor.client.chain.head().unwrap();
+            let tip = client_actor
+                .client
+                .chain
+                .head()
+                .unwrap();
 
             // Run this action only once at every block height.
             if latest_height.get() == tip.height {
@@ -179,8 +205,13 @@ pub(crate) fn execute_storage_operations(
                     continue;
                 }
 
-                let tx_outcome = client_actor.client.chain.get_partial_transaction_result(&tx);
-                let status = tx_outcome.as_ref().map(|o| o.status.clone());
+                let tx_outcome = client_actor
+                    .client
+                    .chain
+                    .get_partial_transaction_result(&tx);
+                let status = tx_outcome
+                    .as_ref()
+                    .map(|o| o.status.clone());
                 assert_matches!(status, Ok(FinalExecutionStatus::SuccessValue(_)));
             }
             txs.set(remaining_txs);
@@ -188,7 +219,9 @@ pub(crate) fn execute_storage_operations(
             let clients = node_datas
                 .iter()
                 .map(|test_data| {
-                    &test_loop_data.get(&test_data.client_sender.actor_handle()).client
+                    &test_loop_data
+                        .get(&test_data.client_sender.actor_handle())
+                        .client
                 })
                 .collect_vec();
 
@@ -265,7 +298,11 @@ pub(crate) fn call_burn_gas_contract(
               client_account_id: AccountId| {
             let client_actor =
                 retrieve_client_actor(node_datas, test_loop_data, &client_account_id);
-            let tip = client_actor.client.chain.head().unwrap();
+            let tip = client_actor
+                .client
+                .chain
+                .head()
+                .unwrap();
 
             // Run this action only once at every block height.
             if latest_height.get() == tip.height {
@@ -277,9 +314,13 @@ pub(crate) fn call_burn_gas_contract(
             if let Some(height) = resharding_height.get() {
                 if tip.height > height + tx_check_blocks_after_resharding {
                     for (tx, tx_height) in txs.take() {
-                        let tx_outcome =
-                            client_actor.client.chain.get_partial_transaction_result(&tx);
-                        let status = tx_outcome.as_ref().map(|o| o.status.clone());
+                        let tx_outcome = client_actor
+                            .client
+                            .chain
+                            .get_partial_transaction_result(&tx);
+                        let status = tx_outcome
+                            .as_ref()
+                            .map(|o| o.status.clone());
                         let status = status.unwrap();
                         tracing::debug!(target: "test", ?tx_height, ?tx, ?status, "transaction status");
                         assert_matches!(status, FinalExecutionStatus::SuccessValue(_));
@@ -287,8 +328,13 @@ pub(crate) fn call_burn_gas_contract(
                     checked_transactions.set(true);
                 }
             } else {
-                if next_block_has_new_shard_layout(client_actor.client.epoch_manager.as_ref(), &tip)
-                {
+                if next_block_has_new_shard_layout(
+                    client_actor
+                        .client
+                        .epoch_manager
+                        .as_ref(),
+                    &tip,
+                ) {
                     tracing::debug!(target: "test", height=tip.height, "resharding height set");
                     resharding_height.set(Some(tip.height));
                 }
@@ -353,7 +399,11 @@ pub(crate) fn send_large_cross_shard_receipts(
               client_account_id: AccountId| {
             let client_actor =
                 retrieve_client_actor(node_datas, test_loop_data, &client_account_id);
-            let tip = client_actor.client.chain.head().unwrap();
+            let tip = client_actor
+                .client
+                .chain
+                .head()
+                .unwrap();
             let epoch_manager = &client_actor.client.epoch_manager;
 
             // Run this action only once at every block height.
@@ -370,7 +420,11 @@ pub(crate) fn send_large_cross_shard_receipts(
                 resharding_height.set(Some(tip.height));
             }
 
-            for shard_uid in epoch_manager.get_shard_layout(&tip.epoch_id).unwrap().shard_uids() {
+            for shard_uid in epoch_manager
+                .get_shard_layout(&tip.epoch_id)
+                .unwrap()
+                .shard_uids()
+            {
                 let mut outgoing_receipt_sizes: BTreeMap<ShardId, Vec<ByteSize>> = BTreeMap::new();
 
                 let memtrie =
@@ -378,12 +432,19 @@ pub(crate) fn send_large_cross_shard_receipts(
                 let mut outgoing_buffers = ShardsOutgoingReceiptBuffer::load(&memtrie).unwrap();
                 for target_shard in outgoing_buffers.shards() {
                     let mut receipt_sizes = Vec::new();
-                    for receipt in outgoing_buffers.to_shard(target_shard).iter(&memtrie, false) {
+                    for receipt in outgoing_buffers
+                        .to_shard(target_shard)
+                        .iter(&memtrie, false)
+                    {
                         let receipt_size = match receipt {
-                            Ok(ReceiptOrStateStoredReceipt::StateStoredReceipt(
+                            | Ok(ReceiptOrStateStoredReceipt::StateStoredReceipt(
                                 state_stored_receipt,
-                            )) => state_stored_receipt.metadata().congestion_size,
-                            _ => panic!("receipt is {:?}", receipt),
+                            )) => {
+                                state_stored_receipt
+                                    .metadata()
+                                    .congestion_size
+                            }
+                            | _ => panic!("receipt is {:?}", receipt),
                         };
                         receipt_sizes.push(ByteSize::b(receipt_size));
                     }
@@ -399,17 +460,20 @@ pub(crate) fn send_large_cross_shard_receipts(
 
             // Estimate the resharding boundary to know when to start sending transactions.
             let estimated_resharding_height = match resharding_height.get() {
-                Some(h) => h, // Resharding boundary known, use it.
-                None if is_epoch_before_resharding => {
+                | Some(h) => h, // Resharding boundary known, use it.
+                | None if is_epoch_before_resharding => {
                     // Resharding boundary unknown, estimate it.
-                    let cur_epoch_start =
-                        epoch_manager.get_epoch_start_height(&tip.last_block_hash).unwrap();
-                    let cur_epoch_length =
-                        epoch_manager.get_epoch_config(&tip.epoch_id).unwrap().epoch_length;
+                    let cur_epoch_start = epoch_manager
+                        .get_epoch_start_height(&tip.last_block_hash)
+                        .unwrap();
+                    let cur_epoch_length = epoch_manager
+                        .get_epoch_config(&tip.epoch_id)
+                        .unwrap()
+                        .epoch_length;
                     let cur_epoch_estimated_end = cur_epoch_start + cur_epoch_length - 1;
                     cur_epoch_estimated_end
                 }
-                _ => tip.height + 99999999999999, // Not in the next epoch, set to infinity into the future
+                | _ => tip.height + 99999999999999, // Not in the next epoch, set to infinity into the future
             };
 
             // Send large cross-shard receipts a moment before the resharding happens.
@@ -497,7 +561,11 @@ pub(crate) fn call_promise_yield(
               client_account_id: AccountId| {
             let client_actor =
                 retrieve_client_actor(node_datas, test_loop_data, &client_account_id);
-            let tip = client_actor.client.chain.head().unwrap();
+            let tip = client_actor
+                .client
+                .chain
+                .head()
+                .unwrap();
 
             // Run this action only once at every block height.
             if latest_height.get() == tip.height {
@@ -510,9 +578,11 @@ pub(crate) fn call_promise_yield(
             match (resharding_height.get(), latest_height.get()) {
                 // Resharding happened in the previous block.
                 // Maybe send the resume transaction.
-                (Some(resharding), latest) if latest == resharding + 1 && call_resume => {
-                    for (signer_id, receiver_id) in
-                        signer_ids.clone().into_iter().zip(receiver_ids.clone().into_iter())
+                | (Some(resharding), latest) if latest == resharding + 1 && call_resume => {
+                    for (signer_id, receiver_id) in signer_ids
+                        .clone()
+                        .into_iter()
+                        .zip(receiver_ids.clone().into_iter())
                     {
                         let signer: Signer = create_user_test_signer(&signer_id).into();
                         nonce.set(nonce.get() + 1);
@@ -540,23 +610,30 @@ pub(crate) fn call_promise_yield(
                 }
                 // Resharding happened a few blocks in the past.
                 // Check transactions' outcomes.
-                (Some(resharding), latest) if latest == resharding + 4 => {
+                | (Some(resharding), latest) if latest == resharding + 4 => {
                     let txs = txs.take();
                     assert_ne!(txs.len(), 0);
                     for (tx, tx_height) in txs {
-                        let tx_outcome =
-                            client_actor.client.chain.get_partial_transaction_result(&tx);
-                        let status = tx_outcome.as_ref().map(|o| o.status.clone());
+                        let tx_outcome = client_actor
+                            .client
+                            .chain
+                            .get_partial_transaction_result(&tx);
+                        let status = tx_outcome
+                            .as_ref()
+                            .map(|o| o.status.clone());
                         let status = status.unwrap();
                         tracing::debug!(target: "test", ?tx_height, ?tx, ?status, "transaction status");
                         assert_matches!(status, FinalExecutionStatus::SuccessValue(_));
                     }
                     checked_transactions.set(true);
                 }
-                (Some(_resharding), _latest) => {}
+                | (Some(_resharding), _latest) => {}
                 // Resharding didn't happen in the past.
-                (None, _) => {
-                    let epoch_manager = client_actor.client.epoch_manager.as_ref();
+                | (None, _) => {
+                    let epoch_manager = client_actor
+                        .client
+                        .epoch_manager
+                        .as_ref();
                     // Check if resharding will happen in this block.
                     if next_block_has_new_shard_layout(epoch_manager, &tip) {
                         tracing::debug!(target: "test", height=tip.height, "resharding height set");
@@ -568,20 +645,24 @@ pub(crate) fn call_promise_yield(
                         return;
                     }
 
-                    let will_reshard =
-                        epoch_manager.will_shard_layout_change(&tip.prev_block_hash).unwrap();
+                    let will_reshard = epoch_manager
+                        .will_shard_layout_change(&tip.prev_block_hash)
+                        .unwrap();
                     if !will_reshard {
                         return;
                     }
                     let epoch_length = client_actor.client.config.epoch_length;
-                    let epoch_start =
-                        epoch_manager.get_epoch_start_height(&tip.last_block_hash).unwrap();
+                    let epoch_start = epoch_manager
+                        .get_epoch_start_height(&tip.last_block_hash)
+                        .unwrap();
                     if tip.height + 5 < epoch_start + epoch_length {
                         return;
                     }
 
-                    for (signer_id, receiver_id) in
-                        signer_ids.clone().into_iter().zip(receiver_ids.clone().into_iter())
+                    for (signer_id, receiver_id) in signer_ids
+                        .clone()
+                        .into_iter()
+                        .zip(receiver_ids.clone().into_iter())
                     {
                         let signer: Signer = create_user_test_signer(&signer_id).into();
                         nonce.set(nonce.get() + 1);
@@ -626,7 +707,9 @@ fn check_deleted_account_availability(
     height: u64,
 ) {
     let rpc_node_data = get_node_data(node_datas, &rpc_id);
-    let rpc_view_client_handle = rpc_node_data.view_client_sender.actor_handle();
+    let rpc_view_client_handle = rpc_node_data
+        .view_client_sender
+        .actor_handle();
 
     let block_reference = BlockReference::BlockId(BlockId::Height(height));
     let request = QueryRequest::ViewAccount { account_id: account_id.clone() };
@@ -640,7 +723,9 @@ fn check_deleted_account_availability(
 
     if let Some(archival_id) = archival_id {
         let archival_node_data = get_node_data(node_datas, &archival_id);
-        let archival_view_client_handle = archival_node_data.view_client_sender.actor_handle();
+        let archival_view_client_handle = archival_node_data
+            .view_client_sender
+            .actor_handle();
         let archival_node_result = {
             let view_client = test_loop_data.get_mut(&archival_view_client_handle);
             near_async::messaging::Handler::handle(view_client, msg)
@@ -681,7 +766,11 @@ pub(crate) fn temporary_account_during_resharding(
 
             let client_actor =
                 retrieve_client_actor(node_datas, test_loop_data, &client_account_id);
-            let tip = client_actor.client.chain.head().unwrap();
+            let tip = client_actor
+                .client
+                .chain
+                .head()
+                .unwrap();
 
             // Run this action only once at every block height.
             if latest_height.get() == tip.height {
@@ -689,11 +778,18 @@ pub(crate) fn temporary_account_during_resharding(
             }
             latest_height.set(tip.height);
             let epoch_length = client_actor.client.config.epoch_length;
-            let gc_num_epochs_to_keep = client_actor.client.config.gc.gc_num_epochs_to_keep;
+            let gc_num_epochs_to_keep = client_actor
+                .client
+                .config
+                .gc
+                .gc_num_epochs_to_keep;
 
             if resharding_height.get().is_none() {
                 if !this_block_has_new_shard_layout(
-                    client_actor.client.epoch_manager.as_ref(),
+                    client_actor
+                        .client
+                        .epoch_manager
+                        .as_ref(),
                     &tip,
                 ) {
                     return;
@@ -746,10 +842,20 @@ pub(crate) fn temporary_account_during_resharding(
 }
 
 /// Removes from State column all entries where key does not start with `the_only_shard_uid` ShardUId prefix.
-fn retain_the_only_shard_state(client: &Client, the_only_shard_uid: ShardUId) {
-    let store = client.chain.chain_store.store().trie_store();
+fn retain_the_only_shard_state(
+    client: &Client,
+    the_only_shard_uid: ShardUId,
+) {
+    let store = client
+        .chain
+        .chain_store
+        .store()
+        .trie_store();
     let mut store_update = store.store_update();
-    for kv in store.store().iter_raw_bytes(DBCol::State) {
+    for kv in store
+        .store()
+        .iter_raw_bytes(DBCol::State)
+    {
         let (key, value) = kv.unwrap();
         let shard_uid = ShardUId::try_from_slice(&key[0..8]).unwrap();
         if shard_uid == the_only_shard_uid {
@@ -772,9 +878,16 @@ fn check_has_the_only_shard_state(
     the_only_shard_uid: ShardUId,
     expect_shard_uid_is_mapped: bool,
 ) {
-    let store = client.chain.chain_store.store().trie_store();
+    let store = client
+        .chain
+        .chain_store
+        .store()
+        .trie_store();
     let mut shard_uid_prefixes = HashSet::new();
-    for kv in store.store().iter_raw_bytes(DBCol::State) {
+    for kv in store
+        .store()
+        .iter_raw_bytes(DBCol::State)
+    {
         let (key, _) = kv.unwrap();
         let shard_uid = ShardUId::try_from_slice(&key[0..8]).unwrap();
         shard_uid_prefixes.insert(shard_uid);
@@ -785,7 +898,9 @@ fn check_has_the_only_shard_state(
     } else {
         assert_eq!(mapped_shard_uid, the_only_shard_uid);
     };
-    let shard_uid_prefixes = shard_uid_prefixes.into_iter().collect_vec();
+    let shard_uid_prefixes = shard_uid_prefixes
+        .into_iter()
+        .collect_vec();
     assert_eq!(shard_uid_prefixes, [mapped_shard_uid]);
 }
 
@@ -811,8 +926,12 @@ pub(crate) fn check_state_cleanup(
                 return;
             }
 
-            let client_handle = node_datas[client_index].client_sender.actor_handle();
-            let client = &test_loop_data.get_mut(&client_handle).client;
+            let client_handle = node_datas[client_index]
+                .client_sender
+                .actor_handle();
+            let client = &test_loop_data
+                .get_mut(&client_handle)
+                .client;
             let tip = client.chain.head().unwrap();
 
             // Run this action only once at every block height.
@@ -824,10 +943,14 @@ pub(crate) fn check_state_cleanup(
                 .epoch_manager
                 .get_epoch_height_from_prev_block(&tip.prev_block_hash)
                 .unwrap();
-            let [tracked_shard_id] =
-                tracked_shard_schedule.schedule[epoch_height as usize].clone().try_into().unwrap();
-            let tracked_shard_uid =
-                client.epoch_manager.shard_id_to_uid(tracked_shard_id, &tip.epoch_id).unwrap();
+            let [tracked_shard_id] = tracked_shard_schedule.schedule[epoch_height as usize]
+                .clone()
+                .try_into()
+                .unwrap();
+            let tracked_shard_uid = client
+                .epoch_manager
+                .shard_id_to_uid(tracked_shard_id, &tip.epoch_id)
+                .unwrap();
 
             if latest_height.get() == 0 {
                 // This is beginning of the test, and the first epoch after genesis has height 1.

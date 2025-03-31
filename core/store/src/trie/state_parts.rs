@@ -82,7 +82,9 @@ impl Trie {
     ) -> Result<PartialState, StorageError> {
         let with_recording = self.recording_reads_new_recorder();
         with_recording.visit_nodes_for_state_part(part_id)?;
-        let recorded = with_recording.recorded_storage().unwrap();
+        let recorded = with_recording
+            .recorded_storage()
+            .unwrap();
         Ok(recorded.nodes)
     }
 
@@ -95,12 +97,12 @@ impl Trie {
         nibbles_end: Vec<u8>,
     ) -> Result<FlatStateIterator<'a>, StorageError> {
         let flat_storage_chunk_view = match &self.flat_storage_chunk_view {
-            None => {
+            | None => {
                 return Err(StorageError::StorageInconsistentState(
                     "Flat storage chunk view not found".to_string(),
                 ));
             }
-            Some(chunk_view) => chunk_view,
+            | Some(chunk_view) => chunk_view,
         };
 
         // If left key in nibbles is already the largest, return empty
@@ -154,7 +156,9 @@ impl Trie {
         let nibbles_end =
             recording_trie.find_state_part_boundary(part_id.idx + 1, part_id.total)?;
         let boundaries_read_duration = boundaries_read_timer.stop_and_record();
-        let recorded_trie = recording_trie.recorded_storage().unwrap();
+        let recorded_trie = recording_trie
+            .recorded_storage()
+            .unwrap();
 
         tracing::debug!(
             target: "state-parts",
@@ -212,11 +216,11 @@ impl Trie {
             .filter_map(|result| {
                 let (k, v) = result.expect("failed to read FlatState entry");
                 match v {
-                    FlatStateValue::Ref(value_ref) => {
+                    | FlatStateValue::Ref(value_ref) => {
                         value_refs.push((k, value_ref.hash));
                         None
                     }
-                    FlatStateValue::Inlined(value) => {
+                    | FlatStateValue::Inlined(value) => {
                         values_inlined += 1;
                         Some((k, Some(value)))
                     }
@@ -231,7 +235,16 @@ impl Trie {
             .start_timer();
         let looked_up_value_refs: Vec<_> = value_refs
             .iter()
-            .map(|(k, hash)| Ok((k.clone(), Some(state_trie.retrieve_value(hash)?.to_vec()))))
+            .map(|(k, hash)| {
+                Ok((
+                    k.clone(),
+                    Some(
+                        state_trie
+                            .retrieve_value(hash)?
+                            .to_vec(),
+                    ),
+                ))
+            })
             .collect::<Result<_, StorageError>>()
             .unwrap();
         all_state_part_items.extend(looked_up_value_refs.iter().cloned());
@@ -243,17 +256,23 @@ impl Trie {
             .start_timer();
         let local_state_part_trie =
             Trie::new(Arc::new(TrieMemoryPartialStorage::default()), StateRoot::new(), None);
-        let local_state_part_nodes =
-            local_state_part_trie.update(all_state_part_items.into_iter())?.insertions;
+        let local_state_part_nodes = local_state_part_trie
+            .update(all_state_part_items.into_iter())?
+            .insertions;
         let local_trie_creation_duration = local_trie_creation_timer.stop_and_record();
 
         // 4. Unite all nodes in memory, traverse trie based on them, return set of visited nodes.
         let final_part_creation_timer = metrics::GET_STATE_PART_COMBINE_ELAPSED
             .with_label_values(&[&shard_id.to_string()])
             .start_timer();
-        let boundary_nodes_storage: HashMap<_, _> =
-            path_boundary_nodes.iter().map(|entry| (hash(entry), entry.clone())).collect();
-        let mut disk_read_hashes: HashSet<_> = boundary_nodes_storage.keys().cloned().collect();
+        let boundary_nodes_storage: HashMap<_, _> = path_boundary_nodes
+            .iter()
+            .map(|entry| (hash(entry), entry.clone()))
+            .collect();
+        let mut disk_read_hashes: HashSet<_> = boundary_nodes_storage
+            .keys()
+            .cloned()
+            .collect();
         disk_read_hashes.extend(value_refs.iter().map(|(_, hash)| hash));
         let mut all_nodes: HashMap<CryptoHash, Arc<[u8]>> = HashMap::new();
         all_nodes.extend(boundary_nodes_storage);
@@ -266,15 +285,20 @@ impl Trie {
             Trie::new(Arc::new(TrieMemoryPartialStorage::new(all_nodes)), self.root, None);
 
         final_trie.visit_nodes_for_state_part(part_id)?;
-        let final_trie_storage = final_trie.storage.as_partial_storage().unwrap();
+        let final_trie_storage = final_trie
+            .storage
+            .as_partial_storage()
+            .unwrap();
         let final_state_part_nodes = final_trie_storage.partial_state();
         let PartialState::TrieValues(trie_values) = &final_state_part_nodes;
         let final_part_creation_duration = final_part_creation_timer.stop_and_record();
 
         // Compute how many nodes were recreated from memory.
         let state_part_num_nodes = trie_values.len();
-        let in_memory_created_nodes =
-            trie_values.iter().filter(|entry| !disk_read_hashes.contains(&hash(*entry))).count();
+        let in_memory_created_nodes = trie_values
+            .iter()
+            .filter(|entry| !disk_read_hashes.contains(&hash(*entry)))
+            .count();
         tracing::debug!(
             target: "state-parts",
             ?part_id,
@@ -315,7 +339,10 @@ impl Trie {
     ///
     /// Creating a StatePart takes all these nodes, validating a StatePart checks that it has the
     /// right set of nodes.
-    fn visit_nodes_for_state_part(&self, part_id: PartId) -> Result<(), StorageError> {
+    fn visit_nodes_for_state_part(
+        &self,
+        part_id: PartId,
+    ) -> Result<(), StorageError> {
         let path_begin = self.find_state_part_boundary(part_id.idx, part_id.total)?;
         let path_end = self.find_state_part_boundary(part_id.idx + 1, part_id.total)?;
 
@@ -343,15 +370,15 @@ impl Trie {
         *memory_skipped += node.node.memory_usage_direct();
 
         match &node.node {
-            TrieStorageNode::Empty => Ok(false),
-            TrieStorageNode::Leaf { extension, .. } => {
+            | TrieStorageNode::Empty => Ok(false),
+            | TrieStorageNode::Leaf { extension, .. } => {
                 let (slice, _) = NibbleSlice::from_encoded(extension);
                 key_nibbles.extend(slice.iter());
 
                 // Leaf must contain value, so we found the boundary.
                 Ok(false)
             }
-            TrieStorageNode::Branch { children, value } => {
+            | TrieStorageNode::Branch { children, value } => {
                 if *memory_skipped > memory_threshold && value.is_some() {
                     // If we skipped enough memory and found some value, we found the boundary.
                     return Ok(false);
@@ -376,7 +403,7 @@ impl Trie {
                     threshold {memory_threshold} and skipped {memory_skipped}"
                 )))
             }
-            TrieStorageNode::Extension { extension, child } => {
+            | TrieStorageNode::Extension { extension, child } => {
                 let child = self.retrieve_storage_node(child)?;
                 let (slice, _) = NibbleSlice::from_encoded(extension);
                 key_nibbles.extend(slice.iter());
@@ -425,9 +452,18 @@ impl Trie {
         );
 
         trie.visit_nodes_for_state_part(part_id)?;
-        let storage = trie.storage.as_partial_storage().unwrap();
+        let storage = trie
+            .storage
+            .as_partial_storage()
+            .unwrap();
 
-        if storage.visited_nodes.read().expect("read visited_nodes").len() != num_nodes {
+        if storage
+            .visited_nodes
+            .read()
+            .expect("read visited_nodes")
+            .len()
+            != num_nodes
+        {
             // As all nodes belonging to state part were visited, there is some
             // unexpected data in downloaded state part.
             return Err(StorageError::UnexpectedTrieValue);
@@ -493,19 +529,26 @@ impl Trie {
     }
 
     pub fn get_memory_usage_from_serialized(bytes: &[u8]) -> Result<u64, StorageError> {
-        RawTrieNodeWithSize::try_from_slice(bytes).map(|raw_node| raw_node.memory_usage).map_err(
-            |err| StorageError::StorageInconsistentState(format!("Failed to decode node: {err}")),
-        )
+        RawTrieNodeWithSize::try_from_slice(bytes)
+            .map(|raw_node| raw_node.memory_usage)
+            .map_err(|err| {
+                StorageError::StorageInconsistentState(format!("Failed to decode node: {err}"))
+            })
     }
 
     fn retrieve_storage_node(
         &self,
         hash: &CryptoHash,
     ) -> Result<TrieStorageNodeWithSize, StorageError> {
-        Ok(match self.retrieve_raw_node(hash, true, true)?.map(|node| node.1) {
-            Some(node) => TrieStorageNodeWithSize::from_raw_trie_node_with_size(node),
-            None => Default::default(),
-        })
+        Ok(
+            match self
+                .retrieve_raw_node(hash, true, true)?
+                .map(|node| node.1)
+            {
+                | Some(node) => TrieStorageNodeWithSize::from_raw_trie_node_with_size(node),
+                | None => Default::default(),
+            },
+        )
     }
 }
 
@@ -556,18 +599,24 @@ mod tests {
             test_populate_trie(&tries, &Trie::EMPTY_ROOT, ShardUId::single_shard(), trie_changes);
         let trie = tries.get_trie_for_shard(ShardUId::single_shard(), state_root);
 
-        let nibbles_boundary = trie.find_state_part_boundary(0, num_parts).unwrap();
+        let nibbles_boundary = trie
+            .find_state_part_boundary(0, num_parts)
+            .unwrap();
         assert!(nibbles_boundary.is_empty());
 
         // Check that all boundaries correspond to some state key by calling `Trie::get`.
         // Note that some state parts can be trivial, which is not a concern.
         for part_id in 1..num_parts {
-            let nibbles_boundary = trie.find_state_part_boundary(part_id, num_parts).unwrap();
+            let nibbles_boundary = trie
+                .find_state_part_boundary(part_id, num_parts)
+                .unwrap();
             let key_boundary = NibbleSlice::nibbles_to_bytes(&nibbles_boundary);
             assert_matches!(trie.get(&key_boundary), Ok(Some(_)));
         }
 
-        let nibbles_boundary = trie.find_state_part_boundary(num_parts, num_parts).unwrap();
+        let nibbles_boundary = trie
+            .find_state_part_boundary(num_parts, num_parts)
+            .unwrap();
         assert_eq!(nibbles_boundary, LAST_STATE_PART_BOUNDARY);
     }
 
@@ -600,8 +649,9 @@ mod tests {
         let trie = tries.get_trie_for_shard(ShardUId::single_shard(), state_root);
 
         for part_id in 1..num_parts {
-            let nibbles_boundary =
-                trie.find_state_part_boundary(part_id as u64, num_parts as u64).unwrap();
+            let nibbles_boundary = trie
+                .find_state_part_boundary(part_id as u64, num_parts as u64)
+                .unwrap();
             let key_boundary = NibbleSlice::nibbles_to_bytes(&nibbles_boundary);
             assert_eq!(key_boundary, trie_changes[part_id - 1].0);
         }
@@ -679,22 +729,22 @@ mod tests {
                     }
                 };
                 match &node.node {
-                    TrieStorageNode::Empty => {
+                    | TrieStorageNode::Empty => {
                         continue;
                     }
-                    TrieStorageNode::Leaf { value, .. } => {
+                    | TrieStorageNode::Leaf { value, .. } => {
                         on_enter_value(value)?;
                         continue;
                     }
-                    TrieStorageNode::Branch { children, value } => match position {
-                        CrumbStatus::Entering => {
+                    | TrieStorageNode::Branch { children, value } => match position {
+                        | CrumbStatus::Entering => {
                             if let Some(ref value) = value {
                                 on_enter_value(value)?;
                             }
                             stack.push((hash, node, CrumbStatus::AtChild(0)));
                             continue;
                         }
-                        CrumbStatus::AtChild(mut i) => loop {
+                        | CrumbStatus::AtChild(mut i) => loop {
                             if i >= 16 {
                                 stack.push((hash, node, CrumbStatus::Exiting));
                                 break;
@@ -707,14 +757,14 @@ mod tests {
                             }
                             i += 1;
                         },
-                        CrumbStatus::Exiting => {
+                        | CrumbStatus::Exiting => {
                             continue;
                         }
-                        CrumbStatus::At => {
+                        | CrumbStatus::At => {
                             continue;
                         }
                     },
-                    TrieStorageNode::Extension { child, .. } => {
+                    | TrieStorageNode::Extension { child, .. } => {
                         if let CrumbStatus::Entering = position {
                             let child_hash = *child;
                             let child = self.retrieve_storage_node(&child_hash)?;
@@ -754,8 +804,12 @@ mod tests {
         let mut trie_changes = Vec::new();
         for i in 0..max_key_length {
             // ([255,255,..,255], big_value)
-            let key = (0..(i + 1)).map(|_| 255u8).collect::<Vec<_>>();
-            let value = (0..big_value_length).map(|_| rng.gen::<u8>()).collect::<Vec<_>>();
+            let key = (0..(i + 1))
+                .map(|_| 255u8)
+                .collect::<Vec<_>>();
+            let value = (0..big_value_length)
+                .map(|_| rng.gen::<u8>())
+                .collect::<Vec<_>>();
             trie_changes.push((key, Some(value)));
         }
         trie_changes
@@ -777,26 +831,35 @@ mod tests {
                     {
                         // ([255,255,..,255]xy, small_value)
                         // this means every 000..000 node is a branch and all of its children are branches
-                        let mut key = (0..(i + 1)).map(|_| 255u8).collect::<Vec<_>>();
+                        let mut key = (0..(i + 1))
+                            .map(|_| 255u8)
+                            .collect::<Vec<_>>();
                         key.push(x * 16 + y);
-                        let value =
-                            (0..small_value_length).map(|_| rng.gen::<u8>()).collect::<Vec<_>>();
+                        let value = (0..small_value_length)
+                            .map(|_| rng.gen::<u8>())
+                            .collect::<Vec<_>>();
                         trie_changes.push((key, Some(value)));
                     }
                     {
-                        let mut key = (0..i).map(|_| 255u8).collect::<Vec<_>>();
+                        let mut key = (0..i)
+                            .map(|_| 255u8)
+                            .collect::<Vec<_>>();
                         key.push(16 * 15 + x);
                         key.push(y * 16);
-                        let value =
-                            (0..small_value_length).map(|_| rng.gen::<u8>()).collect::<Vec<_>>();
+                        let value = (0..small_value_length)
+                            .map(|_| rng.gen::<u8>())
+                            .collect::<Vec<_>>();
                         trie_changes.push((key, Some(value)));
                     }
                     {
-                        let mut key = (0..i).map(|_| 255u8).collect::<Vec<_>>();
+                        let mut key = (0..i)
+                            .map(|_| 255u8)
+                            .collect::<Vec<_>>();
                         key.push(16 * x + 15);
                         key.push(y);
-                        let value =
-                            (0..small_value_length).map(|_| rng.gen::<u8>()).collect::<Vec<_>>();
+                        let value = (0..small_value_length)
+                            .map(|_| rng.gen::<u8>())
+                            .collect::<Vec<_>>();
                         trie_changes.push((key, Some(value)));
                     }
                 }
@@ -809,8 +872,10 @@ mod tests {
     /// part is approximately bounded by `total_size / num_parts` with overhead
     /// for proof and trie items irregularity.
     /// TODO (#8997): run it on largest keys (2KB) and values (4MB) allowed in mainnet.
-    fn run_test_parts_not_huge<F>(gen_trie_changes: F, big_value_length: u64)
-    where
+    fn run_test_parts_not_huge<F>(
+        gen_trie_changes: F,
+        big_value_length: u64,
+    ) where
         F: FnOnce(&mut ThreadRng, u64, u64) -> Vec<(Vec<u8>, Option<Vec<u8>>)>,
     {
         let mut rng = rand::thread_rng();
@@ -827,7 +892,10 @@ mod tests {
         let state_root =
             test_populate_trie(&tries, &Trie::EMPTY_ROOT, ShardUId::single_shard(), trie_changes);
         let trie = tries.get_trie_for_shard(ShardUId::single_shard(), state_root);
-        let memory_size = trie.retrieve_root_node().unwrap().memory_usage;
+        let memory_size = trie
+            .retrieve_root_node()
+            .unwrap()
+            .memory_usage;
         for num_parts in [2, 3, 5, 10, 50].iter().cloned() {
             let part_size_limit = (memory_size + num_parts - 1) / num_parts;
 
@@ -835,15 +903,21 @@ mod tests {
                 // Compute proof with size and check that it doesn't exceed theoretical boundary for
                 // the path with full set of left siblings of maximal possible size.
                 let trie_recording = trie.recording_reads_new_recorder();
-                let left_nibbles_boundary =
-                    trie_recording.find_state_part_boundary(part_id, num_parts).unwrap();
+                let left_nibbles_boundary = trie_recording
+                    .find_state_part_boundary(part_id, num_parts)
+                    .unwrap();
                 let left_key_boundary = NibbleSlice::nibbles_to_bytes(&left_nibbles_boundary);
                 if part_id != 0 {
                     assert_matches!(trie.get(&left_key_boundary), Ok(Some(_)));
                 }
-                let PartialState::TrieValues(proof_nodes) =
-                    trie_recording.recorded_storage().unwrap().nodes;
-                let proof_size = proof_nodes.iter().map(|node| node.len()).sum::<usize>() as u64;
+                let PartialState::TrieValues(proof_nodes) = trie_recording
+                    .recorded_storage()
+                    .unwrap()
+                    .nodes;
+                let proof_size = proof_nodes
+                    .iter()
+                    .map(|node| node.len())
+                    .sum::<usize>() as u64;
                 assert!(
                     proof_size <= max_proof_overhead,
                     "For part {}/{} left boundary proof size {} exceeds limit {}",
@@ -858,7 +932,10 @@ mod tests {
                     .unwrap();
                 // TODO (#8997): it's a bit weird that raw lengths are compared to
                 // config values. Consider better defined assertion.
-                let total_size = part_nodes.iter().map(|node| node.len()).sum::<usize>() as u64;
+                let total_size = part_nodes
+                    .iter()
+                    .map(|node| node.len())
+                    .sum::<usize>() as u64;
                 assert!(
                     total_size <= part_size_limit + proof_size + max_part_overhead,
                     "Part {}/{} is too big. Size: {}, size limit: {}",
@@ -926,7 +1003,10 @@ mod tests {
                 trie_changes.clone(),
             );
             let trie = tries.get_trie_for_shard(ShardUId::single_shard(), state_root);
-            let root_memory_usage = trie.retrieve_root_node().unwrap().memory_usage;
+            let root_memory_usage = trie
+                .retrieve_root_node()
+                .unwrap()
+                .memory_usage;
             {
                 // Test that combining all parts gets all nodes
                 let num_parts = rng.gen_range(2..10);
@@ -945,7 +1025,10 @@ mod tests {
                 let sizes_vec = parts
                     .iter()
                     .map(|PartialState::TrieValues(nodes)| {
-                        nodes.iter().map(|node| node.len()).sum::<usize>()
+                        nodes
+                            .iter()
+                            .map(|node| node.len())
+                            .sum::<usize>()
                     })
                     .collect::<Vec<_>>();
 
@@ -955,9 +1038,15 @@ mod tests {
                         nodes.insert(hash(&node), node);
                     }
                 }
-                let all_nodes = nodes.into_iter().map(|(_hash, node)| node).collect::<Vec<_>>();
+                let all_nodes = nodes
+                    .into_iter()
+                    .map(|(_hash, node)| node)
+                    .collect::<Vec<_>>();
                 assert_eq!(all_nodes.len(), trie_changes.insertions.len());
-                let size_of_all = all_nodes.iter().map(|node| node.len()).sum::<usize>();
+                let size_of_all = all_nodes
+                    .iter()
+                    .map(|node| node.len())
+                    .sum::<usize>();
                 let num_nodes = all_nodes.len();
                 assert_eq!(
                     Trie::validate_state_part(
@@ -983,7 +1072,10 @@ mod tests {
         }
     }
 
-    fn format_simple_trie_refcount_diff<T: Hash + Debug + Eq>(left: &[T], right: &[T]) -> String {
+    fn format_simple_trie_refcount_diff<T: Hash + Debug + Eq>(
+        left: &[T],
+        right: &[T],
+    ) -> String {
         let left_set: HashSet<_> = HashSet::from_iter(left.iter());
         let right_set: HashSet<_> = HashSet::from_iter(right.iter());
         format!(
@@ -993,7 +1085,10 @@ mod tests {
         )
     }
 
-    fn format_simple_trie_changes_diff(left: &TrieChanges, right: &TrieChanges) -> String {
+    fn format_simple_trie_changes_diff(
+        left: &TrieChanges,
+        right: &TrieChanges,
+    ) -> String {
         format!(
             "insertions diff: {}, deletions diff: {}",
             format_simple_trie_refcount_diff(&left.insertions, &right.insertions),
@@ -1053,7 +1148,10 @@ mod tests {
             (b"ba".to_vec(), vec![5]),
         ];
 
-        let changes_for_trie = state_items.iter().cloned().map(|(k, v)| (k, Some(v)));
+        let changes_for_trie = state_items
+            .iter()
+            .cloned()
+            .map(|(k, v)| (k, Some(v)));
         let trie_changes = trie.update(changes_for_trie).unwrap();
         let mut store_update = tries.store_update();
         let root = tries.apply_all(&trie_changes, shard_uid, &mut store_update);
@@ -1150,7 +1248,9 @@ mod tests {
     fn get_trie_nodes_for_part_with_flat_storage() {
         let value_len = 1000usize;
 
-        let tries = TestTriesBuilder::new().with_flat_storage(true).build();
+        let tries = TestTriesBuilder::new()
+            .with_flat_storage(true)
+            .build();
         let shard_uid = ShardUId::single_shard();
         let block_hash = CryptoHash::default();
         let part_id = PartId::new(1, 3);
@@ -1168,7 +1268,10 @@ mod tests {
             (b"ca".to_vec(), vec![8; value_len]),
             (b"cb".to_vec(), vec![9; value_len]),
         ];
-        let changes_for_trie = state_items.iter().cloned().map(|(k, v)| (k, Some(v)));
+        let changes_for_trie = state_items
+            .iter()
+            .cloned()
+            .map(|(k, v)| (k, Some(v)));
         let trie_changes = trie.update(changes_for_trie).unwrap();
         let mut store_update = tries.store_update();
         let root = tries.apply_all(&trie_changes, shard_uid, &mut store_update);
@@ -1184,8 +1287,9 @@ mod tests {
 
         // Check that if we try to use flat storage but it is empty, state part
         // creation fails.
-        let (partial_state, nibbles_begin, nibbles_end) =
-            trie_without_flat.get_state_part_boundaries(part_id).unwrap();
+        let (partial_state, nibbles_begin, nibbles_end) = trie_without_flat
+            .get_state_part_boundaries(part_id)
+            .unwrap();
 
         let view_chunk_trie =
             tries.get_trie_with_block_hash_for_shard(shard_uid, root, &block_hash, true);
@@ -1205,15 +1309,17 @@ mod tests {
         );
 
         // Fill flat storage and check that state part creation succeeds.
-        let changes_for_delta =
-            state_items.into_iter().map(|(k, v)| (k, Some(FlatStateValue::inlined(&v))));
+        let changes_for_delta = state_items
+            .into_iter()
+            .map(|(k, v)| (k, Some(FlatStateValue::inlined(&v))));
         let delta = FlatStateChanges::from(changes_for_delta);
         let mut store_update = tries.store_update();
         delta.apply_to_flat_state(&mut store_update.flat_store_update(), shard_uid);
         store_update.commit().unwrap();
 
-        let (partial_state, nibbles_begin, nibbles_end) =
-            trie_without_flat.get_state_part_boundaries(part_id).unwrap();
+        let (partial_state, nibbles_begin, nibbles_end) = trie_without_flat
+            .get_state_part_boundaries(part_id)
+            .unwrap();
 
         let view_chunk_trie =
             tries.get_trie_with_block_hash_for_shard(shard_uid, root, &block_hash, true);

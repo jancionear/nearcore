@@ -75,7 +75,10 @@ impl<'a> NibbleSlice<'a> {
     }
 
     /// Create a new nibble slice with the given byte-slice with a nibble offset.
-    pub fn new_offset(data: &'a [u8], offset: usize) -> Self {
+    pub fn new_offset(
+        data: &'a [u8],
+        offset: usize,
+    ) -> Self {
         NibbleSlice { data, offset }
     }
 
@@ -102,23 +105,35 @@ impl<'a> NibbleSlice<'a> {
 
     /// Get the nibble at position `i`.
     #[inline(always)]
-    pub fn at(&self, i: usize) -> u8 {
+    pub fn at(
+        &self,
+        i: usize,
+    ) -> u8 {
         let shift = if (self.offset + i) & 1 == 1 { 0 } else { 4 };
         (self.data[(self.offset + i) / 2] >> shift) & 0xf
     }
 
     /// Return object which represents a view on to this slice (further) offset by `i` nibbles.
-    pub fn mid(&self, i: usize) -> Self {
+    pub fn mid(
+        &self,
+        i: usize,
+    ) -> Self {
         NibbleSlice { data: self.data, offset: self.offset + i }
     }
 
     /// Do we start with the same nibbles as the whole of `them`?
-    pub fn starts_with(&self, them: &Self) -> bool {
+    pub fn starts_with(
+        &self,
+        them: &Self,
+    ) -> bool {
         self.common_prefix(them) == them.len()
     }
 
     /// How many of the same nibbles at the beginning do we match with `them`?
-    pub fn common_prefix(&self, them: &Self) -> usize {
+    pub fn common_prefix(
+        &self,
+        them: &Self,
+    ) -> usize {
         let s = min(self.len(), them.len());
         for i in 0..s {
             if self.at(i) != them.at(i) {
@@ -130,7 +145,10 @@ impl<'a> NibbleSlice<'a> {
 
     /// Encode while nibble slice in prefixed hex notation, noting whether it `is_leaf`.
     #[inline]
-    pub fn encode_nibbles(nibbles: &[u8], is_leaf: bool) -> SmallVec<[u8; 36]> {
+    pub fn encode_nibbles(
+        nibbles: &[u8],
+        is_leaf: bool,
+    ) -> SmallVec<[u8; 36]> {
         let l = nibbles.len();
         let mut r: SmallVec<[u8; 36]> = SmallVec::new();
         let mut i = l % 2;
@@ -144,7 +162,10 @@ impl<'a> NibbleSlice<'a> {
 
     /// Encode while nibble slice in prefixed hex notation, noting whether it `is_leaf`.
     #[inline]
-    pub fn encoded(&self, is_leaf: bool) -> SmallVec<[u8; 36]> {
+    pub fn encoded(
+        &self,
+        is_leaf: bool,
+    ) -> SmallVec<[u8; 36]> {
         let mut to: SmallVec<[u8; 36]> = SmallVec::new();
         let l = self.len();
         let parity = l % 2;
@@ -163,7 +184,11 @@ impl<'a> NibbleSlice<'a> {
 
     /// Same as `encoded`, but writes the result to the given vector.
     #[inline]
-    pub fn encode_to(&self, is_leaf: bool, to: &mut Vec<u8>) {
+    pub fn encode_to(
+        &self,
+        is_leaf: bool,
+        to: &mut Vec<u8>,
+    ) {
         let l = self.len();
         let parity = l % 2;
         let mut first_byte: u8 = 0;
@@ -179,7 +204,11 @@ impl<'a> NibbleSlice<'a> {
         to.extend_from_slice(&self.data[from_byte..]);
     }
 
-    pub fn merge_encoded(&self, other: &Self, is_leaf: bool) -> SmallVec<[u8; 36]> {
+    pub fn merge_encoded(
+        &self,
+        other: &Self,
+        is_leaf: bool,
+    ) -> SmallVec<[u8; 36]> {
         let l = self.len() + other.len();
         let mut r: SmallVec<[u8; 36]> = SmallVec::new();
         let mut i = l % 2;
@@ -204,7 +233,11 @@ impl<'a> NibbleSlice<'a> {
 
     /// Encode only the leftmost `n` bytes of the nibble slice in prefixed hex notation,
     /// noting whether it `is_leaf`.
-    pub fn encoded_leftmost(&self, n: usize, is_leaf: bool) -> SmallVec<[u8; 36]> {
+    pub fn encoded_leftmost(
+        &self,
+        n: usize,
+        is_leaf: bool,
+    ) -> SmallVec<[u8; 36]> {
         let l = min(self.len(), n);
         let mut r: SmallVec<[u8; 36]> = SmallVec::new();
         let mut i = l % 2;
@@ -217,7 +250,12 @@ impl<'a> NibbleSlice<'a> {
     }
 
     /// Same as `encoded_leftmost`, but writes the result to the given vector.
-    pub fn encode_leftmost_to(&self, n: usize, is_leaf: bool, to: &mut Vec<u8>) {
+    pub fn encode_leftmost_to(
+        &self,
+        n: usize,
+        is_leaf: bool,
+        to: &mut Vec<u8>,
+    ) {
         let l = min(self.len(), n);
         to.resize(1 + l / 2, 0);
         let mut i = l % 2;
@@ -239,19 +277,25 @@ impl<'a> NibbleSlice<'a> {
 }
 
 impl PartialEq for NibbleSlice<'_> {
-    fn eq(&self, them: &Self) -> bool {
+    fn eq(
+        &self,
+        them: &Self,
+    ) -> bool {
         self.len() == them.len() && self.starts_with(them)
     }
 }
 
 impl Ord for NibbleSlice<'_> {
-    fn cmp(&self, them: &Self) -> Ordering {
+    fn cmp(
+        &self,
+        them: &Self,
+    ) -> Ordering {
         let s = min(self.len(), them.len());
         for i in 0..s {
             match self.at(i).cmp(&them.at(i)) {
-                Ordering::Less => return Ordering::Less,
-                Ordering::Greater => return Ordering::Greater,
-                _ => {}
+                | Ordering::Less => return Ordering::Less,
+                | Ordering::Greater => return Ordering::Greater,
+                | _ => {}
             }
         }
         self.len().cmp(&them.len())
@@ -259,13 +303,19 @@ impl Ord for NibbleSlice<'_> {
 }
 
 impl PartialOrd for NibbleSlice<'_> {
-    fn partial_cmp(&self, them: &Self) -> Option<Ordering> {
+    fn partial_cmp(
+        &self,
+        them: &Self,
+    ) -> Option<Ordering> {
         Some(self.cmp(them))
     }
 }
 
 impl fmt::Debug for NibbleSlice<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
         if self.is_empty() {
             return Ok(());
         }
@@ -345,7 +395,10 @@ mod tests {
         assert_eq!((n.mid(1), true), NibbleSlice::from_encoded(&[0x31, 0x23, 0x45]));
     }
 
-    fn encode_decode(nibbles: &[u8], is_leaf: bool) {
+    fn encode_decode(
+        nibbles: &[u8],
+        is_leaf: bool,
+    ) {
         let encoded = NibbleSlice::encode_nibbles(nibbles, is_leaf);
         let (n, is_leaf_decoded) = NibbleSlice::from_encoded(&encoded);
         assert_eq!(&n.iter().collect::<Vec<_>>(), nibbles);
@@ -375,7 +428,9 @@ mod tests {
         let mut rng = thread_rng();
         for _ in 0..100 {
             let l = rng.gen_range(0..10);
-            let nibbles: Vec<_> = (0..l).map(|_| rng.gen_range(0..16) as u8).collect();
+            let nibbles: Vec<_> = (0..l)
+                .map(|_| rng.gen_range(0..16) as u8)
+                .collect();
             encode_decode(&nibbles, true);
             encode_decode(&nibbles, false);
         }

@@ -14,7 +14,11 @@ const HEADER: &'static str = "timestamp,ID,latency\n";
 
 impl LatenciesCsv {
     pub fn open<P: AsRef<Path>>(filename: P) -> io::Result<Self> {
-        let mut f = OpenOptions::new().read(true).append(true).create(true).open(filename)?;
+        let mut f = OpenOptions::new()
+            .read(true)
+            .append(true)
+            .create(true)
+            .open(filename)?;
 
         let end = f.seek(SeekFrom::End(0))?;
         let start = f.seek(SeekFrom::Start(0))?;
@@ -24,7 +28,7 @@ impl LatenciesCsv {
             f.read_exact(&mut buf)?;
 
             match std::str::from_utf8(&buf) {
-                Ok(s) => {
+                | Ok(s) => {
                     if s != HEADER {
                         return Err(io::Error::new(
                             io::ErrorKind::InvalidData,
@@ -32,7 +36,7 @@ impl LatenciesCsv {
                         ));
                     }
                 }
-                Err(_) => {
+                | Err(_) => {
                     return Err(io::Error::new(
                         io::ErrorKind::InvalidData,
                         "Does not appear to be a latencies CSV file. Contains non-UTF-8 data",
@@ -51,8 +55,8 @@ impl LatenciesCsv {
             let mut buf = [0; 1];
             f.read_exact(&mut buf)?;
             let write_newline = match std::str::from_utf8(&buf) {
-                Ok(s) => s != "\n",
-                Err(_) => {
+                | Ok(s) => s != "\n",
+                | Err(_) => {
                     return Err(io::Error::new(
                         io::ErrorKind::InvalidData,
                         "Does not appear to be a latencies CSV file. Contains non-UTF-8 data",

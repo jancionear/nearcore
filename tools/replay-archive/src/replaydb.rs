@@ -33,7 +33,10 @@ pub struct ReplayDB {
 }
 
 impl ReplayDB {
-    pub fn new(split_db: Arc<SplitDB>, archival_columns: HashSet<DBCol>) -> Arc<Self> {
+    pub fn new(
+        split_db: Arc<SplitDB>,
+        archival_columns: HashSet<DBCol>,
+    ) -> Arc<Self> {
         Arc::new(Self {
             split_db,
             write_db: TestDB::new(),
@@ -44,7 +47,10 @@ impl ReplayDB {
     }
 
     /// Returns the database to read from based on whether the column is archival or not.
-    fn read_db(&self, col: DBCol) -> &dyn Database {
+    fn read_db(
+        &self,
+        col: DBCol,
+    ) -> &dyn Database {
         if self.archival_columns.contains(&col) {
             self.split_db.as_ref()
         } else {
@@ -54,35 +60,71 @@ impl ReplayDB {
 
     /// Returns the set of columns read from the store since its creation.
     pub fn get_columns_read(&self) -> HashSet<DBCol> {
-        self.columns_read.lock().unwrap().clone()
+        self.columns_read
+            .lock()
+            .unwrap()
+            .clone()
     }
 
     /// Returns the set of columns read from the store since its creation.
     pub fn get_columns_written(&self) -> HashSet<DBCol> {
-        self.columns_written.lock().unwrap().clone()
+        self.columns_written
+            .lock()
+            .unwrap()
+            .clone()
     }
 }
 
 impl Database for ReplayDB {
-    fn get_raw_bytes(&self, col: DBCol, key: &[u8]) -> io::Result<Option<DBSlice<'_>>> {
-        self.columns_read.lock().unwrap().insert(col);
-        self.read_db(col).get_raw_bytes(col, key)
+    fn get_raw_bytes(
+        &self,
+        col: DBCol,
+        key: &[u8],
+    ) -> io::Result<Option<DBSlice<'_>>> {
+        self.columns_read
+            .lock()
+            .unwrap()
+            .insert(col);
+        self.read_db(col)
+            .get_raw_bytes(col, key)
     }
 
-    fn get_with_rc_stripped(&self, col: DBCol, key: &[u8]) -> io::Result<Option<DBSlice<'_>>> {
+    fn get_with_rc_stripped(
+        &self,
+        col: DBCol,
+        key: &[u8],
+    ) -> io::Result<Option<DBSlice<'_>>> {
         assert!(col.is_rc());
-        self.columns_read.lock().unwrap().insert(col);
-        self.read_db(col).get_with_rc_stripped(col, key)
+        self.columns_read
+            .lock()
+            .unwrap()
+            .insert(col);
+        self.read_db(col)
+            .get_with_rc_stripped(col, key)
     }
 
-    fn iter<'a>(&'a self, col: DBCol) -> DBIterator<'a> {
-        self.columns_read.lock().unwrap().insert(col);
+    fn iter<'a>(
+        &'a self,
+        col: DBCol,
+    ) -> DBIterator<'a> {
+        self.columns_read
+            .lock()
+            .unwrap()
+            .insert(col);
         self.read_db(col).iter(col)
     }
 
-    fn iter_prefix<'a>(&'a self, col: DBCol, key_prefix: &'a [u8]) -> DBIterator<'a> {
-        self.columns_read.lock().unwrap().insert(col);
-        self.read_db(col).iter_prefix(col, key_prefix)
+    fn iter_prefix<'a>(
+        &'a self,
+        col: DBCol,
+        key_prefix: &'a [u8],
+    ) -> DBIterator<'a> {
+        self.columns_read
+            .lock()
+            .unwrap()
+            .insert(col);
+        self.read_db(col)
+            .iter_prefix(col, key_prefix)
     }
 
     fn iter_range<'a>(
@@ -91,23 +133,41 @@ impl Database for ReplayDB {
         lower_bound: Option<&[u8]>,
         upper_bound: Option<&[u8]>,
     ) -> DBIterator<'a> {
-        self.columns_read.lock().unwrap().insert(col);
-        self.read_db(col).iter_range(col, lower_bound, upper_bound)
+        self.columns_read
+            .lock()
+            .unwrap()
+            .insert(col);
+        self.read_db(col)
+            .iter_range(col, lower_bound, upper_bound)
     }
 
-    fn iter_raw_bytes<'a>(&'a self, col: DBCol) -> DBIterator<'a> {
-        self.columns_read.lock().unwrap().insert(col);
+    fn iter_raw_bytes<'a>(
+        &'a self,
+        col: DBCol,
+    ) -> DBIterator<'a> {
+        self.columns_read
+            .lock()
+            .unwrap()
+            .insert(col);
         self.read_db(col).iter_raw_bytes(col)
     }
 
-    fn write(&self, batch: DBTransaction) -> io::Result<()> {
+    fn write(
+        &self,
+        batch: DBTransaction,
+    ) -> io::Result<()> {
         let columns = batch.columns();
         assert!(
             columns.is_disjoint(&self.archival_columns),
             "Attempted to write archival columns: {:?}",
-            columns.intersection(&self.archival_columns).collect_vec()
+            columns
+                .intersection(&self.archival_columns)
+                .collect_vec()
         );
-        self.columns_written.lock().unwrap().extend(columns);
+        self.columns_written
+            .lock()
+            .unwrap()
+            .extend(columns);
         self.write_db.write(batch)
     }
 
@@ -150,9 +210,11 @@ pub(crate) fn open_storage_for_replay(
         &near_config.config.store,
         near_config.config.archival_config(),
     );
-    let split_storage = opener.open_in_mode(Mode::ReadOnly).context("Failed to open storage")?;
+    let split_storage = opener
+        .open_in_mode(Mode::ReadOnly)
+        .context("Failed to open storage")?;
     match split_storage.get_split_db() {
-        Some(split_db) => Ok(ReplayDB::new(split_db, archival_columns)),
-        None => Err(anyhow!("Failed to get split store for archival node")),
+        | Some(split_db) => Ok(ReplayDB::new(split_db, archival_columns)),
+        | None => Err(anyhow!("Failed to get split store for archival node")),
     }
 }

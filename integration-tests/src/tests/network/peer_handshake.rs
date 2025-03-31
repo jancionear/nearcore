@@ -54,7 +54,10 @@ fn peer_handshake() {
         let pm1 = make_peer_manager("test1", addr1, vec![("test2", *addr2)], 10);
         let _pm2 = make_peer_manager("test2", addr2, vec![("test1", *addr1)], 10);
         wait_or_timeout(100, 2000, || async {
-            let info = pm1.send(GetInfo {}.with_span_context()).await.unwrap();
+            let info = pm1
+                .send(GetInfo {}.with_span_context())
+                .await
+                .unwrap();
             if info.num_connected_peers == 1 {
                 return ControlFlow::Break(());
             }

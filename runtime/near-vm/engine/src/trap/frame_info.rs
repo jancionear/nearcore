@@ -56,12 +56,21 @@ struct ModuleInfoFrameInfo {
 }
 
 impl ModuleInfoFrameInfo {
-    fn function_debug_info(&self, local_index: LocalFunctionIndex) -> &CompiledFunctionFrameInfo {
-        &self.frame_infos.get(local_index).unwrap()
+    fn function_debug_info(
+        &self,
+        local_index: LocalFunctionIndex,
+    ) -> &CompiledFunctionFrameInfo {
+        &self
+            .frame_infos
+            .get(local_index)
+            .unwrap()
     }
 
     /// Gets a function given a pc
-    fn function_info(&self, pc: usize) -> Option<&FunctionInfo> {
+    fn function_info(
+        &self,
+        pc: usize,
+    ) -> Option<&FunctionInfo> {
         let (end, func) = self.functions.range(pc..).next()?;
         if func.start <= pc && pc <= *end {
             return Some(func);
@@ -82,7 +91,10 @@ impl GlobalFrameInfo {
     ///
     /// Returns an object if this `pc` is known to some previously registered
     /// module, or returns `None` if no information can be found.
-    pub fn lookup_frame_info(&self, pc: usize) -> Option<FrameInfo> {
+    pub fn lookup_frame_info(
+        &self,
+        pc: usize,
+    ) -> Option<FrameInfo> {
         let module = self.module_info(pc)?;
         let func = module.function_info(pc)?;
 
@@ -90,22 +102,26 @@ impl GlobalFrameInfo {
         // machine instruction that corresponds to `pc`, which then allows us to
         // map that to a wasm original source location.
         let rel_pos = pc - func.start;
-        let instr_map = &module.function_debug_info(func.local_index).address_map;
-        let pos = match instr_map.instructions.binary_search_by_key(&rel_pos, |map| map.code_offset)
+        let instr_map = &module
+            .function_debug_info(func.local_index)
+            .address_map;
+        let pos = match instr_map
+            .instructions
+            .binary_search_by_key(&rel_pos, |map| map.code_offset)
         {
             // Exact hit!
-            Ok(pos) => Some(pos),
+            | Ok(pos) => Some(pos),
 
             // This *would* be at the first slot in the array, so no
             // instructions cover `pc`.
-            Err(0) => None,
+            | Err(0) => None,
 
             // This would be at the `nth` slot, so check `n-1` to see if we're
             // part of that instruction. This happens due to the minus one when
             // this function is called form trap symbolication, where we don't
             // always get called with a `pc` that's an exact instruction
             // boundary.
-            Err(n) => {
+            | Err(n) => {
                 let instr = &instr_map.instructions[n - 1];
                 if instr.code_offset <= rel_pos && rel_pos < instr.code_offset + instr.code_len {
                     Some(n - 1)
@@ -116,28 +132,39 @@ impl GlobalFrameInfo {
         };
 
         let instr = match pos {
-            Some(pos) => instr_map.instructions[pos].srcloc,
+            | Some(pos) => instr_map.instructions[pos].srcloc,
             // Some compilers don't emit yet the full trap information for each of
             // the instructions (such as LLVM).
             // In case no specific instruction is found, we return by default the
             // start offset of the function.
-            None => instr_map.start_srcloc,
+            | None => instr_map.start_srcloc,
         };
-        let func_index = module.module.func_index(func.local_index);
+        let func_index = module
+            .module
+            .func_index(func.local_index);
         Some(FrameInfo {
             module_name: module.module.name(),
             func_index: func_index.index() as u32,
-            function_name: module.module.function_names.get(&func_index).cloned(),
+            function_name: module
+                .module
+                .function_names
+                .get(&func_index)
+                .cloned(),
             instr,
             func_start: instr_map.start_srcloc,
         })
     }
 
     /// Fetches trap information about a program counter in a backtrace.
-    pub fn lookup_trap_info(&self, pc: usize) -> Option<&TrapInformation> {
+    pub fn lookup_trap_info(
+        &self,
+        pc: usize,
+    ) -> Option<&TrapInformation> {
         let module = self.module_info(pc)?;
         let func = module.function_info(pc)?;
-        let traps = &module.function_debug_info(func.local_index).traps;
+        let traps = &module
+            .function_debug_info(func.local_index)
+            .traps;
         let idx = traps
             .binary_search_by_key(&((pc - func.start) as u32), |info| info.code_offset)
             .ok()?;
@@ -145,7 +172,10 @@ impl GlobalFrameInfo {
     }
 
     /// Gets a module given a pc
-    fn module_info(&self, pc: usize) -> Option<&ModuleInfoFrameInfo> {
+    fn module_info(
+        &self,
+        pc: usize,
+    ) -> Option<&ModuleInfoFrameInfo> {
         let (end, module_info) = self.ranges.range(pc..).next()?;
         if module_info.start <= pc && pc <= *end {
             Some(module_info)

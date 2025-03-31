@@ -16,5 +16,6 @@ pub async fn sleep(d: time::Duration) -> ctx::OrCanceled<()> {
 
 pub async fn sleep_until(t: time::Instant) -> ctx::OrCanceled<()> {
     let ctx = ctx::local();
-    ctx.wait(ctx.0.clock.sleep_until(t)).await
+    ctx.wait(ctx.0.clock.sleep_until(t))
+        .await
 }

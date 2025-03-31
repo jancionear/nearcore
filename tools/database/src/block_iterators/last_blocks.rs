@@ -12,8 +12,16 @@ pub struct LastNBlocksIterator {
 }
 
 impl LastNBlocksIterator {
-    pub fn new(blocks_num: u64, chain_store: Rc<ChainStore>) -> LastNBlocksIterator {
-        let current_block_hash = Some(chain_store.head().unwrap().last_block_hash);
+    pub fn new(
+        blocks_num: u64,
+        chain_store: Rc<ChainStore>,
+    ) -> LastNBlocksIterator {
+        let current_block_hash = Some(
+            chain_store
+                .head()
+                .unwrap()
+                .last_block_hash,
+        );
         LastNBlocksIterator { chain_store, blocks_left: blocks_num, current_block_hash }
     }
 }
@@ -24,12 +32,15 @@ impl Iterator for LastNBlocksIterator {
     fn next(&mut self) -> Option<Block> {
         // Decrease the amount of blocks left to produce
         match self.blocks_left.checked_sub(1) {
-            Some(new_blocks_left) => self.blocks_left = new_blocks_left,
-            None => return None,
+            | Some(new_blocks_left) => self.blocks_left = new_blocks_left,
+            | None => return None,
         };
 
         if let Some(current_block_hash) = self.current_block_hash.take() {
-            let current_block = self.chain_store.get_block(&current_block_hash).unwrap();
+            let current_block = self
+                .chain_store
+                .get_block(&current_block_hash)
+                .unwrap();
 
             // Set the previous block as "current" one, as long as the current one isn't the genesis block
             if current_block.header().height() != self.chain_store.get_genesis_height() {

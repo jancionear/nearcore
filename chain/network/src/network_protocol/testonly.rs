@@ -28,10 +28,16 @@ use std::collections::HashMap;
 use std::net;
 use std::sync::Arc;
 
-pub fn make_genesis_block(clock: &time::Clock, chunks: Vec<ShardChunk>) -> Block {
+pub fn make_genesis_block(
+    clock: &time::Clock,
+    chunks: Vec<ShardChunk>,
+) -> Block {
     Block::genesis(
         version::PROTOCOL_VERSION,
-        chunks.into_iter().map(|c| c.take_header()).collect(),
+        chunks
+            .into_iter()
+            .map(|c| c.take_header())
+            .collect(),
         clock.now_utc(),
         0,
         1000,
@@ -53,7 +59,11 @@ pub fn make_block(
         prev.header(),
         prev.header().height() + 5,
         prev.header().block_ordinal() + 1,
-        chunks.iter().cloned().map(|c| c.take_header()).collect(),
+        chunks
+            .iter()
+            .cloned()
+            .map(|c| c.take_header())
+            .collect(),
         vec![vec![]; chunks.len()],
         EpochId::default(),
         EpochId::default(),
@@ -70,12 +80,13 @@ pub fn make_block(
         CryptoHash::default(),
         clock,
         None,
-        None,
     )
 }
 
 pub fn make_account_id<R: Rng>(rng: &mut R) -> AccountId {
-    format!("account{}", rng.gen::<u32>()).parse().unwrap()
+    format!("account{}", rng.gen::<u32>())
+        .parse()
+        .unwrap()
 }
 
 pub fn make_secret_key<R: Rng>(rng: &mut R) -> SecretKey {
@@ -125,7 +136,11 @@ pub fn make_partial_edge<R: Rng>(rng: &mut R) -> PartialEdgeInfo {
     )
 }
 
-pub fn make_edge(a: &SecretKey, b: &SecretKey, nonce: u64) -> Edge {
+pub fn make_edge(
+    a: &SecretKey,
+    b: &SecretKey,
+    nonce: u64,
+) -> Edge {
     let (a, b) = if a.public_key() < b.public_key() { (a, b) } else { (b, a) };
     let ap = PeerId::new(a.public_key());
     let bp = PeerId::new(b.public_key());
@@ -134,9 +149,13 @@ pub fn make_edge(a: &SecretKey, b: &SecretKey, nonce: u64) -> Edge {
 }
 
 pub fn make_routing_table<R: Rng>(rng: &mut R) -> RoutingTableUpdate {
-    let signers: Vec<_> = (0..7).map(|_| make_secret_key(rng)).collect();
+    let signers: Vec<_> = (0..7)
+        .map(|_| make_secret_key(rng))
+        .collect();
     RoutingTableUpdate {
-        accounts: (0..10).map(|_| make_announce_account(rng)).collect(),
+        accounts: (0..10)
+            .map(|_| make_announce_account(rng))
+            .collect(),
         edges: {
             let mut e = vec![];
             for i in 0..signers.len() {
@@ -165,8 +184,14 @@ pub fn make_signed_transaction<R: Rng>(rng: &mut R) -> SignedTransaction {
 pub fn make_challenge<R: Rng>(rng: &mut R) -> Challenge {
     Challenge::produce(
         ChallengeBody::BlockDoubleSign(BlockDoubleSign {
-            left_block_header: rng.sample_iter(&Standard).take(65).collect(),
-            right_block_header: rng.sample_iter(&Standard).take(34).collect(),
+            left_block_header: rng
+                .sample_iter(&Standard)
+                .take(65)
+                .collect(),
+            right_block_header: rng
+                .sample_iter(&Standard)
+                .take(34)
+                .collect(),
         }),
         &make_validator_signer(rng),
     )
@@ -206,7 +231,10 @@ impl ChunkSet {
         Self { chunks: HashMap::default() }
     }
     pub fn make(&mut self) -> Vec<ShardChunk> {
-        let shard_ids: Vec<_> = (0..4).into_iter().map(ShardId::new).collect();
+        let shard_ids: Vec<_> = (0..4)
+            .into_iter()
+            .map(ShardId::new)
+            .collect();
         // TODO: these are always genesis chunks.
         // Consider making this more realistic.
         let chunks = genesis_chunks(
@@ -217,7 +245,11 @@ impl ChunkSet {
             0,
             version::PROTOCOL_VERSION,
         );
-        self.chunks.extend(chunks.iter().map(|c| (c.chunk_hash(), c.clone())));
+        self.chunks.extend(
+            chunks
+                .iter()
+                .map(|c| (c.chunk_hash(), c.clone())),
+        );
         chunks
     }
 }
@@ -229,7 +261,10 @@ pub fn make_hash<R: Rng>(rng: &mut R) -> CryptoHash {
 pub fn make_account_keys(signers: &[ValidatorSigner]) -> AccountKeys {
     let mut account_keys = AccountKeys::new();
     for s in signers {
-        account_keys.entry(s.validator_id().clone()).or_default().insert(s.public_key());
+        account_keys
+            .entry(s.validator_id().clone())
+            .or_default()
+            .insert(s.public_key());
     }
     account_keys
 }
@@ -242,7 +277,11 @@ pub struct Chain {
 }
 
 impl Chain {
-    pub fn make<R: Rng>(clock: &time::FakeClock, rng: &mut R, block_count: usize) -> Chain {
+    pub fn make<R: Rng>(
+        clock: &time::FakeClock,
+        rng: &mut R,
+        block_count: usize,
+    ) -> Chain {
         let mut chunks = ChunkSet::new();
         let mut blocks = vec![];
         blocks.push(make_genesis_block(&clock.clock(), chunks.make()));
@@ -257,7 +296,9 @@ impl Chain {
                 hash: Default::default(),
             },
             blocks,
-            tier1_accounts: (0..10).map(|_| make_validator_signer(rng)).collect(),
+            tier1_accounts: (0..10)
+                .map(|_| make_validator_signer(rng))
+                .collect(),
             chunks: chunks.chunks,
         }
     }
@@ -292,10 +333,16 @@ impl Chain {
     }
 
     pub fn get_block_headers(&self) -> Vec<BlockHeader> {
-        self.blocks.iter().map(|b| b.header().clone()).collect()
+        self.blocks
+            .iter()
+            .map(|b| b.header().clone())
+            .collect()
     }
 
-    pub fn make_config<R: Rng>(&self, rng: &mut R) -> config::NetworkConfig {
+    pub fn make_config<R: Rng>(
+        &self,
+        rng: &mut R,
+    ) -> config::NetworkConfig {
         let seed = &rng.gen::<u64>().to_string();
         let mut cfg =
             config::NetworkConfig::from_seed(&seed, tcp::ListenerAddr::reserve_for_test());
@@ -324,7 +371,10 @@ impl Chain {
     }
 }
 
-pub fn make_handshake<R: Rng>(rng: &mut R, chain: &Chain) -> Handshake {
+pub fn make_handshake<R: Rng>(
+    rng: &mut R,
+    chain: &Chain,
+) -> Handshake {
     let a = make_signer(rng);
     let b = make_signer(rng);
     let a_id = PeerId::new(a.public_key());
@@ -341,7 +391,10 @@ pub fn make_handshake<R: Rng>(rng: &mut R, chain: &Chain) -> Handshake {
     }
 }
 
-pub fn make_routed_message<R: Rng>(rng: &mut R, body: RoutedMessageBody) -> RoutedMessageV2 {
+pub fn make_routed_message<R: Rng>(
+    rng: &mut R,
+    body: RoutedMessageBody,
+) -> RoutedMessageV2 {
     let secret_key = make_secret_key(rng);
     let peer_id = PeerId::new(secret_key.public_key());
     RawRoutedMessage { target: PeerIdOrHash::PeerId(peer_id), body }.sign(
@@ -362,7 +415,10 @@ pub fn make_addr<R: Rng>(rng: &mut R) -> net::SocketAddr {
     net::SocketAddr::new(make_ipv4(rng), rng.gen())
 }
 
-pub fn make_peer_addr(rng: &mut impl Rng, ip: net::IpAddr) -> PeerAddr {
+pub fn make_peer_addr(
+    rng: &mut impl Rng,
+    ip: net::IpAddr,
+) -> PeerAddr {
     PeerAddr { addr: net::SocketAddr::new(ip, rng.gen()), peer_id: make_peer_id(rng) }
 }
 
@@ -399,10 +455,15 @@ pub fn make_account_data(
     }
 }
 
-pub fn make_signed_account_data(rng: &mut impl Rng, clock: &time::Clock) -> SignedAccountData {
+pub fn make_signed_account_data(
+    rng: &mut impl Rng,
+    clock: &time::Clock,
+) -> SignedAccountData {
     let signer = make_validator_signer(rng);
     let peer_id = make_peer_id(rng);
-    make_account_data(rng, 1, clock.now_utc(), signer.public_key(), peer_id).sign(&signer).unwrap()
+    make_account_data(rng, 1, clock.now_utc(), signer.public_key(), peer_id)
+        .sign(&signer)
+        .unwrap()
 }
 
 // Accessors for creating malformed SignedAccountData

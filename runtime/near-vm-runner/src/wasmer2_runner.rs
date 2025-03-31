@@ -52,13 +52,20 @@ impl Wasmer2Memory {
     ///
     /// Safety: Caller must guarantee that the returned pointer is not used
     /// after guest memory mapping is changed (e.g. grown).
-    unsafe fn get_ptr(&self, offset: u64, len: usize) -> Result<*mut u8, ()> {
+    unsafe fn get_ptr(
+        &self,
+        offset: u64,
+        len: usize,
+    ) -> Result<*mut u8, ()> {
         let offset = usize::try_from(offset).map_err(|_| ())?;
         // SAFETY: Caller promisses memory mapping won’t change.
         let vmmem = unsafe { self.0.vmmemory().as_ref() };
         // `checked_sub` here verifies that offsetting the buffer by offset
         // still lands us in-bounds of the allocated object.
-        let remaining = vmmem.current_length.checked_sub(offset).ok_or(())?;
+        let remaining = vmmem
+            .current_length
+            .checked_sub(offset)
+            .ok_or(())?;
         if len <= remaining {
             Ok(vmmem.base.add(offset))
         } else {
@@ -70,7 +77,11 @@ impl Wasmer2Memory {
     ///
     /// Safety: Caller must guarantee that guest memory mapping is not changed
     /// (e.g. grown) while the slice is held.
-    unsafe fn get(&self, offset: u64, len: usize) -> Result<&[u8], ()> {
+    unsafe fn get(
+        &self,
+        offset: u64,
+        len: usize,
+    ) -> Result<&[u8], ()> {
         // SAFETY: Caller promisses memory mapping won’t change.
         let ptr = unsafe { self.get_ptr(offset, len)? };
         // SAFETY: get_ptr verifies that [ptr, ptr+len) is valid slice.
@@ -81,7 +92,11 @@ impl Wasmer2Memory {
     ///
     /// Safety: Caller must guarantee that guest memory mapping is not changed
     /// (e.g. grown) while the slice is held.
-    unsafe fn get_mut(&mut self, offset: u64, len: usize) -> Result<&mut [u8], ()> {
+    unsafe fn get_mut(
+        &mut self,
+        offset: u64,
+        len: usize,
+    ) -> Result<&mut [u8], ()> {
         // SAFETY: Caller promisses memory mapping won’t change.
         let ptr = unsafe { self.get_ptr(offset, len)? };
         // SAFETY: get_ptr verifies that [ptr, ptr+len) is valid slice and since
@@ -96,13 +111,19 @@ impl Wasmer2Memory {
 }
 
 impl MemoryLike for Wasmer2Memory {
-    fn fits_memory(&self, slice: MemSlice) -> Result<(), ()> {
+    fn fits_memory(
+        &self,
+        slice: MemSlice,
+    ) -> Result<(), ()> {
         // SAFETY: Contracts are executed on a single thread thus we know no one
         // will change guest memory mapping under us.
         unsafe { self.get_ptr(slice.ptr, slice.len()?) }.map(|_| ())
     }
 
-    fn view_memory(&self, slice: MemSlice) -> Result<Cow<[u8]>, ()> {
+    fn view_memory(
+        &self,
+        slice: MemSlice,
+    ) -> Result<Cow<[u8]>, ()> {
         // SAFETY: Firstly, contracts are executed on a single thread thus we
         // know no one will change guest memory mapping under us.  Secondly, the
         // way MemoryLike interface is used we know the memory mapping won’t be
@@ -110,13 +131,21 @@ impl MemoryLike for Wasmer2Memory {
         unsafe { self.get(slice.ptr, slice.len()?) }.map(Cow::Borrowed)
     }
 
-    fn read_memory(&self, offset: u64, buffer: &mut [u8]) -> Result<(), ()> {
+    fn read_memory(
+        &self,
+        offset: u64,
+        buffer: &mut [u8],
+    ) -> Result<(), ()> {
         // SAFETY: Contracts are executed on a single thread thus we know no one
         // will change guest memory mapping under us.
         Ok(buffer.copy_from_slice(unsafe { self.get(offset, buffer.len())? }))
     }
 
-    fn write_memory(&mut self, offset: u64, buffer: &[u8]) -> Result<(), ()> {
+    fn write_memory(
+        &mut self,
+        offset: u64,
+        buffer: &[u8],
+    ) -> Result<(), ()> {
         // SAFETY: Contracts are executed on a single thread thus we know no one
         // will change guest memory mapping under us.
         Ok(unsafe { self.get_mut(offset, buffer.len())? }.copy_from_slice(buffer))
@@ -132,9 +161,13 @@ fn get_entrypoint_index(
         return Err(FunctionCallError::MethodResolveError(MethodResolveError::MethodEmptyName));
     }
     if let Some(wasmer_types::ExportIndex::Function(index)) = artifact.export_field(method_name) {
-        let signature = artifact.function_signature(index).expect("index should produce signature");
-        let signature =
-            artifact.engine().lookup_signature(signature).expect("signature store invlidated?");
+        let signature = artifact
+            .function_signature(index)
+            .expect("index should produce signature");
+        let signature = artifact
+            .engine()
+            .lookup_signature(signature)
+            .expect("signature store invlidated?");
         if signature.params().is_empty() && signature.results().is_empty() {
             Ok(index)
         } else {
@@ -152,35 +185,41 @@ fn translate_runtime_error(
     // Errors produced by host function calls also become `RuntimeError`s that wrap a dynamic
     // instance of `VMLogicError` internally. See the implementation of `Wasmer2Imports`.
     let error = match error.downcast::<crate::logic::VMLogicError>() {
-        Ok(vm_logic) => {
+        | Ok(vm_logic) => {
             return vm_logic.try_into();
         }
-        Err(original) => original,
+        | Err(original) => original,
     };
     let msg = error.message();
     let trap_code = error.to_trap().unwrap_or_else(|| {
         panic!("runtime error is not a trap: {}", msg);
     });
     Ok(match trap_code {
-        TrapCode::GasExceeded => FunctionCallError::HostError(logic.process_gas_limit()),
-        TrapCode::StackOverflow => FunctionCallError::WasmTrap(WasmTrap::StackOverflow),
-        TrapCode::HeapAccessOutOfBounds => FunctionCallError::WasmTrap(WasmTrap::MemoryOutOfBounds),
-        TrapCode::HeapMisaligned => FunctionCallError::WasmTrap(WasmTrap::MisalignedAtomicAccess),
-        TrapCode::TableAccessOutOfBounds => {
+        | TrapCode::GasExceeded => FunctionCallError::HostError(logic.process_gas_limit()),
+        | TrapCode::StackOverflow => FunctionCallError::WasmTrap(WasmTrap::StackOverflow),
+        | TrapCode::HeapAccessOutOfBounds => {
             FunctionCallError::WasmTrap(WasmTrap::MemoryOutOfBounds)
         }
-        TrapCode::OutOfBounds => FunctionCallError::WasmTrap(WasmTrap::MemoryOutOfBounds),
-        TrapCode::IndirectCallToNull => FunctionCallError::WasmTrap(WasmTrap::IndirectCallToNull),
-        TrapCode::BadSignature => {
+        | TrapCode::HeapMisaligned => FunctionCallError::WasmTrap(WasmTrap::MisalignedAtomicAccess),
+        | TrapCode::TableAccessOutOfBounds => {
+            FunctionCallError::WasmTrap(WasmTrap::MemoryOutOfBounds)
+        }
+        | TrapCode::OutOfBounds => FunctionCallError::WasmTrap(WasmTrap::MemoryOutOfBounds),
+        | TrapCode::IndirectCallToNull => FunctionCallError::WasmTrap(WasmTrap::IndirectCallToNull),
+        | TrapCode::BadSignature => {
             FunctionCallError::WasmTrap(WasmTrap::IncorrectCallIndirectSignature)
         }
-        TrapCode::IntegerOverflow => FunctionCallError::WasmTrap(WasmTrap::IllegalArithmetic),
-        TrapCode::IntegerDivisionByZero => FunctionCallError::WasmTrap(WasmTrap::IllegalArithmetic),
-        TrapCode::BadConversionToInteger => {
+        | TrapCode::IntegerOverflow => FunctionCallError::WasmTrap(WasmTrap::IllegalArithmetic),
+        | TrapCode::IntegerDivisionByZero => {
             FunctionCallError::WasmTrap(WasmTrap::IllegalArithmetic)
         }
-        TrapCode::UnreachableCodeReached => FunctionCallError::WasmTrap(WasmTrap::Unreachable),
-        TrapCode::UnalignedAtomic => FunctionCallError::WasmTrap(WasmTrap::MisalignedAtomicAccess),
+        | TrapCode::BadConversionToInteger => {
+            FunctionCallError::WasmTrap(WasmTrap::IllegalArithmetic)
+        }
+        | TrapCode::UnreachableCodeReached => FunctionCallError::WasmTrap(WasmTrap::Unreachable),
+        | TrapCode::UnalignedAtomic => {
+            FunctionCallError::WasmTrap(WasmTrap::MisalignedAtomicAccess)
+        }
     })
 }
 
@@ -235,17 +274,26 @@ pub(crate) struct Wasmer2VM {
 }
 
 impl Wasmer2VM {
-    pub(crate) fn new_for_target(config: Arc<Config>, target: wasmer_compiler::Target) -> Self {
+    pub(crate) fn new_for_target(
+        config: Arc<Config>,
+        target: wasmer_compiler::Target,
+    ) -> Self {
         // We only support singlepass compiler at the moment.
         assert_eq!(WASMER2_CONFIG.compiler, WasmerCompiler::Singlepass);
         let compiler = Singlepass::new();
         // We only support universal engine at the moment.
         assert_eq!(WASMER2_CONFIG.engine, WasmerEngine::Universal);
-        let features =
-            crate::features::WasmFeatures::from(config.limit_config.contract_prepare_version);
+        let features = crate::features::WasmFeatures::from(
+            config
+                .limit_config
+                .contract_prepare_version,
+        );
         Self {
             config,
-            engine: Universal::new(compiler).target(target).features(features.into()).engine(),
+            engine: Universal::new(compiler)
+                .target(target)
+                .features(features.into())
+                .engine(),
         }
     }
 
@@ -302,16 +350,18 @@ impl Wasmer2VM {
             let record = CompiledContractInfo {
                 wasm_bytes: code.code().len() as u64,
                 compiled: match &executable_or_error {
-                    Ok(executable) => {
+                    | Ok(executable) => {
                         let code = executable
                             .serialize()
                             .map_err(|_e| CacheError::SerializationError { hash: key.0 })?;
                         CompiledContract::Code(code)
                     }
-                    Err(err) => CompiledContract::CompileModuleError(err.clone()),
+                    | Err(err) => CompiledContract::CompileModuleError(err.clone()),
                 },
             };
-            cache.put(&key, record).map_err(CacheError::WriteError)?;
+            cache
+                .put(&key, record)
+                .map_err(CacheError::WriteError)?;
         }
 
         Ok(executable_or_error)
@@ -344,12 +394,12 @@ impl Wasmer2VM {
                 .flatten();
 
             let stored_artifact: Option<VMArtifact> = match cache_record {
-                None => None,
-                Some(CompiledContractInfo {
+                | None => None,
+                | Some(CompiledContractInfo {
                     compiled: CompiledContract::CompileModuleError(err),
                     ..
                 }) => return Ok(Err(err)),
-                Some(CompiledContractInfo {
+                | Some(CompiledContractInfo {
                     compiled: CompiledContract::Code(serialized_module),
                     ..
                 }) => {
@@ -381,12 +431,12 @@ impl Wasmer2VM {
                 Ok(it)
             } else {
                 match self.compile_and_cache(code, cache)? {
-                    Ok(executable) => Ok(self
+                    | Ok(executable) => Ok(self
                         .engine
                         .load_universal_executable(&executable)
                         .map(Arc::new)
                         .map_err(|err| VMRunnerError::LoadingError(err.to_string()))?),
-                    Err(err) => Err(err),
+                    | Err(err) => Err(err),
                 }
             })
         };
@@ -416,7 +466,10 @@ impl Wasmer2VM {
             offset_of!(FastGasCounter, opcode_cost),
             offset_of!(wasmer_types::FastGasCounter, opcode_cost)
         );
-        let gas = import.vmlogic.gas_counter().fast_counter_raw_ptr();
+        let gas = import
+            .vmlogic
+            .gas_counter()
+            .fast_counter_raw_ptr();
         unsafe {
             let instance = {
                 let _span = tracing::debug_span!(target: "vm", "Wasmer2VM::run_method/instantiate")
@@ -437,16 +490,20 @@ impl Wasmer2VM {
                     // entirety of this function.
                     InstanceConfig::default()
                         .with_counter(gas.cast())
-                        .with_stack_limit(self.config.limit_config.wasmer2_stack_limit),
+                        .with_stack_limit(
+                            self.config
+                                .limit_config
+                                .wasmer2_stack_limit,
+                        ),
                 );
                 let handle = match maybe_handle {
-                    Ok(handle) => handle,
-                    Err(err) => {
+                    | Ok(handle) => handle,
+                    | Err(err) => {
                         use wasmer_engine::InstantiationError::*;
                         let abort = match err {
-                            Start(err) => translate_runtime_error(err, import.vmlogic)?,
-                            Link(e) => FunctionCallError::LinkError { msg: e.to_string() },
-                            CpuFeature(e) => panic!(
+                            | Start(err) => translate_runtime_error(err, import.vmlogic)?,
+                            | Link(e) => FunctionCallError::LinkError { msg: e.to_string() },
+                            | CpuFeature(e) => panic!(
                                 "host doesn't support the CPU features needed to run contracts: {}",
                                 e
                             ),
@@ -456,8 +513,8 @@ impl Wasmer2VM {
                 };
                 // SAFETY: being called immediately after instantiation.
                 match handle.finish_instantiation() {
-                    Ok(handle) => handle,
-                    Err(trap) => {
+                    | Ok(handle) => handle,
+                    | Err(trap) => {
                         let abort = translate_runtime_error(
                             wasmer_engine::RuntimeError::from_trap(trap),
                             import.vmlogic,
@@ -477,8 +534,9 @@ impl Wasmer2VM {
                     .lookup_signature(function.signature)
                     .expect("extern type should refer to valid signature");
                 if signature.params().is_empty() && signature.results().is_empty() {
-                    let trampoline =
-                        function.call_trampoline.expect("externs always have a trampoline");
+                    let trampoline = function
+                        .call_trampoline
+                        .expect("externs always have a trampoline");
                     // SAFETY: we double-checked the signature, and all of the remaining arguments
                     // come from an exported function definition which must be valid since it comes
                     // from wasmer itself.
@@ -515,14 +573,24 @@ impl Wasmer2VM {
 }
 
 impl wasmer_vm::Tunables for &Wasmer2VM {
-    fn memory_style(&self, memory: &MemoryType) -> MemoryStyle {
+    fn memory_style(
+        &self,
+        memory: &MemoryType,
+    ) -> MemoryStyle {
         MemoryStyle::Static {
-            bound: memory.maximum.unwrap_or(Pages(self.config.limit_config.max_memory_pages)),
+            bound: memory.maximum.unwrap_or(Pages(
+                self.config
+                    .limit_config
+                    .max_memory_pages,
+            )),
             offset_guard_size: WASM_PAGE_SIZE as u64,
         }
     }
 
-    fn table_style(&self, _table: &wasmer_types::TableType) -> wasmer_vm::TableStyle {
+    fn table_style(
+        &self,
+        _table: &wasmer_types::TableType,
+    ) -> wasmer_vm::TableStyle {
         wasmer_vm::TableStyle::CallerChecksSignature
     }
 
@@ -599,13 +667,13 @@ impl crate::runner::VM for Wasmer2VM {
             return Box::new(Ok(PreparedContract { config, gas_counter, result }));
         }
         let artifact = match self.compile_and_load(&code, cache) {
-            Ok(Ok(it)) => it,
-            Ok(Err(err)) => {
+            | Ok(Ok(it)) => it,
+            | Ok(Err(err)) => {
                 let e = FunctionCallError::CompilationError(err);
                 let result = PreparationResult::OutcomeAbort(e);
                 return Box::new(Ok(PreparedContract { config, gas_counter, result }));
             }
-            Err(err) => {
+            | Err(err) => {
                 return Box::new(Result::Err(err));
             }
         };
@@ -615,16 +683,20 @@ impl crate::runner::VM for Wasmer2VM {
             return Box::new(Ok(PreparedContract { config, gas_counter, result }));
         }
         let entrypoint = match get_entrypoint_index(&*artifact, method) {
-            Ok(index) => index,
-            Err(e) => {
+            | Ok(index) => index,
+            | Err(e) => {
                 let result = PreparationResult::OutcomeAbortButNopInOldProtocol(e);
                 return Box::new(Ok(PreparedContract { config, gas_counter, result }));
             }
         };
 
         let memory = Wasmer2Memory::new(
-            self.config.limit_config.initial_memory_pages,
-            self.config.limit_config.max_memory_pages,
+            self.config
+                .limit_config
+                .initial_memory_pages,
+            self.config
+                .limit_config
+                .max_memory_pages,
         )
         .expect("Cannot create memory for a contract call");
         let result =
@@ -663,11 +735,11 @@ impl crate::PreparedContract for VMResult<PreparedContract> {
         let PreparedContract { config, gas_counter, result } = (*self)?;
         let result_state = ExecutionResultState::new(&context, gas_counter, config);
         let ReadyContract { vm, mut memory, entrypoint, artifact } = match result {
-            PreparationResult::Ready(r) => r,
-            PreparationResult::OutcomeAbortButNopInOldProtocol(e) => {
+            | PreparationResult::Ready(r) => r,
+            | PreparationResult::OutcomeAbortButNopInOldProtocol(e) => {
                 return Ok(VMOutcome::abort_but_nop_outcome_in_old_protocol(result_state, e));
             }
-            PreparationResult::OutcomeAbort(e) => {
+            | PreparationResult::OutcomeAbort(e) => {
                 return Ok(VMOutcome::abort(result_state, e));
             }
         };
@@ -677,8 +749,8 @@ impl crate::PreparedContract for VMResult<PreparedContract> {
         let mut logic = VMLogic::new(ext, context, fees_config, result_state, &mut memory);
         let import = build_imports(vmmemory, &mut logic, Arc::clone(&vm.config), artifact.engine());
         match vm.run_method(&artifact, import, entrypoint)? {
-            Ok(()) => Ok(VMOutcome::ok(logic.result_state)),
-            Err(err) => Ok(VMOutcome::abort(logic.result_state, err)),
+            | Ok(()) => Ok(VMOutcome::ok(logic.result_state)),
+            | Err(err) => Ok(VMOutcome::abort(logic.result_state, err)),
         }
     }
 }
@@ -728,7 +800,12 @@ macro_rules! return_ty {
 }
 
 impl<'e, 'l, 'lr> Resolver for Wasmer2Imports<'e, 'l, 'lr> {
-    fn resolve(&self, _index: u32, module: &str, field: &str) -> Option<wasmer_vm::Export> {
+    fn resolve(
+        &self,
+        _index: u32,
+        module: &str,
+        field: &str,
+    ) -> Option<wasmer_vm::Export> {
         if module == "env" && field == "memory" {
             return Some(wasmer_vm::Export::Memory(self.memory.clone()));
         }

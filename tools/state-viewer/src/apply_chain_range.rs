@@ -48,7 +48,10 @@ fn old_outcomes(
         .collect()
 }
 
-fn maybe_add_to_csv(csv_file_mutex: &Mutex<Option<&mut File>>, s: &str) {
+fn maybe_add_to_csv(
+    csv_file_mutex: &Mutex<Option<&mut File>>,
+    s: &str,
+) {
     let mut csv_file = csv_file_mutex.lock().unwrap();
     if let Some(csv_file) = csv_file.as_mut() {
         writeln!(csv_file, "{}", s).unwrap();
@@ -77,20 +80,28 @@ fn apply_block_from_range(
         read_store.clone(),
         genesis.config.genesis_height,
         false,
-        genesis.config.transaction_validity_period,
+        genesis
+            .config
+            .transaction_validity_period,
     );
     let block_hash = match read_chain_store.get_block_hash_by_height(height) {
-        Ok(block_hash) => block_hash,
-        Err(_) => {
+        | Ok(block_hash) => block_hash,
+        | Err(_) => {
             // Skipping block because it's not available in ChainStore.
             progress_reporter.inc_and_report_progress(height, 0);
             return;
         }
     };
-    let block = read_chain_store.get_block(&block_hash).unwrap();
+    let block = read_chain_store
+        .get_block(&block_hash)
+        .unwrap();
     let epoch_id = block.header().epoch_id();
-    let shard_uid = epoch_manager.shard_id_to_uid(shard_id, epoch_id).unwrap();
-    let shard_index = epoch_manager.shard_id_to_index(shard_id, epoch_id).unwrap();
+    let shard_uid = epoch_manager
+        .shard_id_to_uid(shard_id, epoch_id)
+        .unwrap();
+    let shard_index = epoch_manager
+        .shard_id_to_index(shard_id, epoch_id)
+        .unwrap();
     assert!(block.chunks().len() > 0);
     let mut existing_chunk_extra = None;
     let mut prev_chunk_extra = None;
@@ -102,8 +113,9 @@ fn apply_block_from_range(
         .get_block_producer(block.header().epoch_id(), block.header().height())
         .unwrap();
 
-    let protocol_version =
-        epoch_manager.get_epoch_protocol_version(block.header().epoch_id()).unwrap();
+    let protocol_version = epoch_manager
+        .get_epoch_protocol_version(block.header().epoch_id())
+        .unwrap();
     let apply_result = if block.header().is_genesis() {
         if verbose_output {
             println!("Skipping the genesis block #{}.", height);
@@ -120,16 +132,18 @@ fn apply_block_from_range(
         );
         existing_chunk_extra = Some(res_existing_chunk_extra.unwrap());
         let chunk_hash = block.chunks()[shard_index].chunk_hash();
-        let chunk = read_chain_store.get_chunk(&chunk_hash).unwrap_or_else(|error| {
-            panic!(
-                "Can't get chunk on height: {} chunk_hash: {:?} error: {}",
-                height, chunk_hash, error
-            );
-        });
+        let chunk = read_chain_store
+            .get_chunk(&chunk_hash)
+            .unwrap_or_else(|error| {
+                panic!(
+                    "Can't get chunk on height: {} chunk_hash: {:?} error: {}",
+                    height, chunk_hash, error
+                );
+            });
 
         let prev_block = match read_chain_store.get_block(block.header().prev_hash()) {
-            Ok(prev_block) => prev_block,
-            Err(_) => {
+            | Ok(prev_block) => prev_block,
+            | Err(_) => {
                 if verbose_output {
                     println!("Skipping applying block #{} because the previous block is unavailable and I can't determine the gas_price to use.", height);
                 }
@@ -155,8 +169,9 @@ fn apply_block_from_range(
             .chain_store()
             .compute_transaction_validity(protocol_version, prev_block.header(), &chunk)
             .expect("valid transaction calculation");
-        let shard_layout =
-            epoch_manager.get_shard_layout_from_prev_block(block.header().prev_hash()).unwrap();
+        let shard_layout = epoch_manager
+            .get_shard_layout_from_prev_block(block.header().prev_hash())
+            .unwrap();
         let receipt_proof_response = chain_store_update
             .get_incoming_receipts_for_shard(
                 epoch_manager,
@@ -190,7 +205,9 @@ fn apply_block_from_range(
                 }
             }
             if !has_contracts {
-                progress_reporter.skipped.fetch_add(1, Ordering::Relaxed);
+                progress_reporter
+                    .skipped
+                    .fetch_add(1, Ordering::Relaxed);
                 return;
             }
         }
@@ -218,8 +235,9 @@ fn apply_block_from_range(
             .unwrap()
     } else {
         chunk_present = false;
-        let chunk_extra =
-            read_chain_store.get_chunk_extra(block.header().prev_hash(), &shard_uid).unwrap();
+        let chunk_extra = read_chain_store
+            .get_chunk_extra(block.header().prev_hash(), &shard_uid)
+            .unwrap();
         prev_chunk_extra = Some(chunk_extra.clone());
 
         runtime_adapter
@@ -258,13 +276,14 @@ fn apply_block_from_range(
         apply_result.bandwidth_requests.clone(),
     );
 
-    let state_update =
-        runtime_adapter.get_tries().new_trie_update(shard_uid, *chunk_extra.state_root());
+    let state_update = runtime_adapter
+        .get_tries()
+        .new_trie_update(shard_uid, *chunk_extra.state_root());
     let delayed_indices =
         near_store::get::<DelayedReceiptIndices>(&state_update, &TrieKey::DelayedReceiptIndices);
 
     match existing_chunk_extra {
-        Some(existing_chunk_extra) => {
+        | Some(existing_chunk_extra) => {
             if verbose_output {
                 println!("block_height: {}, block_hash: {}\nchunk_extra: {:#?}\nexisting_chunk_extra: {:#?}\noutcomes: {:#?}", height, block_hash, chunk_extra, existing_chunk_extra, apply_result.outcomes);
             }
@@ -273,7 +292,7 @@ fn apply_block_from_range(
                 panic!("Got a different ChunkExtra:\nblock_height: {}, block_hash: {}\nchunk_extra: {:#?}\nexisting_chunk_extra: {:#?}\nnew outcomes: {:#?}\n\nold outcomes: {:#?}\n", height, block_hash, chunk_extra, existing_chunk_extra, apply_result.outcomes, old_outcomes(read_store, &apply_result.outcomes));
             }
         }
-        None => {
+        | None => {
             assert!(prev_chunk_extra.is_some());
             assert!(apply_result.outcomes.is_empty());
             if verbose_output {
@@ -293,9 +312,16 @@ fn apply_block_from_range(
             block.header().raw_timestamp(),
             apply_result.total_gas_burnt,
             chunk_present,
-            apply_result.processed_delayed_receipts.len(),
-            delayed_indices.unwrap_or(None).map_or(0, |d| d.next_available_index - d.first_index),
-            apply_result.trie_changes.state_changes().len(),
+            apply_result
+                .processed_delayed_receipts
+                .len(),
+            delayed_indices
+                .unwrap_or(None)
+                .map_or(0, |d| d.next_available_index - d.first_index),
+            apply_result
+                .trie_changes
+                .state_changes()
+                .len(),
         ),
     );
     progress_reporter.inc_and_report_progress(height, apply_result.total_gas_burnt);
@@ -307,12 +333,15 @@ fn apply_block_from_range(
     // desired, meanwhile other modes can be set to operate on various storage sources, all of
     // which have their unique propoerties (e.g. flat storage operates on flat_head...)
     match (mode, storage) {
-        (ApplyRangeMode::Benchmark, _) => {}
-        (_, StorageSource::Trie | StorageSource::TrieFree) => {}
-        (_, StorageSource::FlatStorage | StorageSource::Memtrie) => {
+        | (ApplyRangeMode::Benchmark, _) => {}
+        | (_, StorageSource::Trie | StorageSource::TrieFree) => {}
+        | (_, StorageSource::FlatStorage | StorageSource::Memtrie) => {
             // Compute delta and immediately apply to flat storage.
-            let changes =
-                FlatStateChanges::from_state_changes(apply_result.trie_changes.state_changes());
+            let changes = FlatStateChanges::from_state_changes(
+                apply_result
+                    .trie_changes
+                    .state_changes(),
+            );
             let delta = near_store::flat::FlatStateDelta {
                 metadata: near_store::flat::FlatStateDeltaMetadata {
                     block: BlockInfo {
@@ -326,21 +355,29 @@ fn apply_block_from_range(
             };
 
             let flat_storage_manager = runtime_adapter.get_flat_storage_manager();
-            let flat_storage = flat_storage_manager.get_flat_storage_for_shard(shard_uid).unwrap();
+            let flat_storage = flat_storage_manager
+                .get_flat_storage_for_shard(shard_uid)
+                .unwrap();
             let store_update = flat_storage.add_delta(delta).unwrap();
             store_update.commit().unwrap();
-            flat_storage.update_flat_head(&block_hash).unwrap();
+            flat_storage
+                .update_flat_head(&block_hash)
+                .unwrap();
         }
     }
     match (mode, storage) {
-        (ApplyRangeMode::Benchmark, _) => {}
-        (_, StorageSource::FlatStorage) => {
+        | (ApplyRangeMode::Benchmark, _) => {}
+        | (_, StorageSource::FlatStorage) => {
             // Apply trie changes to trie node caches.
             let mut fake_store_update = read_store.trie_store().store_update();
-            apply_result.trie_changes.insertions_into(&mut fake_store_update);
-            apply_result.trie_changes.deletions_into(&mut fake_store_update);
+            apply_result
+                .trie_changes
+                .insertions_into(&mut fake_store_update);
+            apply_result
+                .trie_changes
+                .deletions_into(&mut fake_store_update);
         }
-        (_, StorageSource::Trie | StorageSource::TrieFree | StorageSource::Memtrie) => {
+        | (_, StorageSource::Trie | StorageSource::TrieFree | StorageSource::Memtrie) => {
             if let Err(err) = maybe_save_trie_changes(
                 write_store,
                 &genesis.config,
@@ -385,10 +422,14 @@ pub fn apply_chain_range(
         read_store.clone(),
         genesis.config.genesis_height,
         false,
-        genesis.config.transaction_validity_period,
+        genesis
+            .config
+            .transaction_validity_period,
     );
     let final_head = chain_store.final_head().unwrap();
-    let shard_layout = epoch_manager.get_shard_layout(&final_head.epoch_id).unwrap();
+    let shard_layout = epoch_manager
+        .get_shard_layout(&final_head.epoch_id)
+        .unwrap();
     let shard_uid =
         near_primitives::shard_layout::ShardUId::from_shard_id_and_layout(shard_id, &shard_layout);
 
@@ -396,32 +437,38 @@ pub fn apply_chain_range(
     // configurations that aren't used in production anymore, in case anybody really wants that
     // behaviour.
     match storage {
-        StorageSource::Trie | StorageSource::TrieFree => {}
-        StorageSource::FlatStorage => {
+        | StorageSource::Trie | StorageSource::TrieFree => {}
+        | StorageSource::FlatStorage => {
             let flat_storage_manager = runtime_adapter.get_flat_storage_manager();
-            flat_storage_manager.create_flat_storage_for_shard(shard_uid).unwrap();
+            flat_storage_manager
+                .create_flat_storage_for_shard(shard_uid)
+                .unwrap();
         }
-        StorageSource::Memtrie => {
+        | StorageSource::Memtrie => {
             // Memtries require flat storage to load.
             let flat_storage_manager = runtime_adapter.get_flat_storage_manager();
-            flat_storage_manager.create_flat_storage_for_shard(shard_uid).unwrap();
+            flat_storage_manager
+                .create_flat_storage_for_shard(shard_uid)
+                .unwrap();
             runtime_adapter
                 .get_tries()
-                .load_memtrie(&shard_uid, None, true)
+                .load_mem_trie(&shard_uid, None, true)
                 .expect("load mem trie");
         }
     }
 
     let (start_height, end_height) = match (mode, storage) {
-        (ApplyRangeMode::Benchmark, StorageSource::Trie | StorageSource::TrieFree) => {
+        | (ApplyRangeMode::Benchmark, StorageSource::Trie | StorageSource::TrieFree) => {
             panic!("benchmark with --storage trie|trie-free is not supported")
         }
-        (ApplyRangeMode::Benchmark, StorageSource::FlatStorage | StorageSource::Memtrie) => {
+        | (ApplyRangeMode::Benchmark, StorageSource::FlatStorage | StorageSource::Memtrie) => {
             // Benchmarking mode requires flat storage and retrieves the block height from flat
             // storage.
             assert!(start_height.is_none());
             assert!(end_height.is_none());
-            let flat_status = read_store.flat_store().get_flat_storage_status(shard_uid);
+            let flat_status = read_store
+                .flat_store()
+                .get_flat_storage_status(shard_uid);
             let Ok(FlatStorageStatus::Ready(ready)) = flat_status else {
                 panic!("cannot create flat storage for shard {shard_uid} due to {flat_status:?}")
             };
@@ -430,13 +477,15 @@ pub fn apply_chain_range(
             // `0` helps indicatif to display more reasonable output.
             (ready.flat_head.height + 1, 0)
         }
-        (_, StorageSource::Trie | StorageSource::TrieFree) => (
+        | (_, StorageSource::Trie | StorageSource::TrieFree) => (
             start_height.unwrap_or_else(|| chain_store.tail().unwrap()),
             end_height.unwrap_or_else(|| chain_store.head().unwrap().height),
         ),
-        (_, StorageSource::FlatStorage | StorageSource::Memtrie) => {
+        | (_, StorageSource::FlatStorage | StorageSource::Memtrie) => {
             let start_height = start_height.unwrap_or_else(|| {
-                let status = read_store.flat_store().get_flat_storage_status(shard_uid);
+                let status = read_store
+                    .flat_store()
+                    .get_flat_storage_status(shard_uid);
                 let Ok(FlatStorageStatus::Ready(ready)) = status else {
                     panic!("cannot create flat storage for shard {shard_uid} due to {status:?}")
                 };
@@ -483,29 +532,35 @@ pub fn apply_chain_range(
 
     let start_time = near_time::Instant::now();
     match mode {
-        ApplyRangeMode::Sequential => {
-            range.clone().into_iter().for_each(|height| {
-                let _span = tracing::debug_span!(
+        | ApplyRangeMode::Sequential => {
+            range
+                .clone()
+                .into_iter()
+                .for_each(|height| {
+                    let _span = tracing::debug_span!(
                     target: "state_viewer",
                     parent: &parent_span,
                     "process_block",
                     height)
-                .entered();
-                process_height(height)
-            });
+                    .entered();
+                    process_height(height)
+                });
         }
-        ApplyRangeMode::Parallel => {
-            range.clone().into_par_iter().for_each(|height| {
-                let _span = tracing::debug_span!(
+        | ApplyRangeMode::Parallel => {
+            range
+                .clone()
+                .into_par_iter()
+                .for_each(|height| {
+                    let _span = tracing::debug_span!(
                 target: "mock_node",
                 parent: &parent_span,
                 "process_block",
                 height)
-                .entered();
-                process_height(height)
-            });
+                    .entered();
+                    process_height(height)
+                });
         }
-        ApplyRangeMode::Benchmark => loop {
+        | ApplyRangeMode::Benchmark => loop {
             let height = range.start();
             let _span = tracing::debug_span!(
                     target: "state_viewer",
@@ -528,7 +583,10 @@ pub fn apply_chain_range(
  * ChunkExtra versions in database and produced by `neard` playback. Consider them equal as
  * long as the content is equal.
  */
-fn smart_equals(extra1: &ChunkExtra, extra2: &ChunkExtra) -> bool {
+fn smart_equals(
+    extra1: &ChunkExtra,
+    extra2: &ChunkExtra,
+) -> bool {
     if (extra1.outcome_root() != extra2.outcome_root())
         || (extra1.state_root() != extra2.state_root())
         || (extra1.gas_limit() != extra2.gas_limit())
@@ -576,10 +634,17 @@ mod test {
     use crate::cli::{ApplyRangeMode, StorageSource};
 
     fn setup(epoch_length: NumBlocks) -> (Store, Genesis, TestEnv) {
-        let mut genesis =
-            Genesis::test(vec!["test0".parse().unwrap(), "test1".parse().unwrap()], 1);
+        let mut genesis = Genesis::test(
+            vec![
+                "test0".parse().unwrap(),
+                "test1".parse().unwrap(),
+            ],
+            1,
+        );
         genesis.config.num_block_producer_seats = 2;
-        genesis.config.num_block_producer_seats_per_shard = vec![2];
+        genesis
+            .config
+            .num_block_producer_seats_per_shard = vec![2];
         genesis.config.epoch_length = epoch_length;
         let store = create_test_store();
         initialize_genesis_state(store.clone(), &genesis, None);
@@ -719,8 +784,12 @@ mod test {
             StorageSource::Trie,
         );
         let mut csv = String::new();
-        file.as_file_mut().seek(SeekFrom::Start(0)).unwrap();
-        file.as_file_mut().read_to_string(&mut csv).unwrap();
+        file.as_file_mut()
+            .seek(SeekFrom::Start(0))
+            .unwrap();
+        file.as_file_mut()
+            .read_to_string(&mut csv)
+            .unwrap();
         let lines: Vec<&str> = csv.split("\n").collect();
         assert!(lines[0].contains("Height"));
         let mut has_tx = 0;

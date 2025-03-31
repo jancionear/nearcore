@@ -27,7 +27,10 @@ where
         borsh::to_writer(&mut counting_write, uncompressed)?;
 
         let borsh_bytes_len = counting_write.bytes_written();
-        let encoded_bytes = counting_write.into_inner().finish()?.into_inner();
+        let encoded_bytes = counting_write
+            .into_inner()
+            .finish()?
+            .into_inner();
 
         Ok((Self::from(encoded_bytes.into()), borsh_bytes_len.as_u64() as usize))
     }
@@ -41,7 +44,10 @@ where
 
     /// Decompress and borsh-deserialize the compressed data.
     /// Returns decompressed and deserialized data along with the raw (uncompressed) serialized data size.
-    fn decode_with_limit(&self, limit: ByteSize) -> std::io::Result<(T, usize)> {
+    fn decode_with_limit(
+        &self,
+        limit: ByteSize,
+    ) -> std::io::Result<(T, usize)> {
         // Flow of data: Bytes --> zstd decompression --> Counting read --> Borsh deserialization --> Original.
         // CountingRead will count the number of bytes for the Borsh-deserialized data, after decompression.
         let mut counting_read = CountingRead::new_with_limit(
@@ -50,7 +56,7 @@ where
         );
 
         match borsh::from_reader(&mut counting_read) {
-            Err(err) => {
+            | Err(err) => {
                 // If decompressed data exceeds the limit then CountingRead will return a WriteZero error.
                 // Here we convert it to a more descriptive error to make debugging easier.
                 let err = if err.kind() == std::io::ErrorKind::WriteZero {
@@ -62,9 +68,14 @@ where
                 };
                 Err(err)
             }
-            Ok(deserialized) => {
-                Ok((deserialized, counting_read.bytes_read().as_u64().try_into().unwrap()))
-            }
+            | Ok(deserialized) => Ok((
+                deserialized,
+                counting_read
+                    .bytes_read()
+                    .as_u64()
+                    .try_into()
+                    .unwrap(),
+            )),
         }
     }
 
@@ -124,8 +135,9 @@ mod tests {
     #[test]
     fn decode_invalid_data() {
         let invalid_data = [0; 10];
-        let error =
-            CompressedMyData::from_boxed_slice(Box::new(invalid_data)).decode().unwrap_err();
+        let error = CompressedMyData::from_boxed_slice(Box::new(invalid_data))
+            .decode()
+            .unwrap_err();
         assert_eq!(error.kind(), ErrorKind::Other);
     }
 }

@@ -34,7 +34,10 @@ fn start_node() -> ThreadNode {
 fn test_check_tx_error_log() {
     let node = start_node();
     let signer = Arc::new(InMemorySigner::test_signer(&alice_account()));
-    let block_hash = node.user().get_best_block_hash().unwrap();
+    let block_hash = node
+        .user()
+        .get_best_block_hash()
+        .unwrap();
     let tx = SignedTransaction::from_actions(
         1,
         bob_account(),
@@ -52,7 +55,10 @@ fn test_check_tx_error_log() {
         0,
     );
 
-    let tx_result = node.user().commit_transaction(tx).unwrap_err();
+    let tx_result = node
+        .user()
+        .commit_transaction(tx)
+        .unwrap_err();
     assert_eq!(
         tx_result,
         CommitError::Server(
@@ -75,7 +81,10 @@ fn test_deliver_tx_error_log() {
         node.genesis().config.min_gas_price,
     );
     let signer = Arc::new(InMemorySigner::test_signer(&alice_account()));
-    let block_hash = node.user().get_best_block_hash().unwrap();
+    let block_hash = node
+        .user()
+        .get_best_block_hash()
+        .unwrap();
     let cost = fee_helper.create_account_transfer_full_key_cost_no_reward();
     let tx = SignedTransaction::from_actions(
         1,
@@ -94,7 +103,10 @@ fn test_deliver_tx_error_log() {
         0,
     );
 
-    let tx_result = node.user().commit_transaction(tx).unwrap_err();
+    let tx_result = node
+        .user()
+        .commit_transaction(tx)
+        .unwrap_err();
     assert_eq!(
         tx_result,
         CommitError::Server(

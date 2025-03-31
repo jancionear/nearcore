@@ -20,7 +20,12 @@ use std::time::{Duration, Instant};
 /// took on avg 1.424615ms op per sec 701 items read 10000
 /// took on avg 1.416562ms op per sec 705 items read 10000
 /// ```
-fn read_trie_items(bench: &mut Bencher, shard_index: ShardIndex, shard_id: ShardId, mode: Mode) {
+fn read_trie_items(
+    bench: &mut Bencher,
+    shard_index: ShardIndex,
+    shard_id: ShardId,
+    mode: Mode,
+) {
     init_integration_logger();
     let home_dir = get_default_home();
     let near_config = load_config(&home_dir, GenesisValidationMode::UnsafeFast)
@@ -39,18 +44,29 @@ fn read_trie_items(bench: &mut Bencher, shard_index: ShardIndex, shard_id: Shard
         .get_hot_store();
         let chain_store = ChainStore::new(
             store.clone(),
-            near_config.genesis.config.genesis_height,
+            near_config
+                .genesis
+                .config
+                .genesis_height,
             true,
-            near_config.genesis.config.transaction_validity_period,
+            near_config
+                .genesis
+                .config
+                .transaction_validity_period,
         );
         let epoch_manager =
             EpochManager::new_arc_handle(store.clone(), &near_config.genesis.config, None);
         let runtime = NightshadeRuntime::from_config(&home_dir, store, &near_config, epoch_manager)
             .unwrap_or_else(|e| panic!("could not create the transaction runtime: {e}"));
         let head = chain_store.head().unwrap();
-        let last_block = chain_store.get_block(&head.last_block_hash).unwrap();
-        let state_roots: Vec<StateRoot> =
-            last_block.chunks().iter_deprecated().map(|chunk| chunk.prev_state_root()).collect();
+        let last_block = chain_store
+            .get_block(&head.last_block_hash)
+            .unwrap();
+        let state_roots: Vec<StateRoot> = last_block
+            .chunks()
+            .iter_deprecated()
+            .map(|chunk| chunk.prev_state_root())
+            .collect();
         let header = last_block.header();
 
         let trie = runtime

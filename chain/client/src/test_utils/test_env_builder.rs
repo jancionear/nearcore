@@ -37,8 +37,8 @@ enum EpochManagerKind {
 impl EpochManagerKind {
     pub fn into_adapter(self) -> Arc<dyn EpochManagerAdapter> {
         match self {
-            Self::Mock(mock) => mock,
-            Self::Handle(handle) => handle,
+            | Self::Mock(mock) => mock,
+            | Self::Handle(handle) => handle,
         }
     }
 }
@@ -97,7 +97,10 @@ impl TestEnvBuilder {
         }
     }
 
-    pub fn clock(mut self, clock: Clock) -> Self {
+    pub fn clock(
+        mut self,
+        clock: Clock,
+    ) -> Self {
         assert!(self.clock.is_none(), "Cannot set clock twice");
         self.clock = Some(clock);
         self
@@ -105,7 +108,10 @@ impl TestEnvBuilder {
 
     /// Sets list of client [`AccountId`]s to the one provided.  Panics if the
     /// vector is empty.
-    pub fn clients(mut self, clients: Vec<AccountId>) -> Self {
+    pub fn clients(
+        mut self,
+        clients: Vec<AccountId>,
+    ) -> Self {
         assert!(!clients.is_empty());
         assert!(self.stores.is_none(), "Cannot set clients after stores");
         assert!(self.epoch_managers.is_none(), "Cannot set clients after epoch_managers");
@@ -116,14 +122,20 @@ impl TestEnvBuilder {
         self
     }
 
-    pub fn epoch_config_store(mut self, epoch_config_store: EpochConfigStore) -> Self {
+    pub fn epoch_config_store(
+        mut self,
+        epoch_config_store: EpochConfigStore,
+    ) -> Self {
         assert!(self.epoch_config_store.is_none(), "Cannot set epoch_config_store twice");
         self.epoch_config_store = Some(epoch_config_store);
         self
     }
 
     /// Sets random seed for each client according to the provided HashMap.
-    pub fn clients_random_seeds(mut self, seeds: HashMap<AccountId, RngSeed>) -> Self {
+    pub fn clients_random_seeds(
+        mut self,
+        seeds: HashMap<AccountId, RngSeed>,
+    ) -> Self {
         self.seeds = seeds;
         self
     }
@@ -132,7 +144,10 @@ impl TestEnvBuilder {
     /// validator associated with the client the [`TestEnv::get_client_id`]
     /// method can be used.  Tests should not rely on any particular format of
     /// account identifiers used by the builder.  Panics if `num` is zero.
-    pub fn clients_count(self, num: usize) -> Self {
+    pub fn clients_count(
+        self,
+        num: usize,
+    ) -> Self {
         self.clients(Self::make_accounts(num))
     }
 
@@ -142,7 +157,10 @@ impl TestEnvBuilder {
 
     /// Sets list of validator [`AccountId`]s to the one provided.  Panics if
     /// the vector is empty.
-    pub fn validators(mut self, validators: Vec<AccountId>) -> Self {
+    pub fn validators(
+        mut self,
+        validators: Vec<AccountId>,
+    ) -> Self {
         assert!(!validators.is_empty());
         assert!(self.epoch_managers.is_none(), "Cannot set validators after epoch_managers");
         self.validators = validators;
@@ -153,7 +171,10 @@ impl TestEnvBuilder {
     /// in the test environment the `validators` field of the built [`TestEnv`]
     /// object can be used.  Tests should not rely on any particular format of
     /// account identifiers used by the builder.  Panics if `num` is zero.
-    pub fn validator_seats(self, num: usize) -> Self {
+    pub fn validator_seats(
+        self,
+        num: usize,
+    ) -> Self {
         self.validators(Self::make_accounts(num))
     }
 
@@ -171,7 +192,10 @@ impl TestEnvBuilder {
     }
 
     /// Overrides the stores that are used to create epoch managers and runtimes.
-    pub fn stores(mut self, stores: Vec<Store>) -> Self {
+    pub fn stores(
+        mut self,
+        stores: Vec<Store>,
+    ) -> Self {
         assert_eq!(stores.len(), self.clients.len());
         assert!(self.stores.is_none(), "Cannot override twice");
         assert!(self.epoch_managers.is_none(), "Cannot override store after epoch_managers");
@@ -185,8 +209,19 @@ impl TestEnvBuilder {
         caches: impl IntoIterator<Item = C>,
     ) -> Self {
         assert!(self.contract_caches.is_none(), "Cannot override twice");
-        self.contract_caches = Some(caches.into_iter().map(|c| c.handle()).collect());
-        assert_eq!(self.contract_caches.as_ref().unwrap().len(), self.clients.len());
+        self.contract_caches = Some(
+            caches
+                .into_iter()
+                .map(|c| c.handle())
+                .collect(),
+        );
+        assert_eq!(
+            self.contract_caches
+                .as_ref()
+                .unwrap()
+                .len(),
+            self.clients.len()
+        );
         self
     }
 
@@ -219,7 +254,11 @@ impl TestEnvBuilder {
             self
         } else {
             let num_clients = self.clients.len();
-            self.stores((0..num_clients).map(|_| create_test_store()).collect())
+            self.stores(
+                (0..num_clients)
+                    .map(|_| create_test_store())
+                    .collect(),
+            )
         }
     }
 
@@ -237,7 +276,10 @@ impl TestEnvBuilder {
     /// The vector must have the same number of elements as they are clients
     /// (one by default).  If that does not hold, [`Self::build`] method will
     /// panic.
-    pub fn epoch_managers(mut self, epoch_managers: Vec<Arc<EpochManagerHandle>>) -> Self {
+    pub fn epoch_managers(
+        mut self,
+        epoch_managers: Vec<Arc<EpochManagerHandle>>,
+    ) -> Self {
         assert_eq!(epoch_managers.len(), self.clients.len());
         assert!(self.epoch_managers.is_none(), "Cannot override twice");
         assert!(
@@ -249,8 +291,12 @@ impl TestEnvBuilder {
             "Cannot override epoch_managers after shard_trackers"
         );
         assert!(self.runtimes.is_none(), "Cannot override epoch_managers after runtimes");
-        self.epoch_managers =
-            Some(epoch_managers.into_iter().map(|epoch_manager| epoch_manager.into()).collect());
+        self.epoch_managers = Some(
+            epoch_managers
+                .into_iter()
+                .map(|epoch_manager| epoch_manager.into())
+                .collect(),
+        );
         self
     }
 
@@ -366,8 +412,13 @@ impl TestEnvBuilder {
             .ensure_contract_caches();
         let home_dirs = builder.home_dirs.clone().unwrap();
         let stores = builder.stores.clone().unwrap();
-        let contract_caches =
-            builder.contract_caches.as_ref().unwrap().iter().map(|c| c.handle()).collect_vec();
+        let contract_caches = builder
+            .contract_caches
+            .as_ref()
+            .unwrap()
+            .iter()
+            .map(|c| c.handle())
+            .collect_vec();
         let epoch_managers = builder.epoch_managers.clone().unwrap();
         let runtimes = multizip((
             home_dirs,
@@ -379,10 +430,10 @@ impl TestEnvBuilder {
         ))
         .map(|(home_dir, store, contract_cache, epoch_manager, runtime_config, trie_config)| {
             let epoch_manager = match epoch_manager {
-                EpochManagerKind::Mock(_) => {
+                | EpochManagerKind::Mock(_) => {
                     panic!("NightshadeRuntime can only be instantiated with EpochManagerHandle")
                 }
-                EpochManagerKind::Handle(handle) => handle,
+                | EpochManagerKind::Handle(handle) => handle,
             };
             nightshade_runtime_creator(
                 home_dir,
@@ -399,7 +450,10 @@ impl TestEnvBuilder {
 
     /// Specifies custom ShardTracker for each client.  This allows us to
     /// construct [`TestEnv`] with a custom implementation.
-    pub fn shard_trackers(mut self, shard_trackers: Vec<ShardTracker>) -> Self {
+    pub fn shard_trackers(
+        mut self,
+        shard_trackers: Vec<ShardTracker>,
+    ) -> Self {
         assert_eq!(shard_trackers.len(), self.clients.len());
         assert!(self.shard_trackers.is_none(), "Cannot override twice");
         self.shard_trackers = Some(shard_trackers);
@@ -424,7 +478,10 @@ impl TestEnvBuilder {
     }
 
     /// Calls track_all_shards only if the given boolean is true.
-    pub fn maybe_track_all_shards(self, track_all_shards: bool) -> Self {
+    pub fn maybe_track_all_shards(
+        self,
+        track_all_shards: bool,
+    ) -> Self {
         if track_all_shards {
             self.track_all_shards()
         } else {
@@ -452,7 +509,10 @@ impl TestEnvBuilder {
 
     /// Specifies custom RuntimeAdapter for each client.  This allows us to
     /// construct [`TestEnv`] with a custom implementation.
-    pub fn runtimes(mut self, runtimes: Vec<Arc<dyn RuntimeAdapter>>) -> Self {
+    pub fn runtimes(
+        mut self,
+        runtimes: Vec<Arc<dyn RuntimeAdapter>>,
+    ) -> Self {
         assert_eq!(runtimes.len(), self.clients.len());
         assert!(self.runtimes.is_none(), "Cannot override twice");
         self.runtimes = Some(runtimes);
@@ -473,8 +533,8 @@ impl TestEnvBuilder {
         let runtimes = (0..ret.clients.len())
             .map(|i| {
                 let epoch_manager = match &ret.epoch_managers.as_ref().unwrap()[i] {
-                    EpochManagerKind::Mock(mock) => mock.as_ref(),
-                    EpochManagerKind::Handle(_) => {
+                    | EpochManagerKind::Mock(mock) => mock.as_ref(),
+                    | EpochManagerKind::Handle(_) => {
                         panic!("Can only default construct KeyValueRuntime with MockEpochManager")
                     }
                 };
@@ -490,7 +550,10 @@ impl TestEnvBuilder {
     /// The vector must have the same number of elements as they are clients
     /// (one by default).  If that does not hold, [`Self::build`] method will
     /// panic.
-    pub fn network_adapters(mut self, adapters: Vec<Arc<MockPeerManagerAdapter>>) -> Self {
+    pub fn network_adapters(
+        mut self,
+        adapters: Vec<Arc<MockPeerManagerAdapter>>,
+    ) -> Self {
         self.network_adapters = Some(adapters);
         self
     }
@@ -501,11 +564,18 @@ impl TestEnvBuilder {
             self
         } else {
             let num_clients = self.clients.len();
-            self.network_adapters((0..num_clients).map(|_| Arc::new(Default::default())).collect())
+            self.network_adapters(
+                (0..num_clients)
+                    .map(|_| Arc::new(Default::default()))
+                    .collect(),
+            )
         }
     }
 
-    pub fn num_shards(mut self, num_shards: NumShards) -> Self {
+    pub fn num_shards(
+        mut self,
+        num_shards: NumShards,
+    ) -> Self {
         assert!(
             self.epoch_managers.is_none(),
             "Cannot set both num_shards and epoch_managers at the same time"
@@ -514,12 +584,18 @@ impl TestEnvBuilder {
         self
     }
 
-    pub fn archive(mut self, archive: bool) -> Self {
+    pub fn archive(
+        mut self,
+        archive: bool,
+    ) -> Self {
         self.archive = archive;
         self
     }
 
-    pub fn save_trie_changes(mut self, save_trie_changes: bool) -> Self {
+    pub fn save_trie_changes(
+        mut self,
+        save_trie_changes: bool,
+    ) -> Self {
         self.save_trie_changes = save_trie_changes;
         self
     }
@@ -534,11 +610,16 @@ impl TestEnvBuilder {
     /// the length of the vectors passed to them did not equal number of
     /// configured clients.
     pub fn build(self) -> TestEnv {
-        self.ensure_shard_trackers().ensure_runtimes().ensure_network_adapters().build_impl()
+        self.ensure_shard_trackers()
+            .ensure_runtimes()
+            .ensure_network_adapters()
+            .build_impl()
     }
 
     fn build_impl(self) -> TestEnv {
-        let clock = self.clock.unwrap_or_else(|| Clock::real());
+        let clock = self
+            .clock
+            .unwrap_or_else(|| Clock::real());
         let chain_genesis = ChainGenesis::new(&self.genesis_config);
         let clients = self.clients.clone();
         let num_clients = clients.len();
@@ -552,8 +633,9 @@ impl TestEnvBuilder {
         let client_adapters = (0..num_clients)
             .map(|_| Arc::new(MockClientAdapterForShardsManager::default()))
             .collect_vec();
-        let partial_witness_adapters =
-            (0..num_clients).map(|_| MockPartialWitnessAdapter::default()).collect_vec();
+        let partial_witness_adapters = (0..num_clients)
+            .map(|_| MockPartialWitnessAdapter::default())
+            .collect_vec();
         let shards_manager_adapters = (0..num_clients)
             .map(|i| {
                 let clock = clock.clone();
@@ -648,7 +730,9 @@ impl TestEnvBuilder {
     }
 
     pub fn make_accounts(count: usize) -> Vec<AccountId> {
-        (0..count).map(|i| format!("test{}", i).parse().unwrap()).collect()
+        (0..count)
+            .map(|i| format!("test{}", i).parse().unwrap())
+            .collect()
     }
 
     pub fn use_state_snapshots(mut self) -> Self {

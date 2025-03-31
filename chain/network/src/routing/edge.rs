@@ -15,13 +15,16 @@ pub(crate) enum VerifyNonceError {
     ZeroNonce,
 }
 
-pub(crate) fn verify_nonce(clock: &time::Clock, nonce: u64) -> Result<(), VerifyNonceError> {
+pub(crate) fn verify_nonce(
+    clock: &time::Clock,
+    nonce: u64,
+) -> Result<(), VerifyNonceError> {
     if nonce == 0 {
         return Err(VerifyNonceError::ZeroNonce);
     }
     match Edge::nonce_to_utc(nonce) {
-        Err(err) => Err(VerifyNonceError::InvalidNonce(err)),
-        Ok(nonce) => {
+        | Err(err) => Err(VerifyNonceError::InvalidNonce(err)),
+        | Ok(nonce) => {
             let now = clock.now_utc();
             if (now - nonce).abs() >= EDGE_NONCE_MAX_TIME_DELTA {
                 Err(VerifyNonceError::NonceTimestampTooDistant { got: nonce, now })

@@ -8,9 +8,9 @@ pub fn find_entry_point(contract: &ContractCode) -> Option<String> {
     let mut fns = Vec::new();
     for payload in Parser::default().parse_all(contract.code()) {
         match payload {
-            Ok(Payload::FunctionSection(rdr)) => fns.extend(rdr),
-            Ok(Payload::TypeSection(rdr)) => tys.extend(rdr),
-            Ok(Payload::ExportSection(rdr)) => {
+            | Ok(Payload::FunctionSection(rdr)) => fns.extend(rdr),
+            | Ok(Payload::TypeSection(rdr)) => tys.extend(rdr),
+            | Ok(Payload::ExportSection(rdr)) => {
                 for export in rdr {
                     if let Ok(Export { field, kind: ExternalKind::Function, index }) = export {
                         if let Some(&Ok(ty_index)) = fns.get(index as usize) {
@@ -23,7 +23,7 @@ pub fn find_entry_point(contract: &ContractCode) -> Option<String> {
                     }
                 }
             }
-            _ => (),
+            | _ => (),
         }
     }
     None

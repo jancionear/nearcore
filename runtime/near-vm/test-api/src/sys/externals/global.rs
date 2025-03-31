@@ -21,17 +21,27 @@ pub struct Global {
 
 impl Global {
     /// Create a new `Global` with the initial value [`Val`].
-    pub fn new(store: &Store, val: Val) -> Self {
+    pub fn new(
+        store: &Store,
+        val: Val,
+    ) -> Self {
         Self::from_value(store, val, Mutability::Const).unwrap()
     }
 
     /// Create a mutable `Global` with the initial value [`Val`].
-    pub fn new_mut(store: &Store, val: Val) -> Self {
+    pub fn new_mut(
+        store: &Store,
+        val: Val,
+    ) -> Self {
         Self::from_value(store, val, Mutability::Var).unwrap()
     }
 
     /// Create a `Global` with the initial value [`Val`] and the provided [`Mutability`].
-    fn from_value(store: &Store, val: Val, mutability: Mutability) -> Result<Self, RuntimeError> {
+    fn from_value(
+        store: &Store,
+        val: Val,
+        mutability: Mutability,
+    ) -> Result<Self, RuntimeError> {
         if !val.comes_from_same_store(store) {
             return Err(RuntimeError::new("cross-`Store` globals are not supported"));
         }
@@ -126,17 +136,26 @@ impl Global {
     /// // This results in an error: `RuntimeError`.
     /// g.set(Value::I64(2)).unwrap();
     /// ```
-    pub fn set(&self, val: Val) -> Result<(), RuntimeError> {
+    pub fn set(
+        &self,
+        val: Val,
+    ) -> Result<(), RuntimeError> {
         if !val.comes_from_same_store(&self.store) {
             return Err(RuntimeError::new("cross-`Store` values are not supported"));
         }
         unsafe {
-            self.vm_global.from.set(val).map_err(|e| RuntimeError::new(format!("{}", e)))?;
+            self.vm_global
+                .from
+                .set(val)
+                .map_err(|e| RuntimeError::new(format!("{}", e)))?;
         }
         Ok(())
     }
 
-    pub(crate) fn from_vm_export(store: &Store, vm_global: VMGlobal) -> Self {
+    pub(crate) fn from_vm_export(
+        store: &Store,
+        vm_global: VMGlobal,
+    ) -> Self {
         Self { store: store.clone(), vm_global }
     }
 }
@@ -144,14 +163,19 @@ impl Global {
 impl Clone for Global {
     fn clone(&self) -> Self {
         let mut vm_global = self.vm_global.clone();
-        vm_global.upgrade_instance_ref().unwrap();
+        vm_global
+            .upgrade_instance_ref()
+            .unwrap();
 
         Self { store: self.store.clone(), vm_global }
     }
 }
 
 impl fmt::Debug for Global {
-    fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(
+        &self,
+        formatter: &mut fmt::Formatter,
+    ) -> fmt::Result {
         formatter
             .debug_struct("Global")
             .field("ty", &self.ty())

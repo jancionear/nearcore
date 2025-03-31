@@ -60,11 +60,17 @@ pub trait Artifact: Send + Sync {
     fn start_function(&self) -> Option<FunctionIndex>;
 
     /// Function by export name.
-    fn export_field(&self, name: &str) -> Option<near_vm_types::ExportIndex>;
+    fn export_field(
+        &self,
+        name: &str,
+    ) -> Option<near_vm_types::ExportIndex>;
 
     /// Mapping between module SignatureIndex and VMSharedSignatureIndex.
     fn signatures(&self) -> &[VMSharedSignatureIndex];
 
     /// Obtain the function signature for either the import or local definition.
-    fn function_signature(&self, index: FunctionIndex) -> Option<VMSharedSignatureIndex>;
+    fn function_signature(
+        &self,
+        index: FunctionIndex,
+    ) -> Option<VMSharedSignatureIndex>;
 }

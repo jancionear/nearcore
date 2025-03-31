@@ -117,7 +117,10 @@ impl VMTable {
     }
 
     /// Returns whether or not the two `VMTable`s refer to the same Memory.
-    pub fn same(&self, other: &Self) -> bool {
+    pub fn same(
+        &self,
+        other: &Self,
+    ) -> bool {
         Arc::ptr_eq(&self.from, &other.from)
     }
 
@@ -168,7 +171,10 @@ unsafe impl Sync for VMGlobal {}
 
 impl VMGlobal {
     /// Returns whether or not the two `VMGlobal`s refer to the same Global.
-    pub fn same(&self, other: &Self) -> bool {
+    pub fn same(
+        &self,
+        other: &Self,
+    ) -> bool {
         Arc::ptr_eq(&self.from, &other.from)
     }
 

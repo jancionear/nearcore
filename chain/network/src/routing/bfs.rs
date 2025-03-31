@@ -54,12 +54,20 @@ impl Graph {
     // Compute number of active edges. We divide by 2 to remove duplicates.
     #[cfg(test)]
     pub fn compute_total_active_edges(&self) -> u64 {
-        let result: u64 = self.adjacency.iter().map(|x| x.len() as u64).sum();
+        let result: u64 = self
+            .adjacency
+            .iter()
+            .map(|x| x.len() as u64)
+            .sum();
         assert_eq!(result % 2, 0);
         result / 2
     }
 
-    fn contains_edge(&self, peer0: &PeerId, peer1: &PeerId) -> bool {
+    fn contains_edge(
+        &self,
+        peer0: &PeerId,
+        peer1: &PeerId,
+    ) -> bool {
         if let Some(&id0) = self.p2id.get(peer0) {
             if let Some(&id1) = self.p2id.get(peer1) {
                 return self.adjacency[id0 as usize].contains(&id1);
@@ -68,20 +76,27 @@ impl Graph {
         false
     }
 
-    fn remove_if_unused(&mut self, id: u32) {
+    fn remove_if_unused(
+        &mut self,
+        id: u32,
+    ) {
         let entry = &self.adjacency[id as usize];
 
         if entry.is_empty() && id != self.source_id {
             self.used[id as usize] = false;
             self.unused.push(id);
-            self.p2id.remove(&self.id2p[id as usize]);
+            self.p2id
+                .remove(&self.id2p[id as usize]);
         }
     }
 
-    fn get_id(&mut self, peer: &PeerId) -> u32 {
+    fn get_id(
+        &mut self,
+        peer: &PeerId,
+    ) -> u32 {
         match self.p2id.entry(peer.clone()) {
-            Entry::Occupied(occupied) => *occupied.get(),
-            Entry::Vacant(vacant) => {
+            | Entry::Occupied(occupied) => *occupied.get(),
+            | Entry::Vacant(vacant) => {
                 let val = if let Some(val) = self.unused.pop() {
                     assert!(!self.used[val as usize]);
                     assert!(self.adjacency[val as usize].is_empty());
@@ -102,7 +117,11 @@ impl Graph {
         }
     }
 
-    pub fn add_edge(&mut self, peer0: &PeerId, peer1: &PeerId) {
+    pub fn add_edge(
+        &mut self,
+        peer0: &PeerId,
+        peer1: &PeerId,
+    ) {
         assert_ne!(peer0, peer1);
         if !self.contains_edge(peer0, peer1) {
             let id0 = self.get_id(peer0);
@@ -115,7 +134,11 @@ impl Graph {
         }
     }
 
-    pub fn remove_edge(&mut self, peer0: &PeerId, peer1: &PeerId) {
+    pub fn remove_edge(
+        &mut self,
+        peer0: &PeerId,
+        peer1: &PeerId,
+    ) {
         assert_ne!(peer0, peer1);
         if self.contains_edge(peer0, peer1) {
             let id0 = self.get_id(peer0);
@@ -140,8 +163,10 @@ impl Graph {
     ) -> (HashMap<PeerId, Vec<PeerId>>, HashMap<PeerId, u32>) {
         // TODO add removal of unreachable nodes
 
-        let unreliable_peers: HashSet<_> =
-            unreliable_peers.iter().filter_map(|peer_id| self.p2id.get(peer_id).cloned()).collect();
+        let unreliable_peers: HashSet<_> = unreliable_peers
+            .iter()
+            .filter_map(|peer_id| self.p2id.get(peer_id).cloned())
+            .collect();
 
         let mut queue = VecDeque::new();
 
@@ -153,7 +178,11 @@ impl Graph {
 
         {
             let neighbors = &self.adjacency[self.source_id as usize];
-            for (id, &neighbor) in neighbors.iter().enumerate().take(MAX_TIER2_PEERS) {
+            for (id, &neighbor) in neighbors
+                .iter()
+                .enumerate()
+                .take(MAX_TIER2_PEERS)
+            {
                 if !unreliable_peers.contains(&neighbor) {
                     queue.push_back(neighbor);
                 }
@@ -257,22 +286,38 @@ mod test {
 
         let mut graph = Graph::new(source.clone());
 
-        assert!(graph.contains_edge(&source, &node0).not());
-        assert!(graph.contains_edge(&source, &node1).not());
-        assert!(graph.contains_edge(&node0, &node1).not());
-        assert!(graph.contains_edge(&node1, &node0).not());
+        assert!(graph
+            .contains_edge(&source, &node0)
+            .not());
+        assert!(graph
+            .contains_edge(&source, &node1)
+            .not());
+        assert!(graph
+            .contains_edge(&node0, &node1)
+            .not());
+        assert!(graph
+            .contains_edge(&node1, &node0)
+            .not());
 
         graph.add_edge(&node0, &node1);
 
-        assert!(graph.contains_edge(&source, &node0).not());
-        assert!(graph.contains_edge(&source, &node1).not());
+        assert!(graph
+            .contains_edge(&source, &node0)
+            .not());
+        assert!(graph
+            .contains_edge(&source, &node1)
+            .not());
         assert!(graph.contains_edge(&node0, &node1));
         assert!(graph.contains_edge(&node1, &node0));
 
         graph.remove_edge(&node1, &node0);
 
-        assert!(graph.contains_edge(&node0, &node1).not());
-        assert!(graph.contains_edge(&node1, &node0).not());
+        assert!(graph
+            .contains_edge(&node0, &node1)
+            .not());
+        assert!(graph
+            .contains_edge(&node1, &node0)
+            .not());
 
         assert_eq!(0, graph.total_active_edges() as usize);
         assert_eq!(0, graph.compute_total_active_edges() as usize);
@@ -300,7 +345,9 @@ mod test {
     #[test]
     fn graph_distance1() {
         let source = random_peer_id();
-        let nodes: Vec<_> = (0..3).map(|_| random_peer_id()).collect();
+        let nodes: Vec<_> = (0..3)
+            .map(|_| random_peer_id())
+            .collect();
 
         let mut graph = Graph::new(source);
 
@@ -317,7 +364,9 @@ mod test {
     #[test]
     fn graph_distance2() {
         let source = random_peer_id();
-        let nodes: Vec<_> = (0..3).map(|_| random_peer_id()).collect();
+        let nodes: Vec<_> = (0..3)
+            .map(|_| random_peer_id())
+            .collect();
 
         let mut graph = Graph::new(source.clone());
 
@@ -341,7 +390,9 @@ mod test {
     #[test]
     fn graph_distance3() {
         let source = random_peer_id();
-        let nodes: Vec<_> = (0..3).map(|_| random_peer_id()).collect();
+        let nodes: Vec<_> = (0..3)
+            .map(|_| random_peer_id())
+            .collect();
 
         let mut graph = Graph::new(source.clone());
 
@@ -377,7 +428,9 @@ mod test {
     #[test]
     fn graph_distance4() {
         let source = random_peer_id();
-        let nodes: Vec<_> = (0..11).map(|_| random_peer_id()).collect();
+        let nodes: Vec<_> = (0..11)
+            .map(|_| random_peer_id())
+            .collect();
 
         let mut graph = Graph::new(source.clone());
 
@@ -396,9 +449,12 @@ mod test {
         // Dummy edge.
         graph.add_edge(&nodes[9], &nodes[10]);
 
-        let mut next_hops: Vec<_> =
-            (0..3).map(|i| (nodes[i].clone(), vec![nodes[i].clone()])).collect();
-        let target: Vec<_> = (0..3).map(|i| nodes[i].clone()).collect();
+        let mut next_hops: Vec<_> = (0..3)
+            .map(|i| (nodes[i].clone(), vec![nodes[i].clone()]))
+            .collect();
+        let target: Vec<_> = (0..3)
+            .map(|i| nodes[i].clone())
+            .collect();
 
         for node in &nodes[3..9] {
             next_hops.push((node.clone(), target.clone()));
@@ -415,7 +471,9 @@ mod test {
     #[test]
     fn graph_distance4_with_unreliable_nodes() {
         let source = random_peer_id();
-        let nodes: Vec<_> = (0..11).map(|_| random_peer_id()).collect();
+        let nodes: Vec<_> = (0..11)
+            .map(|_| random_peer_id())
+            .collect();
 
         let mut graph = Graph::new(source.clone());
 
@@ -435,9 +493,12 @@ mod test {
         graph.add_edge(&nodes[9], &nodes[10]);
         let unreliable_peers = HashSet::from([nodes[0].clone()]);
 
-        let mut next_hops: Vec<_> =
-            (0..3).map(|i| (nodes[i].clone(), vec![nodes[i].clone()])).collect();
-        let target: Vec<_> = (1..3).map(|i| nodes[i].clone()).collect();
+        let mut next_hops: Vec<_> = (0..3)
+            .map(|i| (nodes[i].clone(), vec![nodes[i].clone()]))
+            .collect();
+        let target: Vec<_> = (1..3)
+            .map(|i| nodes[i].clone())
+            .collect();
 
         for node in &nodes[3..9] {
             next_hops.push((node.clone(), target.clone()));
@@ -456,7 +517,9 @@ mod test {
     #[test]
     fn graph_longer_distance_with_unreliable_nodes() {
         let source = random_peer_id();
-        let nodes: Vec<_> = (0..4).map(|_| random_peer_id()).collect();
+        let nodes: Vec<_> = (0..4)
+            .map(|_| random_peer_id())
+            .collect();
 
         let mut graph = Graph::new(source.clone());
         graph.add_edge(&source, &nodes[0]);

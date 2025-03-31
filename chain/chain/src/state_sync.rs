@@ -1,4 +1,5 @@
 use near_chain_primitives::error::Error;
+use near_primitives::block::Tip;
 use near_primitives::hash::CryptoHash;
 use near_primitives::types::EpochId;
 use near_store::{DBCol, Store, StoreUpdate};
@@ -16,7 +17,7 @@ fn get_state_sync_new_chunks(
 }
 
 fn iter_state_sync_hashes_keys<'a>(
-    store: &'a Store,
+    store: &'a Store
 ) -> impl Iterator<Item = Result<EpochId, std::io::Error>> + 'a {
     store
         .iter(DBCol::StateSyncHashes)
@@ -49,9 +50,14 @@ fn save_epoch_new_chunks<T: ChainStoreAccess>(
         return Ok(false);
     }
 
-    let done = num_new_chunks.iter().all(|num_chunks| *num_chunks >= 2);
+    let done = num_new_chunks
+        .iter()
+        .all(|num_chunks| *num_chunks >= 2);
 
-    for (num_new_chunks, new_chunk) in num_new_chunks.iter_mut().zip(header.chunk_mask().iter()) {
+    for (num_new_chunks, new_chunk) in num_new_chunks
+        .iter_mut()
+        .zip(header.chunk_mask().iter())
+    {
         // Only need to reach 2, so don't bother adding more than that
         if *new_chunk && *num_new_chunks < 2 {
             *num_new_chunks += 1;
@@ -62,7 +68,10 @@ fn save_epoch_new_chunks<T: ChainStoreAccess>(
     Ok(done)
 }
 
-fn on_new_epoch(store_update: &mut StoreUpdate, header: &BlockHeader) -> Result<(), Error> {
+fn on_new_epoch(
+    store_update: &mut StoreUpdate,
+    header: &BlockHeader,
+) -> Result<(), Error> {
     let num_new_chunks = vec![0u8; header.chunk_mask().len()];
     store_update.set_ser(DBCol::StateSyncNewChunks, header.hash().as_ref(), &num_new_chunks)?;
     Ok(())
@@ -90,21 +99,28 @@ fn maybe_get_block_header<T: ChainStoreAccess>(
     block_hash: &CryptoHash,
 ) -> Result<Option<BlockHeader>, Error> {
     match chain_store.get_block_header(block_hash) {
-        Ok(block_header) => Ok(Some(block_header)),
+        | Ok(block_header) => Ok(Some(block_header)),
         // This might happen in the case of epoch sync where we save individual headers without having all
         // headers that belong to the epoch.
-        Err(Error::DBNotFoundErr(_)) => Ok(None),
-        Err(e) => Err(e),
+        | Err(Error::DBNotFoundErr(_)) => Ok(None),
+        | Err(e) => Err(e),
     }
 }
 
-fn has_enough_new_chunks(store: &Store, block_hash: &CryptoHash) -> Result<Option<bool>, Error> {
+fn has_enough_new_chunks(
+    store: &Store,
+    block_hash: &CryptoHash,
+) -> Result<Option<bool>, Error> {
     let Some(num_new_chunks) = get_state_sync_new_chunks(store, block_hash)? else {
         // This might happen in the case of epoch sync where we save individual headers without having all
         // headers that belong to the epoch.
         return Ok(None);
     };
-    Ok(Some(num_new_chunks.iter().all(|num_chunks| *num_chunks >= 2)))
+    Ok(Some(
+        num_new_chunks
+            .iter()
+            .all(|num_chunks| *num_chunks >= 2),
+    ))
 }
 
 /// Save num new chunks info and store the state sync hash if it has been found. We store it only
@@ -181,11 +197,11 @@ pub(crate) fn update_sync_hashes<T: ChainStoreAccess>(
     }
 
     let prev_header = match chain_store.get_block_header(header.prev_hash()) {
-        Ok(h) => h,
+        | Ok(h) => h,
         // During epoch sync, we save headers whose prev headers might not exist, so we just do nothing in this case.
         // This means that we might not be able to state sync for this epoch, but for now this is not a problem.
-        Err(Error::DBNotFoundErr(_)) => return Ok(()),
-        Err(e) => return Err(e),
+        | Err(Error::DBNotFoundErr(_)) => return Ok(()),
+        | Err(e) => return Err(e),
     };
 
     if prev_header.height() == chain_store.get_genesis_height() {
@@ -202,10 +218,10 @@ pub(crate) fn update_sync_hashes<T: ChainStoreAccess>(
     on_new_header(chain_store, store_update, header)
 }
 
-///. Returns whether `block_hash` is the block that will appear immediately before the "sync_hash" block. That is,
-/// whether it is going to be the prev_hash of the "sync_hash" block, when it is found.
+/// Returns whether `tip.last_block_hash` is the block that will appear immediately before the "sync_hash" block.
+/// That is, whether it is going to be the prev_hash of the "sync_hash" block, when it is found.
 ///
-/// `block_hash` is the prev_hash of the future "sync_hash" block iff it is the first block for which the
+/// `tip.last_block_hash` is the prev_hash of the future "sync_hash" block iff it is the first block for which the
 /// number of new chunks in the epoch in each shard is at least 2
 ///
 /// This function can only return true before we save the "sync_hash" block to the `StateSyncHashes` column,
@@ -213,21 +229,34 @@ pub(crate) fn update_sync_hashes<T: ChainStoreAccess>(
 ///
 /// This is used when making state snapshots, because in that case we don't need to wait for the "sync_hash"
 /// block to be finalized to take a snapshot of the state as of its prev prev block
-pub(crate) fn is_sync_prev_hash(
-    store: &Store,
-    block_hash: &CryptoHash,
-    prev_hash: &CryptoHash,
+pub(crate) fn is_sync_prev_hash<T: ChainStoreAccess>(
+    chain_store: &T,
+    tip: &Tip,
 ) -> Result<bool, Error> {
-    let Some(new_chunks) = get_state_sync_new_chunks(store, block_hash)? else {
+    // Usually, if we're returning true from this function, this call to get_current_epoch_sync_hash()
+    // will return None because we're calling it during block preprocessing and the sync hash hasn't been
+    // found yet. But we still need to check this because it's possible that the sync hash was found
+    // during header sync, in which case the contents of the StateSyncNewChunks column will have been cleared,
+    // and the conditions below can't be checked.
+    if let Some(sync_hash) = chain_store.get_current_epoch_sync_hash(&tip.epoch_id)? {
+        let sync_header = chain_store.get_block_header(&sync_hash)?;
+        return Ok(sync_header.prev_hash() == &tip.last_block_hash);
+    }
+    let store = chain_store.store();
+    let Some(new_chunks) = get_state_sync_new_chunks(&store, &tip.last_block_hash)? else {
         return Ok(false);
     };
-    let done = new_chunks.iter().all(|num_chunks| *num_chunks >= 2);
+    let done = new_chunks
+        .iter()
+        .all(|num_chunks| *num_chunks >= 2);
     if !done {
         return Ok(false);
     }
-    let Some(prev_new_chunks) = get_state_sync_new_chunks(store, prev_hash)? else {
+    let Some(prev_new_chunks) = get_state_sync_new_chunks(&store, &tip.prev_block_hash)? else {
         return Ok(false);
     };
-    let prev_done = prev_new_chunks.iter().all(|num_chunks| *num_chunks >= 2);
+    let prev_done = prev_new_chunks
+        .iter()
+        .all(|num_chunks| *num_chunks >= 2);
     Ok(!prev_done)
 }

@@ -55,12 +55,19 @@ where
     T: ValueType,
 {
     /// Creates a new MemoryView given a `pointer` and `length`.
-    pub unsafe fn new(ptr: *mut T, length: u32) -> Self {
+    pub unsafe fn new(
+        ptr: *mut T,
+        length: u32,
+    ) -> Self {
         Self { ptr, length: length as usize, _phantom: PhantomData }
     }
 
     /// Creates a subarray view from this `MemoryView`.
-    pub fn subarray(&self, start: u32, end: u32) -> Self {
+    pub fn subarray(
+        &self,
+        start: u32,
+        end: u32,
+    ) -> Self {
         assert!((start as usize) < self.length, "The range start is bigger than current length");
         assert!((end as usize) < self.length, "The range end is bigger than current length");
 
@@ -80,7 +87,10 @@ where
     ///
     /// This method is unsafe because the caller will need to make sure
     /// there are no data races when copying memory into the view.
-    pub unsafe fn copy_from(&self, src: &[T]) {
+    pub unsafe fn copy_from(
+        &self,
+        src: &[T],
+    ) {
         // We cap at a max length
         let sliced_src = &src[..self.length];
         for (i, byte) in sliced_src.iter().enumerate() {

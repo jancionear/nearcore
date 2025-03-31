@@ -47,11 +47,18 @@ fn ultra_slow_test_consensus_with_epoch_switches() {
             ],
         ]
         .iter()
-        .map(|l| l.iter().map(|account_id| account_id.parse().unwrap()).collect())
+        .map(|l| {
+            l.iter()
+                .map(|account_id| account_id.parse().unwrap())
+                .collect()
+        })
         .collect();
-        let vs =
-            ValidatorSchedule::new().num_shards(8).block_producers_per_epoch(validators.clone());
-        let key_pairs = (0..24).map(|_| PeerInfo::random()).collect::<Vec<_>>();
+        let vs = ValidatorSchedule::new()
+            .num_shards(8)
+            .block_producers_per_epoch(validators.clone());
+        let key_pairs = (0..24)
+            .map(|_| PeerInfo::random())
+            .collect::<Vec<_>>();
         let archive = vec![true; vs.all_block_producers().count()];
 
         let block_to_prev_block = Arc::new(RwLock::new(HashMap::new()));
@@ -92,7 +99,7 @@ fn ultra_slow_test_consensus_with_epoch_switches() {
                 let mut delayed_blocks = delayed_blocks.write().unwrap();
 
                 match msg.as_network_requests_ref() {
-                    NetworkRequests::Block { block } => {
+                    | NetworkRequests::Block { block } => {
                         if !all_blocks.contains_key(&block.header().height()) {
                             println!(
                                 "BLOCK @{} EPOCH: {:?}, APPROVALS: {:?}",
@@ -152,14 +159,16 @@ fn ultra_slow_test_consensus_with_epoch_switches() {
                             }
                             if delayed_block.header().height() <= block.header().height() + 2 {
                                 for target_ord in 0..24 {
-                                    connectors1.write().unwrap()[target_ord].client_actor.do_send(
-                                        BlockResponse {
-                                            block: delayed_block.clone(),
-                                            peer_id: key_pairs[0].clone().id,
-                                            was_requested: true,
-                                        }
-                                        .with_span_context(),
-                                    );
+                                    connectors1.write().unwrap()[target_ord]
+                                        .client_actor
+                                        .do_send(
+                                            BlockResponse {
+                                                block: delayed_block.clone(),
+                                                peer_id: key_pairs[0].clone().id,
+                                                was_requested: true,
+                                            }
+                                            .with_span_context(),
+                                        );
                                 }
                             } else {
                                 new_delayed_blocks.push(delayed_block.clone())
@@ -171,7 +180,9 @@ fn ultra_slow_test_consensus_with_epoch_switches() {
                         let mut cur_hash = *block.hash();
                         while let Some(height) = block_to_height.get(&cur_hash) {
                             heights.push(height);
-                            cur_hash = *block_to_prev_block.get(&cur_hash).unwrap();
+                            cur_hash = *block_to_prev_block
+                                .get(&cur_hash)
+                                .unwrap();
                             if heights.len() > 10 {
                                 break;
                             }
@@ -182,7 +193,10 @@ fn ultra_slow_test_consensus_with_epoch_switches() {
                         println!(
                             "IS_FINAL: {} DELAYED: ({:?}) BLOCK: {} HISTORY: {:?}",
                             is_final,
-                            delayed_blocks.iter().map(|x| x.header().height()).collect::<Vec<_>>(),
+                            delayed_blocks
+                                .iter()
+                                .map(|x| x.header().height())
+                                .collect::<Vec<_>>(),
                             block.hash(),
                             heights,
                         );
@@ -191,7 +205,7 @@ fn ultra_slow_test_consensus_with_epoch_switches() {
                             final_block_heights.insert(*heights[1]);
                         }
                     }
-                    NetworkRequests::Approval { approval_message } => {
+                    | NetworkRequests::Approval { approval_message } => {
                         // Identify who we are, and whom we are sending this message to
                         let mut epoch_id = 100;
                         let mut destination_ord = 100;
@@ -214,7 +228,7 @@ fn ultra_slow_test_consensus_with_epoch_switches() {
                         // For each height we define `skips_per_height`, and each block producer sends
                         // skips that far into the future from that source height.
                         let source_height = match approval_message.approval.inner {
-                            ApprovalInner::Endorsement(_) => {
+                            | ApprovalInner::Endorsement(_) => {
                                 if largest_target_height[my_ord]
                                     >= approval_message.approval.target_height
                                     && my_ord % 8 >= 2
@@ -227,7 +241,7 @@ fn ultra_slow_test_consensus_with_epoch_switches() {
 
                                 approval_message.approval.target_height - 1
                             }
-                            ApprovalInner::Skip(source_height) => source_height,
+                            | ApprovalInner::Skip(source_height) => source_height,
                         };
 
                         while source_height as usize >= skips_per_height.len() {
@@ -272,7 +286,7 @@ fn ultra_slow_test_consensus_with_epoch_switches() {
                             }
                         }
                     }
-                    _ => {}
+                    | _ => {}
                 };
                 (NetworkResponses::NoResponse.into(), true)
             }),

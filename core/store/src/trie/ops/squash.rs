@@ -27,19 +27,22 @@ where
     /// the leaf to the root.
     /// For range removal, it is called in the end of recursive range removal
     /// function, which is the definition of post-order traversal.
-    fn squash_node(&mut self, node_id: UpdatedNodeId) -> Result<(), StorageError> {
+    fn squash_node(
+        &mut self,
+        node_id: UpdatedNodeId,
+    ) -> Result<(), StorageError> {
         let GenericUpdatedTrieNodeWithSize { node, memory_usage } = self.take_node(node_id);
         match node {
-            GenericUpdatedTrieNode::Empty => {
+            | GenericUpdatedTrieNode::Empty => {
                 // Empty node will be absorbed by its parent node, so defer that.
                 self.place_node_at(node_id, GenericUpdatedTrieNodeWithSize::empty());
             }
-            GenericUpdatedTrieNode::Leaf { .. } => {
+            | GenericUpdatedTrieNode::Leaf { .. } => {
                 // It's impossible that we would squash a leaf node, because if we
                 // had deleted a leaf it would become Empty instead.
                 unreachable!();
             }
-            GenericUpdatedTrieNode::Branch { mut children, value } => {
+            | GenericUpdatedTrieNode::Branch { mut children, value } => {
                 // Remove any children that are now empty (removed).
                 for child in children.iter_mut() {
                     if let Some(GenericNodeOrIndex::Updated(child_node_id)) = child {
@@ -50,13 +53,16 @@ where
                         }
                     }
                 }
-                let num_children = children.iter().filter(|node| node.is_some()).count();
+                let num_children = children
+                    .iter()
+                    .filter(|node| node.is_some())
+                    .count();
                 if num_children == 0 {
                     match value {
-                        None => {
+                        | None => {
                             self.place_node_at(node_id, GenericUpdatedTrieNodeWithSize::empty())
                         }
-                        Some(value) => {
+                        | Some(value) => {
                             // Branch with zero children and a value becomes leaf.
                             let leaf_node = GenericUpdatedTrieNode::Leaf {
                                 extension: NibbleSlice::new(&[])
@@ -95,7 +101,7 @@ where
                     );
                 }
             }
-            GenericUpdatedTrieNode::Extension { extension, child } => {
+            | GenericUpdatedTrieNode::Extension { extension, child } => {
                 self.extend_child(node_id, extension, child)?;
             }
         }
@@ -117,13 +123,13 @@ where
         let GenericUpdatedTrieNodeWithSize { node, memory_usage } = self.take_node(child_id);
         let child_child_memory_usage = memory_usage.saturating_sub(node.memory_usage_direct());
         match node {
-            GenericUpdatedTrieNode::Empty => {
+            | GenericUpdatedTrieNode::Empty => {
                 self.place_node_at(node_id, GenericUpdatedTrieNodeWithSize::empty());
             }
             // If the child is a leaf (which could happen if a branch node lost
             // all its branches and only had a value left, or is left with only
             // one branch and that was squashed to a leaf).
-            GenericUpdatedTrieNode::Leaf { extension: child_extension, value } => {
+            | GenericUpdatedTrieNode::Leaf { extension: child_extension, value } => {
                 let child_extension = NibbleSlice::from_encoded(&child_extension).0;
                 let extension = NibbleSlice::from_encoded(&extension)
                     .0
@@ -135,7 +141,7 @@ where
                 self.place_node_at(node_id, GenericUpdatedTrieNodeWithSize { node, memory_usage });
             }
             // If the child is a branch, there's nothing to squash.
-            child_node @ GenericUpdatedTrieNode::Branch { .. } => {
+            | child_node @ GenericUpdatedTrieNode::Branch { .. } => {
                 self.place_node_at(
                     child_id,
                     GenericUpdatedTrieNodeWithSize { node: child_node, memory_usage },
@@ -149,7 +155,7 @@ where
             }
             // If the child is an extension (which could happen if a branch node
             // is left with only one branch), join the two extensions into one.
-            GenericUpdatedTrieNode::Extension {
+            | GenericUpdatedTrieNode::Extension {
                 extension: child_extension,
                 child: inner_child,
             } => {

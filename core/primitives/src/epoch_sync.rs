@@ -23,14 +23,14 @@ impl EpochSyncProof {
     /// Right now this would never fail, but in the future this API can be changed.
     pub fn into_v1(self) -> EpochSyncProofV1 {
         match self {
-            EpochSyncProof::V1(v1) => v1,
+            | EpochSyncProof::V1(v1) => v1,
         }
     }
 
     /// Right now this would never fail, but in the future this API can be changed.
     pub fn as_v1(&self) -> &EpochSyncProofV1 {
         match self {
-            EpochSyncProof::V1(v1) => v1,
+            | EpochSyncProof::V1(v1) => v1,
         }
     }
 }
@@ -83,7 +83,10 @@ impl
 }
 
 impl Debug for CompressedEpochSyncProof {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+    ) -> std::fmt::Result {
         f.debug_struct("CompressedEpochSyncProof")
             .field("len", &self.0.len())
             .field("proof", &self.decode())

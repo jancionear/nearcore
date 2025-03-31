@@ -8,7 +8,10 @@ pub struct MinHeap<T> {
 }
 
 impl<T: Ord> MinHeap<T> {
-    pub fn push(&mut self, t: T) {
+    pub fn push(
+        &mut self,
+        t: T,
+    ) {
         self.inner.push(Reverse(t));
     }
 
@@ -28,8 +31,14 @@ impl<T: Ord> MinHeap<T> {
         self.inner.len()
     }
 
-    pub fn extend<I: IntoIterator<Item = T>>(&mut self, iter: I) {
-        self.inner.extend(iter.into_iter().map(|item| Reverse(item)))
+    pub fn extend<I: IntoIterator<Item = T>>(
+        &mut self,
+        iter: I,
+    ) {
+        self.inner.extend(
+            iter.into_iter()
+                .map(|item| Reverse(item)),
+        )
     }
 }
 
@@ -44,7 +53,10 @@ where
 
 impl<T: Ord> FromIterator<T> for MinHeap<T> {
     fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
-        let inner = iter.into_iter().map(|t| Reverse(t)).collect();
+        let inner = iter
+            .into_iter()
+            .map(|t| Reverse(t))
+            .collect();
         Self { inner }
     }
 }
@@ -54,7 +66,9 @@ impl<T> IntoIterator for MinHeap<T> {
     type IntoIter = std::iter::Map<IntoIter<Reverse<T>>, fn(Reverse<T>) -> T>;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.inner.into_iter().map(|Reverse(t)| t)
+        self.inner
+            .into_iter()
+            .map(|Reverse(t)| t)
     }
 }
 
@@ -132,7 +146,10 @@ mod tests {
     #[test]
     fn test_collect_pop() {
         // Elements collected into a heap should be popped back in increasing order.
-        let mut heap: MinHeap<usize> = [9, 3, 100, 10, 5].iter().copied().collect();
+        let mut heap: MinHeap<usize> = [9, 3, 100, 10, 5]
+            .iter()
+            .copied()
+            .collect();
 
         assert_eq!(heap.len(), 5);
         assert_eq!(heap.pop(), Some(3));

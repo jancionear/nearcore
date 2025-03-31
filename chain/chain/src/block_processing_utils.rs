@@ -55,8 +55,8 @@ pub(crate) enum AddError {
 impl From<AddError> for near_chain_primitives::Error {
     fn from(err: AddError) -> Self {
         match err {
-            AddError::ExceedingPoolSize => near_chain_primitives::Error::TooManyProcessingBlocks,
-            AddError::BlockAlreadyInPool => {
+            | AddError::ExceedingPoolSize => near_chain_primitives::Error::TooManyProcessingBlocks,
+            | AddError::BlockAlreadyInPool => {
                 near_chain_primitives::Error::BlockKnown(KnownInProcessing)
             }
         }
@@ -97,37 +97,52 @@ impl BlocksInProcessing {
     ) -> Result<(), AddError> {
         self.add_dry_run(block.hash())?;
 
-        self.preprocessed_blocks.insert(*block.hash(), (block, preprocess_info));
+        self.preprocessed_blocks
+            .insert(*block.hash(), (block, preprocess_info));
         Ok(())
     }
 
-    pub(crate) fn contains(&self, block_hash: &CryptoHash) -> bool {
-        self.preprocessed_blocks.contains_key(block_hash)
+    pub(crate) fn contains(
+        &self,
+        block_hash: &CryptoHash,
+    ) -> bool {
+        self.preprocessed_blocks
+            .contains_key(block_hash)
     }
 
     pub(crate) fn remove(
         &mut self,
         block_hash: &CryptoHash,
     ) -> Option<(Block, BlockPreprocessInfo)> {
-        self.preprocessed_blocks.remove(block_hash)
+        self.preprocessed_blocks
+            .remove(block_hash)
     }
 
     /// This function does NOT add the block, it simply checks if the block can be added
-    pub(crate) fn add_dry_run(&self, block_hash: &CryptoHash) -> Result<(), AddError> {
+    pub(crate) fn add_dry_run(
+        &self,
+        block_hash: &CryptoHash,
+    ) -> Result<(), AddError> {
         // We set a limit to the max number of blocks that we will be processing at the same time.
         // Since processing a block requires that the its previous block is processed, this limit
         // is likely never hit, unless there are many forks in the chain.
         // In this case, we will simply drop the block.
         if self.preprocessed_blocks.len() >= MAX_PROCESSING_BLOCKS {
             Err(AddError::ExceedingPoolSize)
-        } else if self.preprocessed_blocks.contains_key(block_hash) {
+        } else if self
+            .preprocessed_blocks
+            .contains_key(block_hash)
+        {
             Err(AddError::BlockAlreadyInPool)
         } else {
             Ok(())
         }
     }
 
-    pub(crate) fn has_blocks_to_catch_up(&self, prev_hash: &CryptoHash) -> bool {
+    pub(crate) fn has_blocks_to_catch_up(
+        &self,
+        prev_hash: &CryptoHash,
+    ) -> bool {
         self.preprocessed_blocks
             .iter()
             .any(|(_, (block, _))| block.header().prev_hash() == prev_hash)
@@ -137,7 +152,9 @@ impl BlocksInProcessing {
     /// Returns true if new blocks are done applying chunks
     pub(crate) fn wait_for_all_blocks(&self) -> bool {
         for (_, (_, block_preprocess_info)) in self.preprocessed_blocks.iter() {
-            let _ = block_preprocess_info.apply_chunks_done_waiter.wait();
+            let _ = block_preprocess_info
+                .apply_chunks_done_waiter
+                .wait();
         }
         !self.preprocessed_blocks.is_empty()
     }
@@ -171,7 +188,10 @@ impl ApplyChunksDoneWaiter {
         let lock = Arc::new(tokio::sync::Mutex::new(()));
         // Use try_lock_owned() rather than blocking_lock_owned(), because otherwise
         // this causes a panic if we do this on a tokio runtime.
-        let guard = lock.clone().try_lock_owned().expect("should succeed on a fresh mutex");
+        let guard = lock
+            .clone()
+            .try_lock_owned()
+            .expect("should succeed on a fresh mutex");
         (ApplyChunksDoneWaiter(lock), ApplyChunksStillApplying { _guard: guard })
     }
 

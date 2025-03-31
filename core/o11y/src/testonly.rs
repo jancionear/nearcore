@@ -10,13 +10,16 @@ use tracing_subscriber::EnvFilter;
 
 fn setup_subscriber_from_filter(mut env_filter: EnvFilter) {
     if let Ok(rust_log) = std::env::var("RUST_LOG") {
-        for directive in rust_log.split(',').filter_map(|s| match s.parse() {
-            Ok(directive) => Some(directive),
-            Err(err) => {
-                eprintln!("Ignoring directive `{}`: {}", s, err);
-                None
-            }
-        }) {
+        for directive in rust_log
+            .split(',')
+            .filter_map(|s| match s.parse() {
+                | Ok(directive) => Some(directive),
+                | Err(err) => {
+                    eprintln!("Ignoring directive `{}`: {}", s, err);
+                    None
+                }
+            })
+        {
             env_filter = env_filter.add_directive(directive);
         }
     }
@@ -72,7 +75,10 @@ impl From<Instant> for TestUptime {
 }
 
 impl FormatTime for TestUptime {
-    fn format_time(&self, w: &mut Writer<'_>) -> Result {
+    fn format_time(
+        &self,
+        w: &mut Writer<'_>,
+    ) -> Result {
         let e = self.epoch.elapsed();
         write!(w, "{:2}.{:03}s", e.as_secs(), e.subsec_millis())
     }

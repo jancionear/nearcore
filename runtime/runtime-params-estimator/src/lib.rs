@@ -324,7 +324,9 @@ pub fn run(config: Config) -> CostTable {
             format!("{:?}", measurement),
             uncertain,
             time,
-            measurement.uncertain_message().unwrap_or_default(),
+            measurement
+                .uncertain_message()
+                .unwrap_or_default(),
         );
 
         if config.json_output {
@@ -342,7 +344,11 @@ pub fn run(config: Config) -> CostTable {
 }
 
 fn action_receipt_creation(ctx: &mut EstimatorContext) -> GasCost {
-    if let Some(cached) = ctx.cached.action_receipt_creation.clone() {
+    if let Some(cached) = ctx
+        .cached
+        .action_receipt_creation
+        .clone()
+    {
         return cached;
     }
 
@@ -361,7 +367,11 @@ fn action_receipt_creation(ctx: &mut EstimatorContext) -> GasCost {
 }
 
 fn action_sir_receipt_creation(ctx: &mut EstimatorContext) -> GasCost {
-    if let Some(cached) = ctx.cached.action_sir_receipt_creation.clone() {
+    if let Some(cached) = ctx
+        .cached
+        .action_sir_receipt_creation
+        .clone()
+    {
         return cached;
     }
 
@@ -382,7 +392,9 @@ fn action_transfer(ctx: &mut EstimatorContext) -> GasCost {
         let mut make_transaction = |tb: &mut TransactionBuilder| -> SignedTransaction {
             let (sender, receiver) = tb.random_account_pair();
 
-            let actions = vec![Action::Transfer(TransferAction { deposit: 1 })];
+            let actions = vec![Action::Transfer(TransferAction {
+                deposit: 1,
+            })];
             tb.transaction_from_actions(sender, receiver, actions)
         };
         let block_size = 100;
@@ -427,7 +439,9 @@ fn action_delete_account(ctx: &mut EstimatorContext) -> GasCost {
             let receiver = sender.clone();
             let beneficiary_id = tb.random_unused_account();
 
-            let actions = vec![Action::DeleteAccount(DeleteAccountAction { beneficiary_id })];
+            let actions = vec![Action::DeleteAccount(
+                DeleteAccountAction { beneficiary_id },
+            )];
             tb.transaction_from_actions(sender, receiver, actions)
         };
         let block_size = 100;
@@ -457,7 +471,11 @@ fn action_add_full_access_key(ctx: &mut EstimatorContext) -> GasCost {
 }
 
 fn action_add_function_access_key_base(ctx: &mut EstimatorContext) -> GasCost {
-    if let Some(cost) = ctx.cached.action_add_function_access_key_base.clone() {
+    if let Some(cost) = ctx
+        .cached
+        .action_add_function_access_key_base
+        .clone()
+    {
         return cost;
     }
 
@@ -479,7 +497,8 @@ fn action_add_function_access_key_base(ctx: &mut EstimatorContext) -> GasCost {
     let base_cost = action_sir_receipt_creation(ctx);
 
     let cost = total_cost.saturating_sub(&base_cost, &NonNegativeTolerance::PER_MILLE);
-    ctx.cached.action_add_function_access_key_base = Some(cost.clone());
+    ctx.cached
+        .action_add_function_access_key_base = Some(cost.clone());
     cost
 }
 
@@ -530,7 +549,10 @@ fn action_add_function_access_key_per_byte(ctx: &mut EstimatorContext) -> GasCos
     let cost_d = estimate(max_method_len, max_method_len + 1);
     let cost_e = estimate(max_method_len / 2, max_bytes / 2);
 
-    [cost_a, cost_b, cost_c, cost_d, cost_e].into_iter().max().unwrap()
+    [cost_a, cost_b, cost_c, cost_d, cost_e]
+        .into_iter()
+        .max()
+        .unwrap()
 }
 
 fn add_key_transaction(
@@ -540,13 +562,18 @@ fn add_key_transaction(
 ) -> SignedTransaction {
     let receiver = sender.clone();
 
-    let public_key = "ed25519:DcA2MzgpJbrUATQLLceocVckhhAqrkingax4oJ9kZ847".parse().unwrap();
+    let public_key = "ed25519:DcA2MzgpJbrUATQLLceocVckhhAqrkingax4oJ9kZ847"
+        .parse()
+        .unwrap();
     let access_key = AccessKey { nonce: 0, permission };
 
     tb.transaction_from_actions(
         sender,
         receiver,
-        vec![Action::AddKey(Box::new(AddKeyAction { public_key, access_key }))],
+        vec![Action::AddKey(Box::new(AddKeyAction {
+            public_key,
+            access_key,
+        }))],
     )
 }
 
@@ -556,9 +583,12 @@ fn action_delete_key(ctx: &mut EstimatorContext) -> GasCost {
             let sender = tb.random_unused_account();
             let receiver = sender.clone();
 
-            let actions = vec![Action::DeleteKey(Box::new(DeleteKeyAction {
-                public_key: SecretKey::from_seed(KeyType::ED25519, sender.as_ref()).public_key(),
-            }))];
+            let actions = vec![Action::DeleteKey(Box::new(
+                DeleteKeyAction {
+                    public_key: SecretKey::from_seed(KeyType::ED25519, sender.as_ref())
+                        .public_key(),
+                },
+            ))];
             tb.transaction_from_actions(sender, receiver, actions)
         };
         transaction_cost(ctx, &mut make_transaction)
@@ -577,7 +607,9 @@ fn action_stake(ctx: &mut EstimatorContext) -> GasCost {
 
             let actions = vec![Action::Stake(Box::new(StakeAction {
                 stake: 1,
-                public_key: "22skMptHjFWNyuEWY22ftn2AbLPSYpmYwGJRGwpNHbTV".parse().unwrap(),
+                public_key: "22skMptHjFWNyuEWY22ftn2AbLPSYpmYwGJRGwpNHbTV"
+                    .parse()
+                    .unwrap(),
             }))];
             tb.transaction_from_actions(sender, receiver, actions)
         };
@@ -661,8 +693,10 @@ fn deploy_contract_cost(
             let unique_name = generate_fn_name(code_num, pivot_fn_name.len());
             code_num += 1;
 
-            let start =
-                code.windows(pivot_fn_name.len()).position(|slice| slice == pivot_fn_name).unwrap();
+            let start = code
+                .windows(pivot_fn_name.len())
+                .position(|slice| slice == pivot_fn_name)
+                .unwrap();
             code[start..(start + pivot_fn_name.len())].copy_from_slice(&unique_name);
         }
         code
@@ -672,7 +706,9 @@ fn deploy_contract_cost(
         let sender = tb.random_unused_account();
         let receiver = sender.clone();
 
-        let actions = vec![Action::DeployContract(DeployContractAction { code: code_factory() })];
+        let actions = vec![Action::DeployContract(
+            DeployContractAction { code: code_factory() },
+        )];
         tb.transaction_from_actions(sender, receiver, actions)
     };
     // Use a small block size since deployments are gas heavy.
@@ -689,7 +725,11 @@ fn contract_compile_bytes(ctx: &mut EstimatorContext) -> GasCost {
     compilation_cost_base_per_byte(ctx).1
 }
 fn compilation_cost_base_per_byte(ctx: &mut EstimatorContext) -> (GasCost, GasCost) {
-    if let Some(base_byte_cost) = ctx.cached.compile_cost_base_per_byte.clone() {
+    if let Some(base_byte_cost) = ctx
+        .cached
+        .compile_cost_base_per_byte
+        .clone()
+    {
         return base_byte_cost;
     }
 
@@ -706,7 +746,11 @@ fn contract_compile_bytes_v2(ctx: &mut EstimatorContext) -> GasCost {
     contract_compile_base_per_byte_v2(ctx).1
 }
 fn contract_compile_base_per_byte_v2(ctx: &mut EstimatorContext) -> (GasCost, GasCost) {
-    if let Some(costs) = ctx.cached.compile_cost_base_per_byte_v2.clone() {
+    if let Some(costs) = ctx
+        .cached
+        .compile_cost_base_per_byte_v2
+        .clone()
+    {
         return costs;
     }
 
@@ -736,10 +780,16 @@ fn contract_compile_base_per_byte_v2(ctx: &mut EstimatorContext) -> (GasCost, Ga
 
 fn pure_deploy_bytes(ctx: &mut EstimatorContext) -> GasCost {
     let config_store = RuntimeConfigStore::new(None);
-    let vm_config = config_store.get_config(PROTOCOL_VERSION).wasm_config.clone();
+    let vm_config = config_store
+        .get_config(PROTOCOL_VERSION)
+        .wasm_config
+        .clone();
     let small_code = generate_data_only_contract(0, &vm_config);
     let large_code = generate_data_only_contract(
-        vm_config.limit_config.max_transaction_size as usize - 2000,
+        vm_config
+            .limit_config
+            .max_transaction_size as usize
+            - 2000,
         &vm_config,
     );
     let small_code_len = small_code.len();
@@ -756,7 +806,10 @@ fn action_function_call_base(ctx: &mut EstimatorContext) -> GasCost {
         return cost.clone();
     }
     let config_store = RuntimeConfigStore::new(None);
-    let vm_config = config_store.get_config(PROTOCOL_VERSION).wasm_config.clone();
+    let vm_config = config_store
+        .get_config(PROTOCOL_VERSION)
+        .wasm_config
+        .clone();
     let n_actions = 100;
     let code = generate_data_only_contract(0, &vm_config);
     // This returns a cost without block/transaction/receipt overhead.
@@ -764,7 +817,10 @@ fn action_function_call_base(ctx: &mut EstimatorContext) -> GasCost {
     // Executable loading is a separately charged step, so it must be subtracted on the action cost.
     let executable_loading_cost = contract_loading_base(ctx);
     let cost = base_cost.saturating_sub(&executable_loading_cost, &NonNegativeTolerance::PER_MILLE);
-    ctx.cached.function_call_base.insert(cost).clone()
+    ctx.cached
+        .function_call_base
+        .insert(cost)
+        .clone()
 }
 
 fn action_function_call_per_byte(ctx: &mut EstimatorContext) -> GasCost {
@@ -786,7 +842,10 @@ fn action_function_call_per_byte(ctx: &mut EstimatorContext) -> GasCost {
     per_byte
 }
 
-fn inner_action_function_call_per_byte(ctx: &mut EstimatorContext, arg_len: usize) -> GasCost {
+fn inner_action_function_call_per_byte(
+    ctx: &mut EstimatorContext,
+    arg_len: usize,
+) -> GasCost {
     let mut make_transaction = |tb: &mut TransactionBuilder| -> SignedTransaction {
         let sender = tb.random_unused_account();
         let args = utils::random_vec(arg_len);
@@ -806,17 +865,25 @@ fn contract_loading_per_byte(ctx: &mut EstimatorContext) -> GasCost {
     per_byte
 }
 fn contract_loading_base_per_byte(ctx: &mut EstimatorContext) -> (GasCost, GasCost) {
-    if let Some(base_byte_cost) = ctx.cached.contract_loading_base_per_byte.clone() {
+    if let Some(base_byte_cost) = ctx
+        .cached
+        .contract_loading_base_per_byte
+        .clone()
+    {
         return base_byte_cost;
     }
 
     let (base, per_byte) = crate::function_call::contract_loading_cost(ctx.config);
-    ctx.cached.contract_loading_base_per_byte = Some((base.clone(), per_byte.clone()));
+    ctx.cached
+        .contract_loading_base_per_byte = Some((base.clone(), per_byte.clone()));
     (base, per_byte)
 }
 fn function_call_per_storage_byte(ctx: &mut EstimatorContext) -> GasCost {
     let config_store = RuntimeConfigStore::new(None);
-    let vm_config = config_store.get_config(PROTOCOL_VERSION).wasm_config.clone();
+    let vm_config = config_store
+        .get_config(PROTOCOL_VERSION)
+        .wasm_config
+        .clone();
     let n_actions = 5;
 
     let small_code = generate_data_only_contract(0, &vm_config);
@@ -906,7 +973,10 @@ fn wasm_instruction(ctx: &mut EstimatorContext) -> GasCost {
     let code = ContractCode::new(code.to_vec(), None);
     let mut fake_external = MockedExternal::with_code(code.clone_for_tests());
     let config_store = RuntimeConfigStore::new(None);
-    let config = config_store.get_config(PROTOCOL_VERSION).wasm_config.clone();
+    let config = config_store
+        .get_config(PROTOCOL_VERSION)
+        .wasm_config
+        .clone();
     let fees = Arc::new(RuntimeFeesConfig::test());
     let cache = MockContractRuntimeCache::default();
 
@@ -1044,7 +1114,10 @@ fn ed25519_verify_base(ctx: &mut EstimatorContext) -> GasCost {
         return cost.clone();
     }
     let cost = fn_cost(ctx, "ed25519_verify_32b_500", ExtCosts::ed25519_verify_base, 500);
-    ctx.cached.ed25519_verify_base.insert(cost).clone()
+    ctx.cached
+        .ed25519_verify_base
+        .insert(cost)
+        .clone()
 }
 
 fn ed25519_verify_byte(ctx: &mut EstimatorContext) -> GasCost {
@@ -1195,7 +1268,10 @@ fn storage_read_base(ctx: &mut EstimatorContext) -> GasCost {
         1000,
         0,
     );
-    ctx.cached.storage_read_base.insert(cost).clone()
+    ctx.cached
+        .storage_read_base
+        .insert(cost)
+        .clone()
 }
 fn storage_read_key_byte(ctx: &mut EstimatorContext) -> GasCost {
     fn_cost_with_setup(
@@ -1286,7 +1362,11 @@ fn touching_trie_node(ctx: &mut EstimatorContext) -> GasCost {
 }
 
 fn touching_trie_node_write(ctx: &mut EstimatorContext) -> GasCost {
-    if let Some(cost) = ctx.cached.touching_trie_node_write.clone() {
+    if let Some(cost) = ctx
+        .cached
+        .touching_trie_node_write
+        .clone()
+    {
         return cost;
     }
     let warmup_iters = ctx.config.warmup_iters_per_block;
@@ -1358,13 +1438,19 @@ fn gas_metering_op(ctx: &mut EstimatorContext) -> GasCost {
 
 fn rocks_db_insert_value_byte(ctx: &mut EstimatorContext) -> GasCost {
     let total_bytes = ctx.config.rocksdb_test_config.op_count as u64
-        * ctx.config.rocksdb_test_config.value_size as u64;
+        * ctx
+            .config
+            .rocksdb_test_config
+            .value_size as u64;
     rocks_db_inserts_cost(&ctx.config) / total_bytes
 }
 
 fn rocks_db_read_value_byte(ctx: &mut EstimatorContext) -> GasCost {
     let total_bytes = ctx.config.rocksdb_test_config.op_count as u64
-        * ctx.config.rocksdb_test_config.value_size as u64;
+        * ctx
+            .config
+            .rocksdb_test_config
+            .value_size as u64;
     rocks_db_read_cost(&ctx.config) / total_bytes
 }
 
@@ -1378,7 +1464,10 @@ fn yield_create_base(ctx: &mut EstimatorContext) -> GasCost {
             fn_cost_count(ctx, "yield_create_base", ExtCosts::yield_create_base, 1);
         assert_eq!(count, 1000);
         let result = result / count;
-        ctx.cached.yield_create_base.insert(result).clone()
+        ctx.cached
+            .yield_create_base
+            .insert(result)
+            .clone()
     };
     result.saturating_sub(&(base_cost / 1000), &NonNegativeTolerance::PER_MILLE)
 }
@@ -1436,7 +1525,11 @@ fn yield_resume_byte(ctx: &mut EstimatorContext) -> GasCost {
 }
 
 fn gas_metering(ctx: &mut EstimatorContext) -> (GasCost, GasCost) {
-    if let Some(cached) = ctx.cached.gas_metering_cost_base_per_op.clone() {
+    if let Some(cached) = ctx
+        .cached
+        .gas_metering_cost_base_per_op
+        .clone()
+    {
         return cached;
     }
     let (base, byte) = gas_metering_cost(&ctx.config);

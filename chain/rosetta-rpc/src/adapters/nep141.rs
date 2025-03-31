@@ -27,10 +27,12 @@ async fn compose_rosetta_nep141_events(
 ) -> crate::errors::Result<Vec<FungibleTokenEvent>> {
     let mut ft_events = Vec::new();
     match &events.event_kind {
-        crate::models::Nep141EventKind::FtTransfer(transfer_events) => {
+        | crate::models::Nep141EventKind::FtTransfer(transfer_events) => {
             if let Some(currencies) = currencies {
-                let currency_map: std::collections::HashMap<String, Currency> =
-                    currencies.clone().into_iter().collect::<HashMap<String, Currency>>();
+                let currency_map: std::collections::HashMap<String, Currency> = currencies
+                    .clone()
+                    .into_iter()
+                    .collect::<HashMap<String, Currency>>();
                 for transfer_event in transfer_events {
                     if let Some(currency) =
                         currency_map.get(&outcome.outcome.executor_id.to_string())
@@ -88,7 +90,10 @@ pub(crate) async fn get_fungible_token_balance_for_account(
     account_identifier: &AccountIdentifier,
 ) -> crate::errors::Result<u128> {
     let method_name = "ft_balance_of".to_string();
-    let account_id_for_args = account_identifier.clone().address.to_string();
+    let account_id_for_args = account_identifier
+        .clone()
+        .address
+        .to_string();
     let args = serde_json::json!({
         "account_id":account_id_for_args,
     })
@@ -124,15 +129,15 @@ pub(crate) async fn get_fungible_token_balance_for_account(
         )))
     })?;
     let amount: String = match serde_json::from_value(serde_call_result) {
-        Ok(amount) => amount,
-        Err(err) => return Err(err.into()),
+        | Ok(amount) => amount,
+        | Err(err) => return Err(err.into()),
     };
     let amount = amount.parse::<u128>()?;
     Ok(amount)
 }
 
 pub(crate) fn extract_events(
-    execution_outcome: &ExecutionOutcomeWithIdView,
+    execution_outcome: &ExecutionOutcomeWithIdView
 ) -> Vec<crate::models::Nep141Event> {
     let prefix = "EVENT_JSON:";
     execution_outcome
@@ -147,8 +152,8 @@ pub(crate) fn extract_events(
 
             match serde_json::from_str::<'_, crate::models::Nep141Event>(log[prefix.len()..].trim())
             {
-                Ok(result) => Some(result),
-                Err(_err) => None,
+                | Ok(result) => Some(result),
+                | Err(_err) => None,
             }
         })
         .collect()
@@ -163,7 +168,11 @@ pub(crate) fn get_base(
         receipt_id: outcome.id,
         block_height: block_header.height,
         block_timestamp: block_header.timestamp,
-        contract_account_id: outcome.outcome.executor_id.clone().into(),
+        contract_account_id: outcome
+            .outcome
+            .executor_id
+            .clone()
+            .into(),
         status: outcome.outcome.status.clone(),
     })
 }
@@ -173,7 +182,7 @@ pub(crate) enum Event {
 }
 fn get_standard(event_type: &Event) -> String {
     match event_type {
-        Event::Nep141 => FT,
+        | Event::Nep141 => FT,
     }
     .to_string()
 }
@@ -188,11 +197,16 @@ async fn build_event(
         receipt_id: base.receipt_id,
         block_height: base.block_height,
         block_timestamp: base.block_timestamp,
-        contract_account_id: base.contract_account_id.address.to_string(),
+        contract_account_id: base
+            .contract_account_id
+            .address
+            .to_string(),
         symbol: custom.symbol,
         decimals: custom.decimals,
         affected_account_id: custom.affected_id.address.to_string(),
-        involved_account_id: custom.involved_id.map(|id| id.address.to_string()),
+        involved_account_id: custom
+            .involved_id
+            .map(|id| id.address.to_string()),
         delta_amount: custom.delta,
         cause: custom.cause,
         status: get_status(&base.status),
@@ -202,10 +216,10 @@ async fn build_event(
 
 fn get_status(status: &near_primitives::views::ExecutionStatusView) -> String {
     match status {
-        near_primitives::views::ExecutionStatusView::Unknown => "UNKNOWN",
-        near_primitives::views::ExecutionStatusView::Failure(_) => "FAILURE",
-        near_primitives::views::ExecutionStatusView::SuccessValue(_) => "SUCCESS",
-        near_primitives::views::ExecutionStatusView::SuccessReceiptId(_) => "SUCCESS",
+        | near_primitives::views::ExecutionStatusView::Unknown => "UNKNOWN",
+        | near_primitives::views::ExecutionStatusView::Failure(_) => "FAILURE",
+        | near_primitives::views::ExecutionStatusView::SuccessValue(_) => "SUCCESS",
+        | near_primitives::views::ExecutionStatusView::SuccessReceiptId(_) => "SUCCESS",
     }
     .to_string()
 }

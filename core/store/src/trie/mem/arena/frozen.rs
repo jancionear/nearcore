@@ -13,7 +13,11 @@ pub struct FrozenArenaMemory {
 /// We only implement the ArenaMemory interface for FrozenArena, as it is read-only.
 /// ArenaMemoryMut is not implemented.
 impl ArenaMemory for FrozenArenaMemory {
-    fn raw_slice(&self, pos: ArenaPos, len: usize) -> &[u8] {
+    fn raw_slice(
+        &self,
+        pos: ArenaPos,
+        len: usize,
+    ) -> &[u8] {
         self.shared_memory.raw_slice(pos, len)
     }
 }

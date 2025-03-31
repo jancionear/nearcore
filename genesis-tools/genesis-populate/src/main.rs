@@ -27,10 +27,15 @@ fn main() {
         )
         .get_matches();
 
-    let home_dir = matches.get_one::<PathBuf>("home").unwrap();
+    let home_dir = matches
+        .get_one::<PathBuf>("home")
+        .unwrap();
     let additional_accounts_num = matches
         .get_one::<String>("additional-accounts-num")
-        .map(|x| x.parse::<u64>().expect("Failed to parse number of additional accounts."))
+        .map(|x| {
+            x.parse::<u64>()
+                .expect("Failed to parse number of additional accounts.")
+        })
         .unwrap();
     let near_config = load_config(home_dir, GenesisValidationMode::Full)
         .unwrap_or_else(|e| panic!("Error loading config: {:#}", e));

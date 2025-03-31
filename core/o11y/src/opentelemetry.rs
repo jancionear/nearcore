@@ -52,8 +52,14 @@ where
     };
     resource.push(KeyValue::new(SERVICE_NAME, service_name));
 
-    let overriding_vars = ["OTEL_BSP_MAX_CONCURRENT_EXPORTS", "OTEL_BSP_MAX_QUEUE_SIZE"];
-    let batch_config = if overriding_vars.iter().any(|v| std::env::var_os(v).is_some()) {
+    let overriding_vars = [
+        "OTEL_BSP_MAX_CONCURRENT_EXPORTS",
+        "OTEL_BSP_MAX_QUEUE_SIZE",
+    ];
+    let batch_config = if overriding_vars
+        .iter()
+        .any(|v| std::env::var_os(v).is_some())
+    {
         opentelemetry_sdk::trace::BatchConfigBuilder::default()
     } else {
         opentelemetry_sdk::trace::BatchConfigBuilder::default()
@@ -73,15 +79,17 @@ where
         .with_batch_config(batch_config)
         .install_batch(opentelemetry_sdk::runtime::Tokio)
         .unwrap();
-    let layer = tracing_opentelemetry::layer().with_tracer(tracer).with_filter(filter);
+    let layer = tracing_opentelemetry::layer()
+        .with_tracer(tracer)
+        .with_filter(filter);
     (subscriber.with(layer), handle)
 }
 
 pub(crate) fn get_opentelemetry_filter(opentelemetry_level: OpenTelemetryLevel) -> Targets {
     Targets::new().with_default(match opentelemetry_level {
-        OpenTelemetryLevel::OFF => LevelFilter::OFF,
-        OpenTelemetryLevel::INFO => LevelFilter::INFO,
-        OpenTelemetryLevel::DEBUG => LevelFilter::DEBUG,
-        OpenTelemetryLevel::TRACE => LevelFilter::TRACE,
+        | OpenTelemetryLevel::OFF => LevelFilter::OFF,
+        | OpenTelemetryLevel::INFO => LevelFilter::INFO,
+        | OpenTelemetryLevel::DEBUG => LevelFilter::DEBUG,
+        | OpenTelemetryLevel::TRACE => LevelFilter::TRACE,
     })
 }

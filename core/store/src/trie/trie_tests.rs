@@ -21,9 +21,15 @@ pub struct IncompletePartialStorage {
 }
 
 impl IncompletePartialStorage {
-    pub fn new(partial_storage: PartialStorage, nodes_count_to_fail_at: usize) -> Self {
+    pub fn new(
+        partial_storage: PartialStorage,
+        nodes_count_to_fail_at: usize,
+    ) -> Self {
         let PartialState::TrieValues(nodes) = partial_storage.nodes;
-        let recorded_storage = nodes.into_iter().map(|value| (hash(&value), value)).collect();
+        let recorded_storage = nodes
+            .into_iter()
+            .map(|value| (hash(&value), value))
+            .collect();
         Self {
             recorded_storage,
             visited_nodes: Default::default(),
@@ -33,7 +39,10 @@ impl IncompletePartialStorage {
 }
 
 impl TrieStorage for IncompletePartialStorage {
-    fn retrieve_raw_bytes(&self, hash: &CryptoHash) -> Result<Arc<[u8]>, StorageError> {
+    fn retrieve_raw_bytes(
+        &self,
+        hash: &CryptoHash,
+    ) -> Result<Arc<[u8]>, StorageError> {
         let result = self
             .recorded_storage
             .get(hash)
@@ -59,18 +68,29 @@ impl TrieStorage for IncompletePartialStorage {
     }
 }
 
-fn setup_storage<F, Out>(trie: Trie, test: &mut F) -> (PartialStorage, Trie, Out)
+fn setup_storage<F, Out>(
+    trie: Trie,
+    test: &mut F,
+) -> (PartialStorage, Trie, Out)
 where
     F: FnMut(Trie) -> Result<(Trie, Out), StorageError>,
     Out: PartialEq + Debug,
 {
     let recording_trie = trie.recording_reads_new_recorder();
     let (recording_trie, output) = test(recording_trie).expect("should not fail");
-    (recording_trie.recorded_storage().unwrap(), recording_trie, output)
+    (
+        recording_trie
+            .recorded_storage()
+            .unwrap(),
+        recording_trie,
+        output,
+    )
 }
 
-fn test_incomplete_storage<F, Out>(trie: Trie, mut test: F)
-where
+fn test_incomplete_storage<F, Out>(
+    trie: Trie,
+    mut test: F,
+) where
     F: FnMut(Trie) -> Result<(Trie, Out), StorageError>,
     Out: PartialEq + Debug,
 {
@@ -101,9 +121,14 @@ fn test_reads_with_incomplete_storage() {
     let mut rng = rand::thread_rng();
     for _ in 0..50 {
         let shard_layout = ShardLayout::multi_shard(2, 1);
-        let shard_uid = shard_layout.shard_uids().next().unwrap();
+        let shard_uid = shard_layout
+            .shard_uids()
+            .next()
+            .unwrap();
 
-        let tries = TestTriesBuilder::new().with_shard_layout(shard_layout).build();
+        let tries = TestTriesBuilder::new()
+            .with_shard_layout(shard_layout)
+            .build();
         let trie_changes = gen_changes(&mut rng, 20);
         let trie_changes = simplify_changes(&trie_changes);
         if trie_changes.is_empty() {
@@ -124,7 +149,9 @@ fn test_reads_with_incomplete_storage() {
             println!("Testing TrieIterator over whole trie");
             let trie_records = |trie: Trie| -> Result<_, StorageError> {
                 let iterator = trie.disk_iter()?;
-                iterator.collect::<Result<Vec<_>, _>>().map(move |v| (trie, v))
+                iterator
+                    .collect::<Result<Vec<_>, _>>()
+                    .map(move |v| (trie, v))
             };
             test_incomplete_storage(get_trie(), trie_records);
         }
@@ -134,7 +161,9 @@ fn test_reads_with_incomplete_storage() {
             println!("Testing TrieUpdateIterator over prefix {:?}", key_prefix);
             let trie_update_keys = |trie: Trie| -> Result<_, StorageError> {
                 let trie_update = TrieUpdate::new(trie);
-                let keys = trie_update.iter(key_prefix)?.collect::<Result<Vec<_>, _>>()?;
+                let keys = trie_update
+                    .iter(key_prefix)?
+                    .collect::<Result<Vec<_>, _>>()?;
                 Ok((trie_update.trie, keys))
             };
             test_incomplete_storage(get_trie(), trie_update_keys);
@@ -161,7 +190,10 @@ mod nodes_counter_tests {
     }
 
     // Get values corresponding to keys one by one, returning vector of numbers of touched nodes for each `get`.
-    fn get_touched_nodes_numbers(trie: &Trie, items: &[(Vec<u8>, Option<Vec<u8>>)]) -> Vec<u64> {
+    fn get_touched_nodes_numbers(
+        trie: &Trie,
+        items: &[(Vec<u8>, Option<Vec<u8>>)],
+    ) -> Vec<u64> {
         items
             .iter()
             .map(|(key, value)| {
@@ -218,7 +250,10 @@ mod trie_storage_tests {
     use near_o11y::testonly::init_test_logger;
     use near_primitives::hash::hash;
 
-    fn create_store_with_values(values: &[Vec<u8>], shard_uid: ShardUId) -> TrieStoreAdapter {
+    fn create_store_with_values(
+        values: &[Vec<u8>],
+        shard_uid: ShardUId,
+    ) -> TrieStoreAdapter {
         let tries = TestTriesBuilder::new().build();
         let mut trie_changes = TrieChanges::empty(Trie::EMPTY_ROOT);
         trie_changes.insertions = values
@@ -244,7 +279,13 @@ mod trie_storage_tests {
         let store = create_store_with_values(&values, shard_uid);
         let trie_db_storage = TrieDBStorage::new(store, shard_uid);
         let key = hash(&value);
-        assert_eq!(trie_db_storage.retrieve_raw_bytes(&key).unwrap().as_ref(), value);
+        assert_eq!(
+            trie_db_storage
+                .retrieve_raw_bytes(&key)
+                .unwrap()
+                .as_ref(),
+            value
+        );
         let wrong_key = hash(&[2]);
         assert_matches!(trie_db_storage.retrieve_raw_bytes(&wrong_key), Err(_));
     }
@@ -267,8 +308,10 @@ mod trie_storage_tests {
             let count_before = accounting_cache.get_trie_nodes_count();
             let result =
                 accounting_cache.retrieve_raw_bytes_with_accounting(&key, &trie_caching_storage);
-            let count_delta =
-                accounting_cache.get_trie_nodes_count().checked_sub(&count_before).unwrap();
+            let count_delta = accounting_cache
+                .get_trie_nodes_count()
+                .checked_sub(&count_before)
+                .unwrap();
             assert_eq!(result.unwrap().as_ref(), value);
             assert_eq!(count_delta.db_reads, 1);
             assert_eq!(count_delta.mem_reads, 0);
@@ -308,14 +351,18 @@ mod trie_storage_tests {
         let mut accounting_cache = TrieAccountingCache::new(None);
         let key = hash(&value);
 
-        accounting_cache.enable_switch().set(true);
+        accounting_cache
+            .enable_switch()
+            .set(true);
         let _ = accounting_cache.retrieve_raw_bytes_with_accounting(&key, &trie_caching_storage);
 
         let count_before: TrieNodesCount = accounting_cache.get_trie_nodes_count();
         let result =
             accounting_cache.retrieve_raw_bytes_with_accounting(&key, &trie_caching_storage);
-        let count_delta =
-            accounting_cache.get_trie_nodes_count().checked_sub(&count_before).unwrap();
+        let count_delta = accounting_cache
+            .get_trie_nodes_count()
+            .checked_sub(&count_before)
+            .unwrap();
         assert_eq!(trie_cache.get(&key), None);
         assert_eq!(result.unwrap().as_ref(), value);
         assert_eq!(count_delta.db_reads, 0);
@@ -344,12 +391,16 @@ mod trie_storage_tests {
 
         // Move to CachingChunk mode. Retrieval should increment the counter, because it is the first time we accessed
         // item while caching chunk.
-        accounting_cache.enable_switch().set(true);
+        accounting_cache
+            .enable_switch()
+            .set(true);
         let count_before = accounting_cache.get_trie_nodes_count();
         let result =
             accounting_cache.retrieve_raw_bytes_with_accounting(&key, &trie_caching_storage);
-        let count_delta =
-            accounting_cache.get_trie_nodes_count().checked_sub(&count_before).unwrap();
+        let count_delta = accounting_cache
+            .get_trie_nodes_count()
+            .checked_sub(&count_before)
+            .unwrap();
         assert_eq!(result.unwrap().as_ref(), value);
         assert_eq!(count_delta.db_reads, 1);
         assert_eq!(count_delta.mem_reads, 0);
@@ -358,20 +409,26 @@ mod trie_storage_tests {
         let count_before = accounting_cache.get_trie_nodes_count();
         let result =
             accounting_cache.retrieve_raw_bytes_with_accounting(&key, &trie_caching_storage);
-        let count_delta =
-            accounting_cache.get_trie_nodes_count().checked_sub(&count_before).unwrap();
+        let count_delta = accounting_cache
+            .get_trie_nodes_count()
+            .checked_sub(&count_before)
+            .unwrap();
         assert_eq!(result.unwrap().as_ref(), value);
         assert_eq!(count_delta.db_reads, 0);
         assert_eq!(count_delta.mem_reads, 1);
 
         // Even if we switch to caching shard, retrieval shouldn't increment the counter. Accounting cache only grows and is
         // dropped only when trie caching storage is dropped.
-        accounting_cache.enable_switch().set(true);
+        accounting_cache
+            .enable_switch()
+            .set(true);
         let count_before = accounting_cache.get_trie_nodes_count();
         let result =
             accounting_cache.retrieve_raw_bytes_with_accounting(&key, &trie_caching_storage);
-        let count_delta =
-            accounting_cache.get_trie_nodes_count().checked_sub(&count_before).unwrap();
+        let count_delta = accounting_cache
+            .get_trie_nodes_count()
+            .checked_sub(&count_before)
+            .unwrap();
         assert_eq!(result.unwrap().as_ref(), value);
         assert_eq!(count_delta.db_reads, 0);
         assert_eq!(count_delta.mem_reads, 1);
@@ -382,7 +439,9 @@ mod trie_storage_tests {
     #[test]
     fn test_accounting_cache_presence() {
         let shard_cache_size = 5;
-        let values: Vec<Vec<u8>> = (0..shard_cache_size as u8 + 1).map(|i| vec![i]).collect();
+        let values: Vec<Vec<u8>> = (0..shard_cache_size as u8 + 1)
+            .map(|i| vec![i])
+            .collect();
         let shard_uid = ShardUId::single_shard();
         let store = create_store_with_values(&values, shard_uid);
         let mut trie_config = TrieConfig::default();
@@ -398,12 +457,16 @@ mod trie_storage_tests {
         let value = &values[0];
         let key = hash(&value);
 
-        accounting_cache.enable_switch().set(true);
+        accounting_cache
+            .enable_switch()
+            .set(true);
         let result =
             accounting_cache.retrieve_raw_bytes_with_accounting(&key, &trie_caching_storage);
         assert_eq!(result.unwrap().as_ref(), value);
 
-        accounting_cache.enable_switch().set(true);
+        accounting_cache
+            .enable_switch()
+            .set(true);
         for value in values[1..].iter() {
             let result = accounting_cache
                 .retrieve_raw_bytes_with_accounting(&hash(value), &trie_caching_storage);
@@ -415,8 +478,10 @@ mod trie_storage_tests {
         let count_before = accounting_cache.get_trie_nodes_count();
         let result =
             accounting_cache.retrieve_raw_bytes_with_accounting(&key, &trie_caching_storage);
-        let count_delta =
-            accounting_cache.get_trie_nodes_count().checked_sub(&count_before).unwrap();
+        let count_delta = accounting_cache
+            .get_trie_nodes_count()
+            .checked_sub(&count_before)
+            .unwrap();
         assert_eq!(result.unwrap().as_ref(), value);
         assert_eq!(count_delta.db_reads, 0);
         assert_eq!(count_delta.mem_reads, 1);
@@ -434,18 +499,24 @@ mod trie_storage_tests {
 
         let state_root =
             test_populate_trie(&tries, &Trie::EMPTY_ROOT, shard_uid, base_changes.clone());
-        let trie = tries.get_trie_for_shard(shard_uid, state_root).recording_reads_new_recorder();
+        let trie = tries
+            .get_trie_for_shard(shard_uid, state_root)
+            .recording_reads_new_recorder();
         let changes = trie.update(updates.clone()).unwrap();
         tracing::info!("Changes: {:?}", changes);
 
         let recorded_normal = trie.recorded_storage();
 
-        let tries =
-            TestTriesBuilder::new().with_flat_storage(true).with_in_memory_tries(true).build();
+        let tries = TestTriesBuilder::new()
+            .with_flat_storage(true)
+            .with_in_memory_tries(true)
+            .build();
         let shard_uid = ShardUId::single_shard();
 
         let state_root = test_populate_trie(&tries, &Trie::EMPTY_ROOT, shard_uid, base_changes);
-        let trie = tries.get_trie_for_shard(shard_uid, state_root).recording_reads_new_recorder();
+        let trie = tries
+            .get_trie_for_shard(shard_uid, state_root)
+            .recording_reads_new_recorder();
         let changes = trie.update(updates).unwrap();
 
         tracing::info!("Changes: {:?}", changes);
@@ -492,39 +563,54 @@ mod trie_storage_tests {
             (vec![8], Some(vec![4])),
         ];
 
-        let tries =
-            TestTriesBuilder::new().with_flat_storage(true).with_in_memory_tries(true).build();
+        let tries = TestTriesBuilder::new()
+            .with_flat_storage(true)
+            .with_in_memory_tries(true)
+            .build();
         let shard_uid = ShardUId::single_shard();
 
         let state_root = test_populate_trie(&tries, &Trie::EMPTY_ROOT, shard_uid, base_changes);
 
         let iter_prefix = vec![7];
-        let expected_iter_results =
-            vec![(vec![7], vec![1]), (vec![7, 0], vec![2]), (vec![7, 1], vec![3])];
+        let expected_iter_results = vec![
+            (vec![7], vec![1]),
+            (vec![7, 0], vec![2]),
+            (vec![7, 1], vec![3]),
+        ];
 
         let disk_iter_recorded = {
-            let trie =
-                tries.get_trie_for_shard(shard_uid, state_root).recording_reads_new_recorder();
+            let trie = tries
+                .get_trie_for_shard(shard_uid, state_root)
+                .recording_reads_new_recorder();
             let mut disk_iter = trie.disk_iter().unwrap();
-            disk_iter.seek_prefix(&iter_prefix).unwrap();
-            let disk_iter_results = disk_iter.collect::<Result<Vec<_>, _>>().unwrap();
+            disk_iter
+                .seek_prefix(&iter_prefix)
+                .unwrap();
+            let disk_iter_results = disk_iter
+                .collect::<Result<Vec<_>, _>>()
+                .unwrap();
             assert_eq!(disk_iter_results, expected_iter_results);
             trie.recorded_storage().unwrap()
         };
 
         let memtrie_iter_recorded = {
-            let trie =
-                tries.get_trie_for_shard(shard_uid, state_root).recording_reads_new_recorder();
+            let trie = tries
+                .get_trie_for_shard(shard_uid, state_root)
+                .recording_reads_new_recorder();
             let lock = trie.lock_for_iter();
             let mut memtrie_iter = lock.iter().unwrap();
             match memtrie_iter {
-                TrieIterator::Disk(_) => {
+                | TrieIterator::Disk(_) => {
                     panic!("Expected Memtrie iterator, got Disk iterator");
                 }
-                TrieIterator::Memtrie(_) => {}
+                | TrieIterator::Memtrie(_) => {}
             }
-            memtrie_iter.seek_prefix(&iter_prefix).unwrap();
-            let memtrie_iter_results = memtrie_iter.collect::<Result<Vec<_>, _>>().unwrap();
+            memtrie_iter
+                .seek_prefix(&iter_prefix)
+                .unwrap();
+            let memtrie_iter_results = memtrie_iter
+                .collect::<Result<Vec<_>, _>>()
+                .unwrap();
             assert_eq!(memtrie_iter_results, expected_iter_results);
             trie.recorded_storage().unwrap()
         };
@@ -535,8 +621,12 @@ mod trie_storage_tests {
             let trie = Trie::from_recorded_storage(memtrie_iter_recorded, state_root, true)
                 .recording_reads_new_recorder();
             let mut disk_iter = trie.disk_iter().unwrap();
-            disk_iter.seek_prefix(&iter_prefix).unwrap();
-            let disk_iter_results = disk_iter.collect::<Result<Vec<_>, _>>().unwrap();
+            disk_iter
+                .seek_prefix(&iter_prefix)
+                .unwrap();
+            let disk_iter_results = disk_iter
+                .collect::<Result<Vec<_>, _>>()
+                .unwrap();
             assert_eq!(disk_iter_results, expected_iter_results);
             trie.recorded_storage().unwrap()
         };

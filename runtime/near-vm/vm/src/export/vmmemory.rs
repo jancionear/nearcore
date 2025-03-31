@@ -28,7 +28,10 @@ unsafe impl Sync for VMMemory {}
 
 impl VMMemory {
     /// Create a new `VMMemory`
-    pub fn new(from: Arc<LinearMemory>, instance_ref: Option<WeakOrStrongInstanceRef>) -> Self {
+    pub fn new(
+        from: Arc<LinearMemory>,
+        instance_ref: Option<WeakOrStrongInstanceRef>,
+    ) -> Self {
         Self { from, instance_ref }
     }
 
@@ -48,7 +51,10 @@ impl VMMemory {
     }
 
     /// Returns whether or not the two `VMMemory`s refer to the same Memory.
-    pub fn same(&self, other: &Self) -> bool {
+    pub fn same(
+        &self,
+        other: &Self,
+    ) -> bool {
         Arc::ptr_eq(&self.from, &other.from)
     }
 

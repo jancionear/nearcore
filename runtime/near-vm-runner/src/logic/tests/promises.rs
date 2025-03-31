@@ -36,12 +36,15 @@ fn test_promise_batch_action_function_call() {
     let mut logic_builder = VMLogicBuilder::default();
     let mut logic = logic_builder.build();
     let index = promise_create(&mut logic, b"rick.test", 0, 0).expect("should create a promise");
-    let index_ptr = logic.internal_mem_write(&index.to_le_bytes()).ptr;
+    let index_ptr = logic
+        .internal_mem_write(&index.to_le_bytes())
+        .ptr;
 
     promise_batch_action_function_call(&mut logic, 123, 0, 0)
         .expect_err("shouldn't accept not existent promise index");
-    let non_receipt =
-        logic.promise_and(index_ptr, 1u64).expect("should create a non-receipt promise");
+    let non_receipt = logic
+        .promise_and(index_ptr, 1u64)
+        .expect("should create a non-receipt promise");
     promise_batch_action_function_call(&mut logic, non_receipt, 0, 0)
         .expect_err("shouldn't accept non-receipt promise index");
 
@@ -151,13 +154,16 @@ fn test_promise_batch_action_create_account() {
     let mut logic_builder = VMLogicBuilder::default();
     let mut logic = logic_builder.build();
     let index = promise_create(&mut logic, b"rick.test", 0, 0).expect("should create a promise");
-    let index_ptr = logic.internal_mem_write(&index.to_le_bytes()).ptr;
+    let index_ptr = logic
+        .internal_mem_write(&index.to_le_bytes())
+        .ptr;
 
     logic
         .promise_batch_action_create_account(123)
         .expect_err("shouldn't accept not existent promise index");
-    let non_receipt =
-        logic.promise_and(index_ptr, 1u64).expect("should create a non-receipt promise");
+    let non_receipt = logic
+        .promise_and(index_ptr, 1u64)
+        .expect("should create a non-receipt promise");
     logic
         .promise_batch_action_create_account(non_receipt)
         .expect_err("shouldn't accept non-receipt promise index");
@@ -218,14 +224,17 @@ fn test_promise_batch_action_deploy_contract() {
     let mut logic = logic_builder.build();
     let index = promise_create(&mut logic, b"rick.test", 0, 0).expect("should create a promise");
 
-    let index_ptr = logic.internal_mem_write(&index.to_le_bytes()).ptr;
+    let index_ptr = logic
+        .internal_mem_write(&index.to_le_bytes())
+        .ptr;
     let code = logic.internal_mem_write(b"sample");
 
     logic
         .promise_batch_action_deploy_contract(123, code.len, code.ptr)
         .expect_err("shouldn't accept not existent promise index");
-    let non_receipt =
-        logic.promise_and(index_ptr, 1u64).expect("should create a non-receipt promise");
+    let non_receipt = logic
+        .promise_and(index_ptr, 1u64)
+        .expect("should create a non-receipt promise");
     logic
         .promise_batch_action_deploy_contract(non_receipt, code.len, code.ptr)
         .expect_err("shouldn't accept non-receipt promise index");
@@ -295,15 +304,18 @@ fn test_promise_batch_action_transfer() {
     let mut logic = logic_builder.build();
     let index = promise_create(&mut logic, b"rick.test", 0, 0).expect("should create a promise");
 
-    let index_ptr = logic.internal_mem_write(&index.to_le_bytes()).ptr;
+    let index_ptr = logic
+        .internal_mem_write(&index.to_le_bytes())
+        .ptr;
     let num_110u128 = logic.internal_mem_write(&110u128.to_le_bytes());
     let num_1u128 = logic.internal_mem_write(&1u128.to_le_bytes());
 
     logic
         .promise_batch_action_transfer(123, num_110u128.ptr)
         .expect_err("shouldn't accept not existent promise index");
-    let non_receipt =
-        logic.promise_and(index_ptr, 1u64).expect("should create a non-receipt promise");
+    let non_receipt = logic
+        .promise_and(index_ptr, 1u64)
+        .expect("should create a non-receipt promise");
     logic
         .promise_batch_action_transfer(non_receipt, num_110u128.ptr)
         .expect_err("shouldn't accept non-receipt promise index");
@@ -311,7 +323,9 @@ fn test_promise_batch_action_transfer() {
     logic
         .promise_batch_action_transfer(index, num_110u128.ptr)
         .expect("should add an action to transfer money");
-    logic.promise_batch_action_transfer(index, num_1u128.ptr).expect_err("not enough money");
+    logic
+        .promise_batch_action_transfer(index, num_1u128.ptr)
+        .expect_err("not enough money");
     assert_eq!(logic.used_gas().unwrap(), 5349703444787);
     expect_test::expect![[r#"
         [
@@ -367,19 +381,24 @@ fn test_promise_batch_action_stake() {
     let mut logic = logic_builder.build();
     let index = promise_create(&mut logic, b"rick.test", 0, 0).expect("should create a promise");
     let key = borsh::to_vec(
-        &"ed25519:5do5nkAEVhL8iteDvXNgxi4pWK78Y7DDadX11ArFNyrf".parse::<PublicKey>().unwrap(),
+        &"ed25519:5do5nkAEVhL8iteDvXNgxi4pWK78Y7DDadX11ArFNyrf"
+            .parse::<PublicKey>()
+            .unwrap(),
     )
     .unwrap();
 
     let key = logic.internal_mem_write(&key);
-    let index_ptr = logic.internal_mem_write(&index.to_le_bytes()).ptr;
+    let index_ptr = logic
+        .internal_mem_write(&index.to_le_bytes())
+        .ptr;
     let num_110u128 = logic.internal_mem_write(&110u128.to_le_bytes());
 
     logic
         .promise_batch_action_stake(123, num_110u128.ptr, key.len, key.ptr)
         .expect_err("shouldn't accept not existent promise index");
-    let non_receipt =
-        logic.promise_and(index_ptr, 1u64).expect("should create a non-receipt promise");
+    let non_receipt = logic
+        .promise_and(index_ptr, 1u64)
+        .expect("should create a non-receipt promise");
     logic
         .promise_batch_action_stake(non_receipt, num_110u128.ptr, key.len, key.ptr)
         .expect_err("shouldn't accept non-receipt promise index");
@@ -442,9 +461,13 @@ fn test_promise_batch_action_add_key_with_function_call() {
     let mut logic_builder = VMLogicBuilder::default();
     let mut logic = logic_builder.build();
     let index = promise_create(&mut logic, b"rick.test", 0, 0).expect("should create a promise");
-    let index_ptr = logic.internal_mem_write(&index.to_le_bytes()).ptr;
+    let index_ptr = logic
+        .internal_mem_write(&index.to_le_bytes())
+        .ptr;
     let key = borsh::to_vec(
-        &"ed25519:5do5nkAEVhL8iteDvXNgxi4pWK78Y7DDadX11ArFNyrf".parse::<PublicKey>().unwrap(),
+        &"ed25519:5do5nkAEVhL8iteDvXNgxi4pWK78Y7DDadX11ArFNyrf"
+            .parse::<PublicKey>()
+            .unwrap(),
     )
     .unwrap();
     let nonce = 1;
@@ -462,8 +485,9 @@ fn test_promise_batch_action_add_key_with_function_call() {
         method_names,
     )
     .expect_err("shouldn't accept non-existent promise index");
-    let non_receipt =
-        logic.promise_and(index_ptr, 1u64).expect("should create a non-receipt promise");
+    let non_receipt = logic
+        .promise_and(index_ptr, 1u64)
+        .expect("should create a non-receipt promise");
     promise_batch_action_add_key_with_function_call(
         &mut logic,
         non_receipt,
@@ -563,8 +587,9 @@ fn test_promise_batch_then() {
     logic
         .promise_batch_then(123, account_id.len, account_id.ptr)
         .expect_err("shouldn't accept non-existent promise index");
-    let non_receipt =
-        logic.promise_and(index_slice.ptr, 1u64).expect("should create a non-receipt promise");
+    let non_receipt = logic
+        .promise_and(index_slice.ptr, 1u64)
+        .expect("should create a non-receipt promise");
     logic
         .promise_batch_then(non_receipt, account_id.len, account_id.ptr)
         .expect("should accept non-receipt promise index");

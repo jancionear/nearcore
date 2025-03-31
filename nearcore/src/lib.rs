@@ -86,7 +86,10 @@ pub fn get_default_home() -> PathBuf {
 /// The end goal is to get rid of `archive` option in `config.json` file and
 /// have the type of the node be determined purely based on kind of database
 /// being opened.
-pub fn open_storage(home_dir: &Path, near_config: &mut NearConfig) -> anyhow::Result<NodeStorage> {
+pub fn open_storage(
+    home_dir: &Path,
+    near_config: &mut NearConfig,
+) -> anyhow::Result<NodeStorage> {
     let migrator = migrations::Migrator::new(near_config);
     let opener = NodeStorage::opener(
         home_dir,
@@ -184,7 +187,10 @@ pub fn open_storage(home_dir: &Path, near_config: &mut NearConfig) -> anyhow::Re
 }
 
 // Safely get the split store while checking that all conditions to use it are met.
-fn get_split_store(config: &NearConfig, storage: &NodeStorage) -> anyhow::Result<Option<Store>> {
+fn get_split_store(
+    config: &NearConfig,
+    storage: &NodeStorage,
+) -> anyhow::Result<Option<Store>> {
     // SplitStore should only be used on archival nodes.
     if !config.config.archive {
         return Ok(None);
@@ -196,7 +202,12 @@ fn get_split_store(config: &NearConfig, storage: &NodeStorage) -> anyhow::Result
     }
 
     // SplitStore should only be used in the view client if it is enabled.
-    if !config.config.split_storage.as_ref().is_some_and(|c| c.enable_split_storage_view_client) {
+    if !config
+        .config
+        .split_storage
+        .as_ref()
+        .is_some_and(|c| c.enable_split_storage_view_client)
+    {
         return Ok(None);
     }
 
@@ -229,7 +240,10 @@ pub struct NearNode {
     pub shard_tracker: ShardTracker,
 }
 
-pub fn start_with_config(home_dir: &Path, config: NearConfig) -> anyhow::Result<NearNode> {
+pub fn start_with_config(
+    home_dir: &Path,
+    config: NearConfig,
+) -> anyhow::Result<NearNode> {
     start_with_config_and_synchronization(home_dir, config, None, None)
 }
 
@@ -242,7 +256,10 @@ pub fn start_with_config_and_synchronization(
     config_updater: Option<ConfigUpdater>,
 ) -> anyhow::Result<NearNode> {
     let storage = open_storage(home_dir, &mut config)?;
-    let db_metrics_arbiter = if config.client_config.enable_statistics_export {
+    let db_metrics_arbiter = if config
+        .client_config
+        .enable_statistics_export
+    {
         let period = config.client_config.log_summary_period;
         let db_metrics_arbiter_handle = spawn_db_metrics_loop(&storage, period)?;
         Some(db_metrics_arbiter_handle)
@@ -250,17 +267,19 @@ pub fn start_with_config_and_synchronization(
         None
     };
 
-    let trie_metrics_arbiter = spawn_trie_metrics_loop(
-        config.clone(),
-        storage.get_hot_store(),
-        config.client_config.log_summary_period,
-    )?;
-
     let epoch_manager = EpochManager::new_arc_handle(
         storage.get_hot_store(),
         &config.genesis.config,
         Some(home_dir),
     );
+
+    let trie_metrics_arbiter = spawn_trie_metrics_loop(
+        config.clone(),
+        storage.get_hot_store(),
+        config.client_config.log_summary_period,
+        epoch_manager.clone(),
+    )?;
+
     let genesis_epoch_config = epoch_manager.get_epoch_config(&EpochId::default())?;
     // Initialize genesis_state in store either from genesis config or dump before other components.
     // We only initialize if the genesis state is not already initialized in store.
@@ -349,16 +368,24 @@ pub fn start_with_config_and_synchronization(
         runtime.get_flat_storage_manager(),
         network_adapter.as_multi_sender(),
         runtime.get_tries(),
-        state_snapshot_sender.as_multi_sender(),
     );
     let (state_snapshot_addr, state_snapshot_arbiter) = spawn_actix_actor(state_snapshot_actor);
-    state_snapshot_sender.bind(state_snapshot_addr.clone().with_auto_span_context());
+    state_snapshot_sender.bind(
+        state_snapshot_addr
+            .clone()
+            .with_auto_span_context(),
+    );
 
     let delete_snapshot_callback: Arc<dyn Fn() + Sync + Send> = get_delete_snapshot_callback(
-        state_snapshot_addr.clone().with_auto_span_context().into_multi_sender(),
+        state_snapshot_addr
+            .clone()
+            .with_auto_span_context()
+            .into_multi_sender(),
     );
     let make_snapshot_callback = get_make_snapshot_callback(
-        state_snapshot_addr.with_auto_span_context().into_multi_sender(),
+        state_snapshot_addr
+            .with_auto_span_context()
+            .into_multi_sender(),
         runtime.get_flat_storage_manager(),
     );
     let snapshot_callbacks = SnapshotCallbacks { make_snapshot_callback, delete_snapshot_callback };
@@ -371,7 +398,6 @@ pub fn start_with_config_and_synchronization(
             config.validator_signer.clone(),
             epoch_manager.clone(),
             runtime.clone(),
-            Arc::new(RayonAsyncComputationSpawner),
             Arc::new(RayonAsyncComputationSpawner),
         ));
 
@@ -389,8 +415,12 @@ pub fn start_with_config_and_synchronization(
     let (resharding_sender_addr, _) =
         spawn_actix_actor(ReshardingActor::new(runtime.store().clone(), &chain_genesis));
     let resharding_sender = resharding_sender_addr.with_auto_span_context();
-    let state_sync_runtime =
-        Arc::new(tokio::runtime::Builder::new_multi_thread().enable_all().build().unwrap());
+    let state_sync_runtime = Arc::new(
+        tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .unwrap(),
+    );
 
     let state_sync_spawner = Arc::new(TokioRuntimeFutureSpawner(state_sync_runtime.clone()));
     let StartClientResult { client_actor, client_arbiter_handle, resharding_handle } = start_client(
@@ -405,18 +435,31 @@ pub fn start_with_config_and_synchronization(
         network_adapter.as_multi_sender(),
         shards_manager_adapter.as_sender(),
         config.validator_signer.clone(),
-        telemetry.with_auto_span_context().into_sender(),
+        telemetry
+            .with_auto_span_context()
+            .into_sender(),
         Some(snapshot_callbacks),
         shutdown_signal,
         adv,
         config_updater,
-        partial_witness_actor.clone().with_auto_span_context().into_multi_sender(),
+        partial_witness_actor
+            .clone()
+            .with_auto_span_context()
+            .into_multi_sender(),
         true,
         None,
         resharding_sender.into_multi_sender(),
     );
-    client_adapter_for_shards_manager.bind(client_actor.clone().with_auto_span_context());
-    client_adapter_for_partial_witness_actor.bind(client_actor.clone().with_auto_span_context());
+    client_adapter_for_shards_manager.bind(
+        client_actor
+            .clone()
+            .with_auto_span_context(),
+    );
+    client_adapter_for_partial_witness_actor.bind(
+        client_actor
+            .clone()
+            .with_auto_span_context(),
+    );
     let (shards_manager_actor, shards_manager_arbiter_handle) = start_shards_manager(
         epoch_manager.clone(),
         view_epoch_manager.clone(),
@@ -425,7 +468,9 @@ pub fn start_with_config_and_synchronization(
         client_adapter_for_shards_manager.as_sender(),
         config.validator_signer.clone(),
         split_store.unwrap_or_else(|| storage.get_hot_store()),
-        config.client_config.chunk_request_retry_period,
+        config
+            .client_config
+            .chunk_request_retry_period,
     );
     shards_manager_adapter.bind(shards_manager_actor.with_auto_span_context());
 
@@ -437,7 +482,6 @@ pub fn start_with_config_and_synchronization(
         shard_tracker: shard_tracker.clone(),
         runtime,
         validator: config.validator_signer.clone(),
-        dump_future_runner: StateSyncDumper::arbiter_dump_future_runner(),
         future_spawner: state_sync_spawner,
         handle: None,
     };
@@ -454,11 +498,17 @@ pub fn start_with_config_and_synchronization(
         client_sender_for_network(client_actor.clone(), view_client_addr.clone()),
         network_adapter.as_multi_sender(),
         shards_manager_adapter.as_sender(),
-        partial_witness_actor.with_auto_span_context().into_multi_sender(),
+        partial_witness_actor
+            .with_auto_span_context()
+            .into_multi_sender(),
         genesis_id,
     )
     .context("PeerManager::spawn()")?;
-    network_adapter.bind(network_actor.clone().with_auto_span_context());
+    network_adapter.bind(
+        network_actor
+            .clone()
+            .with_auto_span_context(),
+    );
     #[cfg(feature = "json_rpc")]
     if let Some(rpc_config) = config.rpc_config {
         let entity_debug_handler = EntityDebugHandlerImpl {
@@ -470,11 +520,19 @@ pub fn start_with_config_and_synchronization(
         rpc_servers.extend(near_jsonrpc::start_http(
             rpc_config,
             config.genesis.config.clone(),
-            client_actor.clone().with_auto_span_context().into_multi_sender(),
-            view_client_addr.clone().with_auto_span_context().into_multi_sender(),
+            client_actor
+                .clone()
+                .with_auto_span_context()
+                .into_multi_sender(),
+            view_client_addr
+                .clone()
+                .with_auto_span_context()
+                .into_multi_sender(),
             network_actor.into_multi_sender(),
             #[cfg(feature = "test_features")]
-            _gc_actor.with_auto_span_context().into_multi_sender(),
+            _gc_actor
+                .with_auto_span_context()
+                .into_multi_sender(),
             Arc::new(entity_debug_handler),
         ));
     }

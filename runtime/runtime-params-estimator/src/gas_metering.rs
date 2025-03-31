@@ -120,7 +120,10 @@ fn make_simple_loop_contact(depth: i32) -> ContractCode {
  * running contracts with and without gas metering and comparing the difference induced by gas
  * metering.
  */
-pub(crate) fn compute_gas_metering_cost(config: &Config, contract: &ContractCode) -> GasCost {
+pub(crate) fn compute_gas_metering_cost(
+    config: &Config,
+    contract: &ContractCode,
+) -> GasCost {
     let gas_metric = config.metric;
     let repeats = config.iter_per_block as u64;
     let vm_kind = config.vm_kind;
@@ -128,7 +131,9 @@ pub(crate) fn compute_gas_metering_cost(config: &Config, contract: &ContractCode
     let cache_store = FilesystemContractRuntimeCache::test().unwrap();
     let cache: Option<&dyn ContractRuntimeCache> = Some(&cache_store);
     let config_store = RuntimeConfigStore::new(None);
-    let runtime_config = config_store.get_config(PROTOCOL_VERSION).as_ref();
+    let runtime_config = config_store
+        .get_config(PROTOCOL_VERSION)
+        .as_ref();
     let vm_config_gas = runtime_config.wasm_config.clone();
     let vm_config_free = Arc::new({
         let mut cfg = near_parameters::vm::Config::clone(&vm_config_gas);
@@ -143,7 +148,9 @@ pub(crate) fn compute_gas_metering_cost(config: &Config, contract: &ContractCode
     // Warmup with gas metering
     for _ in 0..warmup_repeats {
         let gas_counter = fake_context.make_gas_counter(&vm_config_gas);
-        let runtime = vm_kind.runtime(vm_config_gas.clone()).expect("runtime has not been enabled");
+        let runtime = vm_kind
+            .runtime(vm_config_gas.clone())
+            .expect("runtime has not been enabled");
         let result = runtime
             .prepare(&fake_external, cache, gas_counter, "hello")
             .run(&mut fake_external, &fake_context, Arc::clone(&fees))
@@ -158,7 +165,9 @@ pub(crate) fn compute_gas_metering_cost(config: &Config, contract: &ContractCode
     let start = GasCost::measure(gas_metric);
     for _ in 0..repeats {
         let gas_counter = fake_context.make_gas_counter(&vm_config_gas);
-        let runtime = vm_kind.runtime(vm_config_gas.clone()).expect("runtime has not been enabled");
+        let runtime = vm_kind
+            .runtime(vm_config_gas.clone())
+            .expect("runtime has not been enabled");
         let result = runtime
             .prepare(&fake_external, cache, gas_counter, "hello")
             .run(&mut fake_external, &fake_context, Arc::clone(&fees))
@@ -170,8 +179,9 @@ pub(crate) fn compute_gas_metering_cost(config: &Config, contract: &ContractCode
     // Warmup without gas metering
     for _ in 0..warmup_repeats {
         let gas_counter = fake_context.make_gas_counter(&vm_config_free);
-        let runtime_free_gas =
-            vm_kind.runtime(vm_config_free.clone()).expect("runtime has not been enabled");
+        let runtime_free_gas = vm_kind
+            .runtime(vm_config_free.clone())
+            .expect("runtime has not been enabled");
         let result = runtime_free_gas
             .prepare(&fake_external, cache, gas_counter, "hello")
             .run(&mut fake_external, &fake_context, Arc::clone(&fees))
@@ -183,8 +193,9 @@ pub(crate) fn compute_gas_metering_cost(config: &Config, contract: &ContractCode
     let start = GasCost::measure(gas_metric);
     for _ in 0..repeats {
         let gas_counter = fake_context.make_gas_counter(&vm_config_free);
-        let runtime_free_gas =
-            vm_kind.runtime(vm_config_free.clone()).expect("runtime has not been enabled");
+        let runtime_free_gas = vm_kind
+            .runtime(vm_config_free.clone())
+            .expect("runtime has not been enabled");
         let result = runtime_free_gas
             .prepare(&fake_external, cache, gas_counter, "hello")
             .run(&mut fake_external, &fake_context, Arc::clone(&fees))

@@ -47,7 +47,11 @@ fn main() -> anyhow::Result<()> {
         // `rustfmt` if it's installed.
         // Note: We need drop because we don't want to run `unwrap` or `expect` as
         // the command might fail, but we don't care about it's result.
-        drop(Command::new("rustfmt").arg(&spectests_output).status());
+        drop(
+            Command::new("rustfmt")
+                .arg(&spectests_output)
+                .status(),
+        );
     }
 
     Ok(())

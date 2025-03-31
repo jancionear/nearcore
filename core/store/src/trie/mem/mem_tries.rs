@@ -7,7 +7,7 @@ use near_primitives::shard_layout::ShardUId;
 use near_primitives::types::{BlockHeight, StateRoot};
 
 use crate::trie::mem::arena::ArenaMut;
-use crate::trie::mem::metrics::MEMTRIE_NUM_ROOTS;
+use crate::trie::mem::metrics::MEM_TRIE_NUM_ROOTS;
 use crate::trie::MemTrieChanges;
 use crate::Trie;
 
@@ -18,7 +18,7 @@ use super::arena::FrozenArena;
 use super::flexible_data::value::ValueView;
 use super::iter::STMemTrieIterator;
 use super::lookup::memtrie_lookup;
-use super::memtrie_update::{construct_root_from_changes, MemTrieUpdate, TrackingMode};
+use super::mem_trie_update::{construct_root_from_changes, MemTrieUpdate, TrackingMode};
 use super::node::{MemTrieNodeId, MemTrieNodePtr};
 
 /// `MemTries` (logically) owns the memory of multiple tries.
@@ -65,7 +65,10 @@ impl MemTries {
     /// Creates a new `MemTries` from a frozen `FrozenMemTries`.
     /// Used on resharding, where memtries with different UIDs share some
     /// nodes.
-    pub fn from_frozen_memtries(shard_uid: ShardUId, frozen_memtries: FrozenMemTries) -> Self {
+    pub fn from_frozen_memtries(
+        shard_uid: ShardUId,
+        frozen_memtries: FrozenMemTries,
+    ) -> Self {
         Self {
             arena: HybridArena::from_frozen(shard_uid.to_string(), frozen_memtries.arena),
             roots: frozen_memtries.roots,
@@ -86,7 +89,13 @@ impl MemTries {
             heights: Default::default(),
             shard_uid,
         };
-        tries.insert_root(root.as_ptr(tries.arena.memory()).view().node_hash(), root, block_height);
+        tries.insert_root(
+            root.as_ptr(tries.arena.memory())
+                .view()
+                .node_hash(),
+            root,
+            block_height,
+        );
         tries
     }
 
@@ -98,7 +107,10 @@ impl MemTries {
         changes: &MemTrieChanges,
     ) -> CryptoHash {
         if let Some(root) = construct_root_from_changes(&mut self.arena, changes) {
-            let state_root = root.as_ptr(self.arena.memory()).view().node_hash();
+            let state_root = root
+                .as_ptr(self.arena.memory())
+                .view()
+                .node_hash();
             self.insert_root(state_root, root, block_height);
             state_root
         } else {
@@ -113,13 +125,19 @@ impl MemTries {
         block_height: BlockHeight,
     ) {
         assert_ne!(state_root, CryptoHash::default());
-        let heights = self.heights.entry(block_height).or_default();
+        let heights = self
+            .heights
+            .entry(block_height)
+            .or_default();
         heights.push(state_root);
         let new_ref = mem_root.add_ref(self.arena.memory_mut());
         if new_ref == 1 {
-            self.roots.entry(state_root).or_default().push(mem_root);
+            self.roots
+                .entry(state_root)
+                .or_default()
+                .push(mem_root);
         }
-        MEMTRIE_NUM_ROOTS
+        MEM_TRIE_NUM_ROOTS
             .with_label_values(&[&self.shard_uid.to_string()])
             .set(self.roots.len() as i64);
     }
@@ -130,36 +148,46 @@ impl MemTries {
         state_root: &CryptoHash,
     ) -> Result<MemTrieNodePtr<HybridArenaMemory>, StorageError> {
         assert_ne!(state_root, &CryptoHash::default());
-        self.roots.get(state_root).map(|ids| ids[0].as_ptr(self.arena.memory())).ok_or_else(|| {
-            StorageError::StorageInconsistentState(format!(
-                "Failed to find root node {:?} in memtrie",
-                state_root
-            ))
-        })
+        self.roots
+            .get(state_root)
+            .map(|ids| ids[0].as_ptr(self.arena.memory()))
+            .ok_or_else(|| {
+                StorageError::StorageInconsistentState(format!(
+                    "Failed to find root node {:?} in memtrie",
+                    state_root
+                ))
+            })
     }
 
     /// Expires all trie roots corresponding to a height smaller than
     /// `block_height`. This internally manages refcounts. If a trie root
     /// is expired but is still used at a higher height, it will still be
     /// valid until all references to that root expires.
-    pub fn delete_until_height(&mut self, block_height: BlockHeight) {
+    pub fn delete_until_height(
+        &mut self,
+        block_height: BlockHeight,
+    ) {
         let mut to_delete = vec![];
-        self.heights.retain(|height, state_roots| {
-            if *height < block_height {
-                for state_root in state_roots {
-                    to_delete.push(*state_root)
+        self.heights
+            .retain(|height, state_roots| {
+                if *height < block_height {
+                    for state_root in state_roots {
+                        to_delete.push(*state_root)
+                    }
+                    false
+                } else {
+                    true
                 }
-                false
-            } else {
-                true
-            }
-        });
+            });
         for state_root in to_delete {
             self.delete_root(&state_root);
         }
     }
 
-    fn delete_root(&mut self, state_root: &CryptoHash) {
+    fn delete_root(
+        &mut self,
+        state_root: &CryptoHash,
+    ) {
         if let Some(ids) = self.roots.get_mut(state_root) {
             let last_id = ids.last().unwrap();
             let new_ref = last_id.remove_ref(&mut self.arena);
@@ -172,7 +200,7 @@ impl MemTries {
         } else {
             debug_assert!(false, "Deleting non-existent root: {}", state_root);
         }
-        MEMTRIE_NUM_ROOTS
+        MEM_TRIE_NUM_ROOTS
             .with_label_values(&[&self.shard_uid.to_string()])
             .set(self.roots.len() as i64);
     }
@@ -188,7 +216,10 @@ impl MemTries {
     }
 
     /// Returns an iterator over the memtrie for the given trie root.
-    pub fn get_iter<'a>(&'a self, trie: &'a Trie) -> Result<STMemTrieIterator<'a>, StorageError> {
+    pub fn get_iter<'a>(
+        &'a self,
+        trie: &'a Trie,
+    ) -> Result<STMemTrieIterator<'a>, StorageError> {
         let root = if trie.root == CryptoHash::default() {
             None
         } else {
@@ -222,7 +253,10 @@ impl MemTries {
 
     /// Used for unit testing and integration testing.
     pub fn num_roots(&self) -> usize {
-        self.heights.iter().map(|(_, v)| v.len()).sum()
+        self.heights
+            .iter()
+            .map(|(_, v)| v.len())
+            .sum()
     }
 }
 
@@ -256,15 +290,20 @@ mod tests {
             let num_roots_at_height = rand::thread_rng().gen_range(1..=4);
             for _ in 0..num_roots_at_height {
                 match rand::thread_rng().gen_range(0..4) {
-                    0 if !available_hashes.is_empty() => {
+                    | 0 if !available_hashes.is_empty() => {
                         // Reuse an existing root 25% of the time.
-                        let (_, root) = available_hashes.choose(&mut rand::thread_rng()).unwrap();
+                        let (_, root) = available_hashes
+                            .choose(&mut rand::thread_rng())
+                            .unwrap();
                         let root = tries.get_root(root).unwrap().id();
-                        let state_root = root.as_ptr(tries.arena.memory()).view().node_hash();
+                        let state_root = root
+                            .as_ptr(tries.arena.memory())
+                            .view()
+                            .node_hash();
                         tries.insert_root(state_root, root, height);
                         available_hashes.push((height, state_root));
                     }
-                    _ => {
+                    | _ => {
                         // Construct a new root 75% of the time.
                         let root = MemTrieNodeId::new(
                             &mut tries.arena,
@@ -273,7 +312,10 @@ mod tests {
                                 extension: &NibbleSlice::new(&[]).encoded(true),
                             },
                         );
-                        let state_root = root.as_ptr(tries.arena.memory()).view().node_hash();
+                        let state_root = root
+                            .as_ptr(tries.arena.memory())
+                            .view()
+                            .node_hash();
                         tries.insert_root(state_root, root, height);
                         available_hashes.push((height, state_root));
                     }
@@ -285,7 +327,12 @@ mod tests {
             // Sanity check that the roots that are supposed to exist still exist.
             for (_, state_root) in &available_hashes {
                 let root = tries.get_root(state_root).unwrap().id();
-                assert_eq!(root.as_ptr(tries.arena.memory()).view().node_hash(), *state_root);
+                assert_eq!(
+                    root.as_ptr(tries.arena.memory())
+                        .view()
+                        .node_hash(),
+                    *state_root
+                );
             }
         }
         // Expire all roots, and now the number of allocs should be zero.

@@ -10,11 +10,18 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use time::ext::InstantExt as _;
 
-fn block_hash(height: BlockHeight, ord: usize) -> CryptoHash {
+fn block_hash(
+    height: BlockHeight,
+    ord: usize,
+) -> CryptoHash {
     hash(([height.to_le_bytes(), ord.to_le_bytes()].concat()).as_ref())
 }
 
-fn get_msg_delivery_time(now: Instant, gst: Instant, delta: Duration) -> Instant {
+fn get_msg_delivery_time(
+    now: Instant,
+    gst: Instant,
+    delta: Duration,
+) -> Instant {
     std::cmp::max(now, gst)
         + Duration::milliseconds(thread_rng().gen_range(0..delta.whole_milliseconds() as i64) as i64)
 }
@@ -34,7 +41,9 @@ fn one_iter(
     delta: Duration,
     height_goal: BlockHeight,
 ) -> (Duration, BlockHeight) {
-    let account_ids = ["test1", "test2", "test3", "test4", "test5", "test6", "test7", "test8"];
+    let account_ids = [
+        "test1", "test2", "test3", "test4", "test5", "test6", "test7", "test8",
+    ];
     let stakes = account_ids
         .iter()
         .map(|account_id| ApprovalStake {
@@ -127,7 +136,11 @@ fn one_iter(
 
                         let last_block = block_infos.last().unwrap();
                         let prev_block_info = hash_to_block_info
-                            .get(&hash_to_prev_hash.get(&last_block.2).unwrap())
+                            .get(
+                                &hash_to_prev_hash
+                                    .get(&last_block.2)
+                                    .unwrap(),
+                            )
                             .unwrap();
 
                         if prev_block_info.0 as BlockHeight <= ds.get_tip().1 {
@@ -162,12 +175,20 @@ fn one_iter(
                     for block_ord in 0..num_blocks_to_produce {
                         let parent_hash = ds.get_tip().0;
 
-                        let prev_height = hash_to_block_info.get(&parent_hash).unwrap().0;
+                        let prev_height = hash_to_block_info
+                            .get(&parent_hash)
+                            .unwrap()
+                            .0;
                         let prev_prev_height = if prev_height <= 1 {
                             0
                         } else {
-                            let prev_prev_hash = hash_to_prev_hash.get(&parent_hash).unwrap();
-                            hash_to_block_info.get(&prev_prev_hash).unwrap().0
+                            let prev_prev_hash = hash_to_prev_hash
+                                .get(&parent_hash)
+                                .unwrap();
+                            hash_to_block_info
+                                .get(&prev_prev_hash)
+                                .unwrap()
+                                .0
                         };
 
                         let is_final =
@@ -176,7 +197,10 @@ fn one_iter(
                         let last_final_height = if is_final {
                             target_height - 2
                         } else {
-                            hash_to_block_info.get(&parent_hash).unwrap().1
+                            hash_to_block_info
+                                .get(&parent_hash)
+                                .unwrap()
+                                .1
                         };
 
                         if target_height >= 2048 {
@@ -209,12 +233,16 @@ fn one_iter(
                         hash_to_prev_hash.insert(block_hash, parent_hash);
 
                         assert!(!chain_lengths.contains_key(&block_hash));
-                        let prev_length = *chain_lengths.get(&ds.get_tip().0).unwrap();
+                        let prev_length = *chain_lengths
+                            .get(&ds.get_tip().0)
+                            .unwrap();
                         chain_lengths.insert(block_hash, prev_length + 1);
 
                         if is_final && target_height != 2 {
                             blocks_with_finality.push((
-                                *hash_to_prev_hash.get(&parent_hash).unwrap(),
+                                *hash_to_prev_hash
+                                    .get(&parent_hash)
+                                    .unwrap(),
                                 target_height - 2,
                             ));
                         }
@@ -267,8 +295,8 @@ fn one_iter(
 
         loop {
             match hash_to_prev_hash.get(&block_hash) {
-                None => break,
-                Some(prev_block_hash) => {
+                | None => break,
+                | Some(prev_block_hash) => {
                     block_hash = *prev_block_hash;
                     seen_hashes.insert(block_hash);
                 }
@@ -280,14 +308,23 @@ fn one_iter(
         }
     }
 
-    (clock.now().signed_duration_since(started), largest_produced_height)
+    (
+        clock
+            .now()
+            .signed_duration_since(started),
+        largest_produced_height,
+    )
 }
 
 #[test]
 fn ultra_slow_test_fuzzy_doomslug_liveness_and_safety() {
-    for (time_to_gst_millis, height_goal) in
-        &[(0, 200), (1000, 200), (10000, 300), (100000, 400), (500000, 500)]
-    {
+    for (time_to_gst_millis, height_goal) in &[
+        (0, 200),
+        (1000, 200),
+        (10000, 300),
+        (100000, 400),
+        (500000, 500),
+    ] {
         for delta in &[100, 300, 500, 1000, 2000, 4000] {
             println!("Staring set of tests. Time to GST: {}, delta: {}", time_to_gst_millis, delta);
             for _iter in 0..10 {

@@ -34,7 +34,10 @@ impl<T> Clone for Sender<T> {
 }
 
 impl<T: Send + Sync + 'static> Sender<T> {
-    pub fn send(&self, v: T) {
+    pub fn send(
+        &self,
+        v: T,
+    ) {
         let mut l = self.0.stream.write().unwrap();
         l.push(v);
         self.0.notify.notify_waiters();
@@ -53,7 +56,15 @@ impl<T: Clone + Send> Receiver<T> {
     // Without actix, awaiting the expected state
     // should get way easier.
     pub fn from_now(&self) -> Self {
-        Self { channel: self.channel.clone(), next: self.channel.stream.read().unwrap().len() }
+        Self {
+            channel: self.channel.clone(),
+            next: self
+                .channel
+                .stream
+                .read()
+                .unwrap()
+                .len(),
+        }
     }
 
     /// recv() extracts a value from the channel.
@@ -81,7 +92,10 @@ impl<T: Clone + Send> Receiver<T> {
     /// Calls recv() in a loop until the returned value satisfies the predicate `pred`
     /// (predicate is satisfied iff it returns `Some(u)`). Returns `u`.
     /// All the values popped from the channel in the process are dropped silently.
-    pub async fn recv_until<U>(&mut self, mut pred: impl FnMut(T) -> Option<U>) -> U {
+    pub async fn recv_until<U>(
+        &mut self,
+        mut pred: impl FnMut(T) -> Option<U>,
+    ) -> U {
         loop {
             if let Some(u) = pred(self.recv().await) {
                 return u;

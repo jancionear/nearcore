@@ -95,20 +95,32 @@ type ShardsSplitMapV2 = BTreeMap<ShardId, Vec<ShardId>>;
 type ShardsParentMapV2 = BTreeMap<ShardId, ShardId>;
 
 pub fn shard_uids_to_ids(shard_uids: &[ShardUId]) -> Vec<ShardId> {
-    shard_uids.iter().map(|shard_uid| shard_uid.shard_id()).collect_vec()
+    shard_uids
+        .iter()
+        .map(|shard_uid| shard_uid.shard_id())
+        .collect_vec()
 }
 
 fn new_shard_ids_vec(shard_ids: Vec<u64>) -> Vec<ShardId> {
-    shard_ids.into_iter().map(Into::into).collect()
+    shard_ids
+        .into_iter()
+        .map(Into::into)
+        .collect()
 }
 
 fn new_shards_split_map(shards_split_map: Vec<Vec<u64>>) -> ShardsSplitMap {
-    shards_split_map.into_iter().map(new_shard_ids_vec).collect()
+    shards_split_map
+        .into_iter()
+        .map(new_shard_ids_vec)
+        .collect()
 }
 
 #[allow(dead_code)]
 fn new_shards_split_map_v2(shards_split_map: BTreeMap<u64, Vec<u64>>) -> ShardsSplitMapV2 {
-    shards_split_map.into_iter().map(|(k, v)| (k.into(), new_shard_ids_vec(v))).collect()
+    shards_split_map
+        .into_iter()
+        .map(|(k, v)| (k.into(), new_shard_ids_vec(v)))
+        .collect()
 }
 
 #[derive(
@@ -142,7 +154,10 @@ pub struct ShardLayoutV1 {
 impl ShardLayoutV1 {
     // In this shard layout the accounts are divided into ranges, each range is
     // mapped to a shard. The shards are contiguous and start from 0.
-    fn account_id_to_shard_id(&self, account_id: &AccountId) -> ShardId {
+    fn account_id_to_shard_id(
+        &self,
+        account_id: &AccountId,
+    ) -> ShardId {
         let mut shard_id: u64 = 0;
         for boundary_account in &self.boundary_accounts {
             if account_id < boundary_account {
@@ -213,7 +228,9 @@ impl From<&ShardLayoutV2> for SerdeShardLayoutV2 {
             K: std::fmt::Display,
             V: Clone,
         {
-            map.iter().map(|(k, v)| (k.to_string(), v.clone())).collect()
+            map.iter()
+                .map(|(k, v)| (k.to_string(), v.clone()))
+                .collect()
         }
 
         Self {
@@ -221,8 +238,14 @@ impl From<&ShardLayoutV2> for SerdeShardLayoutV2 {
             shard_ids: layout.shard_ids.clone(),
             id_to_index_map: key_to_string(&layout.id_to_index_map),
             index_to_id_map: key_to_string(&layout.index_to_id_map),
-            shards_split_map: layout.shards_split_map.as_ref().map(key_to_string),
-            shards_parent_map: layout.shards_parent_map.as_ref().map(key_to_string),
+            shards_split_map: layout
+                .shards_split_map
+                .as_ref()
+                .map(key_to_string),
+            shards_parent_map: layout
+                .shards_parent_map
+                .as_ref()
+                .map(key_to_string),
             version: layout.version,
         }
     }
@@ -233,9 +256,11 @@ impl TryFrom<SerdeShardLayoutV2> for ShardLayoutV2 {
 
     fn try_from(layout: SerdeShardLayoutV2) -> Result<Self, Self::Error> {
         fn key_to_shard_id<V>(
-            map: BTreeMap<String, V>,
+            map: BTreeMap<String, V>
         ) -> Result<BTreeMap<ShardId, V>, Box<dyn std::error::Error + Send + Sync>> {
-            map.into_iter().map(|(k, v)| Ok((k.parse::<u64>()?.into(), v))).collect()
+            map.into_iter()
+                .map(|(k, v)| Ok((k.parse::<u64>()?.into(), v)))
+                .collect()
         }
 
         let SerdeShardLayoutV2 {
@@ -249,23 +274,27 @@ impl TryFrom<SerdeShardLayoutV2> for ShardLayoutV2 {
         } = layout;
 
         let id_to_index_map = key_to_shard_id(id_to_index_map)?;
-        let shards_split_map = shards_split_map.map(key_to_shard_id).transpose()?;
-        let shards_parent_map = shards_parent_map.map(key_to_shard_id).transpose()?;
+        let shards_split_map = shards_split_map
+            .map(key_to_shard_id)
+            .transpose()?;
+        let shards_parent_map = shards_parent_map
+            .map(key_to_shard_id)
+            .transpose()?;
         let index_to_id_map = index_to_id_map
             .into_iter()
             .map(|(k, v)| Ok((k.parse()?, v)))
             .collect::<Result<_, Self::Error>>()?;
 
         match (&shards_split_map, &shards_parent_map) {
-            (None, None) => {}
-            (Some(shard_split_map), Some(shards_parent_map)) => {
+            | (None, None) => {}
+            | (Some(shard_split_map), Some(shards_parent_map)) => {
                 let expected_shards_parent_map =
                     validate_and_derive_shard_parent_map_v2(&shard_ids, &shard_split_map);
                 if &expected_shards_parent_map != shards_parent_map {
                     return Err("shards_parent_map does not match the expected value".into());
                 }
             }
-            _ => {
+            | _ => {
                 return Err(
                     "shards_split_map and shards_parent_map must be both present or both absent"
                         .into(),
@@ -286,7 +315,10 @@ impl TryFrom<SerdeShardLayoutV2> for ShardLayoutV2 {
 }
 
 impl serde::Serialize for ShardLayoutV2 {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    fn serialize<S>(
+        &self,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
@@ -305,7 +337,10 @@ impl<'de> serde::Deserialize<'de> for ShardLayoutV2 {
 }
 
 impl ShardLayoutV2 {
-    pub fn account_id_to_shard_id(&self, account_id: &AccountId) -> ShardId {
+    pub fn account_id_to_shard_id(
+        &self,
+        account_id: &AccountId,
+    ) -> ShardId {
         // TODO(resharding) - This could be optimized.
 
         let mut shard_id_index = 0;
@@ -335,7 +370,10 @@ pub enum ShardLayoutError {
 }
 
 impl fmt::Display for ShardLayoutError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
         write!(f, "{:?}", self)
     }
 }
@@ -362,7 +400,10 @@ impl ShardLayout {
     /// The shard ids are deterministic but arbitrary in order to test the
     /// non-contiguous ShardIds.
     #[cfg(all(feature = "test_utils", feature = "rand"))]
-    pub fn multi_shard(num_shards: NumShards, version: ShardVersion) -> Self {
+    pub fn multi_shard(
+        num_shards: NumShards,
+        version: ShardVersion,
+    ) -> Self {
         assert!(num_shards > 0, "at least 1 shard is required");
 
         let boundary_accounts = (1..num_shards)
@@ -377,7 +418,10 @@ impl ShardLayout {
     /// only. The shard ids are deterministic but arbitrary in order to test the
     /// non-contiguous ShardIds.
     #[cfg(all(feature = "test_utils", feature = "rand"))]
-    pub fn multi_shard_custom(boundary_accounts: Vec<AccountId>, version: ShardVersion) -> Self {
+    pub fn multi_shard_custom(
+        boundary_accounts: Vec<AccountId>,
+        version: ShardVersion,
+    ) -> Self {
         use rand::{rngs::StdRng, seq::SliceRandom, SeedableRng};
 
         let num_shards = (boundary_accounts.len() + 1) as u64;
@@ -385,7 +429,9 @@ impl ShardLayout {
         // In order to test the non-contiguous shard ids randomize the order and
         // TODO(wacban) randomize the range of shard ids.
         let mut rng = StdRng::seed_from_u64(42);
-        let mut shard_ids = (0..num_shards).map(ShardId::new).collect::<Vec<ShardId>>();
+        let mut shard_ids = (0..num_shards)
+            .map(ShardId::new)
+            .collect::<Vec<ShardId>>();
         shard_ids.shuffle(&mut rng);
 
         let (id_to_index_map, index_to_id_map) = shard_ids
@@ -410,13 +456,19 @@ impl ShardLayout {
     #[cfg(all(feature = "test_utils", feature = "rand"))]
     pub fn simple_v1(boundary_accounts: &[&str]) -> ShardLayout {
         // TODO these test methods should go into a different namespace
-        let boundary_accounts = boundary_accounts.iter().map(|a| a.parse().unwrap()).collect();
+        let boundary_accounts = boundary_accounts
+            .iter()
+            .map(|a| a.parse().unwrap())
+            .collect();
         Self::multi_shard_custom(boundary_accounts, 1)
     }
 
     /// Return a V0 ShardLayout
     #[deprecated(note = "Use multi_shard() instead")]
-    pub fn v0(num_shards: NumShards, version: ShardVersion) -> Self {
+    pub fn v0(
+        num_shards: NumShards,
+        version: ShardVersion,
+    ) -> Self {
         Self::V0(ShardLayoutV0 { num_shards, version })
     }
 
@@ -439,7 +491,11 @@ impl ShardLayout {
                     assert!(shard_id < num_shards, "shard id should be valid");
                 }
             }
-            Some((0..num_shards).map(|shard_id| to_parent_shard_map[&shard_id.into()]).collect())
+            Some(
+                (0..num_shards)
+                    .map(|shard_id| to_parent_shard_map[&shard_id.into()])
+                    .collect(),
+            )
         } else {
             None
         };
@@ -461,7 +517,14 @@ impl ShardLayout {
         const VERSION: ShardVersion = 3;
 
         assert_eq!(boundary_accounts.len() + 1, shard_ids.len());
-        assert_eq!(boundary_accounts, boundary_accounts.iter().sorted().cloned().collect_vec());
+        assert_eq!(
+            boundary_accounts,
+            boundary_accounts
+                .iter()
+                .sorted()
+                .cloned()
+                .collect_vec()
+        );
 
         let mut id_to_index_map = BTreeMap::new();
         let mut index_to_id_map = BTreeMap::new();
@@ -501,10 +564,14 @@ impl ShardLayout {
     pub fn get_simple_nightshade_layout() -> ShardLayout {
         #[allow(deprecated)]
         ShardLayout::v1(
-            vec!["aurora", "aurora-0", "kkuuue2akv_1630967379.near"]
-                .into_iter()
-                .map(|s| s.parse().unwrap())
-                .collect(),
+            vec![
+                "aurora",
+                "aurora-0",
+                "kkuuue2akv_1630967379.near",
+            ]
+            .into_iter()
+            .map(|s| s.parse().unwrap())
+            .collect(),
             Some(new_shards_split_map(vec![vec![0, 1, 2, 3]])),
             1,
         )
@@ -514,10 +581,15 @@ impl ShardLayout {
     pub fn get_simple_nightshade_layout_v2() -> ShardLayout {
         #[allow(deprecated)]
         ShardLayout::v1(
-            vec!["aurora", "aurora-0", "kkuuue2akv_1630967379.near", "tge-lockup.sweat"]
-                .into_iter()
-                .map(|s| s.parse().unwrap())
-                .collect(),
+            vec![
+                "aurora",
+                "aurora-0",
+                "kkuuue2akv_1630967379.near",
+                "tge-lockup.sweat",
+            ]
+            .into_iter()
+            .map(|s| s.parse().unwrap())
+            .collect(),
             Some(new_shards_split_map(vec![vec![0], vec![1], vec![2], vec![3, 4]])),
             2,
         )
@@ -537,7 +609,13 @@ impl ShardLayout {
             .into_iter()
             .map(|s| s.parse().unwrap())
             .collect(),
-            Some(new_shards_split_map(vec![vec![0], vec![1], vec![2, 3], vec![4], vec![5]])),
+            Some(new_shards_split_map(vec![
+                vec![0],
+                vec![1],
+                vec![2, 3],
+                vec![4],
+                vec![5],
+            ])),
             3,
         )
     }
@@ -593,52 +671,72 @@ impl ShardLayout {
     /// Maps an account to the shard_id that it belongs to in this shard_layout
     /// For V0, maps according to hash of account id
     /// For V1 and V2, accounts are divided to ranges, each range of account is mapped to a shard.
-    pub fn account_id_to_shard_id(&self, account_id: &AccountId) -> ShardId {
+    pub fn account_id_to_shard_id(
+        &self,
+        account_id: &AccountId,
+    ) -> ShardId {
         match self {
-            ShardLayout::V0(v0) => {
+            | ShardLayout::V0(v0) => {
                 let hash = CryptoHash::hash_bytes(account_id.as_bytes());
                 let (bytes, _) = stdx::split_array::<32, 8, 24>(hash.as_bytes());
                 let shard_id = u64::from_le_bytes(*bytes) % v0.num_shards;
                 shard_id.into()
             }
-            ShardLayout::V1(v1) => v1.account_id_to_shard_id(account_id),
-            ShardLayout::V2(v2) => v2.account_id_to_shard_id(account_id),
+            | ShardLayout::V1(v1) => v1.account_id_to_shard_id(account_id),
+            | ShardLayout::V2(v2) => v2.account_id_to_shard_id(account_id),
         }
     }
 
     /// Maps an account to the shard_uid that it belongs to in this shard_layout
     #[inline]
-    pub fn account_id_to_shard_uid(&self, account_id: &AccountId) -> ShardUId {
+    pub fn account_id_to_shard_uid(
+        &self,
+        account_id: &AccountId,
+    ) -> ShardUId {
         ShardUId::from_shard_id_and_layout(self.account_id_to_shard_id(account_id), self)
     }
 
     /// Given a parent shard id, return the shard uids for the shards in the current shard layout that
     /// are split from this parent shard. If this shard layout has no parent shard layout, return None
     #[inline]
-    pub fn get_children_shards_uids(&self, parent_shard_id: ShardId) -> Option<Vec<ShardUId>> {
-        self.get_children_shards_ids(parent_shard_id).map(|shards| {
-            shards.into_iter().map(|id| ShardUId::from_shard_id_and_layout(id, self)).collect()
-        })
+    pub fn get_children_shards_uids(
+        &self,
+        parent_shard_id: ShardId,
+    ) -> Option<Vec<ShardUId>> {
+        self.get_children_shards_ids(parent_shard_id)
+            .map(|shards| {
+                shards
+                    .into_iter()
+                    .map(|id| ShardUId::from_shard_id_and_layout(id, self))
+                    .collect()
+            })
     }
 
     /// Given a parent shard id, return the shard ids for the shards in the current shard layout that
     /// are split from this parent shard. If this shard layout has no parent shard layout, return None
-    pub fn get_children_shards_ids(&self, parent_shard_id: ShardId) -> Option<Vec<ShardId>> {
+    pub fn get_children_shards_ids(
+        &self,
+        parent_shard_id: ShardId,
+    ) -> Option<Vec<ShardId>> {
         match self {
-            Self::V0(_) => None,
-            Self::V1(v1) => match &v1.shards_split_map {
-                Some(shards_split_map) => {
+            | Self::V0(_) => None,
+            | Self::V1(v1) => match &v1.shards_split_map {
+                | Some(shards_split_map) => {
                     // In V1 the shard id and the shard index are the same. It
                     // is ok to cast the id to index here. The same is not the
                     // case in V2.
                     let parent_shard_index: ShardIndex = parent_shard_id.into();
-                    shards_split_map.get(parent_shard_index).cloned()
+                    shards_split_map
+                        .get(parent_shard_index)
+                        .cloned()
                 }
-                None => None,
+                | None => None,
             },
-            Self::V2(v2) => match &v2.shards_split_map {
-                Some(shards_split_map) => shards_split_map.get(&parent_shard_id).cloned(),
-                None => None,
+            | Self::V2(v2) => match &v2.shards_split_map {
+                | Some(shards_split_map) => shards_split_map
+                    .get(&parent_shard_id)
+                    .cloned(),
+                | None => None,
             },
         }
     }
@@ -650,29 +748,36 @@ impl ShardLayout {
         &self,
         shard_id: ShardId,
     ) -> Result<Option<ShardId>, ShardLayoutError> {
-        if !self.shard_ids().any(|id| id == shard_id) {
+        if !self
+            .shard_ids()
+            .any(|id| id == shard_id)
+        {
             return Err(ShardLayoutError::InvalidShardIdError { shard_id });
         }
         let parent_shard_id = match self {
-            Self::V0(_) => None,
-            Self::V1(v1) => match &v1.to_parent_shard_map {
+            | Self::V0(_) => None,
+            | Self::V1(v1) => match &v1.to_parent_shard_map {
                 // we can safely unwrap here because the construction of to_parent_shard_map guarantees
                 // that every shard has a parent shard
-                Some(to_parent_shard_map) => {
+                | Some(to_parent_shard_map) => {
                     let shard_index = self.get_shard_index(shard_id).unwrap();
-                    let parent_shard_id = to_parent_shard_map.get(shard_index).unwrap();
+                    let parent_shard_id = to_parent_shard_map
+                        .get(shard_index)
+                        .unwrap();
                     Some(*parent_shard_id)
                 }
-                None => None,
+                | None => None,
             },
-            Self::V2(v2) => match &v2.shards_parent_map {
+            | Self::V2(v2) => match &v2.shards_parent_map {
                 // we can safely unwrap here because the construction of to_parent_shard_map guarantees
                 // that every shard has a parent shard
-                Some(to_parent_shard_map) => {
-                    let parent_shard_id = to_parent_shard_map.get(&shard_id).unwrap();
+                | Some(to_parent_shard_map) => {
+                    let parent_shard_id = to_parent_shard_map
+                        .get(&shard_id)
+                        .unwrap();
                     Some(*parent_shard_id)
                 }
-                None => None,
+                | None => None,
             },
         };
         Ok(parent_shard_id)
@@ -682,7 +787,10 @@ impl ShardLayout {
     /// calls this function for shard layout that has parent shard layout.
     /// Returns an error if `shard_id` is an invalid shard id in the current
     /// layout or if the shard is has no parent in this shard layout.
-    pub fn get_parent_shard_id(&self, shard_id: ShardId) -> Result<ShardId, ShardLayoutError> {
+    pub fn get_parent_shard_id(
+        &self,
+        shard_id: ShardId,
+    ) -> Result<ShardId, ShardLayoutError> {
         let parent_shard_id = self.try_get_parent_shard_id(shard_id)?;
         parent_shard_id.ok_or(ShardLayoutError::NoParentError { shard_id })
     }
@@ -692,8 +800,12 @@ impl ShardLayout {
         base_shard_layout: &ShardLayout,
         new_boundary_account: AccountId,
     ) -> ShardLayout {
-        let mut boundary_accounts = base_shard_layout.boundary_accounts().clone();
-        let mut shard_ids = base_shard_layout.shard_ids().collect::<Vec<_>>();
+        let mut boundary_accounts = base_shard_layout
+            .boundary_accounts()
+            .clone();
+        let mut shard_ids = base_shard_layout
+            .shard_ids()
+            .collect::<Vec<_>>();
         let mut shards_split_map = shard_ids
             .iter()
             .map(|id| (*id, vec![*id]))
@@ -710,8 +822,10 @@ impl ShardLayout {
             .expect("account should be guaranteed to exist at this point");
 
         // new shard ids start from the current max
-        let max_shard_id =
-            *shard_ids.iter().max().expect("there should always be at least one shard");
+        let max_shard_id = *shard_ids
+            .iter()
+            .max()
+            .expect("there should always be at least one shard");
         let new_shards = vec![max_shard_id + 1, max_shard_id + 2];
         let parent_shard_id = shard_ids
             .splice(new_boundary_account_index..new_boundary_account_index + 1, new_shards.clone())
@@ -727,25 +841,25 @@ impl ShardLayout {
     #[inline]
     pub fn version(&self) -> ShardVersion {
         match self {
-            Self::V0(v0) => v0.version,
-            Self::V1(v1) => v1.version,
-            Self::V2(v2) => v2.version,
+            | Self::V0(v0) => v0.version,
+            | Self::V1(v1) => v1.version,
+            | Self::V2(v2) => v2.version,
         }
     }
 
     pub fn boundary_accounts(&self) -> &Vec<AccountId> {
         match self {
-            Self::V1(v1) => &v1.boundary_accounts,
-            Self::V2(v2) => &v2.boundary_accounts,
-            _ => panic!("ShardLayout::V0 doesn't have boundary accounts"),
+            | Self::V1(v1) => &v1.boundary_accounts,
+            | Self::V2(v2) => &v2.boundary_accounts,
+            | _ => panic!("ShardLayout::V0 doesn't have boundary accounts"),
         }
     }
 
     pub fn num_shards(&self) -> NumShards {
         match self {
-            Self::V0(v0) => v0.num_shards,
-            Self::V1(v1) => (v1.boundary_accounts.len() + 1) as NumShards,
-            Self::V2(v2) => (v2.shard_ids.len()) as NumShards,
+            | Self::V0(v0) => v0.num_shards,
+            | Self::V1(v1) => (v1.boundary_accounts.len() + 1) as NumShards,
+            | Self::V2(v2) => (v2.shard_ids.len()) as NumShards,
         }
     }
 
@@ -754,23 +868,32 @@ impl ShardLayout {
     /// shard and should be used when ShardIndex is needed.
     pub fn shard_ids(&self) -> impl Iterator<Item = ShardId> {
         match self {
-            Self::V0(_) => (0..self.num_shards()).map(Into::into).collect_vec().into_iter(),
-            Self::V1(_) => (0..self.num_shards()).map(Into::into).collect_vec().into_iter(),
-            Self::V2(v2) => v2.shard_ids.clone().into_iter(),
+            | Self::V0(_) => (0..self.num_shards())
+                .map(Into::into)
+                .collect_vec()
+                .into_iter(),
+            | Self::V1(_) => (0..self.num_shards())
+                .map(Into::into)
+                .collect_vec()
+                .into_iter(),
+            | Self::V2(v2) => v2.shard_ids.clone().into_iter(),
         }
     }
 
     /// Returns an iterator that iterates over all the shard uids for all the
     /// shards in the shard layout
     pub fn shard_uids(&self) -> impl Iterator<Item = ShardUId> + '_ {
-        self.shard_ids().map(|shard_id| ShardUId::from_shard_id_and_layout(shard_id, self))
+        self.shard_ids()
+            .map(|shard_id| ShardUId::from_shard_id_and_layout(shard_id, self))
     }
 
     pub fn shard_indexes(&self) -> impl Iterator<Item = ShardIndex> + 'static {
-        let num_shards: usize =
-            self.num_shards().try_into().expect("Number of shards doesn't fit in usize");
+        let num_shards: usize = self
+            .num_shards()
+            .try_into()
+            .expect("Number of shards doesn't fit in usize");
         match self {
-            Self::V0(_) | Self::V1(_) | Self::V2(_) => (0..num_shards).into_iter(),
+            | Self::V0(_) | Self::V1(_) | Self::V2(_) => (0..num_shards).into_iter(),
         }
     }
 
@@ -786,14 +909,17 @@ impl ShardLayout {
 
     /// Returns the shard index for a given shard id. The shard index should be
     /// used when indexing into an array of chunk data.
-    pub fn get_shard_index(&self, shard_id: ShardId) -> Result<ShardIndex, ShardLayoutError> {
+    pub fn get_shard_index(
+        &self,
+        shard_id: ShardId,
+    ) -> Result<ShardIndex, ShardLayoutError> {
         match self {
             // In V0 the shard id and shard index are the same.
-            Self::V0(_) => Ok(shard_id.into()),
+            | Self::V0(_) => Ok(shard_id.into()),
             // In V1 the shard id and shard index are the same.
-            Self::V1(_) => Ok(shard_id.into()),
+            | Self::V1(_) => Ok(shard_id.into()),
             // In V2 the shard id and shard index are **not** the same.
-            Self::V2(v2) => v2
+            | Self::V2(v2) => v2
                 .id_to_index_map
                 .get(&shard_id)
                 .copied()
@@ -803,16 +929,19 @@ impl ShardLayout {
 
     /// Get the shard id for a given shard index. The shard id should be used to
     /// identify the shard and starting from the ShardLayoutV2 it is unique.
-    pub fn get_shard_id(&self, shard_index: ShardIndex) -> Result<ShardId, ShardLayoutError> {
+    pub fn get_shard_id(
+        &self,
+        shard_index: ShardIndex,
+    ) -> Result<ShardId, ShardLayoutError> {
         let num_shards = self.num_shards() as usize;
         match self {
-            Self::V0(_) | Self::V1(_) => {
+            | Self::V0(_) | Self::V1(_) => {
                 if shard_index >= num_shards {
                     return Err(ShardLayoutError::InvalidShardIndexError { shard_index });
                 }
                 Ok(ShardId::new(shard_index as u64))
             }
-            Self::V2(v2) => v2
+            | Self::V2(v2) => v2
                 .shard_ids
                 .get(shard_index)
                 .copied()
@@ -861,8 +990,15 @@ fn validate_and_derive_shard_parent_map_v2(
     }
 
     assert_eq!(
-        shard_ids.iter().copied().sorted().collect_vec(),
-        shards_parent_map.keys().copied().collect_vec()
+        shard_ids
+            .iter()
+            .copied()
+            .sorted()
+            .collect_vec(),
+        shards_parent_map
+            .keys()
+            .copied()
+            .collect_vec()
     );
     shards_parent_map
 }
@@ -894,7 +1030,10 @@ pub struct ShardUId {
 }
 
 impl ShardUId {
-    pub fn new(version: ShardVersion, shard_id: ShardId) -> Self {
+    pub fn new(
+        version: ShardVersion,
+        shard_id: ShardId,
+    ) -> Self {
         Self { version, shard_id: shard_id.into() }
     }
 
@@ -902,7 +1041,10 @@ impl ShardUId {
     /// It is not suitable for use with any other shard layout.
     #[cfg(feature = "test_utils")]
     pub fn single_shard() -> Self {
-        ShardLayout::single_shard().shard_uids().next().unwrap()
+        ShardLayout::single_shard()
+            .shard_uids()
+            .next()
+            .unwrap()
     }
 
     /// Byte representation of the shard uid
@@ -932,8 +1074,13 @@ impl ShardUId {
     }
 
     /// Constructs a shard uid from shard id and a shard layout
-    pub fn from_shard_id_and_layout(shard_id: ShardId, shard_layout: &ShardLayout) -> Self {
-        assert!(shard_layout.shard_ids().any(|i| i == shard_id));
+    pub fn from_shard_id_and_layout(
+        shard_id: ShardId,
+        shard_layout: &ShardLayout,
+    ) -> Self {
+        assert!(shard_layout
+            .shard_ids()
+            .any(|i| i == shard_id));
         Self::new(shard_layout.version(), shard_id)
     }
 
@@ -958,7 +1105,10 @@ impl TryFrom<&[u8]> for ShardUId {
 }
 
 /// Returns the byte representation for (block, shard_uid)
-pub fn get_block_shard_uid(block_hash: &CryptoHash, shard_uid: &ShardUId) -> Vec<u8> {
+pub fn get_block_shard_uid(
+    block_hash: &CryptoHash,
+    shard_uid: &ShardUId,
+) -> Vec<u8> {
     let mut res = Vec::with_capacity(40);
     res.extend_from_slice(block_hash.as_ref());
     res.extend_from_slice(&shard_uid.to_bytes());
@@ -968,7 +1118,7 @@ pub fn get_block_shard_uid(block_hash: &CryptoHash, shard_uid: &ShardUId) -> Vec
 /// Deserialize from a byte representation to (block, shard_uid)
 #[allow(unused)]
 pub fn get_block_shard_uid_rev(
-    key: &[u8],
+    key: &[u8]
 ) -> Result<(CryptoHash, ShardUId), Box<dyn std::error::Error + Send + Sync>> {
     if key.len() != 40 {
         return Err(
@@ -981,13 +1131,19 @@ pub fn get_block_shard_uid_rev(
 }
 
 impl fmt::Display for ShardUId {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
         write!(f, "s{}.v{}", self.shard_id, self.version)
     }
 }
 
 impl fmt::Debug for ShardUId {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
         fmt::Display::fmt(self, f)
     }
 }
@@ -1027,7 +1183,10 @@ impl<'de> serde::Deserialize<'de> for ShardUId {
 }
 
 impl serde::Serialize for ShardUId {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    fn serialize<S>(
+        &self,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
@@ -1039,21 +1198,30 @@ struct ShardUIdVisitor;
 impl<'de> serde::de::Visitor<'de> for ShardUIdVisitor {
     type Value = ShardUId;
 
-    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+    fn expecting(
+        &self,
+        formatter: &mut fmt::Formatter,
+    ) -> fmt::Result {
         write!(
             formatter,
             "either string format of `ShardUId` like 's0.v3' for shard 0 version 3, or a map"
         )
     }
 
-    fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+    fn visit_str<E>(
+        self,
+        v: &str,
+    ) -> Result<Self::Value, E>
     where
         E: serde::de::Error,
     {
         v.parse().map_err(|e| E::custom(e))
     }
 
-    fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+    fn visit_map<A>(
+        self,
+        mut map: A,
+    ) -> Result<Self::Value, A::Error>
     where
         A: serde::de::MapAccess<'de>,
     {
@@ -1065,16 +1233,18 @@ impl<'de> serde::de::Visitor<'de> for ShardUIdVisitor {
 
         while let Some((field, value)) = map.next_entry()? {
             match field {
-                "version" => version = Some(value),
-                "shard_id" => shard_id = Some(value),
-                _ => return Err(serde::de::Error::unknown_field(field, &["version", "shard_id"])),
+                | "version" => version = Some(value),
+                | "shard_id" => shard_id = Some(value),
+                | _ => {
+                    return Err(serde::de::Error::unknown_field(field, &["version", "shard_id"]))
+                }
             }
         }
 
         match (version, shard_id) {
-            (None, _) => Err(serde::de::Error::missing_field("version")),
-            (_, None) => Err(serde::de::Error::missing_field("shard_id")),
-            (Some(version), Some(shard_id)) => Ok(ShardUId { version, shard_id }),
+            | (None, _) => Err(serde::de::Error::missing_field("version")),
+            | (_, None) => Err(serde::de::Error::missing_field("shard_id")),
+            | (Some(version), Some(shard_id)) => Ok(ShardUId { version, shard_id }),
         }
     }
 }
@@ -1158,15 +1328,22 @@ mod tests {
         let num_shards = 4;
         #[allow(deprecated)]
         let shard_layout = ShardLayout::v0(num_shards, 0);
-        let mut shard_id_distribution: HashMap<ShardId, _> =
-            shard_layout.shard_ids().map(|shard_id| (shard_id.into(), 0)).collect();
+        let mut shard_id_distribution: HashMap<ShardId, _> = shard_layout
+            .shard_ids()
+            .map(|shard_id| (shard_id.into(), 0))
+            .collect();
         let mut rng = StdRng::from_seed([0; 32]);
         for _i in 0..1000 {
-            let s: Vec<u8> = (&mut rng).sample_iter(&Alphanumeric).take(10).collect();
+            let s: Vec<u8> = (&mut rng)
+                .sample_iter(&Alphanumeric)
+                .take(10)
+                .collect();
             let s = String::from_utf8(s).unwrap();
             let account_id = s.to_lowercase().parse().unwrap();
             let shard_id = shard_layout.account_id_to_shard_id(&account_id);
-            *shard_id_distribution.get_mut(&shard_id).unwrap() += 1;
+            *shard_id_distribution
+                .get_mut(&shard_id)
+                .unwrap() += 1;
 
             let shard_id: u64 = shard_id.into();
             assert!(shard_id < num_shards);
@@ -1194,16 +1371,34 @@ mod tests {
             1,
         );
         assert_eq!(
-            shard_layout.get_children_shards_uids(ShardId::new(0)).unwrap(),
-            (0..3).map(|x| ShardUId { version: 1, shard_id: x }).collect::<Vec<_>>()
+            shard_layout
+                .get_children_shards_uids(ShardId::new(0))
+                .unwrap(),
+            (0..3)
+                .map(|x| ShardUId { version: 1, shard_id: x })
+                .collect::<Vec<_>>()
         );
         assert_eq!(
-            shard_layout.get_children_shards_uids(ShardId::new(1)).unwrap(),
-            (3..6).map(|x| ShardUId { version: 1, shard_id: x }).collect::<Vec<_>>()
+            shard_layout
+                .get_children_shards_uids(ShardId::new(1))
+                .unwrap(),
+            (3..6)
+                .map(|x| ShardUId { version: 1, shard_id: x })
+                .collect::<Vec<_>>()
         );
         for x in 0..3 {
-            assert_eq!(shard_layout.get_parent_shard_id(ShardId::new(x)).unwrap(), sid(0));
-            assert_eq!(shard_layout.get_parent_shard_id(ShardId::new(x + 3)).unwrap(), sid(1));
+            assert_eq!(
+                shard_layout
+                    .get_parent_shard_id(ShardId::new(x))
+                    .unwrap(),
+                sid(0)
+            );
+            assert_eq!(
+                shard_layout
+                    .get_parent_shard_id(ShardId::new(x + 3))
+                    .unwrap(),
+                sid(1)
+            );
         }
 
         assert_eq!(shard_layout.account_id_to_shard_id(&aid("aurora")), sid(1));
@@ -1248,7 +1443,9 @@ mod tests {
     }
 
     fn parse_account_ids(ids: &[&str]) -> Vec<AccountId> {
-        ids.into_iter().map(|a| a.parse().unwrap()).collect()
+        ids.into_iter()
+            .map(|a| a.parse().unwrap())
+            .collect()
     }
 
     #[test]
@@ -1276,22 +1473,48 @@ mod tests {
         assert_eq!(shard_layout.shard_uids().collect_vec(), vec![u(3), u(8), u(4), u(7)]);
 
         // check parent
-        assert_eq!(shard_layout.get_parent_shard_id(ShardId::new(3)).unwrap(), sid(3));
-        assert_eq!(shard_layout.get_parent_shard_id(ShardId::new(8)).unwrap(), sid(1));
-        assert_eq!(shard_layout.get_parent_shard_id(ShardId::new(4)).unwrap(), sid(4));
-        assert_eq!(shard_layout.get_parent_shard_id(ShardId::new(7)).unwrap(), sid(1));
+        assert_eq!(
+            shard_layout
+                .get_parent_shard_id(ShardId::new(3))
+                .unwrap(),
+            sid(3)
+        );
+        assert_eq!(
+            shard_layout
+                .get_parent_shard_id(ShardId::new(8))
+                .unwrap(),
+            sid(1)
+        );
+        assert_eq!(
+            shard_layout
+                .get_parent_shard_id(ShardId::new(4))
+                .unwrap(),
+            sid(4)
+        );
+        assert_eq!(
+            shard_layout
+                .get_parent_shard_id(ShardId::new(7))
+                .unwrap(),
+            sid(1)
+        );
 
         // check child
         assert_eq!(
-            shard_layout.get_children_shards_ids(ShardId::new(1)).unwrap(),
+            shard_layout
+                .get_children_shards_ids(ShardId::new(1))
+                .unwrap(),
             new_shard_ids_vec(vec![7, 8])
         );
         assert_eq!(
-            shard_layout.get_children_shards_ids(ShardId::new(3)).unwrap(),
+            shard_layout
+                .get_children_shards_ids(ShardId::new(3))
+                .unwrap(),
             new_shard_ids_vec(vec![3])
         );
         assert_eq!(
-            shard_layout.get_children_shards_ids(ShardId::new(4)).unwrap(),
+            shard_layout
+                .get_children_shards_ids(ShardId::new(4))
+                .unwrap(),
             new_shard_ids_vec(vec![4])
         );
     }
@@ -1307,7 +1530,11 @@ mod tests {
 
         // the mapping from parent to the child
         // shard 1 is split into shards 7 & 8 while other shards stay the same
-        let shards_split_map = BTreeMap::from([(1, vec![7, 8]), (3, vec![3]), (4, vec![4])]);
+        let shards_split_map = BTreeMap::from([
+            (1, vec![7, 8]),
+            (3, vec![3]),
+            (4, vec![4]),
+        ]);
         let shards_split_map = new_shards_split_map_v2(shards_split_map);
         let shards_split_map = Some(shards_split_map);
 
@@ -1612,21 +1839,28 @@ mod tests {
     #[test]
     fn test_deriving_shard_layout() {
         fn to_boundary_accounts<const N: usize>(accounts: [&str; N]) -> Vec<AccountId> {
-            accounts.into_iter().map(|a| a.parse().unwrap()).collect()
+            accounts
+                .into_iter()
+                .map(|a| a.parse().unwrap())
+                .collect()
         }
 
         fn to_shard_ids<const N: usize>(ids: [u32; N]) -> Vec<ShardId> {
-            ids.into_iter().map(|id| ShardId::new(id as u64)).collect()
+            ids.into_iter()
+                .map(|id| ShardId::new(id as u64))
+                .collect()
         }
 
         fn to_shards_split_map<const N: usize>(
-            xs: [(u32, Vec<u32>); N],
+            xs: [(u32, Vec<u32>); N]
         ) -> BTreeMap<ShardId, Vec<ShardId>> {
             xs.into_iter()
                 .map(|(k, xs)| {
                     (
                         ShardId::new(k as u64),
-                        xs.into_iter().map(|x| ShardId::new(x as u64)).collect(),
+                        xs.into_iter()
+                            .map(|x| ShardId::new(x as u64))
+                            .collect(),
                     )
                 })
                 .collect()
@@ -1673,7 +1907,11 @@ mod tests {
             ShardLayout::v2(
                 to_boundary_accounts(["test0.near", "test1.near", "test3.near"]),
                 to_shard_ids([5, 6, 3, 4]),
-                Some(to_shards_split_map([(1, vec![5, 6]), (3, vec![3]), (4, vec![4]),])),
+                Some(to_shards_split_map([
+                    (1, vec![5, 6]),
+                    (3, vec![3]),
+                    (4, vec![4]),
+                ])),
             ),
         );
 
@@ -1686,7 +1924,12 @@ mod tests {
         assert_eq!(
             derived_layout,
             ShardLayout::v2(
-                to_boundary_accounts(["test0.near", "test1.near", "test2.near", "test3.near"]),
+                to_boundary_accounts([
+                    "test0.near",
+                    "test1.near",
+                    "test2.near",
+                    "test3.near"
+                ]),
                 to_shard_ids([5, 6, 7, 8, 4]),
                 Some(to_shards_split_map([
                     (5, vec![5]),

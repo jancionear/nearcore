@@ -14,7 +14,9 @@ const NUM_SHARDS: usize = 8;
 fn inc_counter_vec_with_label_values(bench: &mut Bencher) {
     bench.iter(|| {
         for shard_id in 0..NUM_SHARDS {
-            COUNTERS.with_label_values(&[&shard_id.to_string()]).inc();
+            COUNTERS
+                .with_label_values(&[&shard_id.to_string()])
+                .inc();
         }
     });
 }
@@ -24,7 +26,9 @@ fn inc_counter_vec_with_label_values_itoa(bench: &mut Bencher) {
         for shard_id in 0..NUM_SHARDS {
             let mut buffer = itoa::Buffer::new();
             let printed = buffer.format(shard_id);
-            COUNTERS.with_label_values(&[printed]).inc();
+            COUNTERS
+                .with_label_values(&[printed])
+                .inc();
         }
     });
 }
@@ -36,7 +40,9 @@ fn inc_counter_vec_with_label_values_smartstring(bench: &mut Bencher) {
         for shard_id in 0..NUM_SHARDS {
             let mut label = smartstring::alias::String::new();
             write!(label, "{shard_id}").unwrap();
-            COUNTERS.with_label_values(&[&label]).inc();
+            COUNTERS
+                .with_label_values(&[&label])
+                .inc();
         }
     });
 }
@@ -50,7 +56,9 @@ fn inc_counter_vec_with_label_values_stack(bench: &mut Bencher) {
             write!(cursor, "{shard_id}").unwrap();
             let len = cursor.position() as usize;
             let label = unsafe { std::str::from_utf8_unchecked(&buf[..len]) };
-            COUNTERS.with_label_values(&[label]).inc();
+            COUNTERS
+                .with_label_values(&[label])
+                .inc();
         }
     });
 }
@@ -70,7 +78,9 @@ fn inc_counter_vec_with_label_values_stack_no_format(bench: &mut Bencher) {
                 }
             }
             let label = unsafe { std::str::from_utf8_unchecked(&buf[idx..]) };
-            COUNTERS.with_label_values(&[label]).inc();
+            COUNTERS
+                .with_label_values(&[label])
+                .inc();
         }
     });
 }
@@ -89,10 +99,14 @@ fn inc_counter_vec_cached(bench: &mut Bencher) {
 
 fn inc_counter_vec_cached_str(bench: &mut Bencher) {
     const NUM_SHARDS: usize = 8;
-    let shard_ids: Vec<String> = (0..NUM_SHARDS).map(|shard_id| shard_id.to_string()).collect();
+    let shard_ids: Vec<String> = (0..NUM_SHARDS)
+        .map(|shard_id| shard_id.to_string())
+        .collect();
     bench.iter(|| {
         for shard_id in &shard_ids {
-            COUNTERS.with_label_values(&[shard_id]).inc();
+            COUNTERS
+                .with_label_values(&[shard_id])
+                .inc();
         }
     });
 }

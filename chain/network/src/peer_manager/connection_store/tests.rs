@@ -10,7 +10,10 @@ use rand::Rng;
 
 /// Returns a ConnectionInfo with the given value for time_connected_until,
 /// and with randomly generated peer_info and time_established
-fn make_connection_info<R: Rng>(rng: &mut R, time_connected_until: time::Utc) -> ConnectionInfo {
+fn make_connection_info<R: Rng>(
+    rng: &mut R,
+    time_connected_until: time::Utc,
+) -> ConnectionInfo {
     ConnectionInfo {
         peer_info: make_peer_info(rng),
         time_established: time_connected_until - time::Duration::hours(rng.gen_range(1..1000)),
@@ -25,7 +28,9 @@ fn make_connection_infos<R: Rng>(
     time_connected_until: time::Utc,
     num_connections: usize,
 ) -> Vec<ConnectionInfo> {
-    (0..num_connections).map(|_| make_connection_info(rng, time_connected_until)).collect()
+    (0..num_connections)
+        .map(|_| make_connection_info(rng, time_connected_until))
+        .collect()
 }
 
 #[test]
@@ -100,7 +105,12 @@ fn test_evict_longest_disconnected() {
     conn_infos.push(conn);
 
     tracing::debug!(target:"test", "check that the store contains exactly the expected connections");
-    assert_eq!(connection_store.get_recent_outbound_connections().as_set(), conn_infos.as_set());
+    assert_eq!(
+        connection_store
+            .get_recent_outbound_connections()
+            .as_set(),
+        conn_infos.as_set()
+    );
 }
 
 #[test]

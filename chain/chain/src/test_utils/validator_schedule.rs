@@ -34,7 +34,10 @@ impl ValidatorSchedule {
     /// Specifies, for each epoch, the set of block producers for this epoch.
     ///
     /// Conceptually, this "loops around" when `epoch_id >= block_producers.len()`
-    pub fn block_producers_per_epoch(mut self, block_producers: Vec<Vec<AccountId>>) -> Self {
+    pub fn block_producers_per_epoch(
+        mut self,
+        block_producers: Vec<Vec<AccountId>>,
+    ) -> Self {
         self.block_producers = block_producers;
         self.sanity_check();
         self
@@ -66,12 +69,18 @@ impl ValidatorSchedule {
     /// to two validators.
     ///
     /// See how `EpochValidatorSet` is constructed for details.
-    pub fn validator_groups(mut self, validator_groups: u64) -> Self {
+    pub fn validator_groups(
+        mut self,
+        validator_groups: u64,
+    ) -> Self {
         self.validator_groups = validator_groups;
         self
     }
 
-    pub fn num_shards(mut self, num_shards: NumShards) -> Self {
+    pub fn num_shards(
+        mut self,
+        num_shards: NumShards,
+    ) -> Self {
         self.num_shards = num_shards;
         self
     }
@@ -81,7 +90,12 @@ impl ValidatorSchedule {
     }
 
     pub fn all_validators(&self) -> impl Iterator<Item = &AccountId> {
-        self.all_block_producers().chain(self.chunk_only_producers.iter().flatten().flatten())
+        self.all_block_producers().chain(
+            self.chunk_only_producers
+                .iter()
+                .flatten()
+                .flatten(),
+        )
     }
 
     fn sanity_check(&self) {
@@ -92,12 +106,20 @@ impl ValidatorSchedule {
             }
         }
         let mut chunk_only_producers = HashSet::new();
-        for cop in self.chunk_only_producers.iter().flatten().flatten() {
+        for cop in self
+            .chunk_only_producers
+            .iter()
+            .flatten()
+            .flatten()
+        {
             if !chunk_only_producers.insert(cop) {
                 panic!("chunk only producer {cop} is specified twice")
             }
         }
-        if let Some(v) = block_producers.intersection(&chunk_only_producers).next() {
+        if let Some(v) = block_producers
+            .intersection(&chunk_only_producers)
+            .next()
+        {
             panic!("{v} is both a block and a chunk only producer")
         }
     }

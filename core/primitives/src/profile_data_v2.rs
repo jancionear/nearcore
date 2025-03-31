@@ -30,7 +30,10 @@ impl DataArray {
 }
 
 impl ProfileDataV2 {
-    pub fn get_ext_cost(&self, ext: ExtCosts) -> u64 {
+    pub fn get_ext_cost(
+        &self,
+        ext: ExtCosts,
+    ) -> u64 {
         self[ext]
     }
 
@@ -40,7 +43,9 @@ impl ProfileDataV2 {
     }
 
     fn host_gas(&self) -> u64 {
-        ExtCosts::iter().map(|a| self.get_ext_cost(a)).fold(0, u64::saturating_add)
+        ExtCosts::iter()
+            .map(|a| self.get_ext_cost(a))
+            .fold(0, u64::saturating_add)
     }
 
     /// List action cost in the old way, which conflated several action parameters into one.
@@ -62,7 +67,10 @@ impl ProfileDataV2 {
     }
 
     pub fn action_gas(&self) -> u64 {
-        self.legacy_action_costs().iter().map(|(_name, cost)| *cost).fold(0, u64::saturating_add)
+        self.legacy_action_costs()
+            .iter()
+            .map(|(_name, cost)| *cost)
+            .fold(0, u64::saturating_add)
     }
 
     /// Test instance with unique numbers in each field.
@@ -80,7 +88,10 @@ impl ProfileDataV2 {
 }
 
 impl fmt::Debug for ProfileDataV2 {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
         use num_rational::Ratio;
         let host_gas = self.host_gas();
         let action_gas = self.action_gas();
@@ -114,7 +125,10 @@ impl fmt::Debug for ProfileDataV2 {
 impl Index<usize> for DataArray {
     type Output = u64;
 
-    fn index(&self, index: usize) -> &Self::Output {
+    fn index(
+        &self,
+        index: usize,
+    ) -> &Self::Output {
         &self.0[index]
     }
 }
@@ -122,26 +136,29 @@ impl Index<usize> for DataArray {
 impl Index<ActionCosts> for ProfileDataV2 {
     type Output = u64;
 
-    fn index(&self, cost: ActionCosts) -> &Self::Output {
+    fn index(
+        &self,
+        cost: ActionCosts,
+    ) -> &Self::Output {
         let index = match cost {
-            ActionCosts::create_account => 0,
-            ActionCosts::delete_account => 1,
-            ActionCosts::deploy_contract_base => 2,
-            ActionCosts::deploy_contract_byte => 2,
-            ActionCosts::function_call_base => 3,
-            ActionCosts::function_call_byte => 3,
-            ActionCosts::transfer => 4,
-            ActionCosts::stake => 5,
-            ActionCosts::add_full_access_key => 6,
-            ActionCosts::add_function_call_key_base => 6,
-            ActionCosts::add_function_call_key_byte => 6,
-            ActionCosts::delete_key => 7,
-            ActionCosts::new_data_receipt_byte => 8,
-            ActionCosts::new_action_receipt => 9,
-            ActionCosts::new_data_receipt_base => 9,
+            | ActionCosts::create_account => 0,
+            | ActionCosts::delete_account => 1,
+            | ActionCosts::deploy_contract_base => 2,
+            | ActionCosts::deploy_contract_byte => 2,
+            | ActionCosts::function_call_base => 3,
+            | ActionCosts::function_call_byte => 3,
+            | ActionCosts::transfer => 4,
+            | ActionCosts::stake => 5,
+            | ActionCosts::add_full_access_key => 6,
+            | ActionCosts::add_function_call_key_base => 6,
+            | ActionCosts::add_function_call_key_byte => 6,
+            | ActionCosts::delete_key => 7,
+            | ActionCosts::new_data_receipt_byte => 8,
+            | ActionCosts::new_action_receipt => 9,
+            | ActionCosts::new_data_receipt_base => 9,
             // new costs added after profile v1 was deprecated don't have this entry
             #[allow(unreachable_patterns)]
-            _ => return &0,
+            | _ => return &0,
         };
         &self.data[index]
     }
@@ -150,70 +167,73 @@ impl Index<ActionCosts> for ProfileDataV2 {
 impl Index<ExtCosts> for ProfileDataV2 {
     type Output = u64;
 
-    fn index(&self, cost: ExtCosts) -> &Self::Output {
+    fn index(
+        &self,
+        cost: ExtCosts,
+    ) -> &Self::Output {
         let index = match cost {
-            ExtCosts::base => 10,
-            ExtCosts::contract_loading_base => 11,
-            ExtCosts::contract_loading_bytes => 12,
-            ExtCosts::read_memory_base => 13,
-            ExtCosts::read_memory_byte => 14,
-            ExtCosts::write_memory_base => 15,
-            ExtCosts::write_memory_byte => 16,
-            ExtCosts::read_register_base => 17,
-            ExtCosts::read_register_byte => 18,
-            ExtCosts::write_register_base => 19,
-            ExtCosts::write_register_byte => 20,
-            ExtCosts::utf8_decoding_base => 21,
-            ExtCosts::utf8_decoding_byte => 22,
-            ExtCosts::utf16_decoding_base => 23,
-            ExtCosts::utf16_decoding_byte => 24,
-            ExtCosts::sha256_base => 25,
-            ExtCosts::sha256_byte => 26,
-            ExtCosts::keccak256_base => 27,
-            ExtCosts::keccak256_byte => 28,
-            ExtCosts::keccak512_base => 29,
-            ExtCosts::keccak512_byte => 30,
-            ExtCosts::ripemd160_base => 31,
-            ExtCosts::ripemd160_block => 32,
-            ExtCosts::ecrecover_base => 33,
-            ExtCosts::log_base => 34,
-            ExtCosts::log_byte => 35,
-            ExtCosts::storage_write_base => 36,
-            ExtCosts::storage_write_key_byte => 37,
-            ExtCosts::storage_write_value_byte => 38,
-            ExtCosts::storage_write_evicted_byte => 39,
-            ExtCosts::storage_read_base => 40,
-            ExtCosts::storage_read_key_byte => 41,
-            ExtCosts::storage_read_value_byte => 42,
-            ExtCosts::storage_remove_base => 43,
-            ExtCosts::storage_remove_key_byte => 44,
-            ExtCosts::storage_remove_ret_value_byte => 45,
-            ExtCosts::storage_has_key_base => 46,
-            ExtCosts::storage_has_key_byte => 47,
-            ExtCosts::storage_iter_create_prefix_base => 48,
-            ExtCosts::storage_iter_create_prefix_byte => 49,
-            ExtCosts::storage_iter_create_range_base => 50,
-            ExtCosts::storage_iter_create_from_byte => 51,
-            ExtCosts::storage_iter_create_to_byte => 52,
-            ExtCosts::storage_iter_next_base => 53,
-            ExtCosts::storage_iter_next_key_byte => 54,
-            ExtCosts::storage_iter_next_value_byte => 55,
-            ExtCosts::touching_trie_node => 56,
-            ExtCosts::promise_and_base => 57,
-            ExtCosts::promise_and_per_promise => 58,
-            ExtCosts::promise_return => 59,
-            ExtCosts::validator_stake_base => 60,
-            ExtCosts::validator_total_stake_base => 61,
-            ExtCosts::read_cached_trie_node => 63,
-            ExtCosts::alt_bn128_g1_multiexp_base => 64,
-            ExtCosts::alt_bn128_g1_multiexp_element => 65,
-            ExtCosts::alt_bn128_pairing_check_base => 66,
-            ExtCosts::alt_bn128_pairing_check_element => 67,
-            ExtCosts::alt_bn128_g1_sum_base => 68,
-            ExtCosts::alt_bn128_g1_sum_element => 69,
+            | ExtCosts::base => 10,
+            | ExtCosts::contract_loading_base => 11,
+            | ExtCosts::contract_loading_bytes => 12,
+            | ExtCosts::read_memory_base => 13,
+            | ExtCosts::read_memory_byte => 14,
+            | ExtCosts::write_memory_base => 15,
+            | ExtCosts::write_memory_byte => 16,
+            | ExtCosts::read_register_base => 17,
+            | ExtCosts::read_register_byte => 18,
+            | ExtCosts::write_register_base => 19,
+            | ExtCosts::write_register_byte => 20,
+            | ExtCosts::utf8_decoding_base => 21,
+            | ExtCosts::utf8_decoding_byte => 22,
+            | ExtCosts::utf16_decoding_base => 23,
+            | ExtCosts::utf16_decoding_byte => 24,
+            | ExtCosts::sha256_base => 25,
+            | ExtCosts::sha256_byte => 26,
+            | ExtCosts::keccak256_base => 27,
+            | ExtCosts::keccak256_byte => 28,
+            | ExtCosts::keccak512_base => 29,
+            | ExtCosts::keccak512_byte => 30,
+            | ExtCosts::ripemd160_base => 31,
+            | ExtCosts::ripemd160_block => 32,
+            | ExtCosts::ecrecover_base => 33,
+            | ExtCosts::log_base => 34,
+            | ExtCosts::log_byte => 35,
+            | ExtCosts::storage_write_base => 36,
+            | ExtCosts::storage_write_key_byte => 37,
+            | ExtCosts::storage_write_value_byte => 38,
+            | ExtCosts::storage_write_evicted_byte => 39,
+            | ExtCosts::storage_read_base => 40,
+            | ExtCosts::storage_read_key_byte => 41,
+            | ExtCosts::storage_read_value_byte => 42,
+            | ExtCosts::storage_remove_base => 43,
+            | ExtCosts::storage_remove_key_byte => 44,
+            | ExtCosts::storage_remove_ret_value_byte => 45,
+            | ExtCosts::storage_has_key_base => 46,
+            | ExtCosts::storage_has_key_byte => 47,
+            | ExtCosts::storage_iter_create_prefix_base => 48,
+            | ExtCosts::storage_iter_create_prefix_byte => 49,
+            | ExtCosts::storage_iter_create_range_base => 50,
+            | ExtCosts::storage_iter_create_from_byte => 51,
+            | ExtCosts::storage_iter_create_to_byte => 52,
+            | ExtCosts::storage_iter_next_base => 53,
+            | ExtCosts::storage_iter_next_key_byte => 54,
+            | ExtCosts::storage_iter_next_value_byte => 55,
+            | ExtCosts::touching_trie_node => 56,
+            | ExtCosts::promise_and_base => 57,
+            | ExtCosts::promise_and_per_promise => 58,
+            | ExtCosts::promise_return => 59,
+            | ExtCosts::validator_stake_base => 60,
+            | ExtCosts::validator_total_stake_base => 61,
+            | ExtCosts::read_cached_trie_node => 63,
+            | ExtCosts::alt_bn128_g1_multiexp_base => 64,
+            | ExtCosts::alt_bn128_g1_multiexp_element => 65,
+            | ExtCosts::alt_bn128_pairing_check_base => 66,
+            | ExtCosts::alt_bn128_pairing_check_element => 67,
+            | ExtCosts::alt_bn128_g1_sum_base => 68,
+            | ExtCosts::alt_bn128_g1_sum_element => 69,
             // new costs added after profile v1 was deprecated don't have this entry
             #[allow(unreachable_patterns)]
-            _ => return &0,
+            | _ => return &0,
         };
         &self.data[index]
     }
@@ -230,7 +250,10 @@ impl BorshDeserialize for DataArray {
 }
 
 impl BorshSerialize for DataArray {
-    fn serialize<W: std::io::Write>(&self, writer: &mut W) -> Result<(), std::io::Error> {
+    fn serialize<W: std::io::Write>(
+        &self,
+        writer: &mut W,
+    ) -> Result<(), std::io::Error> {
         (&self.0[..]).serialize(writer)
     }
 }

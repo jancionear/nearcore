@@ -65,20 +65,33 @@ macro_rules! accessors {
 /// between the API and the VM internals, specifically with `near_vm_types::Value`.
 pub trait WasmValueType: std::fmt::Debug + 'static {
     /// Write the value
-    unsafe fn write_value_to(&self, p: *mut i128);
+    unsafe fn write_value_to(
+        &self,
+        p: *mut i128,
+    );
 
     /// read the value
     // TODO(reftypes): passing the store as `dyn Any` is a hack to work around the
     // structure of our crates. We need to talk about the store in the rest of the
     // VM (for example where this method is used) but cannot do so. Fixing this
     // may be non-trivial.
-    unsafe fn read_value_from(store: &dyn std::any::Any, p: *const i128) -> Self;
+    unsafe fn read_value_from(
+        store: &dyn std::any::Any,
+        p: *const i128,
+    ) -> Self;
 }
 
 impl WasmValueType for () {
-    unsafe fn write_value_to(&self, _p: *mut i128) {}
+    unsafe fn write_value_to(
+        &self,
+        _p: *mut i128,
+    ) {
+    }
 
-    unsafe fn read_value_from(_store: &dyn std::any::Any, _p: *const i128) -> Self {
+    unsafe fn read_value_from(
+        _store: &dyn std::any::Any,
+        _p: *const i128,
+    ) -> Self {
         ()
     }
 }
@@ -95,13 +108,13 @@ where
     /// Returns the corresponding [`Type`] for this `Value`.
     pub fn ty(&self) -> Type {
         match self {
-            Self::I32(_) => Type::I32,
-            Self::I64(_) => Type::I64,
-            Self::F32(_) => Type::F32,
-            Self::F64(_) => Type::F64,
-            Self::ExternRef(_) => Type::ExternRef,
-            Self::FuncRef(_) => Type::FuncRef,
-            Self::V128(_) => Type::V128,
+            | Self::I32(_) => Type::I32,
+            | Self::I64(_) => Type::I64,
+            | Self::F32(_) => Type::F32,
+            | Self::F64(_) => Type::F64,
+            | Self::ExternRef(_) => Type::ExternRef,
+            | Self::FuncRef(_) => Type::FuncRef,
+            | Self::V128(_) => Type::V128,
         }
     }
 
@@ -111,17 +124,20 @@ where
     /// `p` must be:
     /// - Sufficiently aligned for the Rust equivalent of the type in `self`
     /// - Non-null and pointing to valid, mutable memory
-    pub unsafe fn write_value_to(&self, p: *mut i128) {
+    pub unsafe fn write_value_to(
+        &self,
+        p: *mut i128,
+    ) {
         match self {
-            Self::I32(i) => ptr::write(p as *mut i32, *i),
-            Self::I64(i) => ptr::write(p as *mut i64, *i),
-            Self::F32(u) => ptr::write(p as *mut f32, *u),
-            Self::F64(u) => ptr::write(p as *mut f64, *u),
-            Self::V128(b) => ptr::write(p as *mut u128, *b),
-            Self::FuncRef(Some(b)) => T::write_value_to(b, p),
-            Self::FuncRef(None) => ptr::write(p as *mut usize, 0),
+            | Self::I32(i) => ptr::write(p as *mut i32, *i),
+            | Self::I64(i) => ptr::write(p as *mut i64, *i),
+            | Self::F32(u) => ptr::write(p as *mut f32, *u),
+            | Self::F64(u) => ptr::write(p as *mut f64, *u),
+            | Self::V128(b) => ptr::write(p as *mut u128, *b),
+            | Self::FuncRef(Some(b)) => T::write_value_to(b, p),
+            | Self::FuncRef(None) => ptr::write(p as *mut usize, 0),
             // TODO(reftypes): review clone here
-            Self::ExternRef(extern_ref) => ptr::write(p as *mut ExternRef, extern_ref.clone()),
+            | Self::ExternRef(extern_ref) => ptr::write(p as *mut ExternRef, extern_ref.clone()),
         }
     }
 
@@ -131,14 +147,18 @@ where
     /// `p` must be:
     /// - Properly aligned to the specified `ty`'s Rust equivalent
     /// - Non-null and pointing to valid memory
-    pub unsafe fn read_value_from(store: &dyn std::any::Any, p: *const i128, ty: Type) -> Self {
+    pub unsafe fn read_value_from(
+        store: &dyn std::any::Any,
+        p: *const i128,
+        ty: Type,
+    ) -> Self {
         match ty {
-            Type::I32 => Self::I32(ptr::read(p as *const i32)),
-            Type::I64 => Self::I64(ptr::read(p as *const i64)),
-            Type::F32 => Self::F32(ptr::read(p as *const f32)),
-            Type::F64 => Self::F64(ptr::read(p as *const f64)),
-            Type::V128 => Self::V128(ptr::read(p as *const u128)),
-            Type::FuncRef => {
+            | Type::I32 => Self::I32(ptr::read(p as *const i32)),
+            | Type::I64 => Self::I64(ptr::read(p as *const i64)),
+            | Type::F32 => Self::F32(ptr::read(p as *const f32)),
+            | Type::F64 => Self::F64(ptr::read(p as *const f64)),
+            | Type::V128 => Self::V128(ptr::read(p as *const u128)),
+            | Type::FuncRef => {
                 // We do the null check ourselves
                 if (*(p as *const usize)) == 0 {
                     Self::FuncRef(None)
@@ -146,7 +166,7 @@ where
                     Self::FuncRef(Some(T::read_value_from(store, p)))
                 }
             }
-            Type::ExternRef => {
+            | Type::ExternRef => {
                 let extern_ref = (&*(p as *const ExternRef)).clone();
                 Self::ExternRef(extern_ref)
             }
@@ -169,16 +189,19 @@ impl<T> fmt::Debug for Value<T>
 where
     T: WasmValueType,
 {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
         match self {
-            Self::I32(v) => write!(f, "I32({:?})", v),
-            Self::I64(v) => write!(f, "I64({:?})", v),
-            Self::F32(v) => write!(f, "F32({:?})", v),
-            Self::F64(v) => write!(f, "F64({:?})", v),
-            Self::ExternRef(v) => write!(f, "ExternRef({:?})", v),
-            Self::FuncRef(None) => write!(f, "Null FuncRef"),
-            Self::FuncRef(Some(v)) => write!(f, "FuncRef({:?})", v),
-            Self::V128(v) => write!(f, "V128({:?})", v),
+            | Self::I32(v) => write!(f, "I32({:?})", v),
+            | Self::I64(v) => write!(f, "I64({:?})", v),
+            | Self::F32(v) => write!(f, "F32({:?})", v),
+            | Self::F64(v) => write!(f, "F64({:?})", v),
+            | Self::ExternRef(v) => write!(f, "ExternRef({:?})", v),
+            | Self::FuncRef(None) => write!(f, "Null FuncRef"),
+            | Self::FuncRef(Some(v)) => write!(f, "FuncRef({:?})", v),
+            | Self::V128(v) => write!(f, "V128({:?})", v),
         }
     }
 }
@@ -189,13 +212,13 @@ where
 {
     fn to_string(&self) -> String {
         match self {
-            Self::I32(v) => v.to_string(),
-            Self::I64(v) => v.to_string(),
-            Self::F32(v) => v.to_string(),
-            Self::F64(v) => v.to_string(),
-            Self::ExternRef(_) => "externref".to_string(),
-            Self::FuncRef(_) => "funcref".to_string(),
-            Self::V128(v) => v.to_string(),
+            | Self::I32(v) => v.to_string(),
+            | Self::I64(v) => v.to_string(),
+            | Self::F32(v) => v.to_string(),
+            | Self::F64(v) => v.to_string(),
+            | Self::ExternRef(_) => "externref".to_string(),
+            | Self::FuncRef(_) => "funcref".to_string(),
+            | Self::V128(v) => v.to_string(),
         }
     }
 }
@@ -294,7 +317,10 @@ where
     type Error = &'static str;
 
     fn try_from(value: Value<T>) -> Result<Self, Self::Error> {
-        value.i32().ok_or(NOT_I32).map(|int| int as Self)
+        value
+            .i32()
+            .ok_or(NOT_I32)
+            .map(|int| int as Self)
     }
 }
 
@@ -316,7 +342,10 @@ where
     type Error = &'static str;
 
     fn try_from(value: Value<T>) -> Result<Self, Self::Error> {
-        value.i64().ok_or(NOT_I64).map(|int| int as Self)
+        value
+            .i64()
+            .ok_or(NOT_I64)
+            .map(|int| int as Self)
     }
 }
 
@@ -367,19 +396,27 @@ mod tests {
 
     #[test]
     fn test_value_i64_from_u64() {
-        let bytes = [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
+        let bytes = [
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ];
         let v = Value::<()>::from(u64::from_be_bytes(bytes));
         assert_eq!(v, Value::I64(i64::from_be_bytes(bytes)));
 
-        let bytes = [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01];
+        let bytes = [
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01,
+        ];
         let v = Value::<()>::from(u64::from_be_bytes(bytes));
         assert_eq!(v, Value::I64(i64::from_be_bytes(bytes)));
 
-        let bytes = [0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF, 0x00, 0x11];
+        let bytes = [
+            0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF, 0x00, 0x11,
+        ];
         let v = Value::<()>::from(u64::from_be_bytes(bytes));
         assert_eq!(v, Value::I64(i64::from_be_bytes(bytes)));
 
-        let bytes = [0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF];
+        let bytes = [
+            0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+        ];
         let v = Value::<()>::from(u64::from_be_bytes(bytes));
         assert_eq!(v, Value::I64(i64::from_be_bytes(bytes)));
     }

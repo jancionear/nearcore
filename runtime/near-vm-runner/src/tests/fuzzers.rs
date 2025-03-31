@@ -18,9 +18,9 @@ pub fn find_entry_point(contract: &ContractCode) -> Option<String> {
     let mut fns = Vec::new();
     for payload in Parser::default().parse_all(contract.code()) {
         match payload {
-            Ok(Payload::FunctionSection(rdr)) => fns.extend(rdr),
-            Ok(Payload::TypeSection(rdr)) => tys.extend(rdr),
-            Ok(Payload::ExportSection(rdr)) => {
+            | Ok(Payload::FunctionSection(rdr)) => fns.extend(rdr),
+            | Ok(Payload::TypeSection(rdr)) => tys.extend(rdr),
+            | Ok(Payload::ExportSection(rdr)) => {
                 for export in rdr {
                     if let Ok(Export { field, kind: ExternalKind::Function, index }) = export {
                         if let Some(&Ok(ty_index)) = fns.get(index as usize) {
@@ -33,7 +33,7 @@ pub fn find_entry_point(contract: &ContractCode) -> Option<String> {
                     }
                 }
             }
-            _ => (),
+            | _ => (),
         }
     }
     None
@@ -62,7 +62,10 @@ pub fn create_context(input: Vec<u8>) -> VMContext {
 }
 
 #[cfg(feature = "prepare")]
-fn run_fuzz(code: &ContractCode, vm_kind: VMKind) -> VMResult {
+fn run_fuzz(
+    code: &ContractCode,
+    vm_kind: VMKind,
+) -> VMResult {
     let mut fake_external = MockedExternal::with_code(code.clone_for_tests());
     let method_name = find_entry_point(code).unwrap_or_else(|| "main".to_string());
     let mut context = create_context(vec![]);
@@ -70,7 +73,9 @@ fn run_fuzz(code: &ContractCode, vm_kind: VMKind) -> VMResult {
 
     let mut config = test_vm_config();
     config.limit_config.wasmer2_stack_limit = i32::MAX; // If we can crash wasmer2 even without the secondary stack limit it's still good to know
-    config.limit_config.contract_prepare_version = ContractPrepareVersion::V2;
+    config
+        .limit_config
+        .contract_prepare_version = ContractPrepareVersion::V2;
 
     let fees = Arc::new(RuntimeFeesConfig::test());
     let gas_counter = context.make_gas_counter(&config);
@@ -83,14 +88,14 @@ fn run_fuzz(code: &ContractCode, vm_kind: VMKind) -> VMResult {
     // Remove the VMError message details as they can differ between runtimes
     // TODO: maybe there's actually things we could check for equality here too?
     match res {
-        Ok(ref mut outcome) => {
+        | Ok(ref mut outcome) => {
             if outcome.aborted.is_some() {
                 outcome.logs = vec!["[censored]".to_owned()];
                 outcome.aborted =
                     Some(FunctionCallError::LinkError { msg: "[censored]".to_owned() });
             }
         }
-        Err(err) => panic!("fatal error: {err:?}"),
+        | Err(err) => panic!("fatal error: {err:?}"),
     }
     res
 }
@@ -100,12 +105,12 @@ fn run_fuzz(code: &ContractCode, vm_kind: VMKind) -> VMResult {
 fn slow_test_current_vm_does_not_crash_fuzzer() {
     let config = test_vm_config();
     if config.vm_kind.is_available() {
-        bolero::check!().with_arbitrary::<ArbitraryModule>().for_each(
-            |module: &ArbitraryModule| {
+        bolero::check!()
+            .with_arbitrary::<ArbitraryModule>()
+            .for_each(|module: &ArbitraryModule| {
                 let code = ContractCode::new(module.0.to_bytes(), None);
                 let _result = run_fuzz(&code, config.vm_kind);
-            },
-        );
+            });
     }
 }
 
@@ -113,12 +118,14 @@ fn slow_test_current_vm_does_not_crash_fuzzer() {
 #[cfg_attr(not(all(feature = "wasmtime_vm", feature = "near_vm", target_arch = "x86_64")), ignore)]
 #[cfg(feature = "prepare")]
 fn slow_test_near_vm_and_wasmtime_agree_fuzzer() {
-    bolero::check!().with_arbitrary::<ArbitraryModule>().for_each(|module: &ArbitraryModule| {
-        let code = ContractCode::new(module.0.to_bytes(), None);
-        let near_vm = run_fuzz(&code, VMKind::NearVm).expect("fatal failure");
-        let wasmtime = run_fuzz(&code, VMKind::Wasmtime).expect("fatal failure");
-        assert_eq!(near_vm, wasmtime);
-    });
+    bolero::check!()
+        .with_arbitrary::<ArbitraryModule>()
+        .for_each(|module: &ArbitraryModule| {
+            let code = ContractCode::new(module.0.to_bytes(), None);
+            let near_vm = run_fuzz(&code, VMKind::NearVm).expect("fatal failure");
+            let wasmtime = run_fuzz(&code, VMKind::Wasmtime).expect("fatal failure");
+            assert_eq!(near_vm, wasmtime);
+        });
 }
 
 #[test]
@@ -127,22 +134,24 @@ fn slow_test_near_vm_is_reproducible_fuzzer() {
     use crate::near_vm_runner::NearVM;
     use near_primitives_core::hash::CryptoHash;
 
-    bolero::check!().with_arbitrary::<ArbitraryModule>().for_each(|module: &ArbitraryModule| {
-        let code = ContractCode::new(module.0.to_bytes(), None);
-        let config = std::sync::Arc::new(test_vm_config());
-        let mut first_hash = None;
-        for _ in 0..3 {
-            let vm = NearVM::new(config.clone());
-            let exec = match vm.compile_uncached(&code) {
-                Ok(e) => e,
-                Err(_) => return,
-            };
-            let code = exec.serialize().unwrap();
-            let hash = CryptoHash::hash_bytes(&code);
-            match first_hash {
-                None => first_hash = Some(hash),
-                Some(h) => assert_eq!(h, hash),
+    bolero::check!()
+        .with_arbitrary::<ArbitraryModule>()
+        .for_each(|module: &ArbitraryModule| {
+            let code = ContractCode::new(module.0.to_bytes(), None);
+            let config = std::sync::Arc::new(test_vm_config());
+            let mut first_hash = None;
+            for _ in 0..3 {
+                let vm = NearVM::new(config.clone());
+                let exec = match vm.compile_uncached(&code) {
+                    | Ok(e) => e,
+                    | Err(_) => return,
+                };
+                let code = exec.serialize().unwrap();
+                let hash = CryptoHash::hash_bytes(&code);
+                match first_hash {
+                    | None => first_hash = Some(hash),
+                    | Some(h) => assert_eq!(h, hash),
+                }
             }
-        }
-    })
+        })
 }

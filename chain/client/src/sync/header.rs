@@ -120,20 +120,20 @@ impl HeaderSync {
 
         // TODO: Why call `header_sync_due()` if that decision can be overridden here?
         let enable_header_sync = match sync_status {
-            SyncStatus::HeaderSync { .. }
+            | SyncStatus::HeaderSync { .. }
             | SyncStatus::BlockSync { .. }
             | SyncStatus::EpochSyncDone
             | SyncStatus::StateSyncDone => {
                 // TODO: Transitioning from BlockSync to HeaderSync is fine if the highest height of peers gets too far from our header_head_height. However it's currently unconditional.
                 true
             }
-            SyncStatus::NoSync | SyncStatus::AwaitingPeers => {
+            | SyncStatus::NoSync | SyncStatus::AwaitingPeers => {
                 debug!(target: "sync", "Sync: initial transition to Header sync. Header head {} at {}",
                     header_head.last_block_hash, header_head.height,
                 );
                 true
             }
-            SyncStatus::EpochSync { .. } | SyncStatus::StateSync { .. } => false,
+            | SyncStatus::EpochSync { .. } | SyncStatus::StateSync { .. } => false,
         };
 
         if !enable_header_sync {
@@ -143,7 +143,9 @@ impl HeaderSync {
 
         // start_height is used to report the progress of header sync, e.g. to say that it's 50% complete.
         // This number has no other functional value.
-        let start_height = sync_status.start_height().unwrap_or(head.height);
+        let start_height = sync_status
+            .start_height()
+            .unwrap_or(head.height);
 
         sync_status.update(SyncStatus::HeaderSync {
             start_height,
@@ -153,9 +155,17 @@ impl HeaderSync {
 
         self.syncing_peer = None;
         // Pick a new random peer to request the next batch of headers.
-        if let Some(peer) = highest_height_peers.choose(&mut thread_rng()).cloned() {
-            let shutdown_height = self.shutdown_height.get().unwrap_or(u64::MAX);
-            let highest_height = peer.highest_block_height.min(shutdown_height);
+        if let Some(peer) = highest_height_peers
+            .choose(&mut thread_rng())
+            .cloned()
+        {
+            let shutdown_height = self
+                .shutdown_height
+                .get()
+                .unwrap_or(u64::MAX);
+            let highest_height = peer
+                .highest_block_height
+                .min(shutdown_height);
             if highest_height > header_head.height {
                 self.request_headers(chain, &peer)?;
                 self.syncing_peer = Some(peer);
@@ -206,8 +216,8 @@ impl HeaderSync {
 
         // Always enable header sync if we're able to do header sync but are not doing it already.
         let force_sync = match sync_status {
-            SyncStatus::NoSync | SyncStatus::AwaitingPeers | SyncStatus::EpochSyncDone => true,
-            _ => false,
+            | SyncStatus::NoSync | SyncStatus::AwaitingPeers | SyncStatus::EpochSyncDone => true,
+            | _ => false,
         };
 
         if force_sync || all_headers_received || stalling {
@@ -238,7 +248,7 @@ impl HeaderSync {
                     // syncing_peer is expected to be present.
                     if let Some(ref peer) = self.syncing_peer {
                         match sync_status {
-                            SyncStatus::HeaderSync { highest_height, .. } => {
+                            | SyncStatus::HeaderSync { highest_height, .. } => {
                                 if now > *stalling_ts + self.stall_ban_timeout
                                     && *highest_height == peer.highest_block_height
                                 {
@@ -261,7 +271,7 @@ impl HeaderSync {
                                     return false;
                                 }
                             }
-                            _ => {
+                            | _ => {
                                 // Unexpected
                             }
                         }
@@ -318,12 +328,13 @@ impl HeaderSync {
     ) -> Result<(), near_chain::Error> {
         let locator = self.get_locator(chain)?;
         debug!(target: "sync", "Sync: request headers: asking {} for headers, {:?}", peer.peer_info.id, locator);
-        self.network_adapter.send(PeerManagerMessageRequest::NetworkRequests(
-            NetworkRequests::BlockHeadersRequest {
-                hashes: locator,
-                peer_id: peer.peer_info.id.clone(),
-            },
-        ));
+        self.network_adapter
+            .send(PeerManagerMessageRequest::NetworkRequests(
+                NetworkRequests::BlockHeadersRequest {
+                    hashes: locator,
+                    peer_id: peer.peer_info.id.clone(),
+                },
+            ));
         Ok(())
     }
 
@@ -337,21 +348,28 @@ impl HeaderSync {
     // back, then 8 blocks back, etc, until we reach the most recent final block. The reason
     // why we stop at the final block is because the consensus guarantees us that the final
     // blocks observed by all nodes are on the same fork.
-    fn get_locator(&mut self, chain: &Chain) -> Result<Vec<CryptoHash>, near_chain::Error> {
+    fn get_locator(
+        &mut self,
+        chain: &Chain,
+    ) -> Result<Vec<CryptoHash>, near_chain::Error> {
         let store = chain.chain_store();
         let tip = store.header_head()?;
         // We could just get the ordinal from the header, but it's off by one: #8177.
-        let tip_ordinal = store.get_block_merkle_tree(&tip.last_block_hash)?.size();
+        let tip_ordinal = store
+            .get_block_merkle_tree(&tip.last_block_hash)?
+            .size();
         let final_head = store.final_head()?;
-        let final_head_ordinal = store.get_block_merkle_tree(&final_head.last_block_hash)?.size();
+        let final_head_ordinal = store
+            .get_block_merkle_tree(&final_head.last_block_hash)?
+            .size();
         let ordinals = get_locator_ordinals(final_head_ordinal, tip_ordinal);
         let mut locator: Vec<CryptoHash> = vec![];
         for ordinal in &ordinals {
             match store.get_block_hash_from_ordinal(*ordinal) {
-                Ok(block_hash) => {
+                | Ok(block_hash) => {
                     locator.push(block_hash);
                 }
-                Err(e) => {
+                | Err(e) => {
                     // In the case of epoch sync, it is normal and expected that we will not have
                     // many headers before the tip, so that case is fine.
                     if *ordinal == tip_ordinal {
@@ -369,7 +387,10 @@ impl HeaderSync {
 
 /// Step back from highest to lowest ordinal, in powers of 2 steps, limited by MAX_BLOCK_HEADERS
 /// heights per step, and limited by MAX_BLOCK_HEADER_HASHES steps in total.
-fn get_locator_ordinals(lowest_ordinal: u64, highest_ordinal: u64) -> Vec<u64> {
+fn get_locator_ordinals(
+    lowest_ordinal: u64,
+    highest_ordinal: u64,
+) -> Vec<u64> {
     let mut current = highest_ordinal;
     let mut ordinals = vec![];
     let mut step = 2;
@@ -467,7 +488,9 @@ mod test {
         );
         let (mut chain, _, _, signer) = setup(Clock::real());
         for _ in 0..3 {
-            let prev = chain.get_block(&chain.head().unwrap().last_block_hash).unwrap();
+            let prev = chain
+                .get_block(&chain.head().unwrap().last_block_hash)
+                .unwrap();
             // Have gaps in the chain, so we don't have final blocks (i.e. last final block is
             // genesis). Otherwise we violate consensus invariants.
             let block = TestBlockBuilder::new(Clock::real(), &prev, signer.clone())
@@ -484,7 +507,9 @@ mod test {
         }
         let (mut chain2, _, _, signer2) = setup(Clock::real());
         for _ in 0..5 {
-            let prev = chain2.get_block(&chain2.head().unwrap().last_block_hash).unwrap();
+            let prev = chain2
+                .get_block(&chain2.head().unwrap().last_block_hash)
+                .unwrap();
             // Have gaps in the chain, so we don't have final blocks (i.e. last final block is
             // genesis). Otherwise we violate consensus invariants.
             let block = TestBlockBuilder::new(Clock::real(), &prev, signer2.clone())
@@ -527,14 +552,20 @@ mod test {
         assert!(sync_status.is_syncing());
         // Check that it queried last block, and then stepped down to genesis block to find common block with the peer.
 
-        let item = mock_adapter.pop().unwrap().as_network_requests();
+        let item = mock_adapter
+            .pop()
+            .unwrap()
+            .as_network_requests();
         assert_eq!(
             item,
             NetworkRequests::BlockHeadersRequest {
                 // chain is 6 -> 4 -> 2 -> 0.
                 hashes: [6, 2, 0]
                     .iter()
-                    .map(|i| *chain.get_block_by_height(*i).unwrap().hash())
+                    .map(|i| *chain
+                        .get_block_by_height(*i)
+                        .unwrap()
+                        .hash())
                     .collect(),
                 peer_id: peer1.peer_info.id
             }
@@ -558,7 +589,9 @@ mod test {
         for chain in [&mut chain, &mut chain2] {
             // Both chains share a common final block at height 3.
             for _ in 0..5 {
-                let prev = chain.get_block(&chain.head().unwrap().last_block_hash).unwrap();
+                let prev = chain
+                    .get_block(&chain.head().unwrap().last_block_hash)
+                    .unwrap();
                 let block = TestBlockBuilder::new(Clock::real(), &prev, signer.clone()).build();
                 process_block_sync(
                     chain,
@@ -571,7 +604,9 @@ mod test {
             }
         }
         for _ in 0..7 {
-            let prev = chain.get_block(&chain.head().unwrap().last_block_hash).unwrap();
+            let prev = chain
+                .get_block(&chain.head().unwrap().last_block_hash)
+                .unwrap();
             // Test with huge gaps to make sure we are still able to find locators.
             let block = TestBlockBuilder::new(Clock::real(), &prev, signer.clone())
                 .height(prev.header().height() + 1000)
@@ -586,7 +621,9 @@ mod test {
             .unwrap();
         }
         for _ in 0..3 {
-            let prev = chain2.get_block(&chain2.head().unwrap().last_block_hash).unwrap();
+            let prev = chain2
+                .get_block(&chain2.head().unwrap().last_block_hash)
+                .unwrap();
             // Test with huge gaps, but 3 blocks here produce a higher height than the 7 blocks
             // above.
             let block = TestBlockBuilder::new(Clock::real(), &prev, signer2.clone())
@@ -629,7 +666,10 @@ mod test {
         assert!(sync_status.is_syncing());
         // Check that it queried last block, and then stepped down to genesis block to find common block with the peer.
 
-        let item = mock_adapter.pop().unwrap().as_network_requests();
+        let item = mock_adapter
+            .pop()
+            .unwrap()
+            .as_network_requests();
         assert_eq!(
             item,
             NetworkRequests::BlockHeadersRequest {
@@ -637,7 +677,10 @@ mod test {
                 // where 3 is final.
                 hashes: [7005, 5005, 1005, 3]
                     .iter()
-                    .map(|i| *chain.get_block_by_height(*i).unwrap().hash())
+                    .map(|i| *chain
+                        .get_block_by_height(*i)
+                        .unwrap()
+                        .hash())
                     .collect(),
                 peer_id: peer1.peer_info.id
             }
@@ -679,12 +722,18 @@ mod test {
                 tracked_shards: vec![],
                 archival: false,
             });
-            header_sync.syncing_peer.as_mut().unwrap().highest_block_height = highest_height;
+            header_sync
+                .syncing_peer
+                .as_mut()
+                .unwrap()
+                .highest_block_height = highest_height;
         };
         set_syncing_peer(&mut header_sync);
 
         let (chain, _, _, signer) = setup(Clock::real());
-        let genesis = chain.get_block(&chain.genesis().hash().clone()).unwrap();
+        let genesis = chain
+            .get_block(&chain.genesis().hash().clone())
+            .unwrap();
 
         let mut last_block = &genesis;
         let mut all_blocks = vec![];
@@ -719,7 +768,11 @@ mod test {
             thread::sleep(std::time::Duration::from_millis(500));
         }
         // 6 blocks / second is fast enough, we should not have banned the peer
-        assert!(network_adapter.requests.read().unwrap().is_empty());
+        assert!(network_adapter
+            .requests
+            .read()
+            .unwrap()
+            .is_empty());
 
         // Now the same, but only 20 heights / sec
         for _iter in 0..12 {
@@ -741,7 +794,12 @@ mod test {
             thread::sleep(std::time::Duration::from_millis(500));
         }
         // This time the peer should be banned, because 4 blocks/s is not fast enough
-        let ban_peer = network_adapter.requests.write().unwrap().pop_back().unwrap();
+        let ban_peer = network_adapter
+            .requests
+            .write()
+            .unwrap()
+            .pop_back()
+            .unwrap();
 
         if let NetworkRequests::BanPeer { .. } = ban_peer.as_network_requests() {
             /* expected */
@@ -771,7 +829,9 @@ mod test {
         let mut block_merkle_tree = PartialMerkleTree::default();
         block_merkle_tree.insert(*chain.genesis().hash()); // for genesis block
         for _ in 0..(4 * MAX_BLOCK_HEADERS + 10) {
-            let last_block = chain2.get_block(&chain2.head().unwrap().last_block_hash).unwrap();
+            let last_block = chain2
+                .get_block(&chain2.head().unwrap().last_block_hash)
+                .unwrap();
             let this_height = last_block.header().height() + 1;
             let (epoch_id, next_epoch_id) = if last_block.header().is_genesis() {
                 (*last_block.header().next_epoch_id(), EpochId(*last_block.hash()))
@@ -785,7 +845,11 @@ mod test {
                 last_block.header(),
                 this_height,
                 last_block.header().block_ordinal() + 1,
-                last_block.chunks().iter_deprecated().cloned().collect(),
+                last_block
+                    .chunks()
+                    .iter_deprecated()
+                    .cloned()
+                    .collect(),
                 vec![vec![]; last_block.chunks().len()],
                 epoch_id,
                 next_epoch_id,
@@ -815,10 +879,11 @@ mod test {
                 block_merkle_tree.root(),
                 clock.clock(),
                 None,
-                None,
             );
             block_merkle_tree.insert(*block.hash());
-            chain2.process_block_header(block.header(), &mut Vec::new()).unwrap(); // just to validate
+            chain2
+                .process_block_header(block.header(), &mut Vec::new())
+                .unwrap(); // just to validate
             process_block_sync(
                 &mut chain2,
                 &None,
@@ -848,7 +913,12 @@ mod test {
         // get into an infinite loop because of some bug and cause the test to hang.
         for _ in 0..10 {
             let header_head = chain.header_head().unwrap();
-            if header_head.last_block_hash == chain2.header_head().unwrap().last_block_hash {
+            if header_head.last_block_hash
+                == chain2
+                    .header_head()
+                    .unwrap()
+                    .last_block_hash
+            {
                 // sync is done.
                 break;
             }
@@ -861,28 +931,30 @@ mod test {
                 )
                 .is_ok());
             match sync_status {
-                SyncStatus::HeaderSync { .. } => {}
-                _ => panic!("Unexpected sync status: {:?}", sync_status),
+                | SyncStatus::HeaderSync { .. } => {}
+                | _ => panic!("Unexpected sync status: {:?}", sync_status),
             }
             let message = match mock_adapter.pop() {
-                Some(message) => message.as_network_requests(),
-                None => {
+                | Some(message) => message.as_network_requests(),
+                | None => {
                     panic!("No message was sent; current height: {}", header_head.height);
                 }
             };
             match message {
-                NetworkRequests::BlockHeadersRequest { hashes, peer_id } => {
+                | NetworkRequests::BlockHeadersRequest { hashes, peer_id } => {
                     assert_eq!(peer_id, peer1.peer_info.id);
-                    let headers = chain2.retrieve_headers(hashes, MAX_BLOCK_HEADERS, None).unwrap();
+                    let headers = chain2
+                        .retrieve_headers(hashes, MAX_BLOCK_HEADERS, None)
+                        .unwrap();
                     assert!(!headers.is_empty(), "No headers were returned");
                     match chain.sync_block_headers(headers, &mut Vec::new()) {
-                        Ok(_) => {}
-                        Err(e) => {
+                        | Ok(_) => {}
+                        | Err(e) => {
                             panic!("Error inserting headers: {:?}", e);
                         }
                     }
                 }
-                _ => panic!("Unexpected network message: {:?}", message),
+                | _ => panic!("Unexpected network message: {:?}", message),
             }
             if chain.header_head().unwrap().height <= header_head.height {
                 panic!(

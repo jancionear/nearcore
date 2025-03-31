@@ -70,7 +70,10 @@ pub struct ChildrenView<'a, M: ArenaMemory> {
 
 impl<'a, M: ArenaMemory> ChildrenView<'a, M> {
     /// Gets the child at a specific index (0 to 15).
-    pub fn get(&self, i: usize) -> Option<MemTrieNodePtr<'a, M>> {
+    pub fn get(
+        &self,
+        i: usize,
+    ) -> Option<MemTrieNodePtr<'a, M>> {
         assert!(i < 16);
         let bit = 1u16 << (i as u16);
         if self.mask & bit == 0 {
@@ -78,7 +81,10 @@ impl<'a, M: ArenaMemory> ChildrenView<'a, M> {
         } else {
             let lower_mask = self.mask & (bit - 1);
             let index = lower_mask.count_ones() as usize;
-            Some(MemTrieNodePtr::from(self.children.read_ptr_at(index * size_of::<usize>())))
+            Some(MemTrieNodePtr::from(
+                self.children
+                    .read_ptr_at(index * size_of::<usize>()),
+            ))
         }
     }
 
@@ -118,7 +124,11 @@ impl<'a, M: ArenaMemory> ChildrenView<'a, M> {
 
     /// Iterates only through existing children.
     pub fn iter<'b>(&'b self) -> impl Iterator<Item = MemTrieNodePtr<'a, M>> + 'b {
-        (0..self.mask.count_ones() as usize)
-            .map(|i| MemTrieNodePtr::from(self.children.read_ptr_at(i * size_of::<usize>())))
+        (0..self.mask.count_ones() as usize).map(|i| {
+            MemTrieNodePtr::from(
+                self.children
+                    .read_ptr_at(i * size_of::<usize>()),
+            )
+        })
     }
 }

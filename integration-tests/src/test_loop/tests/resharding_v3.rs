@@ -119,7 +119,7 @@ struct TestReshardingParameters {
     // The suffix must consist of `GC_NUM_EPOCHS_TO_KEEP` repetitions of the same shard,
     // so that we can assert at the end of the test that the state of all other shards have been cleaned up.
     tracked_shard_schedule: Option<TrackedShardSchedule>,
-    load_memtries_for_tracked_shards: bool,
+    load_mem_tries_for_tracked_shards: bool,
     /// Custom behavior executed at every iteration of test loop.
     #[builder(setter(custom))]
     loop_actions: Vec<LoopAction>,
@@ -152,11 +152,16 @@ struct TestReshardingParameters {
 impl TestReshardingParametersBuilder {
     fn build(self) -> TestReshardingParameters {
         // Give enough time for GC to kick in after resharding.
-        let num_epochs_to_wait =
-            self.num_epochs_to_wait.unwrap_or(DEFAULT_TESTLOOP_NUM_EPOCHS_TO_WAIT);
+        let num_epochs_to_wait = self
+            .num_epochs_to_wait
+            .unwrap_or(DEFAULT_TESTLOOP_NUM_EPOCHS_TO_WAIT);
         assert!(GC_NUM_EPOCHS_TO_KEEP + 3 < num_epochs_to_wait);
-        let epoch_length = self.epoch_length.unwrap_or(DEFAULT_EPOCH_LENGTH);
-        let tracked_shard_schedule = self.tracked_shard_schedule.unwrap_or(None);
+        let epoch_length = self
+            .epoch_length
+            .unwrap_or(DEFAULT_EPOCH_LENGTH);
+        let tracked_shard_schedule = self
+            .tracked_shard_schedule
+            .unwrap_or(None);
 
         let num_accounts = self.num_accounts.unwrap_or(8);
         let num_clients = self.num_clients.unwrap_or(7);
@@ -233,9 +238,13 @@ impl TestReshardingParametersBuilder {
 
         let new_boundary_account: AccountId = NEW_BOUNDARY_ACCOUNT.parse().unwrap();
         let temporary_account_id: AccountId =
-            format!("{}.{}", new_boundary_account, new_boundary_account).parse().unwrap();
+            format!("{}.{}", new_boundary_account, new_boundary_account)
+                .parse()
+                .unwrap();
         let mut loop_actions = self.loop_actions.unwrap_or_default();
-        let disable_temporary_account_test = self.disable_temporary_account_test.unwrap_or(false);
+        let disable_temporary_account_test = self
+            .disable_temporary_account_test
+            .unwrap_or(false);
         if !disable_temporary_account_test {
             let archival_id = archivals.iter().next().cloned();
             loop_actions.push(temporary_account_during_resharding(
@@ -264,21 +273,35 @@ impl TestReshardingParametersBuilder {
             client_index,
             archivals,
             new_boundary_account,
-            initial_balance: self.initial_balance.unwrap_or(1_000_000 * ONE_NEAR),
+            initial_balance: self
+                .initial_balance
+                .unwrap_or(1_000_000 * ONE_NEAR),
             epoch_length,
-            chunk_ranges_to_drop: self.chunk_ranges_to_drop.unwrap_or_default(),
+            chunk_ranges_to_drop: self
+                .chunk_ranges_to_drop
+                .unwrap_or_default(),
             shuffle_shard_assignment_for_chunk_producers: self
                 .shuffle_shard_assignment_for_chunk_producers
                 .unwrap_or(false),
             track_all_shards: self.track_all_shards.unwrap_or(false),
             tracked_shard_schedule,
-            load_memtries_for_tracked_shards: self.load_memtries_for_tracked_shards.unwrap_or(true),
+            load_mem_tries_for_tracked_shards: self
+                .load_mem_tries_for_tracked_shards
+                .unwrap_or(true),
             loop_actions,
-            all_chunks_expected: self.all_chunks_expected.unwrap_or(false),
-            deploy_test_contract: self.deploy_test_contract.unwrap_or_default(),
+            all_chunks_expected: self
+                .all_chunks_expected
+                .unwrap_or(false),
+            deploy_test_contract: self
+                .deploy_test_contract
+                .unwrap_or_default(),
             limit_outgoing_gas: self.limit_outgoing_gas.unwrap_or(false),
-            delay_flat_state_resharding: self.delay_flat_state_resharding.unwrap_or(0),
-            short_yield_timeout: self.short_yield_timeout.unwrap_or(false),
+            delay_flat_state_resharding: self
+                .delay_flat_state_resharding
+                .unwrap_or(0),
+            short_yield_timeout: self
+                .short_yield_timeout
+                .unwrap_or(false),
             disable_temporary_account_test,
             temporary_account_id,
             num_epochs_to_wait,
@@ -288,13 +311,23 @@ impl TestReshardingParametersBuilder {
         }
     }
 
-    fn add_loop_action(mut self, loop_action: LoopAction) -> Self {
-        self.loop_actions.get_or_insert_default().push(loop_action);
+    fn add_loop_action(
+        mut self,
+        loop_action: LoopAction,
+    ) -> Self {
+        self.loop_actions
+            .get_or_insert_default()
+            .push(loop_action);
         self
     }
 
-    fn deploy_test_contract(mut self, account_id: AccountId) -> Self {
-        self.deploy_test_contract.get_or_insert_default().push(account_id);
+    fn deploy_test_contract(
+        mut self,
+        account_id: AccountId,
+    ) -> Self {
+        self.deploy_test_contract
+            .get_or_insert_default()
+            .push(account_id);
         self
     }
 
@@ -306,20 +339,33 @@ impl TestReshardingParametersBuilder {
 }
 
 fn get_base_shard_layout(version: u64) -> ShardLayout {
-    let boundary_accounts = vec!["account1".parse().unwrap(), "account3".parse().unwrap()];
+    let boundary_accounts = vec![
+        "account1".parse().unwrap(),
+        "account3".parse().unwrap(),
+    ];
     match version {
-        1 => {
-            let shards_split_map = vec![vec![ShardId::new(0), ShardId::new(1), ShardId::new(2)]];
+        | 1 => {
+            let shards_split_map = vec![vec![
+                ShardId::new(0),
+                ShardId::new(1),
+                ShardId::new(2),
+            ]];
             #[allow(deprecated)]
             ShardLayout::v1(boundary_accounts, Some(shards_split_map), 3)
         }
-        2 => {
-            let shard_ids = vec![ShardId::new(5), ShardId::new(3), ShardId::new(6)];
-            let shards_split_map = [(ShardId::new(0), shard_ids.clone())].into_iter().collect();
+        | 2 => {
+            let shard_ids = vec![
+                ShardId::new(5),
+                ShardId::new(3),
+                ShardId::new(6),
+            ];
+            let shards_split_map = [(ShardId::new(0), shard_ids.clone())]
+                .into_iter()
+                .collect();
             let shards_split_map = Some(shards_split_map);
             ShardLayout::v2(boundary_accounts, shard_ids, shards_split_map)
         }
-        _ => panic!("Unsupported shard layout version {}", version),
+        | _ => panic!("Unsupported shard layout version {}", version),
     }
 }
 
@@ -337,7 +383,9 @@ fn test_resharding_v3_base(params: TestReshardingParameters) {
         // Adjust the resharding configuration to make the tests faster.
         let mut resharding_config = config.resharding_config.get();
         resharding_config.batch_delay = Duration::milliseconds(1);
-        config.resharding_config.update(resharding_config);
+        config
+            .resharding_config
+            .update(resharding_config);
         // Set the tracked shard schedule if specified for the client at the given index.
         if let Some(tracked_shard_schedule) = &tracked_shard_schedule {
             if client_index == tracked_shard_schedule.client_index {
@@ -350,8 +398,10 @@ fn test_resharding_v3_base(params: TestReshardingParameters) {
     // Prepare shard split configuration.
     let base_epoch_config_store = EpochConfigStore::for_chain_id("mainnet", None).unwrap();
     let base_protocol_version = ProtocolFeature::SimpleNightshadeV4.protocol_version() - 1;
-    let mut base_epoch_config =
-        base_epoch_config_store.get_config(base_protocol_version).as_ref().clone();
+    let mut base_epoch_config = base_epoch_config_store
+        .get_config(base_protocol_version)
+        .as_ref()
+        .clone();
     base_epoch_config.num_block_producer_seats = params.num_producers;
     base_epoch_config.num_chunk_producer_seats = params.num_producers;
     base_epoch_config.num_chunk_validator_seats = params.num_producers + params.num_validators;
@@ -380,8 +430,16 @@ fn test_resharding_v3_base(params: TestReshardingParameters) {
         .protocol_version(base_protocol_version)
         .epoch_length(params.epoch_length)
         .validators_spec(ValidatorsSpec::desired_roles(
-            &params.producers.iter().map(|account_id| account_id.as_str()).collect_vec(),
-            &params.validators.iter().map(|account_id| account_id.as_str()).collect_vec(),
+            &params
+                .producers
+                .iter()
+                .map(|account_id| account_id.as_str())
+                .collect_vec(),
+            &params
+                .validators
+                .iter()
+                .map(|account_id| account_id.as_str())
+                .collect_vec(),
         ))
         .add_user_accounts_simple(&params.accounts, params.initial_balance)
         .build();
@@ -396,15 +454,29 @@ fn test_resharding_v3_base(params: TestReshardingParameters) {
         builder = builder.protocol_upgrade_schedule(upgrade_schedule);
         new_boundary_account = second_resharding_boundary_account.clone();
     }
-    let initial_num_shards = epoch_configs.first().unwrap().1.shard_layout.num_shards();
-    let expected_num_shards = epoch_configs.last().unwrap().1.shard_layout.num_shards();
-    if params.second_resharding_boundary_account.is_some() {
+    let initial_num_shards = epoch_configs
+        .first()
+        .unwrap()
+        .1
+        .shard_layout
+        .num_shards();
+    let expected_num_shards = epoch_configs
+        .last()
+        .unwrap()
+        .1
+        .shard_layout
+        .num_shards();
+    if params
+        .second_resharding_boundary_account
+        .is_some()
+    {
         assert_eq!(expected_num_shards, initial_num_shards + 2);
     } else {
         assert_eq!(expected_num_shards, initial_num_shards + 1);
     }
-    let parent_shard_uid =
-        base_epoch_config.shard_layout.account_id_to_shard_uid(&new_boundary_account);
+    let parent_shard_uid = base_epoch_config
+        .shard_layout
+        .account_id_to_shard_uid(&new_boundary_account);
     let epoch_config_store = EpochConfigStore::test(BTreeMap::from_iter(epoch_configs));
 
     if params.track_all_shards {
@@ -414,14 +486,20 @@ fn test_resharding_v3_base(params: TestReshardingParameters) {
     if params.limit_outgoing_gas || params.short_yield_timeout {
         let mut runtime_config = RuntimeConfig::test();
         if params.limit_outgoing_gas {
-            runtime_config.congestion_control_config.max_outgoing_gas = 100 * TGAS;
-            runtime_config.congestion_control_config.min_outgoing_gas = 100 * TGAS;
+            runtime_config
+                .congestion_control_config
+                .max_outgoing_gas = 100 * TGAS;
+            runtime_config
+                .congestion_control_config
+                .min_outgoing_gas = 100 * TGAS;
         }
         if params.short_yield_timeout {
             let mut wasm_config = vm::Config::clone(&runtime_config.wasm_config);
             // Assuming the promise yield is sent at h=9 and resharding happens at h=13, let's set
             // the timeout to trigger at h=14.
-            wasm_config.limit_config.yield_timeout_length_in_blocks = 5;
+            wasm_config
+                .limit_config
+                .yield_timeout_length_in_blocks = 5;
             runtime_config.wasm_config = Arc::new(wasm_config);
         }
         let runtime_config_store = RuntimeConfigStore::with_one_config(runtime_config);
@@ -435,8 +513,14 @@ fn test_resharding_v3_base(params: TestReshardingParameters) {
         .genesis(genesis)
         .epoch_config_store(epoch_config_store)
         .clients(params.clients)
-        .archival_clients(params.archivals.iter().cloned().collect())
-        .load_memtries_for_tracked_shards(params.load_memtries_for_tracked_shards)
+        .archival_clients(
+            params
+                .archivals
+                .iter()
+                .cloned()
+                .collect(),
+        )
+        .load_mem_tries_for_tracked_shards(params.load_mem_tries_for_tracked_shards)
         .drop_protocol_upgrade_chunks(
             base_protocol_version + 1,
             params.chunk_ranges_to_drop.clone(),
@@ -468,27 +552,42 @@ fn test_resharding_v3_base(params: TestReshardingParameters) {
         test_setup_transactions.push(create_account_tx);
     }
     // Wait for the test setup transactions to settle and ensure they all succeeded.
-    env.test_loop.run_for(Duration::seconds(2));
+    env.test_loop
+        .run_for(Duration::seconds(2));
     check_txs(&env.test_loop.data, &env.datas, &client_account_id, &test_setup_transactions);
 
-    let client_handles =
-        env.datas.iter().map(|data| data.client_sender.actor_handle()).collect_vec();
+    let client_handles = env
+        .datas
+        .iter()
+        .map(|data| data.client_sender.actor_handle())
+        .collect_vec();
 
     #[cfg(feature = "test_features")]
     {
         if params.delay_flat_state_resharding > 0 {
-            client_handles.iter().for_each(|handle| {
-                let client = &mut env.test_loop.data.get_mut(handle).client;
-                client.chain.resharding_manager.flat_storage_resharder.adv_task_delay_by_blocks =
-                    params.delay_flat_state_resharding;
-            });
+            client_handles
+                .iter()
+                .for_each(|handle| {
+                    let client = &mut env
+                        .test_loop
+                        .data
+                        .get_mut(handle)
+                        .client;
+                    client
+                        .chain
+                        .resharding_manager
+                        .flat_storage_resharder
+                        .adv_task_delay_by_blocks = params.delay_flat_state_resharding;
+                });
         }
     }
 
-    let clients =
-        client_handles.iter().map(|handle| &env.test_loop.data.get(handle).client).collect_vec();
+    let clients = client_handles
+        .iter()
+        .map(|handle| &env.test_loop.data.get(handle).client)
+        .collect_vec();
     let mut trie_sanity_check =
-        TrieSanityCheck::new(&clients, params.load_memtries_for_tracked_shards);
+        TrieSanityCheck::new(&clients, params.load_mem_tries_for_tracked_shards);
 
     let num_epochs_to_wait = params.num_epochs_to_wait;
     let latest_block_height = Cell::new(0u64);
@@ -500,8 +599,10 @@ fn test_resharding_v3_base(params: TestReshardingParameters) {
             .loop_actions
             .iter()
             .for_each(|action| action.call(&env.datas, test_loop_data, client_account_id.clone()));
-        let clients =
-            client_handles.iter().map(|handle| &test_loop_data.get(handle).client).collect_vec();
+        let clients = client_handles
+            .iter()
+            .map(|handle| &test_loop_data.get(handle).client)
+            .collect_vec();
 
         // Skip if we already checked the latest height
         let tip = get_smallest_height_head(&clients);
@@ -510,8 +611,14 @@ fn test_resharding_v3_base(params: TestReshardingParameters) {
         }
 
         let client = clients[client_index];
-        let block_header = client.chain.get_block_header(&tip.last_block_hash).unwrap();
-        let shard_layout = client.epoch_manager.get_shard_layout(&tip.epoch_id).unwrap();
+        let block_header = client
+            .chain
+            .get_block_header(&tip.last_block_hash)
+            .unwrap();
+        let shard_layout = client
+            .epoch_manager
+            .get_shard_layout(&tip.epoch_id)
+            .unwrap();
         let current_num_shards = shard_layout.num_shards();
 
         if latest_block_height.get() == 0 {
@@ -542,22 +649,32 @@ fn test_resharding_v3_base(params: TestReshardingParameters) {
 
         // Check that all chunks are included.
         if params.all_chunks_expected && params.chunk_ranges_to_drop.is_empty() {
-            assert!(block_header.chunk_mask().iter().all(|chunk_bit| *chunk_bit));
+            assert!(block_header
+                .chunk_mask()
+                .iter()
+                .all(|chunk_bit| *chunk_bit));
         }
 
         trie_sanity_check.assert_state_sanity(&clients, expected_num_shards);
 
-        let epoch_height =
-            client.epoch_manager.get_epoch_height_from_prev_block(&tip.prev_block_hash).unwrap();
+        let epoch_height = client
+            .epoch_manager
+            .get_epoch_height_from_prev_block(&tip.prev_block_hash)
+            .unwrap();
 
-        if epoch_height_after_first_resharding.get().is_none()
+        if epoch_height_after_first_resharding
+            .get()
+            .is_none()
             && current_num_shards != initial_num_shards
         {
             epoch_height_after_first_resharding.set(Some(epoch_height));
         }
 
         // Return false if we have not resharded yet.
-        if epoch_height_after_resharding.get().is_none() {
+        if epoch_height_after_resharding
+            .get()
+            .is_none()
+        {
             assert!(epoch_height < 5);
             if current_num_shards != expected_num_shards {
                 return false;
@@ -570,8 +687,17 @@ fn test_resharding_v3_base(params: TestReshardingParameters) {
             println!("State after resharding:");
             print_and_assert_shard_accounts(&clients, &tip);
             // In case of second resharding, we want it 1 epoch after the first resharding.
-            if params.second_resharding_boundary_account.is_some() {
-                assert_eq!(epoch_height, epoch_height_after_first_resharding.get().unwrap() + 1);
+            if params
+                .second_resharding_boundary_account
+                .is_some()
+            {
+                assert_eq!(
+                    epoch_height,
+                    epoch_height_after_first_resharding
+                        .get()
+                        .unwrap()
+                        + 1
+                );
             }
         }
 
@@ -598,20 +724,24 @@ fn test_resharding_v3_base(params: TestReshardingParameters) {
         // Give enough time to produce `num_epochs_to_wait` epochs.
         Duration::seconds((num_epochs_to_wait * params.epoch_length) as i64),
     );
-    let client = &env.test_loop.data.get(&client_handles[client_index]).client;
+    let client = &env
+        .test_loop
+        .data
+        .get(&client_handles[client_index])
+        .client;
     trie_sanity_check.check_epochs(client);
 
     env.shutdown_and_drain_remaining_events(Duration::seconds(20));
 }
 
 #[test]
-fn test_resharding_v3() {
+fn slow_test_resharding_v3() {
     test_resharding_v3_base(TestReshardingParametersBuilder::default().build());
 }
 
 // TODO(resharding) Add test with double resharding (not independent) when it is supported.
 #[test]
-fn test_resharding_v3_two_independent_splits() {
+fn slow_test_resharding_v3_two_independent_splits() {
     let second_resharding_boundary_account = "account2".parse().unwrap();
     test_resharding_v3_base(
         TestReshardingParametersBuilder::default()
@@ -633,11 +763,14 @@ fn shard_sequence_to_schedule(
     shard_sequence.extend(
         std::iter::repeat(*shard_sequence.last().unwrap()).take(repeat_last_elem_count as usize),
     );
-    shard_sequence.iter().map(|shard_id| vec![*shard_id]).collect()
+    shard_sequence
+        .iter()
+        .map(|shard_id| vec![*shard_id])
+        .collect()
 }
 
 #[test]
-fn test_resharding_v3_two_splits_one_after_another_at_single_node() {
+fn slow_test_resharding_v3_two_splits_one_after_another_at_single_node() {
     let first_resharding_boundary_account: AccountId = NEW_BOUNDARY_ACCOUNT.parse().unwrap();
     let second_resharding_boundary_account: AccountId = "account2".parse().unwrap();
 
@@ -664,12 +797,20 @@ fn test_resharding_v3_two_splits_one_after_another_at_single_node() {
     let mut tracked_shard_schedule = vec![
         vec![first_resharding_parent_shard_id],
         vec![first_resharding_parent_shard_id],
-        vec![first_resharding_child_shard_id, second_resharding_parent_shard_id],
+        vec![
+            first_resharding_child_shard_id,
+            second_resharding_parent_shard_id,
+        ],
         vec![second_resharding_child_shard_id],
     ];
     tracked_shard_schedule.extend(
-        std::iter::repeat(tracked_shard_schedule.last().unwrap().clone())
-            .take(num_epochs_to_wait as usize),
+        std::iter::repeat(
+            tracked_shard_schedule
+                .last()
+                .unwrap()
+                .clone(),
+        )
+        .take(num_epochs_to_wait as usize),
     );
     let num_clients = 8;
     let tracked_shard_schedule = TrackedShardSchedule {
@@ -694,7 +835,7 @@ fn test_resharding_v3_two_splits_one_after_another_at_single_node() {
 // Track parent shard before resharding, child shard after resharding, and then an unrelated shard forever.
 // Eventually, the State column should only contain entries belonging to the last tracked shard.
 #[test]
-fn test_resharding_v3_state_cleanup() {
+fn slow_test_resharding_v3_state_cleanup() {
     let account_in_stable_shard: AccountId = "account0".parse().unwrap();
     let split_boundary_account: AccountId = NEW_BOUNDARY_ACCOUNT.parse().unwrap();
     let base_shard_layout = get_base_shard_layout(DEFAULT_SHARD_LAYOUT_VERSION);
@@ -704,8 +845,12 @@ fn test_resharding_v3_state_cleanup() {
     let child_shard_id = new_shard_layout.account_id_to_shard_id(&split_boundary_account);
     let unrelated_shard_id = new_shard_layout.account_id_to_shard_id(&account_in_stable_shard);
 
-    let tracked_shard_sequence =
-        vec![parent_shard_id, parent_shard_id, child_shard_id, unrelated_shard_id];
+    let tracked_shard_sequence = vec![
+        parent_shard_id,
+        parent_shard_id,
+        child_shard_id,
+        unrelated_shard_id,
+    ];
     let num_clients = 8;
     let num_epochs_to_wait = DEFAULT_TESTLOOP_NUM_EPOCHS_TO_WAIT;
     let tracked_shard_schedule = TrackedShardSchedule {
@@ -723,7 +868,7 @@ fn test_resharding_v3_state_cleanup() {
 
 // Track parent shard before resharding, but do not track any child shard after resharding.
 #[test]
-fn test_resharding_v3_do_not_track_children_after_resharding() {
+fn slow_test_resharding_v3_do_not_track_children_after_resharding() {
     let account_in_stable_shard: AccountId = "account0".parse().unwrap();
     let split_boundary_account: AccountId = NEW_BOUNDARY_ACCOUNT.parse().unwrap();
     let base_shard_layout = get_base_shard_layout(DEFAULT_SHARD_LAYOUT_VERSION);
@@ -732,8 +877,12 @@ fn test_resharding_v3_do_not_track_children_after_resharding() {
     let parent_shard_id = base_shard_layout.account_id_to_shard_id(&split_boundary_account);
     let unrelated_shard_id = new_shard_layout.account_id_to_shard_id(&account_in_stable_shard);
 
-    let tracked_shard_sequence =
-        vec![parent_shard_id, parent_shard_id, unrelated_shard_id, unrelated_shard_id];
+    let tracked_shard_sequence = vec![
+        parent_shard_id,
+        parent_shard_id,
+        unrelated_shard_id,
+        unrelated_shard_id,
+    ];
     let num_clients = 8;
     let num_epochs_to_wait = DEFAULT_TESTLOOP_NUM_EPOCHS_TO_WAIT;
     let tracked_shard_schedule = TrackedShardSchedule {
@@ -754,7 +903,7 @@ fn test_resharding_v3_do_not_track_children_after_resharding() {
 // We expect all parent state and mapping have been removed,
 // then child shard was state synced without mapping.
 #[test]
-fn test_resharding_v3_stop_track_child_for_5_epochs() {
+fn slow_test_resharding_v3_stop_track_child_for_5_epochs() {
     let account_in_stable_shard: AccountId = "account0".parse().unwrap();
     let split_boundary_account: AccountId = NEW_BOUNDARY_ACCOUNT.parse().unwrap();
     let base_shard_layout = get_base_shard_layout(DEFAULT_SHARD_LAYOUT_VERSION);
@@ -797,14 +946,16 @@ fn test_resharding_v3_stop_track_child_for_5_epochs() {
 // We expect the mapping to parent to be preserved, because there were not enough
 // epochs where we did not track any child for mapping to be removed.
 #[test]
-fn test_resharding_v3_stop_track_child_for_5_epochs_with_sibling_in_between() {
+fn slow_test_resharding_v3_stop_track_child_for_5_epochs_with_sibling_in_between() {
     let account_in_stable_shard: AccountId = "account0".parse().unwrap();
     let split_boundary_account: AccountId = NEW_BOUNDARY_ACCOUNT.parse().unwrap();
     let base_shard_layout = get_base_shard_layout(DEFAULT_SHARD_LAYOUT_VERSION);
     let new_shard_layout =
         ShardLayout::derive_shard_layout(&base_shard_layout, split_boundary_account.clone());
     let parent_shard_id = base_shard_layout.account_id_to_shard_id(&split_boundary_account);
-    let children_shards_ids = new_shard_layout.get_children_shards_ids(parent_shard_id).unwrap();
+    let children_shards_ids = new_shard_layout
+        .get_children_shards_ids(parent_shard_id)
+        .unwrap();
     let unrelated_shard_id = new_shard_layout.account_id_to_shard_id(&account_in_stable_shard);
 
     let tracked_shard_sequence = vec![
@@ -837,7 +988,7 @@ fn test_resharding_v3_stop_track_child_for_5_epochs_with_sibling_in_between() {
 // Sets up an extra node that doesn't track the parent, doesn't track the child in the first post-resharding
 // epoch, and then tracks a child in the epoch after that. This checks that state sync works in that case.
 #[test]
-fn test_resharding_v3_sync_child() {
+fn slow_test_resharding_v3_sync_child() {
     let account_in_stable_shard: AccountId = "account0".parse().unwrap();
     let split_boundary_account: AccountId = NEW_BOUNDARY_ACCOUNT.parse().unwrap();
     let base_shard_layout = get_base_shard_layout(DEFAULT_SHARD_LAYOUT_VERSION);
@@ -846,8 +997,12 @@ fn test_resharding_v3_sync_child() {
     let child_shard_id = new_shard_layout.account_id_to_shard_id(&split_boundary_account);
     let unrelated_shard_id = new_shard_layout.account_id_to_shard_id(&account_in_stable_shard);
 
-    let tracked_shard_sequence =
-        vec![unrelated_shard_id, unrelated_shard_id, unrelated_shard_id, child_shard_id];
+    let tracked_shard_sequence = vec![
+        unrelated_shard_id,
+        unrelated_shard_id,
+        unrelated_shard_id,
+        child_shard_id,
+    ];
     let num_clients = 8;
     let num_epochs_to_wait = DEFAULT_TESTLOOP_NUM_EPOCHS_TO_WAIT;
     let tracked_shard_schedule = TrackedShardSchedule {
@@ -864,7 +1019,7 @@ fn test_resharding_v3_sync_child() {
 }
 
 #[test]
-fn test_resharding_v3_track_all_shards() {
+fn slow_test_resharding_v3_track_all_shards() {
     test_resharding_v3_base(
         TestReshardingParametersBuilder::default()
             .track_all_shards(true)
@@ -874,7 +1029,7 @@ fn test_resharding_v3_track_all_shards() {
 }
 
 #[test]
-fn test_resharding_v3_drop_chunks_before() {
+fn slow_test_resharding_v3_drop_chunks_before() {
     let chunk_ranges_to_drop = HashMap::from([(1, -2..0)]);
     test_resharding_v3_base(
         TestReshardingParametersBuilder::default()
@@ -885,7 +1040,7 @@ fn test_resharding_v3_drop_chunks_before() {
 }
 
 #[test]
-fn test_resharding_v3_drop_chunks_after() {
+fn slow_test_resharding_v3_drop_chunks_after() {
     let chunk_ranges_to_drop = HashMap::from([(2, 0..2)]);
     test_resharding_v3_base(
         TestReshardingParametersBuilder::default()
@@ -895,7 +1050,7 @@ fn test_resharding_v3_drop_chunks_after() {
 }
 
 #[test]
-fn test_resharding_v3_drop_chunks_before_and_after() {
+fn slow_test_resharding_v3_drop_chunks_before_and_after() {
     let chunk_ranges_to_drop = HashMap::from([(0, -2..2)]);
     test_resharding_v3_base(
         TestReshardingParametersBuilder::default()
@@ -906,8 +1061,13 @@ fn test_resharding_v3_drop_chunks_before_and_after() {
 }
 
 #[test]
-fn test_resharding_v3_drop_chunks_all() {
-    let chunk_ranges_to_drop = HashMap::from([(0, -1..2), (1, -3..0), (2, 0..3), (3, 0..1)]);
+fn slow_test_resharding_v3_drop_chunks_all() {
+    let chunk_ranges_to_drop = HashMap::from([
+        (0, -1..2),
+        (1, -3..0),
+        (2, 0..3),
+        (3, 0..1),
+    ]);
     test_resharding_v3_base(
         TestReshardingParametersBuilder::default()
             .chunk_ranges_to_drop(chunk_ranges_to_drop)
@@ -918,7 +1078,7 @@ fn test_resharding_v3_drop_chunks_all() {
 
 #[test]
 #[cfg(feature = "test_features")]
-fn test_resharding_v3_resharding_block_in_fork() {
+fn slow_test_resharding_v3_resharding_block_in_fork() {
     test_resharding_v3_base(
         TestReshardingParametersBuilder::default()
             .num_clients(1)
@@ -937,7 +1097,7 @@ fn test_resharding_v3_resharding_block_in_fork() {
 //                   In the current scenario the real resharding happens on block B'. Low priority TODO
 //                   since it's a very rare corner case.
 #[cfg(feature = "test_features")]
-fn test_resharding_v3_double_sign_resharding_block() {
+fn slow_test_resharding_v3_double_sign_resharding_block() {
     test_resharding_v3_base(
         TestReshardingParametersBuilder::default()
             .num_clients(1)
@@ -951,7 +1111,7 @@ fn test_resharding_v3_double_sign_resharding_block() {
 }
 
 #[test]
-fn test_resharding_v3_shard_shuffling() {
+fn slow_test_resharding_v3_shard_shuffling() {
     let params = TestReshardingParametersBuilder::default()
         .shuffle_shard_assignment_for_chunk_producers(true)
         .num_epochs_to_wait(INCREASED_TESTLOOP_NUM_EPOCHS_TO_WAIT)
@@ -964,7 +1124,7 @@ fn test_resharding_v3_shard_shuffling() {
 /// in the next epoch after that. In that case we don't want to state sync because we can just perform
 /// the resharding and continue applying chunks for the child in the first epoch post-resharding.
 #[test]
-fn test_resharding_v3_shard_shuffling_untrack_then_track() {
+fn slow_test_resharding_v3_shard_shuffling_untrack_then_track() {
     let account_in_stable_shard: AccountId = "account0".parse().unwrap();
     let split_boundary_account: AccountId = NEW_BOUNDARY_ACCOUNT.parse().unwrap();
     let base_shard_layout = get_base_shard_layout(DEFAULT_SHARD_LAYOUT_VERSION);
@@ -974,8 +1134,12 @@ fn test_resharding_v3_shard_shuffling_untrack_then_track() {
     let child_shard_id = new_shard_layout.account_id_to_shard_id(&split_boundary_account);
     let unrelated_shard_id = new_shard_layout.account_id_to_shard_id(&account_in_stable_shard);
 
-    let tracked_shard_sequence =
-        vec![parent_shard_id, parent_shard_id, unrelated_shard_id, child_shard_id];
+    let tracked_shard_sequence = vec![
+        parent_shard_id,
+        parent_shard_id,
+        unrelated_shard_id,
+        child_shard_id,
+    ];
     let num_clients = 8;
     let num_epochs_to_wait = INCREASED_TESTLOOP_NUM_EPOCHS_TO_WAIT;
     let tracked_shard_schedule = TrackedShardSchedule {
@@ -993,8 +1157,13 @@ fn test_resharding_v3_shard_shuffling_untrack_then_track() {
 }
 
 #[test]
-fn test_resharding_v3_shard_shuffling_intense() {
-    let chunk_ranges_to_drop = HashMap::from([(0, -1..2), (1, -3..0), (2, -3..3), (3, 0..1)]);
+fn slow_test_resharding_v3_shard_shuffling_intense() {
+    let chunk_ranges_to_drop = HashMap::from([
+        (0, -1..2),
+        (1, -3..0),
+        (2, -3..3),
+        (3, 0..1),
+    ]);
     let params = TestReshardingParametersBuilder::default()
         .num_accounts(8)
         .epoch_length(INCREASED_TESTLOOP_NUM_EPOCHS_TO_WAIT)
@@ -1012,7 +1181,7 @@ fn test_resharding_v3_shard_shuffling_intense() {
 /// resharding. Caught a bug with invalid storage costs computed during flat
 /// storage resharding.
 #[test]
-fn test_resharding_v3_storage_operations() {
+fn slow_test_resharding_v3_storage_operations() {
     let sender_account: AccountId = "account1".parse().unwrap();
     let account_in_parent: AccountId = "account4".parse().unwrap();
     let params = TestReshardingParametersBuilder::default()
@@ -1027,7 +1196,7 @@ fn test_resharding_v3_storage_operations() {
 
 #[test]
 #[cfg_attr(not(feature = "test_features"), ignore)]
-fn test_resharding_v3_delayed_receipts_left_child() {
+fn slow_test_resharding_v3_delayed_receipts_left_child() {
     let account: AccountId = "account4".parse().unwrap();
     let params = TestReshardingParametersBuilder::default()
         .deploy_test_contract(account.clone())
@@ -1047,7 +1216,7 @@ fn test_resharding_v3_delayed_receipts_left_child() {
 
 #[test]
 #[cfg_attr(not(feature = "test_features"), ignore)]
-fn test_resharding_v3_delayed_receipts_right_child() {
+fn slow_test_resharding_v3_delayed_receipts_right_child() {
     let account: AccountId = "account6".parse().unwrap();
     let params = TestReshardingParametersBuilder::default()
         .deploy_test_contract(account.clone())
@@ -1076,7 +1245,10 @@ fn test_resharding_v3_split_parent_buffered_receipts_base(base_shard_layout_vers
         .deploy_test_contract(receiver_account.clone())
         .limit_outgoing_gas(true)
         .add_loop_action(call_burn_gas_contract(
-            vec![account_in_left_child.clone(), account_in_right_child],
+            vec![
+                account_in_left_child.clone(),
+                account_in_right_child,
+            ],
             vec![receiver_account],
             10 * TGAS,
             INCREASED_EPOCH_LENGTH,
@@ -1096,18 +1268,18 @@ fn test_resharding_v3_split_parent_buffered_receipts_base(base_shard_layout_vers
 
 #[test]
 #[cfg_attr(not(feature = "test_features"), ignore)]
-fn test_resharding_v3_split_parent_buffered_receipts_v1() {
+fn slow_test_resharding_v3_split_parent_buffered_receipts_v1() {
     test_resharding_v3_split_parent_buffered_receipts_base(1);
 }
 
 #[test]
 #[cfg_attr(not(feature = "test_features"), ignore)]
-fn test_resharding_v3_split_parent_buffered_receipts_v2() {
+fn slow_test_resharding_v3_split_parent_buffered_receipts_v2() {
     test_resharding_v3_split_parent_buffered_receipts_base(2);
 }
 
 fn test_resharding_v3_buffered_receipts_towards_splitted_shard_base(
-    base_shard_layout_version: u64,
+    base_shard_layout_version: u64
 ) {
     let account_in_left_child: AccountId = "account4".parse().unwrap();
     let account_in_right_child: AccountId = "account6".parse().unwrap();
@@ -1120,7 +1292,10 @@ fn test_resharding_v3_buffered_receipts_towards_splitted_shard_base(
         .limit_outgoing_gas(true)
         .add_loop_action(call_burn_gas_contract(
             vec![account_in_stable_shard.clone()],
-            vec![account_in_left_child, account_in_right_child],
+            vec![
+                account_in_left_child,
+                account_in_right_child,
+            ],
             10 * TGAS,
             DEFAULT_EPOCH_LENGTH,
         ))
@@ -1138,13 +1313,13 @@ fn test_resharding_v3_buffered_receipts_towards_splitted_shard_base(
 
 #[test]
 #[cfg_attr(not(feature = "test_features"), ignore)]
-fn test_resharding_v3_buffered_receipts_towards_splitted_shard_v1() {
+fn slow_test_resharding_v3_buffered_receipts_towards_splitted_shard_v1() {
     test_resharding_v3_buffered_receipts_towards_splitted_shard_base(1);
 }
 
 #[test]
 #[cfg_attr(not(feature = "test_features"), ignore)]
-fn test_resharding_v3_buffered_receipts_towards_splitted_shard_v2() {
+fn slow_test_resharding_v3_buffered_receipts_towards_splitted_shard_v2() {
     test_resharding_v3_buffered_receipts_towards_splitted_shard_base(2);
 }
 
@@ -1165,7 +1340,10 @@ fn test_resharding_v3_large_receipts_towards_splitted_shard_base(base_shard_layo
         .deploy_test_contract(account_in_stable_shard.clone())
         .add_loop_action(send_large_cross_shard_receipts(
             vec![account_in_stable_shard.clone()],
-            vec![account_in_left_child, account_in_right_child],
+            vec![
+                account_in_left_child,
+                account_in_right_child,
+            ],
         ))
         .add_loop_action(check_receipts_presence_at_resharding_block(
             vec![account_in_stable_shard.clone()],
@@ -1191,14 +1369,17 @@ fn slow_test_resharding_v3_large_receipts_towards_splitted_shard_v2() {
 
 #[test]
 #[cfg_attr(not(feature = "test_features"), ignore)]
-fn test_resharding_v3_outgoing_receipts_towards_splitted_shard() {
+fn slow_test_resharding_v3_outgoing_receipts_towards_splitted_shard() {
     let receiver_account: AccountId = "account4".parse().unwrap();
     let account_1_in_stable_shard: AccountId = "account1".parse().unwrap();
     let account_2_in_stable_shard: AccountId = "account2".parse().unwrap();
     let params = TestReshardingParametersBuilder::default()
         .deploy_test_contract(receiver_account.clone())
         .add_loop_action(call_burn_gas_contract(
-            vec![account_1_in_stable_shard, account_2_in_stable_shard],
+            vec![
+                account_1_in_stable_shard,
+                account_2_in_stable_shard,
+            ],
             vec![receiver_account],
             5 * TGAS,
             DEFAULT_EPOCH_LENGTH,
@@ -1209,14 +1390,17 @@ fn test_resharding_v3_outgoing_receipts_towards_splitted_shard() {
 
 #[test]
 #[cfg_attr(not(feature = "test_features"), ignore)]
-fn test_resharding_v3_outgoing_receipts_from_splitted_shard() {
+fn slow_test_resharding_v3_outgoing_receipts_from_splitted_shard() {
     let receiver_account: AccountId = "account0".parse().unwrap();
     let account_in_left_child: AccountId = "account4".parse().unwrap();
     let account_in_right_child: AccountId = "account6".parse().unwrap();
     let params = TestReshardingParametersBuilder::default()
         .deploy_test_contract(receiver_account.clone())
         .add_loop_action(call_burn_gas_contract(
-            vec![account_in_left_child, account_in_right_child],
+            vec![
+                account_in_left_child,
+                account_in_right_child,
+            ],
             vec![receiver_account],
             5 * TGAS,
             INCREASED_EPOCH_LENGTH,
@@ -1227,26 +1411,26 @@ fn test_resharding_v3_outgoing_receipts_from_splitted_shard() {
 }
 
 #[test]
-fn test_resharding_v3_load_memtrie_v1() {
+fn slow_test_resharding_v3_load_memtrie_v1() {
     let params = TestReshardingParametersBuilder::default()
         .base_shard_layout_version(1)
-        .load_memtries_for_tracked_shards(false)
+        .load_mem_tries_for_tracked_shards(false)
         .build();
     test_resharding_v3_base(params);
 }
 
 #[test]
-fn test_resharding_v3_load_memtrie_v2() {
+fn slow_test_resharding_v3_load_memtrie_v2() {
     let params = TestReshardingParametersBuilder::default()
         .base_shard_layout_version(2)
-        .load_memtries_for_tracked_shards(false)
+        .load_mem_tries_for_tracked_shards(false)
         .build();
     test_resharding_v3_base(params);
 }
 
 #[test]
 #[cfg_attr(not(feature = "test_features"), ignore)]
-fn test_resharding_v3_slower_post_processing_tasks() {
+fn slow_test_resharding_v3_slower_post_processing_tasks() {
     // When there's a resharding task delay and single-shard tracking, the delay might be pushed out
     // even further because the resharding task might have to wait for the state snapshot to be made
     // before it can proceed, which might mean that flat storage won't be ready for the child shard for a whole epoch.
@@ -1261,7 +1445,7 @@ fn test_resharding_v3_slower_post_processing_tasks() {
 
 #[test]
 #[cfg_attr(not(feature = "test_features"), ignore)]
-fn test_resharding_v3_shard_shuffling_slower_post_processing_tasks() {
+fn slow_test_resharding_v3_shard_shuffling_slower_post_processing_tasks() {
     let params = TestReshardingParametersBuilder::default()
         .shuffle_shard_assignment_for_chunk_producers(true)
         .num_epochs_to_wait(INCREASED_TESTLOOP_NUM_EPOCHS_TO_WAIT)
@@ -1272,7 +1456,7 @@ fn test_resharding_v3_shard_shuffling_slower_post_processing_tasks() {
 }
 
 #[test]
-fn test_resharding_v3_yield_resume() {
+fn slow_test_resharding_v3_yield_resume() {
     let account_in_left_child: AccountId = "account4".parse().unwrap();
     let account_in_right_child: AccountId = "account6".parse().unwrap();
     let params = TestReshardingParametersBuilder::default()
@@ -1280,15 +1464,27 @@ fn test_resharding_v3_yield_resume() {
         .deploy_test_contract(account_in_right_child.clone())
         .add_loop_action(call_promise_yield(
             true,
-            vec![account_in_left_child.clone(), account_in_right_child.clone()],
-            vec![account_in_left_child.clone(), account_in_right_child.clone()],
+            vec![
+                account_in_left_child.clone(),
+                account_in_right_child.clone(),
+            ],
+            vec![
+                account_in_left_child.clone(),
+                account_in_right_child.clone(),
+            ],
         ))
         .add_loop_action(check_receipts_presence_at_resharding_block(
-            vec![account_in_left_child.clone(), account_in_right_child.clone()],
+            vec![
+                account_in_left_child.clone(),
+                account_in_right_child.clone(),
+            ],
             ReceiptKind::PromiseYield,
         ))
         .add_loop_action(check_receipts_presence_after_resharding_block(
-            vec![account_in_left_child, account_in_right_child],
+            vec![
+                account_in_left_child,
+                account_in_right_child,
+            ],
             ReceiptKind::PromiseYield,
         ))
         .build();
@@ -1296,7 +1492,7 @@ fn test_resharding_v3_yield_resume() {
 }
 
 #[test]
-fn test_resharding_v3_yield_timeout() {
+fn slow_test_resharding_v3_yield_timeout() {
     let account_in_left_child: AccountId = "account4".parse().unwrap();
     let account_in_right_child: AccountId = "account6".parse().unwrap();
     let params = TestReshardingParametersBuilder::default()
@@ -1305,15 +1501,27 @@ fn test_resharding_v3_yield_timeout() {
         .short_yield_timeout(true)
         .add_loop_action(call_promise_yield(
             false,
-            vec![account_in_left_child.clone(), account_in_right_child.clone()],
-            vec![account_in_left_child.clone(), account_in_right_child.clone()],
+            vec![
+                account_in_left_child.clone(),
+                account_in_right_child.clone(),
+            ],
+            vec![
+                account_in_left_child.clone(),
+                account_in_right_child.clone(),
+            ],
         ))
         .add_loop_action(check_receipts_presence_at_resharding_block(
-            vec![account_in_left_child.clone(), account_in_right_child.clone()],
+            vec![
+                account_in_left_child.clone(),
+                account_in_right_child.clone(),
+            ],
             ReceiptKind::PromiseYield,
         ))
         .add_loop_action(check_receipts_presence_after_resharding_block(
-            vec![account_in_left_child, account_in_right_child],
+            vec![
+                account_in_left_child,
+                account_in_right_child,
+            ],
             ReceiptKind::PromiseYield,
         ))
         .epoch_length(INCREASED_EPOCH_LENGTH)

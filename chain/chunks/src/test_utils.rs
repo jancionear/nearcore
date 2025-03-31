@@ -71,15 +71,27 @@ impl ChunkTestFixture {
         let store = create_test_store();
         let epoch_manager = setup_epoch_manager_with_block_and_chunk_producers(
             store.clone(),
-            (0..num_block_producers).map(|i| format!("test_bp_{}", i).parse().unwrap()).collect(),
+            (0..num_block_producers)
+                .map(|i| {
+                    format!("test_bp_{}", i)
+                        .parse()
+                        .unwrap()
+                })
+                .collect(),
             (0..num_chunk_only_producers)
-                .map(|i| format!("test_cp_{}", i).parse().unwrap())
+                .map(|i| {
+                    format!("test_cp_{}", i)
+                        .parse()
+                        .unwrap()
+                })
                 .collect(),
             num_shards,
             2,
         );
         let epoch_manager = epoch_manager.into_handle();
-        let shard_layout = epoch_manager.get_shard_layout(&EpochId::default()).unwrap();
+        let shard_layout = epoch_manager
+            .get_shard_layout(&EpochId::default())
+            .unwrap();
         let shard_tracker = ShardTracker::new(
             if track_all_shards { TrackedConfig::AllShards } else { TrackedConfig::new_empty() },
             Arc::new(epoch_manager.clone()),
@@ -96,8 +108,9 @@ impl ChunkTestFixture {
             if orphan_chunk { (CryptoHash::hash_bytes(&[]), 2) } else { (mock_ancestor_hash, 1) };
         // setting this to 2 instead of 0 so that when chunk producers
         let mock_shard_id = shard_layout.shard_ids().next().unwrap();
-        let mock_epoch_id =
-            epoch_manager.get_epoch_id_from_prev_block(&mock_ancestor_hash).unwrap();
+        let mock_epoch_id = epoch_manager
+            .get_epoch_id_from_prev_block(&mock_ancestor_hash)
+            .unwrap();
         let mock_chunk_producer = epoch_manager
             .get_chunk_producer_info(&ChunkProductionKey {
                 epoch_id: mock_epoch_id,
@@ -141,7 +154,9 @@ impl ChunkTestFixture {
             .unwrap();
 
         let receipts = Vec::new();
-        let shard_layout = epoch_manager.get_shard_layout(&EpochId::default()).unwrap();
+        let shard_layout = epoch_manager
+            .get_shard_layout(&EpochId::default())
+            .unwrap();
         let receipts_hashes = Chain::build_receipts_hashes(&receipts, &shard_layout);
         let (receipts_root, _) = merkle::merklize(&receipts_hashes);
         let congestion_info = ProtocolFeature::CongestionControl
@@ -169,13 +184,17 @@ impl ChunkTestFixture {
         )
         .unwrap();
 
-        let all_part_ords: Vec<u64> =
-            (0..mock_chunk.content().parts.len()).map(|p| p as u64).collect();
+        let all_part_ords: Vec<u64> = (0..mock_chunk.content().parts.len())
+            .map(|p| p as u64)
+            .collect();
         let mock_part_ords = all_part_ords
             .iter()
             .copied()
             .filter(|p| {
-                epoch_manager.get_part_owner(&mock_epoch_id, *p).unwrap() == mock_chunk_part_owner
+                epoch_manager
+                    .get_part_owner(&mock_epoch_id, *p)
+                    .unwrap()
+                    == mock_chunk_part_owner
             })
             .collect();
         let encoded_chunk = mock_chunk.create_partial_encoded_chunk(
@@ -212,11 +231,18 @@ impl ChunkTestFixture {
         }
     }
 
-    pub fn make_partial_encoded_chunk(&self, part_ords: &[u64]) -> PartialEncodedChunk {
+    pub fn make_partial_encoded_chunk(
+        &self,
+        part_ords: &[u64],
+    ) -> PartialEncodedChunk {
         let parts = part_ords
             .iter()
             .copied()
-            .flat_map(|ord| self.mock_chunk_parts.iter().find(|part| part.part_ord == ord))
+            .flat_map(|ord| {
+                self.mock_chunk_parts
+                    .iter()
+                    .find(|part| part.part_ord == ord)
+            })
             .cloned()
             .collect();
         PartialEncodedChunk::V2(PartialEncodedChunkV2 {
@@ -248,10 +274,19 @@ impl ChunkTestFixture {
 }
 
 /// Gets the Tip from the block hash and the EpochManager.
-pub fn tip(epoch_manager: &dyn EpochManagerAdapter, last_block_hash: CryptoHash) -> Tip {
-    let block_info = epoch_manager.get_block_info(&last_block_hash).unwrap();
-    let epoch_id = epoch_manager.get_epoch_id(&last_block_hash).unwrap();
-    let next_epoch_id = epoch_manager.get_next_epoch_id(&last_block_hash).unwrap();
+pub fn tip(
+    epoch_manager: &dyn EpochManagerAdapter,
+    last_block_hash: CryptoHash,
+) -> Tip {
+    let block_info = epoch_manager
+        .get_block_info(&last_block_hash)
+        .unwrap();
+    let epoch_id = epoch_manager
+        .get_epoch_id(&last_block_hash)
+        .unwrap();
+    let next_epoch_id = epoch_manager
+        .get_next_epoch_id(&last_block_hash)
+        .unwrap();
     Tip {
         height: block_info.height(),
         last_block_hash,
@@ -279,14 +314,23 @@ pub struct MockClientAdapterForShardsManager {
 }
 
 impl CanSend<ShardsManagerResponse> for MockClientAdapterForShardsManager {
-    fn send(&self, msg: ShardsManagerResponse) {
-        self.requests.write().unwrap().push_back(msg);
+    fn send(
+        &self,
+        msg: ShardsManagerResponse,
+    ) {
+        self.requests
+            .write()
+            .unwrap()
+            .push_back(msg);
     }
 }
 
 impl MockClientAdapterForShardsManager {
     pub fn pop(&self) -> Option<ShardsManagerResponse> {
-        self.requests.write().unwrap().pop_front()
+        self.requests
+            .write()
+            .unwrap()
+            .pop_front()
     }
 }
 
@@ -305,21 +349,30 @@ pub struct SynchronousShardsManagerAdapter {
 }
 
 impl CanSend<ShardsManagerRequestFromClient> for SynchronousShardsManagerAdapter {
-    fn send(&self, msg: ShardsManagerRequestFromClient) {
+    fn send(
+        &self,
+        msg: ShardsManagerRequestFromClient,
+    ) {
         let mut shards_manager = self.shards_manager.lock().unwrap();
         shards_manager.handle_client_request(msg);
     }
 }
 
 impl CanSend<ShardsManagerRequestFromNetwork> for SynchronousShardsManagerAdapter {
-    fn send(&self, msg: ShardsManagerRequestFromNetwork) {
+    fn send(
+        &self,
+        msg: ShardsManagerRequestFromNetwork,
+    ) {
         let mut shards_manager = self.shards_manager.lock().unwrap();
         shards_manager.handle_network_request(msg);
     }
 }
 
 impl CanSend<ShardsManagerResendChunkRequests> for SynchronousShardsManagerAdapter {
-    fn send(&self, _: ShardsManagerResendChunkRequests) {
+    fn send(
+        &self,
+        _: ShardsManagerResendChunkRequests,
+    ) {
         let mut shards_manager = self.shards_manager.lock().unwrap();
         shards_manager.resend_chunk_requests();
     }

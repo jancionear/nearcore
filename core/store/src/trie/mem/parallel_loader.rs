@@ -105,19 +105,21 @@ impl ParallelMemTrieLoader {
         }
 
         match node.node {
-            RawTrieNode::Leaf(extension, value_ref) => {
+            | RawTrieNode::Leaf(extension, value_ref) => {
                 // If we happen to visit a leaf, we'll have to just read the leaf's value. This is
                 // almost like a corner case because we're not really interested in values here
                 // (that's the job of the parallel loading part), but if we do get here, we have to
                 // deal with it.
-                let value = self.store.get(self.shard_uid, &value_ref.hash)?;
+                let value = self
+                    .store
+                    .get(self.shard_uid, &value_ref.hash)?;
                 let flat_value = FlatStateValue::on_disk(&value);
                 Ok(TrieLoadingPlanNode::Leaf {
                     extension: extension.into_boxed_slice(),
                     value: flat_value,
                 })
             }
-            RawTrieNode::BranchNoValue(children_hashes) => {
+            | RawTrieNode::BranchNoValue(children_hashes) => {
                 // If we visit a branch, recursively visit all children.
                 let children = self.make_children_plans_in_parallel(
                     children_hashes,
@@ -128,9 +130,11 @@ impl ParallelMemTrieLoader {
 
                 Ok(TrieLoadingPlanNode::Branch { children, value: None })
             }
-            RawTrieNode::BranchWithValue(value_ref, children_hashes) => {
+            | RawTrieNode::BranchWithValue(value_ref, children_hashes) => {
                 // Similar here, except we have to also look up the value.
-                let value = self.store.get(self.shard_uid, &value_ref.hash)?;
+                let value = self
+                    .store
+                    .get(self.shard_uid, &value_ref.hash)?;
                 let flat_value = FlatStateValue::on_disk(&value);
 
                 let children = self.make_children_plans_in_parallel(
@@ -142,7 +146,7 @@ impl ParallelMemTrieLoader {
 
                 Ok(TrieLoadingPlanNode::Branch { children, value: Some(flat_value) })
             }
-            RawTrieNode::Extension(extension, child) => {
+            | RawTrieNode::Extension(extension, child) => {
                 let nibbles = NibbleSlice::from_encoded(&extension).0;
                 prefix.append(&nibbles);
                 let child = self.make_loading_plan_recursive(
@@ -166,7 +170,9 @@ impl ParallelMemTrieLoader {
         subtrees_to_load: &Mutex<Vec<NibblePrefix>>,
         max_subtree_size: u64,
     ) -> Result<Vec<(u8, Box<TrieLoadingPlanNode>)>, StorageError> {
-        let existing_children = children_hashes.iter().collect::<Vec<_>>();
+        let existing_children = children_hashes
+            .iter()
+            .collect::<Vec<_>>();
         let children = existing_children
             .into_par_iter()
             .map(|(i, child_hash)| -> Result<_, StorageError> {
@@ -196,7 +202,11 @@ impl ParallelMemTrieLoader {
 
         // Load all the keys in this range from the FlatState column.
         let mut recon = TrieConstructor::new(arena);
-        for item in self.store.store().iter_range(DBCol::FlatState, Some(&start), Some(&end)) {
+        for item in self
+            .store
+            .store()
+            .iter_range(DBCol::FlatState, Some(&start), Some(&end))
+        {
             let (key, value) = item.map_err(|err| {
                 FlatStorageError::StorageInternalError(format!(
                     "Error iterating over FlatState: {err}"
@@ -240,9 +250,15 @@ impl ParallelMemTrieLoader {
             })
             .unzip();
 
-        let mut roots = roots.into_iter().flatten().collect::<Result<Vec<_>, _>>()?;
+        let mut roots = roots
+            .into_iter()
+            .flatten()
+            .collect::<Result<Vec<_>, _>>()?;
         roots.sort_by_key(|(i, _)| *i);
-        let roots = roots.into_iter().map(|(_, root)| root).collect::<Vec<_>>();
+        let roots = roots
+            .into_iter()
+            .map(|(_, root)| root)
+            .collect::<Vec<_>>();
 
         let mut arena = arena.to_single_threaded(name, threads);
         let root = plan.root.to_node(&mut arena, &roots);
@@ -264,31 +280,35 @@ enum TrieLoadingPlanNode {
 impl TrieLoadingPlanNode {
     /// This implements the construction part of stage 3, where we convert a plan node to
     /// a memtrie node. The `subtree_roots` is the parallel loading results.
-    fn to_node(self, arena: &mut impl ArenaMut, subtree_roots: &[MemTrieNodeId]) -> MemTrieNodeId {
+    fn to_node(
+        self,
+        arena: &mut impl ArenaMut,
+        subtree_roots: &[MemTrieNodeId],
+    ) -> MemTrieNodeId {
         match self {
-            TrieLoadingPlanNode::Branch { children, value } => {
+            | TrieLoadingPlanNode::Branch { children, value } => {
                 let mut res_children = [None; 16];
                 for (nibble, child) in children {
                     res_children[nibble as usize] = Some(child.to_node(arena, subtree_roots));
                 }
                 let input = match &value {
-                    Some(value) => {
+                    | Some(value) => {
                         InputMemTrieNode::BranchWithValue { children: res_children, value }
                     }
-                    None => InputMemTrieNode::Branch { children: res_children },
+                    | None => InputMemTrieNode::Branch { children: res_children },
                 };
                 MemTrieNodeId::new(arena, input)
             }
-            TrieLoadingPlanNode::Extension { extension, child } => {
+            | TrieLoadingPlanNode::Extension { extension, child } => {
                 let child = child.to_node(arena, subtree_roots);
                 let input = InputMemTrieNode::Extension { extension: &extension, child };
                 MemTrieNodeId::new(arena, input)
             }
-            TrieLoadingPlanNode::Leaf { extension, value } => {
+            | TrieLoadingPlanNode::Leaf { extension, value } => {
                 let input = InputMemTrieNode::Leaf { extension: &extension, value: &value };
                 MemTrieNodeId::new(arena, input)
             }
-            TrieLoadingPlanNode::Load { subtree_id } => subtree_roots[subtree_id],
+            | TrieLoadingPlanNode::Load { subtree_id } => subtree_roots[subtree_id],
         }
     }
 }
@@ -313,7 +333,10 @@ struct NibblePrefix {
 }
 
 impl Debug for NibblePrefix {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+    ) -> std::fmt::Result {
         if self.odd {
             write!(
                 f,
@@ -336,7 +359,10 @@ impl NibblePrefix {
         self.prefix.len() * 2 - if self.odd { 1 } else { 0 }
     }
 
-    pub fn push(&mut self, nibble: u8) {
+    pub fn push(
+        &mut self,
+        nibble: u8,
+    ) {
         debug_assert!(nibble < 16, "nibble must be less than 16");
         if self.odd {
             *self.prefix.last_mut().unwrap() |= nibble;
@@ -346,7 +372,10 @@ impl NibblePrefix {
         self.odd = !self.odd;
     }
 
-    pub fn append(&mut self, nibbles: &NibbleSlice) {
+    pub fn append(
+        &mut self,
+        nibbles: &NibbleSlice,
+    ) {
         for nibble in nibbles.iter() {
             self.push(nibble);
         }
@@ -357,7 +386,10 @@ impl NibblePrefix {
     /// If the number of nibbles is even, this is straight-forward; the keys will be in the form of
     /// e.g. 0x123456 - 0x123457. If the number of nibbles is odd, the keys will cover the whole
     /// range for the last 4 bits, e.g. 0x123450 - 0x123460.
-    pub fn to_iter_range(&self, shard_uid: ShardUId) -> (Vec<u8>, Vec<u8>) {
+    pub fn to_iter_range(
+        &self,
+        shard_uid: ShardUId,
+    ) -> (Vec<u8>, Vec<u8>) {
         let start = shard_uid
             .to_bytes()
             .into_iter()
@@ -373,7 +405,10 @@ impl NibblePrefix {
 /// Calculates the end key of a lexically ordered key range where all the keys start with `start_key`
 /// except that the i-th byte may be within [b, b + last_byte_increment), where i == start_key.len() - 1,
 /// and b == start_key[i]. Returns None is the end key is unbounded.
-fn calculate_end_key(start_key: &Vec<u8>, last_byte_increment: u8) -> Option<Vec<u8>> {
+fn calculate_end_key(
+    start_key: &Vec<u8>,
+    last_byte_increment: u8,
+) -> Option<Vec<u8>> {
     let mut v = start_key.clone();
     let mut carry = last_byte_increment;
     for i in (0..v.len()).rev() {

@@ -41,8 +41,13 @@ impl TryFrom<crate::models::Operation> for DeployContractOperation {
 
     fn try_from(operation: crate::models::Operation) -> Result<Self, Self::Error> {
         Self::validate_operation_type(operation.type_)?;
-        let metadata = operation.metadata.ok_or_else(required_fields_error)?;
-        let code = metadata.code.ok_or_else(required_fields_error)?.into_inner();
+        let metadata = operation
+            .metadata
+            .ok_or_else(required_fields_error)?;
+        let code = metadata
+            .code
+            .ok_or_else(required_fields_error)?
+            .into_inner();
 
         Ok(Self { account: operation.account, code })
     }

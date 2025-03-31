@@ -35,7 +35,10 @@ pub(crate) struct ContractModule<'a> {
 }
 
 impl<'a> ContractModule<'a> {
-    pub(crate) fn init(original_code: &[u8], config: &'a Config) -> Result<Self, PrepareError> {
+    pub(crate) fn init(
+        original_code: &[u8],
+        config: &'a Config,
+    ) -> Result<Self, PrepareError> {
         let module = parity_wasm::deserialize_buffer(original_code).map_err(|e| {
             tracing::debug!(err=?e, "parity_wasm failed decoding a contract");
             PrepareError::Deserialization
@@ -48,7 +51,11 @@ impl<'a> ContractModule<'a> {
 
         let mut tmp = MemorySection::default();
 
-        module.memory_section_mut().unwrap_or(&mut tmp).entries_mut().pop();
+        module
+            .memory_section_mut()
+            .unwrap_or(&mut tmp)
+            .entries_mut()
+            .pop();
 
         let entry = elements::MemoryType::new(
             config.limit_config.initial_memory_pages,
@@ -71,7 +78,11 @@ impl<'a> ContractModule<'a> {
     /// Memory section contains declarations of internal linear memories, so if we find one
     /// we reject such a module.
     pub(crate) fn ensure_no_internal_memory(self) -> Result<Self, PrepareError> {
-        if self.module.memory_section().is_some_and(|ms| !ms.entries().is_empty()) {
+        if self
+            .module
+            .memory_section()
+            .is_some_and(|ms| !ms.entries().is_empty())
+        {
             Err(PrepareError::InternalMemoryDeclared)
         } else {
             Ok(self)
@@ -111,9 +122,14 @@ impl<'a> ContractModule<'a> {
     pub(crate) fn scan_imports(self) -> Result<Self, PrepareError> {
         let Self { module, config } = self;
 
-        let types = module.type_section().map(elements::TypeSection::types).unwrap_or(&[]);
-        let import_entries =
-            module.import_section().map(elements::ImportSection::entries).unwrap_or(&[]);
+        let types = module
+            .type_section()
+            .map(elements::TypeSection::types)
+            .unwrap_or(&[]);
+        let import_entries = module
+            .import_section()
+            .map(elements::ImportSection::entries)
+            .unwrap_or(&[]);
 
         for import in import_entries {
             if import.module() != "env" {
@@ -123,13 +139,14 @@ impl<'a> ContractModule<'a> {
             }
 
             let type_idx = match *import.external() {
-                External::Function(ref type_idx) => type_idx,
-                External::Memory(_) => return Err(PrepareError::Memory),
-                _ => continue,
+                | External::Function(ref type_idx) => type_idx,
+                | External::Memory(_) => return Err(PrepareError::Memory),
+                | _ => continue,
             };
 
-            let elements::Type::Function(ref _func_ty) =
-                types.get(*type_idx as usize).ok_or(PrepareError::Instantiate)?;
+            let elements::Type::Function(ref _func_ty) = types
+                .get(*type_idx as usize)
+                .ok_or(PrepareError::Instantiate)?;
 
             // TODO: Function type check with Env
             /*
@@ -173,10 +190,10 @@ fn wasmparser_decode(
             let mut import_section_reader = import_section_reader.clone();
             for _ in 0..import_section_reader.get_count() {
                 match import_section_reader.read()?.ty {
-                    ImportSectionEntryType::Function(_) => {
+                    | ImportSectionEntryType::Function(_) => {
                         function_count = function_count.and_then(|f| f.checked_add(1))
                     }
-                    ImportSectionEntryType::Table(_)
+                    | ImportSectionEntryType::Table(_)
                     | ImportSectionEntryType::Memory(_)
                     | ImportSectionEntryType::Event(_)
                     | ImportSectionEntryType::Global(_)
@@ -187,9 +204,9 @@ fn wasmparser_decode(
         }
 
         match validator.payload(&payload)? {
-            ValidPayload::Ok => (),
-            ValidPayload::Submodule(_) => panic!("submodules are not reachable (not enabled)"),
-            ValidPayload::Func(mut validator, body) => {
+            | ValidPayload::Ok => (),
+            | ValidPayload::Submodule(_) => panic!("submodules are not reachable (not enabled)"),
+            | ValidPayload::Func(mut validator, body) => {
                 validator.validate(&body)?;
                 function_count = function_count.and_then(|f| f.checked_add(1));
                 // Count the global number of local variables.
@@ -218,13 +235,19 @@ pub(crate) fn validate_contract(
     // verified that the limit is not exceeded. While it would be more efficient to check for this
     // before validating the function bodies, it would change the results for malformed WebAssembly
     // modules.
-    if let Some(max_functions) = config.limit_config.max_functions_number_per_contract {
+    if let Some(max_functions) = config
+        .limit_config
+        .max_functions_number_per_contract
+    {
         if function_count.ok_or(PrepareError::TooManyFunctions)? > max_functions {
             return Err(PrepareError::TooManyFunctions);
         }
     }
     // Similarly, do the same for the number of locals.
-    if let Some(max_locals) = config.limit_config.max_locals_per_contract {
+    if let Some(max_locals) = config
+        .limit_config
+        .max_locals_per_contract
+    {
         if local_count.ok_or(PrepareError::TooManyLocals)? > max_locals {
             return Err(PrepareError::TooManyLocals);
         }
@@ -241,19 +264,21 @@ mod test {
     fn v1_preparation_generates_valid_contract_fuzzer() {
         let mut config = test_vm_config();
         let prepare_version = ContractPrepareVersion::V1;
-        config.limit_config.contract_prepare_version = prepare_version;
+        config
+            .limit_config
+            .contract_prepare_version = prepare_version;
         let features = crate::features::WasmFeatures::from(prepare_version);
         bolero::check!().for_each(|input: &[u8]| {
             // DO NOT use ArbitraryModule. We do want modules that may be invalid here, if they pass our validation step!
             if let Ok(_) = super::validate_contract(input, features, &config) {
                 match super::prepare_contract(input, &config) {
-                    Err(_e) => (), // TODO: this should be a panic, but for now it’d actually trigger
-                    Ok(code) => {
+                    | Err(_e) => (), // TODO: this should be a panic, but for now it’d actually trigger
+                    | Ok(code) => {
                         let mut validator = wasmparser::Validator::new();
                         validator.wasm_features(features.into());
                         match validator.validate_all(&code) {
-                            Ok(_) => (),
-                            Err(e) => panic!(
+                            | Ok(_) => (),
+                            | Err(e) => panic!(
                                 "prepared code failed validation: {e:?}\ncontract: {}",
                                 hex::encode(input),
                             ),

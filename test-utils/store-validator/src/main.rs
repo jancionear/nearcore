@@ -26,7 +26,9 @@ fn main() {
         .subcommand(Command::new("validate"))
         .get_matches();
 
-    let home_dir = matches.get_one::<PathBuf>("home").unwrap();
+    let home_dir = matches
+        .get_one::<PathBuf>("home")
+        .unwrap();
     let near_config = load_config(home_dir, GenesisValidationMode::Full)
         .unwrap_or_else(|e| panic!("Error loading config: {:#}", e));
 
@@ -52,7 +54,10 @@ fn main() {
     )
     .expect("could not create transaction runtime");
     let mut store_validator = StoreValidator::new(
-        near_config.validator_signer.get().map(|x| x.validator_id().clone()),
+        near_config
+            .validator_signer
+            .get()
+            .map(|x| x.validator_id().clone()),
         near_config.genesis.config,
         epoch_manager,
         shard_tracker,
@@ -63,13 +68,24 @@ fn main() {
     store_validator.validate();
 
     if store_validator.tests_done() == 0 {
-        println!("{}", Red.style().bold().paint("No conditions has been validated"));
+        println!(
+            "{}",
+            Red.style()
+                .bold()
+                .paint("No conditions has been validated")
+        );
         process::exit(1);
     }
     println!(
         "{} {}",
-        White.style().bold().paint("Conditions validated:"),
-        Green.style().bold().paint(store_validator.tests_done().to_string())
+        White
+            .style()
+            .bold()
+            .paint("Conditions validated:"),
+        Green
+            .style()
+            .bold()
+            .paint(store_validator.tests_done().to_string())
     );
     for error in store_validator.errors.iter() {
         println!(
@@ -82,10 +98,18 @@ fn main() {
     if store_validator.is_failed() {
         println!(
             "Errors found: {}",
-            Red.style().bold().paint(store_validator.num_failed().to_string())
+            Red.style()
+                .bold()
+                .paint(store_validator.num_failed().to_string())
         );
         process::exit(1);
     } else {
-        println!("{}", Green.style().bold().paint("No errors found"));
+        println!(
+            "{}",
+            Green
+                .style()
+                .bold()
+                .paint("No errors found")
+        );
     }
 }

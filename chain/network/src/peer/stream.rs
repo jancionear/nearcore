@@ -108,22 +108,31 @@ where
     /// Silently drops message if the connection has been closed.
     /// If the message is too large, it will be silently dropped inside run_send_loop.
     /// Emits a critical error to Actor if send queue is full.
-    pub fn send(&self, frame: Frame) {
+    pub fn send(
+        &self,
+        frame: Frame,
+    ) {
         let msg = &frame.0;
-        let mut buf_size =
-            self.stats.bytes_to_send.fetch_add(msg.len() as u64, Ordering::Acquire) as usize;
+        let mut buf_size = self
+            .stats
+            .bytes_to_send
+            .fetch_add(msg.len() as u64, Ordering::Acquire) as usize;
         buf_size += msg.len();
-        self.stats.messages_to_send.fetch_add(1, Ordering::Acquire);
-        self.send_buf_size_metric.add(msg.len() as i64);
+        self.stats
+            .messages_to_send
+            .fetch_add(1, Ordering::Acquire);
+        self.send_buf_size_metric
+            .add(msg.len() as i64);
         // Exceeding buffer capacity is a critical error and Actor should call ctx.stop()
         // when receiving one. It is not like we do any extra allocations, so we can afford
         // pushing the message to the queue anyway.
         if buf_size > MAX_WRITE_BUFFER_CAPACITY_BYTES {
             metrics::MessageDropped::MaxCapacityExceeded.inc_unknown_msg();
-            self.addr.do_send(Error::Send(SendError::QueueOverflow {
-                got_bytes: buf_size,
-                want_max_bytes: MAX_WRITE_BUFFER_CAPACITY_BYTES,
-            }));
+            self.addr
+                .do_send(Error::Send(SendError::QueueOverflow {
+                    got_bytes: buf_size,
+                    want_max_bytes: MAX_WRITE_BUFFER_CAPACITY_BYTES,
+                }));
         }
         let _ = self.queue_send.send(frame);
     }
@@ -152,7 +161,10 @@ where
             vec![peer_addr.to_string()],
         );
         loop {
-            let n = read.read_u32_le().await.map_err(RecvError::IO)? as usize;
+            let n = read
+                .read_u32_le()
+                .await
+                .map_err(RecvError::IO)? as usize;
             if n > NETWORK_MESSAGE_MAX_SIZE_BYTES {
                 return Err(RecvError::MessageTooLarge {
                     got_bytes: n,
@@ -163,11 +175,17 @@ where
             buf_size_metric.set(n as i64);
             let mut buf = vec![0; n];
             let t = metrics::PEER_MSG_READ_LATENCY.start_timer();
-            read.read_exact(&mut buf[..]).await.map_err(RecvError::IO)?;
+            read.read_exact(&mut buf[..])
+                .await
+                .map_err(RecvError::IO)?;
             t.observe_duration();
             buf_size_metric.set(0);
-            stats.received_messages.fetch_add(1, Ordering::Relaxed);
-            stats.received_bytes.fetch_add(n as u64, Ordering::Relaxed);
+            stats
+                .received_messages
+                .fetch_add(1, Ordering::Relaxed);
+            stats
+                .received_bytes
+                .fetch_add(n as u64, Ordering::Relaxed);
             if let Err(_) = addr.send(Frame(buf)).await {
                 // We got mailbox error, which means that Actor has stopped,
                 // so we should just close the stream.
@@ -191,15 +209,21 @@ where
                 if msg.len() > NETWORK_MESSAGE_MAX_SIZE_BYTES {
                     metrics::MessageDropped::InputTooLong.inc_unknown_msg();
                 } else {
-                    writer.write_u32_le(msg.len() as u32).await?;
+                    writer
+                        .write_u32_le(msg.len() as u32)
+                        .await?;
                     writer.write_all(&msg[..]).await?;
                 }
-                stats.messages_to_send.fetch_sub(1, Ordering::Release);
-                stats.bytes_to_send.fetch_sub(msg.len() as u64, Ordering::Release);
+                stats
+                    .messages_to_send
+                    .fetch_sub(1, Ordering::Release);
+                stats
+                    .bytes_to_send
+                    .fetch_sub(msg.len() as u64, Ordering::Release);
                 buf_size_metric.sub(msg.len() as i64);
                 msg = match queue_recv.try_recv() {
-                    Ok(Frame(it)) => it,
-                    Err(_) => break,
+                    | Ok(Frame(it)) => it,
+                    | Err(_) => break,
                 };
             }
             // This is an unconditional flush, which means that even if new messages

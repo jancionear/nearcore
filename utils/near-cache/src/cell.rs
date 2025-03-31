@@ -33,7 +33,11 @@ where
     /// Return the value of they key in the cache otherwise computes the value and inserts it into
     /// the cache. If the key is already in the cache, they get moved to the head of
     /// the LRU list.
-    pub fn get_or_put<F>(&self, key: K, f: F) -> V
+    pub fn get_or_put<F>(
+        &self,
+        key: K,
+        f: F,
+    ) -> V
     where
         V: Clone,
         F: FnOnce(&K) -> V,
@@ -49,7 +53,11 @@ where
     ///
     /// If the provided closure fails, the error is returned and the cache is
     /// not updated.
-    pub fn get_or_try_put<F, E>(&self, key: K, f: F) -> Result<V, E>
+    pub fn get_or_try_put<F, E>(
+        &self,
+        key: K,
+        f: F,
+    ) -> Result<V, E>
     where
         V: Clone,
         F: FnOnce(&K) -> Result<V, E>,
@@ -59,17 +67,26 @@ where
         }
         let val = f(&key)?;
         let val_clone = val.clone();
-        self.inner.borrow_mut().put(key, val_clone);
+        self.inner
+            .borrow_mut()
+            .put(key, val_clone);
         Ok(val)
     }
 
     /// Puts a key-value pair into cache. If the key already exists in the cache,
     /// then it updates the key's value.
-    pub fn put(&self, key: K, value: V) {
+    pub fn put(
+        &self,
+        key: K,
+        value: V,
+    ) {
         self.inner.borrow_mut().put(key, value);
     }
 
-    pub fn pop<Q>(&self, key: &Q) -> Option<V>
+    pub fn pop<Q>(
+        &self,
+        key: &Q,
+    ) -> Option<V>
     where
         K: Borrow<Q>,
         Q: Hash + Eq + ?Sized,
@@ -79,12 +96,18 @@ where
 
     /// Returns the value of the key in the cache or None if it is not present in the cache.
     /// Moves the key to the head of the LRU list if it exists.
-    pub fn get<Q>(&self, key: &Q) -> Option<V>
+    pub fn get<Q>(
+        &self,
+        key: &Q,
+    ) -> Option<V>
     where
         K: Borrow<Q>,
         Q: Hash + Eq + ?Sized,
     {
-        self.inner.borrow_mut().get(key).cloned()
+        self.inner
+            .borrow_mut()
+            .get(key)
+            .cloned()
     }
 }
 

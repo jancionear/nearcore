@@ -8,7 +8,6 @@ use near_network::types::{NetworkRequests, PeerManagerMessageRequest};
 use near_primitives::block::Block;
 use near_primitives::congestion_info::CongestionInfo;
 use near_primitives::network::PeerId;
-use near_primitives::optimistic_block::OptimisticBlock;
 use near_primitives::sharding::ShardChunkHeader;
 use near_primitives::sharding::ShardChunkHeaderV3;
 use near_primitives::test_utils::create_test_signer;
@@ -23,17 +22,29 @@ use near_store::ShardUId;
 /// if the second block is not requested
 #[test]
 fn test_not_process_height_twice() {
-    let mut env = TestEnv::default_builder().mock_epoch_managers().build();
-    let block = env.clients[0].produce_block(1).unwrap().unwrap();
+    let mut env = TestEnv::default_builder()
+        .mock_epoch_managers()
+        .build();
+    let block = env.clients[0]
+        .produce_block(1)
+        .unwrap()
+        .unwrap();
     // modify the block and resign it
     let mut duplicate_block = block.clone();
     env.process_block(0, block, Provenance::PRODUCED);
     let validator_signer = create_test_signer("test0");
 
-    let proposals =
-        vec![ValidatorStake::new("test1".parse().unwrap(), PublicKey::empty(KeyType::ED25519), 0)];
-    duplicate_block.mut_header().set_prev_validator_proposals(proposals);
-    duplicate_block.mut_header().resign(&validator_signer);
+    let proposals = vec![ValidatorStake::new(
+        "test1".parse().unwrap(),
+        PublicKey::empty(KeyType::ED25519),
+        0,
+    )];
+    duplicate_block
+        .mut_header()
+        .set_prev_validator_proposals(proposals);
+    duplicate_block
+        .mut_header()
+        .resign(&validator_signer);
     let dup_block_hash = *duplicate_block.hash();
     let signer = env.clients[0].validator_signer.get();
     // we should have dropped the block before we even tried to process it, so the result should be ok
@@ -60,15 +71,31 @@ fn test_not_process_height_twice() {
 /// Test that if a block contains chunks with invalid shard_ids, the client will return error.
 #[test]
 fn test_bad_shard_id() {
-    let mut env = TestEnv::default_builder().num_shards(4).mock_epoch_managers().build();
-    let prev_block = env.clients[0].produce_block(1).unwrap().unwrap();
+    let mut env = TestEnv::default_builder()
+        .num_shards(4)
+        .mock_epoch_managers()
+        .build();
+    let prev_block = env.clients[0]
+        .produce_block(1)
+        .unwrap()
+        .unwrap();
     env.process_block(0, prev_block, Provenance::PRODUCED);
-    let mut block = env.clients[0].produce_block(2).unwrap().unwrap(); // modify the block and resign it
+    let mut block = env.clients[0]
+        .produce_block(2)
+        .unwrap()
+        .unwrap(); // modify the block and resign it
     let validator_signer = create_test_signer("test0");
-    let mut chunks: Vec<_> = block.chunks().iter_deprecated().cloned().collect();
+    let mut chunks: Vec<_> = block
+        .chunks()
+        .iter_deprecated()
+        .cloned()
+        .collect();
     // modify chunk 0 to have shard_id 1
     let chunk = chunks.get(0).unwrap();
-    let outgoing_receipts_root = chunks.get(1).unwrap().prev_outgoing_receipts_root();
+    let outgoing_receipts_root = chunks
+        .get(1)
+        .unwrap()
+        .prev_outgoing_receipts_root();
     let congestion_info = ProtocolFeature::CongestionControl
         .enabled(PROTOCOL_VERSION)
         .then_some(CongestionInfo::default());
@@ -86,21 +113,31 @@ fn test_bad_shard_id() {
         chunk.prev_balance_burnt(),
         outgoing_receipts_root,
         chunk.tx_root(),
-        chunk.prev_validator_proposals().collect(),
+        chunk
+            .prev_validator_proposals()
+            .collect(),
         congestion_info,
         chunk.bandwidth_requests().cloned(),
         &validator_signer,
     );
     modified_chunk.height_included = 2;
     chunks[0] = ShardChunkHeader::V3(modified_chunk);
-    block.mut_header().set_chunk_headers_root(Block::compute_chunk_headers_root(&chunks).0);
-    block.mut_header().set_prev_chunk_outgoing_receipts_root(
-        Block::compute_chunk_prev_outgoing_receipts_root(&chunks),
-    );
+    block
+        .mut_header()
+        .set_chunk_headers_root(Block::compute_chunk_headers_root(&chunks).0);
+    block
+        .mut_header()
+        .set_prev_chunk_outgoing_receipts_root(Block::compute_chunk_prev_outgoing_receipts_root(
+            &chunks,
+        ));
     block.set_chunks(chunks);
     let body_hash = block.compute_block_body_hash().unwrap();
-    block.mut_header().set_block_body_hash(body_hash);
-    block.mut_header().resign(&validator_signer);
+    block
+        .mut_header()
+        .set_block_body_hash(body_hash);
+    block
+        .mut_header()
+        .resign(&validator_signer);
 
     let err = env.clients[0]
         .process_block_test(MaybeValidated::from(block), Provenance::NONE)
@@ -115,10 +152,19 @@ fn test_bad_shard_id() {
 /// Test that if a block's content (vrf_value) is corrupted, the invalid block will not affect the node's block processing
 #[test]
 fn test_bad_block_content_vrf() {
-    let mut env = TestEnv::default_builder().num_shards(4).mock_epoch_managers().build();
-    let prev_block = env.clients[0].produce_block(1).unwrap().unwrap();
+    let mut env = TestEnv::default_builder()
+        .num_shards(4)
+        .mock_epoch_managers()
+        .build();
+    let prev_block = env.clients[0]
+        .produce_block(1)
+        .unwrap()
+        .unwrap();
     env.process_block(0, prev_block, Provenance::PRODUCED);
-    let block = env.clients[0].produce_block(2).unwrap().unwrap();
+    let block = env.clients[0]
+        .produce_block(2)
+        .unwrap()
+        .unwrap();
     let mut bad_block = block.clone();
     bad_block.set_vrf_value(Value([0u8; 32]));
     let signer = env.clients[0].validator_signer.get();
@@ -134,19 +180,31 @@ fn test_bad_block_content_vrf() {
         .unwrap_err();
     assert_matches!(err, near_chain::Error::InvalidSignature);
 
-    let _ =
-        env.clients[0].process_block_test(MaybeValidated::from(block), Provenance::NONE).unwrap();
+    let _ = env.clients[0]
+        .process_block_test(MaybeValidated::from(block), Provenance::NONE)
+        .unwrap();
 }
 
 /// Test that if a block's signature is corrupted, the invalid block will not affect the node's block processing
 #[test]
 fn test_bad_block_signature() {
-    let mut env = TestEnv::default_builder().num_shards(4).mock_epoch_managers().build();
-    let prev_block = env.clients[0].produce_block(1).unwrap().unwrap();
+    let mut env = TestEnv::default_builder()
+        .num_shards(4)
+        .mock_epoch_managers()
+        .build();
+    let prev_block = env.clients[0]
+        .produce_block(1)
+        .unwrap()
+        .unwrap();
     env.process_block(0, prev_block, Provenance::PRODUCED);
-    let block = env.clients[0].produce_block(2).unwrap().unwrap();
+    let block = env.clients[0]
+        .produce_block(2)
+        .unwrap()
+        .unwrap();
     let mut bad_block = block.clone();
-    bad_block.mut_header().set_signature(Signature::default());
+    bad_block
+        .mut_header()
+        .set_signature(Signature::default());
     let signer = env.clients[0].validator_signer.get();
 
     let err = env.clients[0]
@@ -160,8 +218,9 @@ fn test_bad_block_signature() {
         .unwrap_err();
     assert_matches!(err, near_chain::Error::InvalidSignature);
 
-    let _ =
-        env.clients[0].process_block_test(MaybeValidated::from(block), Provenance::NONE).unwrap();
+    let _ = env.clients[0]
+        .process_block_test(MaybeValidated::from(block), Provenance::NONE)
+        .unwrap();
 }
 
 enum BadCongestionInfoMode {
@@ -173,31 +232,40 @@ enum BadCongestionInfoMode {
 }
 
 impl BadCongestionInfoMode {
-    fn corrupt(&self, congestion_info: &mut CongestionInfo) {
+    fn corrupt(
+        &self,
+        congestion_info: &mut CongestionInfo,
+    ) {
         match self {
-            BadCongestionInfoMode::CorruptReceiptBytes => {
-                congestion_info.add_receipt_bytes(1).unwrap();
+            | BadCongestionInfoMode::CorruptReceiptBytes => {
+                congestion_info
+                    .add_receipt_bytes(1)
+                    .unwrap();
             }
-            BadCongestionInfoMode::CorruptDelayedReceiptsBytes => {
-                congestion_info.add_delayed_receipt_gas(1).unwrap();
+            | BadCongestionInfoMode::CorruptDelayedReceiptsBytes => {
+                congestion_info
+                    .add_delayed_receipt_gas(1)
+                    .unwrap();
             }
-            BadCongestionInfoMode::CorruptBufferedReceiptsBytes => {
-                congestion_info.add_buffered_receipt_gas(1).unwrap();
+            | BadCongestionInfoMode::CorruptBufferedReceiptsBytes => {
+                congestion_info
+                    .add_buffered_receipt_gas(1)
+                    .unwrap();
             }
-            BadCongestionInfoMode::CorruptAllowedShard => {
+            | BadCongestionInfoMode::CorruptAllowedShard => {
                 congestion_info.set_allowed_shard(u16::MAX);
             }
-            BadCongestionInfoMode::None => {}
+            | BadCongestionInfoMode::None => {}
         }
     }
 
     fn is_ok(&self) -> bool {
         match self {
-            BadCongestionInfoMode::CorruptReceiptBytes
+            | BadCongestionInfoMode::CorruptReceiptBytes
             | BadCongestionInfoMode::CorruptDelayedReceiptsBytes
             | BadCongestionInfoMode::CorruptBufferedReceiptsBytes
             | BadCongestionInfoMode::CorruptAllowedShard => false,
-            BadCongestionInfoMode::None => true,
+            | BadCongestionInfoMode::None => true,
         }
     }
 }
@@ -207,17 +275,32 @@ fn test_bad_congestion_info_impl(mode: BadCongestionInfoMode) {
         return;
     }
 
-    let mut env = TestEnv::default_builder().num_shards(4).mock_epoch_managers().build();
-    let prev_block = env.clients[0].produce_block(1).unwrap().unwrap();
+    let mut env = TestEnv::default_builder()
+        .num_shards(4)
+        .mock_epoch_managers()
+        .build();
+    let prev_block = env.clients[0]
+        .produce_block(1)
+        .unwrap()
+        .unwrap();
     env.process_block(0, prev_block, Provenance::PRODUCED);
-    let block = env.clients[0].produce_block(2).unwrap().unwrap();
+    let block = env.clients[0]
+        .produce_block(2)
+        .unwrap()
+        .unwrap();
 
     let validator_signer = create_test_signer("test0");
 
-    let chunks: Vec<_> = block.chunks().iter_deprecated().cloned().collect();
+    let chunks: Vec<_> = block
+        .chunks()
+        .iter_deprecated()
+        .cloned()
+        .collect();
     let chunk = chunks.get(0).unwrap();
 
-    let mut congestion_info = chunk.congestion_info().unwrap_or_default();
+    let mut congestion_info = chunk
+        .congestion_info()
+        .unwrap_or_default();
     mode.corrupt(&mut congestion_info);
 
     let mut modified_chunk_header = ShardChunkHeaderV3::new(
@@ -234,7 +317,9 @@ fn test_bad_congestion_info_impl(mode: BadCongestionInfoMode) {
         chunk.prev_balance_burnt(),
         chunk.prev_outgoing_receipts_root(),
         chunk.tx_root(),
-        chunk.prev_validator_proposals().collect(),
+        chunk
+            .prev_validator_proposals()
+            .collect(),
         Some(congestion_info),
         chunk.bandwidth_requests().cloned(),
         &validator_signer,
@@ -246,7 +331,10 @@ fn test_bad_congestion_info_impl(mode: BadCongestionInfoMode) {
     let shard_uid = ShardUId { shard_id: 0, version: 0 };
     let prev_block_hash = block.header().prev_hash();
     let client = &env.clients[0];
-    let prev_chunk_extra = client.chain.get_chunk_extra(prev_block_hash, &shard_uid).unwrap();
+    let prev_chunk_extra = client
+        .chain
+        .get_chunk_extra(prev_block_hash, &shard_uid)
+        .unwrap();
     let result: Result<(), near_chain::Error> = validate_chunk_with_chunk_extra(
         &client.chain.chain_store,
         client.epoch_manager.as_ref(),
@@ -287,34 +375,4 @@ fn test_bad_congestion_info_corrupt_allowed_shard() {
 #[test]
 fn test_bad_congestion_info_none() {
     test_bad_congestion_info_impl(BadCongestionInfoMode::None);
-}
-
-// Helper function to check that a block was produced from an optimistic block
-fn check_block_produced_from_optimistic_block(block: &Block, optimistic_block: &OptimisticBlock) {
-    assert_eq!(block.header().height(), optimistic_block.inner.block_height, "height");
-    assert_eq!(
-        block.header().prev_hash(),
-        &optimistic_block.inner.prev_block_hash,
-        "previous hash"
-    );
-    assert_eq!(block.header().raw_timestamp(), optimistic_block.inner.block_timestamp, "timestamp");
-    assert_eq!(block.header().random_value(), &optimistic_block.inner.random_value, "random value");
-}
-
-// Testing the production and application of optimistic blocks
-#[test]
-fn test_process_optimistic_block() {
-    let mut env = TestEnv::default_builder().num_shards(4).mock_epoch_managers().build();
-    let prev_block = env.clients[0].produce_block(1).unwrap().unwrap();
-    env.process_block(0, prev_block, Provenance::PRODUCED);
-    assert!(!env.clients[0].is_optimistic_block_done(2), "Optimistic block should not be ready");
-    let optimistic_block = env.clients[0].produce_optimistic_block_on_head(2).unwrap().unwrap();
-    // Store optimistic block to be used at block production.
-    env.clients[0].save_optimistic_block(&optimistic_block);
-    assert!(env.clients[0].is_optimistic_block_done(2), "Optimistic block should be ready");
-
-    // TODO(#10584): Process chunks with optimistic block
-
-    let block = env.clients[0].produce_block(2).unwrap().unwrap();
-    check_block_produced_from_optimistic_block(&block, &optimistic_block);
 }

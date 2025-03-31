@@ -31,8 +31,8 @@ impl HasValueLength for FlatStateValue {
 impl HasValueLength for ValueHandle {
     fn len(&self) -> u64 {
         match self {
-            ValueHandle::HashAndSize(value) => value.length as u64,
-            ValueHandle::InMemory(value) => value.1 as u64,
+            | ValueHandle::HashAndSize(value) => value.length as u64,
+            | ValueHandle::InMemory(value) => value.1 as u64,
         }
     }
 }
@@ -89,22 +89,24 @@ where
     /// terms, not in terms of the physical memory usage.
     pub fn memory_usage_direct(&self) -> u64 {
         match self {
-            Self::Empty => {
+            | Self::Empty => {
                 // DEVNOTE: empty nodes don't exist in storage.
                 // In the in-memory implementation Some(TrieNode::Empty) and None are interchangeable as
                 // children of branch nodes which means cost has to be 0
                 0
             }
-            Self::Leaf { extension, value } => {
+            | Self::Leaf { extension, value } => {
                 TRIE_COSTS.node_cost
                     + (extension.len() as u64) * TRIE_COSTS.byte_of_key
                     + Self::memory_usage_value(value.len())
             }
-            Self::Branch { value, .. } => {
+            | Self::Branch { value, .. } => {
                 TRIE_COSTS.node_cost
-                    + value.as_ref().map_or(0, |value| Self::memory_usage_value(value.len()))
+                    + value
+                        .as_ref()
+                        .map_or(0, |value| Self::memory_usage_value(value.len()))
             }
-            Self::Extension { extension, .. } => {
+            | Self::Extension { extension, .. } => {
                 TRIE_COSTS.node_cost + (extension.len() as u64) * TRIE_COSTS.byte_of_key
             }
         }
@@ -122,12 +124,12 @@ pub type GenericUpdatedTrieNode<GenericTrieNodePtr, GenericValueHandle> =
 impl<N, V> From<GenericTrieNode<N, V>> for GenericUpdatedTrieNode<N, V> {
     fn from(node: GenericTrieNode<N, V>) -> Self {
         match node {
-            GenericTrieNode::Empty => Self::Empty,
-            GenericTrieNode::Leaf { extension, value } => Self::Leaf { extension, value },
-            GenericTrieNode::Extension { extension, child } => {
+            | GenericTrieNode::Empty => Self::Empty,
+            | GenericTrieNode::Leaf { extension, value } => Self::Leaf { extension, value },
+            | GenericTrieNode::Extension { extension, child } => {
                 Self::Extension { extension, child: GenericNodeOrIndex::Old(child) }
             }
-            GenericTrieNode::Branch { children, value } => {
+            | GenericTrieNode::Branch { children, value } => {
                 let children = Box::new(children.map(|child| child.map(GenericNodeOrIndex::Old)));
                 Self::Branch { children, value }
             }
@@ -240,8 +242,14 @@ pub(crate) trait GenericTrieUpdate<'a, GenericTrieNodePtr, GenericValueHandle> {
     ) -> &GenericUpdatedTrieNodeWithSize<GenericTrieNodePtr, GenericValueHandle>;
 
     /// Stores a state value in the trie.
-    fn store_value(&mut self, value: GenericTrieValue) -> GenericValueHandle;
+    fn store_value(
+        &mut self,
+        value: GenericTrieValue,
+    ) -> GenericValueHandle;
 
     /// Deletes a state value from the trie.
-    fn delete_value(&mut self, value: GenericValueHandle) -> Result<(), StorageError>;
+    fn delete_value(
+        &mut self,
+        value: GenericValueHandle,
+    ) -> Result<(), StorageError>;
 }

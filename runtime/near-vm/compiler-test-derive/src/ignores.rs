@@ -27,11 +27,25 @@ impl IgnorePattern {
         compiler: &str,
         canonical_path: &str,
     ) -> bool {
-        self.os.as_ref().map_or(true, |val| val == os)
-            && self.arch.as_ref().map_or(true, |val| val == arch)
-            && self.target_env.as_ref().map_or(true, |val| val == target_env)
-            && self.engine.as_ref().map_or(true, |val| val == engine)
-            && self.compiler.as_ref().map_or(true, |val| val == compiler)
+        self.os
+            .as_ref()
+            .map_or(true, |val| val == os)
+            && self
+                .arch
+                .as_ref()
+                .map_or(true, |val| val == arch)
+            && self
+                .target_env
+                .as_ref()
+                .map_or(true, |val| val == target_env)
+            && self
+                .engine
+                .as_ref()
+                .map_or(true, |val| val == engine)
+            && self
+                .compiler
+                .as_ref()
+                .map_or(true, |val| val == compiler)
             && (self.pattern_to_ignore == "*" || canonical_path.contains(&*self.pattern_to_ignore))
     }
 }
@@ -59,7 +73,12 @@ impl Ignores {
         })
     }
 
-    pub fn should_ignore_host(&self, engine: &str, compiler: &str, canonical_path: &str) -> bool {
+    pub fn should_ignore_host(
+        &self,
+        engine: &str,
+        compiler: &str,
+        canonical_path: &str,
+    ) -> bool {
         self.should_ignore(
             CFG_TARGET_OS,
             CFG_TARGET_ARCH,
@@ -100,26 +119,26 @@ impl Ignores {
                 for alias in l[0].trim().split("+") {
                     match alias {
                         // Operating Systems
-                        "windows" | "macos" | "linux" => {
+                        | "windows" | "macos" | "linux" => {
                             os = Some(alias.to_string());
                         }
                         // Environments
-                        "musl" => {
+                        | "musl" => {
                             target_env = Some(alias.to_string());
                         }
                         // Chipset architectures
-                        "aarch64" | "x86" | "x64" => {
+                        | "aarch64" | "x86" | "x64" => {
                             arch = Some(alias.to_string());
                         }
                         // Engines
-                        "universal" | "dylib" => {
+                        | "universal" | "dylib" => {
                             engine = Some(alias.to_string());
                         }
                         // Compilers
-                        "singlepass" => {
+                        | "singlepass" => {
                             compiler = Some(alias.to_string());
                         }
-                        other => {
+                        | other => {
                             panic!("Alias {:?} not currently supported (defined in ignores.txt in line {})", other, i+1);
                         }
                     }

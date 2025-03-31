@@ -34,7 +34,10 @@ use quote::quote;
 /// }
 /// ```
 #[proc_macro_attribute]
-pub fn perf(_attr: TokenStream, item: TokenStream) -> TokenStream {
+pub fn perf(
+    _attr: TokenStream,
+    item: TokenStream,
+) -> TokenStream {
     perf_internal(_attr, item, false)
 }
 
@@ -69,11 +72,18 @@ pub fn perf(_attr: TokenStream, item: TokenStream) -> TokenStream {
 /// }
 /// ```
 #[proc_macro_attribute]
-pub fn perf_with_debug(_attr: TokenStream, item: TokenStream) -> TokenStream {
+pub fn perf_with_debug(
+    _attr: TokenStream,
+    item: TokenStream,
+) -> TokenStream {
     perf_internal(_attr, item, true)
 }
 
-fn perf_internal(_attr: TokenStream, item: TokenStream, debug: bool) -> TokenStream {
+fn perf_internal(
+    _attr: TokenStream,
+    item: TokenStream,
+    debug: bool,
+) -> TokenStream {
     let item: syn::Item = syn::parse(item).expect("failed to parse input");
 
     if let syn::Item::Fn(mut func) = item {
@@ -96,7 +106,9 @@ fn perf_internal(_attr: TokenStream, item: TokenStream, debug: bool) -> TokenStr
                 }
              ).into()
         };
-        func.block = syn::parse::<syn::Block>(new_body).expect("failed to parse input").into();
+        func.block = syn::parse::<syn::Block>(new_body)
+            .expect("failed to parse input")
+            .into();
 
         quote! ( #func ).into()
     } else {

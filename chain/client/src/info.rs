@@ -102,15 +102,25 @@ impl InfoHelper {
         }
     }
 
-    pub fn chunk_processed(&mut self, shard_id: ShardId, gas_used: Gas, balance_burnt: Balance) {
+    pub fn chunk_processed(
+        &mut self,
+        shard_id: ShardId,
+        gas_used: Gas,
+        balance_burnt: Balance,
+    ) {
         metrics::TGAS_USAGE_HIST
             .with_label_values(&[&shard_id.to_string()])
             .observe(gas_used as f64 / TERAGAS);
         metrics::BALANCE_BURNT.inc_by(balance_burnt as f64);
     }
 
-    pub fn chunk_skipped(&mut self, shard_id: ShardId) {
-        metrics::CHUNK_SKIPPED_TOTAL.with_label_values(&[&shard_id.to_string()]).inc();
+    pub fn chunk_skipped(
+        &mut self,
+        shard_id: ShardId,
+    ) {
+        metrics::CHUNK_SKIPPED_TOTAL
+            .with_label_values(&[&shard_id.to_string()])
+            .inc();
     }
 
     pub fn block_processed(
@@ -149,27 +159,40 @@ impl InfoHelper {
         shard_layout: &ShardLayout,
     ) {
         let validator_signer = client.validator_signer.get();
-        let me = validator_signer.as_ref().map(|x| x.validator_id());
+        let me = validator_signer
+            .as_ref()
+            .map(|x| x.validator_id());
         for shard_id in shard_layout.shard_ids() {
             let tracked =
-                client.shard_tracker.care_about_shard(me, &head.prev_block_hash, shard_id, true);
-            metrics::TRACKED_SHARDS.with_label_values(&[&shard_id.to_string()]).set(if tracked {
-                1
-            } else {
-                0
-            });
+                client
+                    .shard_tracker
+                    .care_about_shard(me, &head.prev_block_hash, shard_id, true);
+            metrics::TRACKED_SHARDS
+                .with_label_values(&[&shard_id.to_string()])
+                .set(if tracked { 1 } else { 0 });
         }
     }
 
-    fn record_block_producers(head: &Tip, client: &crate::client::Client) {
-        let me = client.validator_signer.get().map(|x| x.validator_id().clone());
+    fn record_block_producers(
+        head: &Tip,
+        client: &crate::client::Client,
+    ) {
+        let me = client
+            .validator_signer
+            .get()
+            .map(|x| x.validator_id().clone());
         if let Some(is_bp) = me.map_or(Some(false), |account_id| {
             // In rare cases block producer information isn't available.
             // Don't set the metric in this case.
             client
                 .epoch_manager
                 .get_epoch_block_producers_ordered(&head.epoch_id, &head.last_block_hash)
-                .map_or(None, |bp| Some(bp.iter().any(|bp| bp.0.account_id() == &account_id)))
+                .map_or(None, |bp| {
+                    Some(
+                        bp.iter()
+                            .any(|bp| bp.0.account_id() == &account_id),
+                    )
+                })
         }) {
             metrics::IS_BLOCK_PRODUCER.set(if is_bp { 1 } else { 0 });
         }
@@ -178,14 +201,25 @@ impl InfoHelper {
     fn record_chunk_producers(
         head: &Tip,
         client: &crate::client::Client,
-        shard_layout: Option<&ShardLayout>,
+        shard_layout: &ShardLayout,
     ) {
         if let (Some(account_id), Ok(epoch_info)) = (
-            client.validator_signer.get().map(|x| x.validator_id().clone()),
-            client.epoch_manager.get_epoch_info(&head.epoch_id),
+            client
+                .validator_signer
+                .get()
+                .map(|x| x.validator_id().clone()),
+            client
+                .epoch_manager
+                .get_epoch_info(&head.epoch_id),
         ) {
-            for (shard_id, validators) in epoch_info.chunk_producers_settlement().iter().enumerate()
+            for (shard_index, validators) in epoch_info
+                .chunk_producers_settlement()
+                .iter()
+                .enumerate()
             {
+                let Ok(shard_id) = shard_layout.get_shard_id(shard_index) else {
+                    continue;
+                };
                 let is_chunk_producer_for_shard = validators.iter().any(|&validator_id| {
                     *epoch_info.validator_account_id(validator_id) == account_id
                 });
@@ -193,7 +227,7 @@ impl InfoHelper {
                     .with_label_values(&[&shard_id.to_string()])
                     .set(if is_chunk_producer_for_shard { 1 } else { 0 });
             }
-        } else if let Some(shard_layout) = shard_layout {
+        } else {
             for shard_id in shard_layout.shard_ids() {
                 metrics::IS_CHUNK_PRODUCER_FOR_SHARD
                     .with_label_values(&[&shard_id.to_string()])
@@ -206,11 +240,22 @@ impl InfoHelper {
     /// is an estimation, and not an exact value. To obtain a more precise result, it is necessary to examine
     /// all the blocks in the epoch. However, even this method may not be completely accurate because additional
     /// blocks could potentially be added at the end of the epoch.
-    fn record_epoch_settlement_info(head: &Tip, client: &crate::client::Client) {
-        let epoch_info = client.epoch_manager.get_epoch_info(&head.epoch_id);
+    fn record_epoch_settlement_info(
+        head: &Tip,
+        client: &crate::client::Client,
+    ) {
+        let epoch_info = client
+            .epoch_manager
+            .get_epoch_info(&head.epoch_id);
         let blocks_in_epoch = client.config.epoch_length;
-        let shard_ids = client.epoch_manager.shard_ids(&head.epoch_id).unwrap_or_default();
-        let shard_layout = client.epoch_manager.get_shard_layout(&head.epoch_id).unwrap();
+        let shard_ids = client
+            .epoch_manager
+            .shard_ids(&head.epoch_id)
+            .unwrap_or_default();
+        let shard_layout = client
+            .epoch_manager
+            .get_shard_layout(&head.epoch_id)
+            .unwrap();
         if let Ok(epoch_info) = epoch_info {
             metrics::VALIDATORS_CHUNKS_EXPECTED_IN_EPOCH.reset();
             metrics::VALIDATORS_BLOCKS_EXPECTED_IN_EPOCH.reset();
@@ -235,23 +280,33 @@ impl InfoHelper {
                 stake_sum += stake;
             }
 
-            stake_per_bp.iter().for_each(|(&id, &stake)| {
-                metrics::BLOCK_PRODUCER_STAKE
-                    .with_label_values(&[
-                        epoch_info.get_validator(id).account_id().as_str(),
-                        &epoch_height,
-                    ])
-                    .set((stake / 1e24 as u128) as i64);
-                metrics::VALIDATORS_BLOCKS_EXPECTED_IN_EPOCH
-                    .with_label_values(&[
-                        epoch_info.get_validator(id).account_id().as_str(),
-                        &epoch_height,
-                    ])
-                    .set(stake_to_blocks(stake, stake_sum))
-            });
+            stake_per_bp
+                .iter()
+                .for_each(|(&id, &stake)| {
+                    metrics::BLOCK_PRODUCER_STAKE
+                        .with_label_values(&[
+                            epoch_info
+                                .get_validator(id)
+                                .account_id()
+                                .as_str(),
+                            &epoch_height,
+                        ])
+                        .set((stake / 1e24 as u128) as i64);
+                    metrics::VALIDATORS_BLOCKS_EXPECTED_IN_EPOCH
+                        .with_label_values(&[
+                            epoch_info
+                                .get_validator(id)
+                                .account_id()
+                                .as_str(),
+                            &epoch_height,
+                        ])
+                        .set(stake_to_blocks(stake, stake_sum))
+                });
 
             for shard_id in shard_ids {
-                let shard_index = shard_layout.get_shard_index(shard_id).unwrap();
+                let shard_index = shard_layout
+                    .get_shard_index(shard_id)
+                    .unwrap();
                 let mut stake_per_cp = HashMap::<ValidatorId, Balance>::new();
                 stake_sum = 0;
                 let chunk_producers_settlement = &epoch_info.chunk_producers_settlement();
@@ -266,22 +321,33 @@ impl InfoHelper {
                     stake_sum += stake;
                 }
 
-                stake_per_cp.iter().for_each(|(&id, &stake)| {
-                    metrics::VALIDATORS_CHUNKS_EXPECTED_IN_EPOCH
-                        .with_label_values(&[
-                            epoch_info.get_validator(id).account_id().as_str(),
-                            &shard_id.to_string(),
-                            &epoch_height,
-                        ])
-                        .set(stake_to_blocks(stake, stake_sum))
-                });
+                stake_per_cp
+                    .iter()
+                    .for_each(|(&id, &stake)| {
+                        metrics::VALIDATORS_CHUNKS_EXPECTED_IN_EPOCH
+                            .with_label_values(&[
+                                epoch_info
+                                    .get_validator(id)
+                                    .account_id()
+                                    .as_str(),
+                                &shard_id.to_string(),
+                                &epoch_height,
+                            ])
+                            .set(stake_to_blocks(stake, stake_sum))
+                    });
             }
         }
     }
 
     /// Records protocol version of the current epoch.
-    fn record_protocol_version(head: &Tip, client: &crate::client::Client) {
-        if let Ok(version) = client.epoch_manager.get_epoch_protocol_version(&head.epoch_id) {
+    fn record_protocol_version(
+        head: &Tip,
+        client: &crate::client::Client,
+    ) {
+        if let Ok(version) = client
+            .epoch_manager
+            .get_epoch_protocol_version(&head.epoch_id)
+        {
             metrics::CURRENT_PROTOCOL_VERSION.set(version as i64);
         }
     }
@@ -296,9 +362,14 @@ impl InfoHelper {
         epoch_manager: &dyn EpochManagerAdapter,
         epoch_id: &EpochId,
     ) -> usize {
-        *self.num_validators_per_epoch.get_or_insert(*epoch_id, || {
-            epoch_manager.get_epoch_all_validators(epoch_id).unwrap_or_default().len()
-        })
+        *self
+            .num_validators_per_epoch
+            .get_or_insert(*epoch_id, || {
+                epoch_manager
+                    .get_epoch_all_validators(epoch_id)
+                    .unwrap_or_default()
+                    .len()
+            })
     }
 
     /// Print current summary.
@@ -315,15 +386,16 @@ impl InfoHelper {
         let validator_info = if !is_syncing {
             let num_validators =
                 self.get_num_validators(client.epoch_manager.as_ref(), &head.epoch_id);
-            let account_id = signer.as_ref().map(|x| x.validator_id());
+            let account_id = signer
+                .as_ref()
+                .map(|x| x.validator_id());
             let is_validator = if let Some(account_id) = account_id {
-                match client.epoch_manager.get_validator_by_account_id(
-                    &head.epoch_id,
-                    &head.last_block_hash,
-                    account_id,
-                ) {
-                    Ok((_, is_slashed)) => !is_slashed,
-                    Err(_) => false,
+                match client
+                    .epoch_manager
+                    .get_validator_by_account_id(&head.epoch_id, &head.last_block_hash, account_id)
+                {
+                    | Ok((_, is_slashed)) => !is_slashed,
+                    | Err(_) => false,
                 }
             } else {
                 false
@@ -353,13 +425,17 @@ impl InfoHelper {
                 .unwrap_or_default()
         };
 
-        let shard_layout = client.epoch_manager.get_shard_layout(&head.epoch_id).ok();
+        let shard_layout = client
+            .epoch_manager
+            .get_shard_layout(&head.epoch_id)
+            .ok();
 
         if let Some(shard_layout) = shard_layout.as_ref() {
             InfoHelper::record_tracked_shards(&head, &client, shard_layout);
+            InfoHelper::record_chunk_producers(&head, &client, shard_layout);
         }
         InfoHelper::record_block_producers(&head, &client);
-        InfoHelper::record_chunk_producers(&head, &client, shard_layout.as_ref());
+
         let next_epoch_id = Some(head.epoch_id);
         if self.epoch_id.ne(&next_epoch_id) {
             // We only want to compute this once per epoch to avoid heavy computational work, that can last up to 100ms.
@@ -373,7 +449,9 @@ impl InfoHelper {
         self.info(
             &head,
             &client.sync_status,
-            client.get_catchup_status().unwrap_or_default(),
+            client
+                .get_catchup_status()
+                .unwrap_or_default(),
             node_id,
             network_info,
             validator_info,
@@ -408,9 +486,11 @@ impl InfoHelper {
     ) {
         let use_color = matches!(self.log_summary_style, LogSummaryStyle::Colored);
         let paint = |color: yansi::Color, text: Option<String>| match text {
-            None => yansi::Paint::default(String::new()),
-            Some(text) if use_color => yansi::Paint::default(text).fg(color).bold(),
-            Some(text) => yansi::Paint::default(text),
+            | None => yansi::Paint::default(String::new()),
+            | Some(text) if use_color => yansi::Paint::default(text)
+                .fg(color)
+                .bold(),
+            | Some(text) => yansi::Paint::default(text),
         };
 
         let s = |num| if num == 1 { "" } else { "s" };
@@ -436,19 +516,28 @@ impl InfoHelper {
 
         let now = Instant::now();
         let avg_bls = (self.num_blocks_processed as f64)
-            / (now.signed_duration_since(self.started).whole_milliseconds() as f64)
+            / (now
+                .signed_duration_since(self.started)
+                .whole_milliseconds() as f64)
             * 1000.0;
         let avg_gas_used = ((self.gas_used as f64)
-            / (now.signed_duration_since(self.started).whole_milliseconds() as f64)
+            / (now
+                .signed_duration_since(self.started)
+                .whole_milliseconds() as f64)
             * 1000.0) as u64;
         let blocks_info_log =
             Some(format!(" {:.2} bps {}", avg_bls, PrettyNumber::gas_per_sec(avg_gas_used)));
 
-        let proc_info = self.pid.filter(|pid| self.sys.refresh_process(*pid)).map(|pid| {
-            let proc =
-                self.sys.process(pid).expect("refresh_process succeeds, this should be not None");
-            (proc.cpu_usage(), proc.memory())
-        });
+        let proc_info = self
+            .pid
+            .filter(|pid| self.sys.refresh_process(*pid))
+            .map(|pid| {
+                let proc = self
+                    .sys
+                    .process(pid)
+                    .expect("refresh_process succeeds, this should be not None");
+                (proc.cpu_usage(), proc.memory())
+            });
         let machine_info_log = proc_info.as_ref().map(|(cpu, mem)| {
             format!(" CPU: {:.0}%, Mem: {}", cpu, PrettyNumber::bytes(mem * 1024))
         });
@@ -466,7 +555,9 @@ impl InfoHelper {
             config_updater.report_status();
         }
         let (cpu_usage, memory_usage) = proc_info.unwrap_or_default();
-        let is_validator = validator_info.map(|v| v.is_validator).unwrap_or_default();
+        let is_validator = validator_info
+            .map(|v| v.is_validator)
+            .unwrap_or_default();
         (metrics::IS_VALIDATOR.set(is_validator as i64));
         (metrics::RECEIVED_BYTES_PER_SECOND.set(network_info.received_bytes_per_sec as i64));
         (metrics::SENT_BYTES_PER_SECOND.set(network_info.sent_bytes_per_sec as i64));
@@ -494,7 +585,8 @@ impl InfoHelper {
                 signer,
             ),
         };
-        self.telemetry_sender.send(telemetry_event);
+        self.telemetry_sender
+            .send(telemetry_event);
     }
 
     /// Updates the prometheus metrics to track the block and chunk production and endorsement by validators.
@@ -508,7 +600,7 @@ impl InfoHelper {
         // validators (with the status ValidatorProductionStatus::Kickout).
         for status in validator_status {
             match status {
-                ValidatorProductionStatus::Validator(stats) => {
+                | ValidatorProductionStatus::Validator(stats) => {
                     metrics::VALIDATORS_BLOCKS_PRODUCED
                         .with_label_values(&[stats.account_id.as_str()])
                         .set(stats.num_produced_blocks as i64);
@@ -524,24 +616,36 @@ impl InfoHelper {
                     for i in 0..stats.shards_produced.len() {
                         let shard = stats.shards_produced[i];
                         metrics::VALIDATORS_CHUNKS_EXPECTED_BY_SHARD
-                            .with_label_values(&[stats.account_id.as_str(), &shard.to_string()])
+                            .with_label_values(&[
+                                stats.account_id.as_str(),
+                                &shard.to_string(),
+                            ])
                             .set(stats.num_expected_chunks_per_shard[i] as i64);
                         metrics::VALIDATORS_CHUNKS_PRODUCED_BY_SHARD
-                            .with_label_values(&[stats.account_id.as_str(), &shard.to_string()])
+                            .with_label_values(&[
+                                stats.account_id.as_str(),
+                                &shard.to_string(),
+                            ])
                             .set(stats.num_produced_chunks_per_shard[i] as i64);
                     }
                     for i in 0..stats.shards_endorsed.len() {
                         let shard = stats.shards_endorsed[i];
                         metrics::VALIDATORS_CHUNK_ENDORSEMENTS_EXPECTED_BY_SHARD
-                            .with_label_values(&[stats.account_id.as_str(), &shard.to_string()])
+                            .with_label_values(&[
+                                stats.account_id.as_str(),
+                                &shard.to_string(),
+                            ])
                             .set(stats.num_expected_endorsements_per_shard[i] as i64);
                         metrics::VALIDATORS_CHUNK_ENDORSEMENTS_PRODUCED_BY_SHARD
-                            .with_label_values(&[stats.account_id.as_str(), &shard.to_string()])
+                            .with_label_values(&[
+                                stats.account_id.as_str(),
+                                &shard.to_string(),
+                            ])
                             .set(stats.num_produced_endorsements_per_shard[i] as i64);
                     }
                 }
                 // If the validator is kicked out, remove the stats for it and for all shards in the current epoch.
-                ValidatorProductionStatus::Kickout(account_id) => {
+                | ValidatorProductionStatus::Kickout(account_id) => {
                     let _ = metrics::VALIDATORS_BLOCKS_PRODUCED
                         .remove_label_values(&[account_id.as_str()]);
                     let _ = metrics::VALIDATORS_BLOCKS_EXPECTED
@@ -596,9 +700,13 @@ impl InfoHelper {
             chain: TelemetryChainInfo {
                 chain_id: client_config.chain_id.clone(),
                 node_id: node_id.to_string(),
-                account_id: signer.as_ref().map(|bp| bp.validator_id().clone()),
+                account_id: signer
+                    .as_ref()
+                    .map(|bp| bp.validator_id().clone()),
                 is_validator,
-                status: sync_status.as_variant_name().to_string(),
+                status: sync_status
+                    .as_variant_name()
+                    .to_string(),
                 latest_block_hash: head.last_block_hash,
                 latest_block_height: head.height,
                 num_peers: network_info.num_connected_peers,
@@ -611,7 +719,9 @@ impl InfoHelper {
                 max_block_production_delay: client_config
                     .max_block_production_delay
                     .as_seconds_f64(),
-                max_block_wait_delay: client_config.max_block_wait_delay.as_seconds_f64(),
+                max_block_wait_delay: client_config
+                    .max_block_wait_delay
+                    .as_seconds_f64(),
             },
             extra_info: serde_json::to_string(&extra_telemetry_info(client_config)).unwrap(),
         };
@@ -620,12 +730,19 @@ impl InfoHelper {
         // Sign telemetry if there is a signer present.
         if let Some(signer) = signer {
             let content = serde_json::to_string(&json).expect("Telemetry must serialize to JSON");
-            json["signature"] = signer.sign_bytes(content.as_bytes()).to_string().into();
+            json["signature"] = signer
+                .sign_bytes(content.as_bytes())
+                .to_string()
+                .into();
         }
         json
     }
 
-    fn log_chain_processing_info(&mut self, client: &crate::Client, epoch_id: &EpochId) {
+    fn log_chain_processing_info(
+        &mut self,
+        client: &crate::Client,
+        epoch_id: &EpochId,
+    ) {
         let chain = &client.chain;
         let use_color = matches!(self.log_summary_style, LogSummaryStyle::Colored);
         let info = chain.get_chain_processing_info();
@@ -644,11 +761,14 @@ impl InfoHelper {
     // If the `new_sync_requirement` differs from `self.prev_sync_requirement`,
     // then increments a corresponding metric.
     // Uses `String` instead of `SyncRequirement` to avoid circular dependencies.
-    pub(crate) fn update_sync_requirements_metrics(&mut self, new_sync_requirement: String) {
+    pub(crate) fn update_sync_requirements_metrics(
+        &mut self,
+        new_sync_requirement: String,
+    ) {
         // Compare the new SyncRequirement with the previously seen SyncRequirement.
         let change = match &self.prev_sync_requirement {
-            None => Some(new_sync_requirement),
-            Some(prev_sync) => {
+            | None => Some(new_sync_requirement),
+            | Some(prev_sync) => {
                 let prev_sync_requirement = format!("{prev_sync}");
                 if prev_sync_requirement == new_sync_requirement {
                     None
@@ -659,14 +779,20 @@ impl InfoHelper {
         };
         if let Some(new_sync_requirement) = change {
             // Something change, update the metrics and record it.
-            metrics::SYNC_REQUIREMENT.with_label_values(&[&new_sync_requirement]).inc();
-            metrics::SYNC_REQUIREMENT_CURRENT.with_label_values(&[&new_sync_requirement]).set(1);
+            metrics::SYNC_REQUIREMENT
+                .with_label_values(&[&new_sync_requirement])
+                .inc();
+            metrics::SYNC_REQUIREMENT_CURRENT
+                .with_label_values(&[&new_sync_requirement])
+                .set(1);
             if let Some(prev_sync_requirement) = &self.prev_sync_requirement {
                 metrics::SYNC_REQUIREMENT_CURRENT
                     .with_label_values(&[&prev_sync_requirement])
                     .set(0);
             }
-            metrics::SYNC_REQUIREMENT_CURRENT.with_label_values(&[&new_sync_requirement]).set(1);
+            metrics::SYNC_REQUIREMENT_CURRENT
+                .with_label_values(&[&new_sync_requirement])
+                .set(1);
             self.prev_sync_requirement = Some(new_sync_requirement);
         }
     }
@@ -714,13 +840,13 @@ pub fn display_sync_status(
 ) -> String {
     metrics::SYNC_STATUS.set(sync_status.repr() as i64);
     match sync_status {
-        SyncStatus::AwaitingPeers => format!("#{:>8} Waiting for peers", head.height),
-        SyncStatus::NoSync => format!("#{:>8} {:>44}", head.height, head.last_block_hash),
-        SyncStatus::EpochSync(status) => {
+        | SyncStatus::AwaitingPeers => format!("#{:>8} Waiting for peers", head.height),
+        | SyncStatus::NoSync => format!("#{:>8} {:>44}", head.height, head.last_block_hash),
+        | SyncStatus::EpochSync(status) => {
             format!("[EPOCH] {:?}", status)
         }
-        SyncStatus::EpochSyncDone => "[EPOCH] Done".to_string(),
-        SyncStatus::HeaderSync { start_height, current_height, highest_height } => {
+        | SyncStatus::EpochSyncDone => "[EPOCH] Done".to_string(),
+        | SyncStatus::HeaderSync { start_height, current_height, highest_height } => {
             let percent = if highest_height <= start_height {
                 0.0
             } else {
@@ -735,7 +861,7 @@ pub fn display_sync_status(
                 current_height
             )
         }
-        SyncStatus::BlockSync { start_height, current_height, highest_height } => {
+        | SyncStatus::BlockSync { start_height, current_height, highest_height } => {
             let percent = if highest_height <= start_height {
                 0.0
             } else {
@@ -750,7 +876,7 @@ pub fn display_sync_status(
                 current_height
             )
         }
-        SyncStatus::StateSync(StateSyncStatus {
+        | SyncStatus::StateSync(StateSyncStatus {
             sync_hash,
             sync_status: shard_statuses,
             download_tasks,
@@ -780,7 +906,7 @@ pub fn display_sync_status(
             };
             res
         }
-        SyncStatus::StateSyncDone => "State sync done".to_string(),
+        | SyncStatus::StateSyncDone => "State sync done".to_string(),
     }
 }
 
@@ -788,8 +914,12 @@ pub fn display_sync_status(
 struct FormatMillis(&'static str, Option<u128>);
 
 impl std::fmt::Display for FormatMillis {
-    fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.1.map_or(Ok(()), |ms| write!(fmt, " {} for {ms}ms", self.0))
+    fn fmt(
+        &self,
+        fmt: &mut std::fmt::Formatter<'_>,
+    ) -> std::fmt::Result {
+        self.1
+            .map_or(Ok(()), |ms| write!(fmt, " {} for {ms}ms", self.0))
     }
 }
 
@@ -802,10 +932,15 @@ struct BlocksInfo {
 }
 
 impl std::fmt::Display for BlocksInfo {
-    fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(
+        &self,
+        fmt: &mut std::fmt::Formatter<'_>,
+    ) -> std::fmt::Result {
         let paint = |color: yansi::Color, text: String| {
             if self.use_color {
-                yansi::Paint::default(text).fg(color).bold()
+                yansi::Paint::default(text)
+                    .fg(color)
+                    .bold()
             } else {
                 yansi::Paint::default(text)
             }
@@ -821,9 +956,9 @@ impl std::fmt::Display for BlocksInfo {
                         all_chunks_received &=
                             matches!(chunk_info.status, ChunkProcessingStatus::Completed);
                         match chunk_info.status {
-                            ChunkProcessingStatus::Completed => '✔',
-                            ChunkProcessingStatus::Requested => '⬇',
-                            ChunkProcessingStatus::NeedToRequest => '.',
+                            | ChunkProcessingStatus::Completed => '✔',
+                            | ChunkProcessingStatus::Requested => '⬇',
+                            | ChunkProcessingStatus::NeedToRequest => '.',
                         }
                     } else {
                         'X'
@@ -868,7 +1003,10 @@ impl PrettyNumber {
 }
 
 impl std::fmt::Display for PrettyNumber {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+    ) -> std::fmt::Result {
         let Self(mut num, unit) = self;
         if num < 1_000 {
             return write!(f, "{} {}", num, unit);
@@ -937,7 +1075,8 @@ impl ValidatorProductionStatus {
         );
         debug_assert_eq!(
             info.shards_endorsed.len(),
-            info.num_expected_endorsements_per_shard.len(),
+            info.num_expected_endorsements_per_shard
+                .len(),
             "Number of shards must match number of shards expected to produce a chunk for"
         );
         Self::Validator(ValidatorProductionStats {
@@ -958,7 +1097,7 @@ impl ValidatorProductionStatus {
 
 /// Converts EpochValidatorInfo into a vector of ValidatorProductionStatus.
 fn get_validator_production_status(
-    current_validator_epoch_info: EpochValidatorInfo,
+    current_validator_epoch_info: EpochValidatorInfo
 ) -> Vec<ValidatorProductionStatus> {
     let mut status = vec![];
     // Record kickouts to replace latest stats of kicked out validators with zeros.
@@ -1065,7 +1204,10 @@ mod tests {
         );
         println!("Got telemetry info: {:?}", telemetry);
         assert_matches!(
-            telemetry["extra_info"].as_str().unwrap().find("\"max_block_production_delay\":2.34,"),
+            telemetry["extra_info"]
+                .as_str()
+                .unwrap()
+                .find("\"max_block_production_delay\":2.34,"),
             Some(_)
         );
     }
@@ -1097,7 +1239,9 @@ mod tests {
             validators,
             epoch_length,
             num_shards,
-            num_block_producer_seats.try_into().unwrap(),
+            num_block_producer_seats
+                .try_into()
+                .unwrap(),
             90,
             90,
             0,
@@ -1115,7 +1259,10 @@ mod tests {
         );
         assert_eq!(
             num_validators,
-            epoch_manager_adapter.get_epoch_chunk_producers(&epoch_id).unwrap().len()
+            epoch_manager_adapter
+                .get_epoch_chunk_producers(&epoch_id)
+                .unwrap()
+                .len()
         );
 
         // Then check that get_num_validators returns the correct number of validators.

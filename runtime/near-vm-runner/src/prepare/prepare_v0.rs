@@ -25,7 +25,10 @@ struct ContractModule<'a> {
 }
 
 impl<'a> ContractModule<'a> {
-    fn init(original_code: &[u8], config: &'a Config) -> Result<Self, PrepareError> {
+    fn init(
+        original_code: &[u8],
+        config: &'a Config,
+    ) -> Result<Self, PrepareError> {
         let module = elements::deserialize_buffer(original_code).map_err(|e| {
             tracing::debug!(err=?e, "parity_wasm_41 failed decoding a contract");
             PrepareError::Deserialization
@@ -38,7 +41,11 @@ impl<'a> ContractModule<'a> {
 
         let mut tmp = MemorySection::default();
 
-        module.memory_section_mut().unwrap_or(&mut tmp).entries_mut().pop();
+        module
+            .memory_section_mut()
+            .unwrap_or(&mut tmp)
+            .entries_mut()
+            .pop();
 
         let entry = elements::MemoryType::new(
             config.limit_config.initial_memory_pages,
@@ -61,7 +68,11 @@ impl<'a> ContractModule<'a> {
     /// Memory section contains declarations of internal linear memories, so if we find one
     /// we reject such a module.
     fn ensure_no_internal_memory(self) -> Result<Self, PrepareError> {
-        if self.module.memory_section().is_some_and(|ms| !ms.entries().is_empty()) {
+        if self
+            .module
+            .memory_section()
+            .is_some_and(|ms| !ms.entries().is_empty())
+        {
             Err(PrepareError::InternalMemoryDeclared)
         } else {
             Ok(self)
@@ -99,9 +110,14 @@ impl<'a> ContractModule<'a> {
     fn scan_imports(self) -> Result<Self, PrepareError> {
         let Self { module, config } = self;
 
-        let types = module.type_section().map(elements::TypeSection::types).unwrap_or(&[]);
-        let import_entries =
-            module.import_section().map(elements::ImportSection::entries).unwrap_or(&[]);
+        let types = module
+            .type_section()
+            .map(elements::TypeSection::types)
+            .unwrap_or(&[]);
+        let import_entries = module
+            .import_section()
+            .map(elements::ImportSection::entries)
+            .unwrap_or(&[]);
 
         let mut imported_mem_type = None;
 
@@ -113,16 +129,17 @@ impl<'a> ContractModule<'a> {
             }
 
             let type_idx = match *import.external() {
-                External::Function(ref type_idx) => type_idx,
-                External::Memory(ref memory_type) => {
+                | External::Function(ref type_idx) => type_idx,
+                | External::Memory(ref memory_type) => {
                     imported_mem_type = Some(memory_type);
                     continue;
                 }
-                _ => continue,
+                | _ => continue,
             };
 
-            let Type::Function(ref _func_ty) =
-                types.get(*type_idx as usize).ok_or(PrepareError::Instantiate)?;
+            let Type::Function(ref _func_ty) = types
+                .get(*type_idx as usize)
+                .ok_or(PrepareError::Instantiate)?;
 
             // TODO: Function type check with Env
             /*

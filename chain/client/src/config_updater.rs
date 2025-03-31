@@ -23,7 +23,7 @@ pub struct ConfigUpdaterResult {
 
 impl ConfigUpdater {
     pub fn new(
-        rx_config_update: Receiver<Result<UpdatableConfigs, Arc<UpdatableConfigLoaderError>>>,
+        rx_config_update: Receiver<Result<UpdatableConfigs, Arc<UpdatableConfigLoaderError>>>
     ) -> Self {
         Self { rx_config_update, updatable_configs_error: None }
     }
@@ -38,7 +38,7 @@ impl ConfigUpdater {
         let mut update_result = ConfigUpdaterResult::default();
         while let Ok(maybe_updatable_configs) = self.rx_config_update.try_recv() {
             match maybe_updatable_configs {
-                Ok(updatable_configs) => {
+                | Ok(updatable_configs) => {
                     if let Some(client_config) = updatable_configs.client_config {
                         update_result.client_config_updated |=
                             update_client_config_fn(client_config);
@@ -51,7 +51,7 @@ impl ConfigUpdater {
                     }
                     self.updatable_configs_error = None;
                 }
-                Err(err) => {
+                | Err(err) => {
                     self.updatable_configs_error = Some(err.clone());
                 }
             }

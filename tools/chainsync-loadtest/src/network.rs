@@ -98,7 +98,10 @@ impl Network {
             chunks: WeakMap::new(),
 
             min_peers: config.client_config.min_num_peers,
-            parts_per_chunk: config.genesis.config.num_block_producer_seats,
+            parts_per_chunk: config
+                .genesis
+                .config
+                .num_block_producer_seats,
             rate_limiter: RateLimiter::new(
                 time::Duration::seconds(1) / qps_limit,
                 qps_limit as u64,
@@ -119,15 +122,22 @@ impl Network {
         new_req: impl 'a + Fn(FullPeerInfo) -> NetworkRequests,
     ) -> anyhow::Result<()> {
         loop {
-            let mut peers = self.info().await?.connected_peers.clone();
+            let mut peers = self
+                .info()
+                .await?
+                .connected_peers
+                .clone();
             peers.shuffle(&mut thread_rng());
             for peer in peers {
                 // TODO: rate limit per peer.
                 self.rate_limiter.allow().await?;
-                self.network_adapter.send(PeerManagerMessageRequest::NetworkRequests(new_req(
-                    peer.full_peer_info.clone(),
-                )));
-                self.stats.msgs_sent.fetch_add(1, Ordering::Relaxed);
+                self.network_adapter
+                    .send(PeerManagerMessageRequest::NetworkRequests(new_req(
+                        peer.full_peer_info.clone(),
+                    )));
+                self.stats
+                    .msgs_sent
+                    .fetch_add(1, Ordering::Relaxed);
                 ctx::time::sleep(self.request_timeout).await?;
             }
         }
@@ -157,8 +167,12 @@ impl Network {
         hash: CryptoHash,
     ) -> anyhow::Result<Vec<BlockHeader>> {
         scope::run!(|s| async {
-            self.stats.header_start.fetch_add(1, Ordering::Relaxed);
-            let recv = self.block_headers.get_or_insert(&hash, || Once::new());
+            self.stats
+                .header_start
+                .fetch_add(1, Ordering::Relaxed);
+            let recv = self
+                .block_headers
+                .get_or_insert(&hash, || Once::new());
             s.spawn_bg(async {
                 self.keep_sending(|peer| NetworkRequests::BlockHeadersRequest {
                     hashes: vec![hash],
@@ -167,16 +181,25 @@ impl Network {
                 .await
             });
             let res = ctx::wait(recv.wait()).await;
-            self.stats.header_done.fetch_add(1, Ordering::Relaxed);
+            self.stats
+                .header_done
+                .fetch_add(1, Ordering::Relaxed);
             anyhow::Ok(res?)
         })
     }
 
     // fetch_block() fetches a block with a given hash.
-    pub async fn fetch_block(self: &Arc<Self>, hash: CryptoHash) -> anyhow::Result<Block> {
+    pub async fn fetch_block(
+        self: &Arc<Self>,
+        hash: CryptoHash,
+    ) -> anyhow::Result<Block> {
         scope::run!(|s| async {
-            self.stats.block_start.fetch_add(1, Ordering::Relaxed);
-            let recv = self.blocks.get_or_insert(&hash, || Once::new());
+            self.stats
+                .block_start
+                .fetch_add(1, Ordering::Relaxed);
+            let recv = self
+                .blocks
+                .get_or_insert(&hash, || Once::new());
             s.spawn_bg(async {
                 self.keep_sending(|peer| NetworkRequests::BlockRequest {
                     hash,
@@ -185,7 +208,9 @@ impl Network {
                 .await
             });
             let res = ctx::wait(recv.wait()).await;
-            self.stats.block_done.fetch_add(1, Ordering::Relaxed);
+            self.stats
+                .block_done
+                .fetch_add(1, Ordering::Relaxed);
             anyhow::Ok(res?)
         })
     }
@@ -196,9 +221,13 @@ impl Network {
         ch: ShardChunkHeader,
     ) -> anyhow::Result<PartialEncodedChunkResponseMsg> {
         scope::run!(|s| async {
-            let recv = self.chunks.get_or_insert(&ch.chunk_hash(), || Once::new());
+            let recv = self
+                .chunks
+                .get_or_insert(&ch.chunk_hash(), || Once::new());
             // TODO: consider converting wrapping these atomic counters into sth like a Span.
-            self.stats.chunk_start.fetch_add(1, Ordering::Relaxed);
+            self.stats
+                .chunk_start
+                .fetch_add(1, Ordering::Relaxed);
             s.spawn_bg(async {
                 self.keep_sending(|peer| NetworkRequests::PartialEncodedChunkRequest {
                     target: AccountIdOrPeerTrackingShard {
@@ -218,7 +247,9 @@ impl Network {
                 .await
             });
             let res = ctx::wait(recv.wait()).await;
-            self.stats.chunk_done.fetch_add(1, Ordering::Relaxed);
+            self.stats
+                .chunk_done
+                .fetch_add(1, Ordering::Relaxed);
             anyhow::Ok(res?)
         })
     }
@@ -239,12 +270,20 @@ impl Network {
             block_request: Sender::from_async_fn(|_| None),
             block_headers_request: Sender::from_async_fn(|_| None),
             block: Sender::from_async_fn(move |block: BlockResponse| {
-                blocks.get(&block.block.hash().clone()).map(|p| p.set(block.block));
+                blocks
+                    .get(&block.block.hash().clone())
+                    .map(|p| p.set(block.block));
             }),
             block_headers: Sender::from_async_fn(move |headers: BlockHeadersResponse| {
-                if let Some(h) = headers.0.iter().min_by_key(|h| h.height()) {
+                if let Some(h) = headers
+                    .0
+                    .iter()
+                    .min_by_key(|h| h.height())
+                {
                     let hash = *h.prev_hash();
-                    block_headers.get(&hash).map(|p| p.set(headers.0));
+                    block_headers
+                        .get(&hash)
+                        .map(|p| p.set(headers.0));
                 }
                 Ok(())
             }),
@@ -261,7 +300,11 @@ impl Network {
                 }
             }),
             announce_account: Sender::from_async_fn(|accounts: AnnounceAccountRequest| {
-                Ok(accounts.0.into_iter().map(|a| a.0).collect::<Vec<_>>())
+                Ok(accounts
+                    .0
+                    .into_iter()
+                    .map(|a| a.0)
+                    .collect::<Vec<_>>())
             }),
             chunk_endorsement: noop().into_sender(),
             epoch_sync_request: noop().into_sender(),

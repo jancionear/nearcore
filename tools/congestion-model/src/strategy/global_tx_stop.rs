@@ -21,10 +21,17 @@ impl crate::CongestionStrategy for GlobalTxStopShard {
     ) {
     }
 
-    fn compute_chunk(&mut self, ctx: &mut ChunkExecutionContext) {
+    fn compute_chunk(
+        &mut self,
+        ctx: &mut ChunkExecutionContext,
+    ) {
         let mut any_shard_congested = false;
         for shard_info in ctx.prev_block_info().values() {
-            if shard_info.get::<DelayedQueueInfo>().unwrap().num_delayed > self.max_delayed_receipts
+            if shard_info
+                .get::<DelayedQueueInfo>()
+                .unwrap()
+                .num_delayed
+                > self.max_delayed_receipts
             {
                 any_shard_congested = true;
             }

@@ -16,7 +16,10 @@ use std::path::Path;
 // }
 include!(concat!(env!("OUT_DIR"), "/generated_spectests.rs"));
 
-pub fn run_wast(mut config: crate::Config, wast_path: &str) -> anyhow::Result<()> {
+pub fn run_wast(
+    mut config: crate::Config,
+    wast_path: &str,
+) -> anyhow::Result<()> {
     println!("Running wast `{}`", wast_path);
     let try_nan_canonicalization = wast_path.contains("nan-canonicalization");
     let mut features = Features::default();

@@ -11,13 +11,22 @@ pub struct MockPartialWitnessAdapter {
 }
 
 impl CanSend<DistributeStateWitnessRequest> for MockPartialWitnessAdapter {
-    fn send(&self, msg: DistributeStateWitnessRequest) {
-        self.distribution_request.write().unwrap().push_back(msg);
+    fn send(
+        &self,
+        msg: DistributeStateWitnessRequest,
+    ) {
+        self.distribution_request
+            .write()
+            .unwrap()
+            .push_back(msg);
     }
 }
 
 impl MockPartialWitnessAdapter {
     pub fn pop_distribution_request(&self) -> Option<DistributeStateWitnessRequest> {
-        self.distribution_request.write().unwrap().pop_front()
+        self.distribution_request
+            .write()
+            .unwrap()
+            .pop_front()
     }
 }

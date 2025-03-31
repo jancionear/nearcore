@@ -42,12 +42,18 @@ pub(crate) struct ReshardingV2Command {
 }
 
 impl ReshardingV2Command {
-    pub(crate) fn run(&self, mut config: NearConfig, home_dir: &Path) -> anyhow::Result<()> {
+    pub(crate) fn run(
+        &self,
+        mut config: NearConfig,
+        home_dir: &Path,
+    ) -> anyhow::Result<()> {
         Self::check_resharding_config(&mut config);
 
         let mut chain = self.get_chain(config, home_dir)?;
 
-        let block_hash = *chain.get_block_by_height(self.height)?.hash();
+        let block_hash = *chain
+            .get_block_by_height(self.height)?
+            .hash();
 
         let resharding_request =
             chain.custom_build_state_for_resharding_v2_preprocessing(&block_hash, self.shard_id)?;
@@ -57,11 +63,18 @@ impl ReshardingV2Command {
 
         if self.restore {
             // In restore mode print database write statistics.
-            chain.runtime_adapter.store().get_store_statistics().map(|stats| {
-                stats.data.iter().for_each(|(metric, values)| {
-                    tracing::info!(target: "resharding-v2", %metric, ?values);
-                })
-            });
+            chain
+                .runtime_adapter
+                .store()
+                .get_store_statistics()
+                .map(|stats| {
+                    stats
+                        .data
+                        .iter()
+                        .for_each(|(metric, values)| {
+                            tracing::info!(target: "resharding-v2", %metric, ?values);
+                        })
+                });
         }
 
         let state_roots = state_roots?;
@@ -72,7 +85,11 @@ impl ReshardingV2Command {
         Ok(())
     }
 
-    fn get_store(&self, home_dir: &Path, config: &mut NearConfig) -> Result<Store, anyhow::Error> {
+    fn get_store(
+        &self,
+        home_dir: &Path,
+        config: &mut NearConfig,
+    ) -> Result<Store, anyhow::Error> {
         // Open hot and cold as usual.
         let storage = open_storage(home_dir, config)?;
 
@@ -99,8 +116,10 @@ impl ReshardingV2Command {
             let storage = NodeStorage::new(mixed_db);
             storage.get_hot_store()
         } else {
-            let write_path =
-                self.write_path.as_ref().expect("write path must be set when not in recovery mode");
+            let write_path = self
+                .write_path
+                .as_ref()
+                .expect("write path must be set when not in recovery mode");
 
             // Open write db.
             let write_path = if write_path.is_absolute() {
@@ -126,7 +145,11 @@ impl ReshardingV2Command {
         Ok(store)
     }
 
-    fn get_chain(&self, mut config: NearConfig, home_dir: &Path) -> Result<Chain, anyhow::Error> {
+    fn get_chain(
+        &self,
+        mut config: NearConfig,
+        home_dir: &Path,
+    ) -> Result<Chain, anyhow::Error> {
         let store = self.get_store(home_dir, &mut config)?;
 
         let epoch_manager =
@@ -173,11 +196,22 @@ impl ReshardingV2Command {
     // the on demand resharding. It's executed while the node is not running so
     // it should be as fast as possible - there should be no throttling.
     fn check_resharding_config(config: &mut NearConfig) {
-        if config.config.resharding_config.batch_delay != time::Duration::ZERO {
+        if config
+            .config
+            .resharding_config
+            .batch_delay
+            != time::Duration::ZERO
+        {
             panic!("batch_delay must be zero for on demand resharding");
         };
 
-        if config.client_config.resharding_config.get().batch_delay != time::Duration::ZERO {
+        if config
+            .client_config
+            .resharding_config
+            .get()
+            .batch_delay
+            != time::Duration::ZERO
+        {
             panic!("batch_delay must be zero for on demand resharding");
         };
     }

@@ -99,11 +99,14 @@ impl CongestionStrategy for TrafficLight {
         self.all_shards = all_shards.to_vec();
     }
 
-    fn compute_chunk(&mut self, ctx: &mut ChunkExecutionContext) {
+    fn compute_chunk(
+        &mut self,
+        ctx: &mut ChunkExecutionContext,
+    ) {
         let tx_gas = match self.my_prev_status(ctx) {
-            TrafficLightStatus::Green => self.green_new_tx_gas,
-            TrafficLightStatus::Amber => self.amber_new_tx_gas,
-            TrafficLightStatus::Red { .. } => self.red_new_tx_gas,
+            | TrafficLightStatus::Green => self.green_new_tx_gas,
+            | TrafficLightStatus::Amber => self.amber_new_tx_gas,
+            | TrafficLightStatus::Red { .. } => self.red_new_tx_gas,
         };
         self.reset_outgoing_gas_allowance(ctx);
 
@@ -111,10 +114,16 @@ impl CongestionStrategy for TrafficLight {
         for (shard, &q) in &self.outgoing_buffer {
             while !(&mut ctx.queue(q)).is_empty()
                 && self.outgoing_gas_allowance[&shard]
-                    >= (&mut ctx.queue(q)).front().unwrap().attached_gas
+                    >= (&mut ctx.queue(q))
+                        .front()
+                        .unwrap()
+                        .attached_gas
             {
                 let receipt = (&mut ctx.queue(q)).pop_front().unwrap();
-                let allowance = self.outgoing_gas_allowance.get_mut(&shard).unwrap();
+                let allowance = self
+                    .outgoing_gas_allowance
+                    .get_mut(&shard)
+                    .unwrap();
                 *allowance = allowance.saturating_sub(receipt.attached_gas);
                 ctx.forward_receipt(receipt);
             }
@@ -149,30 +158,42 @@ impl CongestionStrategy for TrafficLight {
         }
 
         let my_status = self.my_new_status(ctx);
-        ctx.current_block_info().insert(my_status);
+        ctx.current_block_info()
+            .insert(my_status);
     }
 }
 
 impl TrafficLight {
-    fn reset_outgoing_gas_allowance(&mut self, ctx: &mut ChunkExecutionContext) {
+    fn reset_outgoing_gas_allowance(
+        &mut self,
+        ctx: &mut ChunkExecutionContext,
+    ) {
         self.outgoing_gas_allowance.clear();
         for &shard in &self.all_shards {
             let gas = match status(ctx, shard) {
-                TrafficLightStatus::Green => self.green_outgoing_receipts_gas,
-                TrafficLightStatus::Amber => self.amber_outgoing_receipts_gas,
-                TrafficLightStatus::Red { allowed_shard }
+                | TrafficLightStatus::Green => self.green_outgoing_receipts_gas,
+                | TrafficLightStatus::Amber => self.amber_outgoing_receipts_gas,
+                | TrafficLightStatus::Red { allowed_shard }
                     if allowed_shard == self.shard_id.unwrap() =>
                 {
                     self.red_outgoing_receipts_gas_single_shard
                 }
-                _else => 0,
+                | _else => 0,
             };
-            self.outgoing_gas_allowance.insert(shard, gas);
+            self.outgoing_gas_allowance
+                .insert(shard, gas);
         }
     }
 
-    fn forward_or_buffer(&mut self, receipt: Receipt, ctx: &mut ChunkExecutionContext) {
-        let allowance = self.outgoing_gas_allowance.get_mut(&receipt.receiver).unwrap();
+    fn forward_or_buffer(
+        &mut self,
+        receipt: Receipt,
+        ctx: &mut ChunkExecutionContext,
+    ) {
+        let allowance = self
+            .outgoing_gas_allowance
+            .get_mut(&receipt.receiver)
+            .unwrap();
         if *allowance >= receipt.attached_gas {
             *allowance = allowance.saturating_sub(receipt.attached_gas);
             ctx.forward_receipt(receipt);
@@ -182,18 +203,36 @@ impl TrafficLight {
         }
     }
 
-    fn my_prev_status(&self, ctx: &mut ChunkExecutionContext) -> TrafficLightStatus {
+    fn my_prev_status(
+        &self,
+        ctx: &mut ChunkExecutionContext,
+    ) -> TrafficLightStatus {
         status(ctx, self.shard_id.unwrap())
     }
 
-    fn my_new_status(&self, ctx: &mut ChunkExecutionContext) -> TrafficLightStatus {
-        let incoming_gas_queued: GGas =
-            ctx.incoming_receipts().iter().map(|r| r.attached_gas).sum();
-        let incoming_bytes_queued: u64 = ctx.incoming_receipts().iter().map(|r| r.size).sum();
+    fn my_new_status(
+        &self,
+        ctx: &mut ChunkExecutionContext,
+    ) -> TrafficLightStatus {
+        let incoming_gas_queued: GGas = ctx
+            .incoming_receipts()
+            .iter()
+            .map(|r| r.attached_gas)
+            .sum();
+        let incoming_bytes_queued: u64 = ctx
+            .incoming_receipts()
+            .iter()
+            .map(|r| r.size)
+            .sum();
         let outgoing_bytes_queued: u64 = self
             .outgoing_buffer
             .values()
-            .map(|&q| ctx.queue(q).iter().map(|r| r.size).sum::<u64>())
+            .map(|&q| {
+                ctx.queue(q)
+                    .iter()
+                    .map(|r| r.size)
+                    .sum::<u64>()
+            })
             .sum();
 
         // If we are reaching the memory limit, stop as much traffic as we can.
@@ -212,7 +251,10 @@ impl TrafficLight {
         }
     }
 
-    fn red(&self, round: Round) -> TrafficLightStatus {
+    fn red(
+        &self,
+        round: Round,
+    ) -> TrafficLightStatus {
         // use simple round-robin, it gives good fairness and is stateless
         TrafficLightStatus::Red {
             allowed_shard: self.all_shards
@@ -221,7 +263,10 @@ impl TrafficLight {
     }
 }
 
-fn status(ctx: &mut ChunkExecutionContext, shard_id: ShardId) -> TrafficLightStatus {
+fn status(
+    ctx: &mut ChunkExecutionContext,
+    shard_id: ShardId,
+) -> TrafficLightStatus {
     ctx.prev_block_info()
         .get(&shard_id)
         .and_then(|block| block.get::<TrafficLightStatus>())

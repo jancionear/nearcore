@@ -91,17 +91,17 @@ fn slow_test_max_receipt_size() {
     .unwrap();
 
     match too_large_receipt_tx_exec_res.status {
-        FinalExecutionStatus::Failure(TxExecutionError::ActionError(action_error)) => {
+        | FinalExecutionStatus::Failure(TxExecutionError::ActionError(action_error)) => {
             match action_error.kind {
-                ActionErrorKind::NewReceiptValidationError(
+                | ActionErrorKind::NewReceiptValidationError(
                     ReceiptValidationError::ReceiptSizeExceeded { .. },
                 ) => {
                     // Ok, got the expected error
                 }
-                _ => panic!("Expected ReceiptSizeExceeded error, got: {:?}", action_error),
+                | _ => panic!("Expected ReceiptSizeExceeded error, got: {:?}", action_error),
             }
         }
-        _ => panic!(
+        | _ => panic!(
             "Expected FinalExecutionStatus::Failure, got: {:?}",
             too_large_receipt_tx_exec_res
         ),
@@ -169,12 +169,9 @@ fn test_max_receipt_size_promise_return() {
             gas_price: 0,
             output_data_receivers: vec![],
             input_data_ids: vec![],
-            actions: vec![Action::FunctionCall(Box::new(FunctionCallAction {
-                method_name: "noop".into(),
-                args: vec![],
-                gas: 0,
-                deposit: 0,
-            }))],
+            actions: vec![Action::FunctionCall(Box::new(
+                FunctionCallAction { method_name: "noop".into(), args: vec![], gas: 0, deposit: 0 },
+            ))],
         }),
     });
     let base_receipt_size = borsh::object_length(&base_receipt_template).unwrap();
@@ -367,18 +364,35 @@ fn test_max_receipt_size_yield_resume() {
 
 /// Assert that there was an incoming receipt with size above max_receipt_size
 fn assert_oversized_receipt_occurred(env: &TestLoopEnv) {
-    let client_handle = env.datas[0].client_sender.actor_handle();
-    let client = &env.test_loop.data.get(&client_handle).client;
+    let client_handle = env.datas[0]
+        .client_sender
+        .actor_handle();
+    let client = &env
+        .test_loop
+        .data
+        .get(&client_handle)
+        .client;
     let chain = &client.chain;
     let epoch_manager = &*client.epoch_manager;
 
     let tip = chain.head().unwrap();
-    let mut block = chain.get_block(&tip.last_block_hash).unwrap();
-    let mut prev_block = chain.get_block(&block.header().prev_hash()).unwrap();
+    let mut block = chain
+        .get_block(&tip.last_block_hash)
+        .unwrap();
+    let mut prev_block = chain
+        .get_block(&block.header().prev_hash())
+        .unwrap();
 
-    let epoch_id = epoch_manager.get_epoch_id(block.hash()).unwrap();
-    let protocol_version = epoch_manager.get_epoch_protocol_version(&epoch_id).unwrap();
-    let runtime_config = client.runtime_adapter.get_runtime_config(protocol_version).unwrap();
+    let epoch_id = epoch_manager
+        .get_epoch_id(block.hash())
+        .unwrap();
+    let protocol_version = epoch_manager
+        .get_epoch_protocol_version(&epoch_id)
+        .unwrap();
+    let runtime_config = client
+        .runtime_adapter
+        .get_runtime_config(protocol_version)
+        .unwrap();
 
     // Go over all blocks in the range
     loop {
@@ -388,7 +402,11 @@ fn assert_oversized_receipt_occurred(env: &TestLoopEnv) {
 
         let cur_shard_layout = client
             .epoch_manager
-            .get_shard_layout(&epoch_manager.get_epoch_id(&block.hash()).unwrap())
+            .get_shard_layout(
+                &epoch_manager
+                    .get_epoch_id(&block.hash())
+                    .unwrap(),
+            )
             .unwrap();
 
         // Go over all new chunks in a block
@@ -401,8 +419,11 @@ fn assert_oversized_receipt_occurred(env: &TestLoopEnv) {
                 .get_prev_shard_id_from_prev_hash(block.header().prev_hash(), shard_id)
                 .unwrap()
                 .2;
-            let prev_height_included =
-                prev_block.chunks().get(prev_shard_index).unwrap().height_included();
+            let prev_height_included = prev_block
+                .chunks()
+                .get(prev_shard_index)
+                .unwrap()
+                .height_included();
 
             // Fetch incoming receipts for this chunk
             let incoming_receipts_proofs = chain
@@ -421,10 +442,14 @@ fn assert_oversized_receipt_occurred(env: &TestLoopEnv) {
             for response in incoming_receipts_proofs {
                 for proof in response.1.iter() {
                     for receipt in &proof.0 {
-                        let receipt_size: u64 =
-                            borsh::object_length(receipt).unwrap().try_into().unwrap();
-                        let max_receipt_size =
-                            runtime_config.wasm_config.limit_config.max_receipt_size;
+                        let receipt_size: u64 = borsh::object_length(receipt)
+                            .unwrap()
+                            .try_into()
+                            .unwrap();
+                        let max_receipt_size = runtime_config
+                            .wasm_config
+                            .limit_config
+                            .max_receipt_size;
                         if receipt_size > max_receipt_size {
                             // Success! found receipt above max size
                             tracing::info!(
@@ -440,6 +465,8 @@ fn assert_oversized_receipt_occurred(env: &TestLoopEnv) {
         }
 
         block = prev_block;
-        prev_block = chain.get_block(block.header().prev_hash()).unwrap();
+        prev_block = chain
+            .get_block(block.header().prev_hash())
+            .unwrap();
     }
 }

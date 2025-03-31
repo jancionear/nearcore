@@ -21,8 +21,13 @@ const REGULAR_METHOD_NAMES: &[&str] = &["stake", "transfer"];
 /// Methods that can be called by a privileged access key.
 const PRIVILEGED_METHOD_NAMES: &[&str] = &["add_access_key", "remove_access_key"];
 /// Methods that can be called by an access key owned by a "foundation".
-const FOUNDATION_METHOD_NAMES: &[&str] =
-    &["add_access_key", "remove_access_key", "permanently_unstake", "terminate", "init"];
+const FOUNDATION_METHOD_NAMES: &[&str] = &[
+    "add_access_key",
+    "remove_access_key",
+    "permanently_unstake",
+    "terminate",
+    "init",
+];
 /// Amount of gas that we pass to run the contract initialization function.
 const INIT_GAS: Gas = 1_000_000;
 
@@ -44,7 +49,7 @@ impl Row {
         }
 
         match (self.vesting_start, self.vesting_end) {
-            (None, None) => {
+            | (None, None) => {
                 if self.vesting_cliff.is_some() {
                     return Err(Box::new(std::io::Error::new(
                         std::io::ErrorKind::InvalidInput,
@@ -52,7 +57,7 @@ impl Row {
                     )));
                 }
             }
-            (Some(ref vesting_start), Some(ref vesting_end)) => {
+            | (Some(ref vesting_start), Some(ref vesting_end)) => {
                 if vesting_end <= vesting_start {
                     return Err(Box::new(std::io::Error::new(
                         std::io::ErrorKind::InvalidInput,
@@ -82,7 +87,7 @@ impl Row {
                     }
                 }
             }
-            _ => {
+            | _ => {
                 return Err(Box::new(std::io::Error::new(
                     std::io::ErrorKind::InvalidInput,
                     "Vesting start and vesting end should be either both set or neither is set.",
@@ -131,7 +136,9 @@ pub fn keys_to_state_records<R>(
 where
     R: std::io::Read,
 {
-    let mut reader = ReaderBuilder::new().has_headers(true).from_reader(reader);
+    let mut reader = ReaderBuilder::new()
+        .has_headers(true)
+        .from_reader(reader);
 
     let mut state_records = vec![];
     let mut initial_validators = vec![];
@@ -171,7 +178,10 @@ where
 }
 
 /// Returns the records representing state of an individual token holder.
-fn account_records(row: &Row, gas_price: Balance) -> Vec<StateRecord> {
+fn account_records(
+    row: &Row,
+    gas_price: Balance,
+) -> Vec<StateRecord> {
     let smart_contract_hash;
     let smart_contract_code;
     if let Some(ref smart_contract) = row.smart_contract {
@@ -179,7 +189,8 @@ fn account_records(row: &Row, gas_price: Balance) -> Vec<StateRecord> {
         path.push(smart_contract);
         let mut f = File::open(path).expect("Failed to open smart contract file.");
         let mut code = vec![];
-        f.read_to_end(&mut code).expect("Failed reading smart contract file.");
+        f.read_to_end(&mut code)
+            .expect("Failed reading smart contract file.");
         smart_contract_hash = hash(&code);
         smart_contract_code = Some(code);
     } else {
@@ -214,7 +225,10 @@ fn account_records(row: &Row, gas_price: Balance) -> Vec<StateRecord> {
                     permission: AccessKeyPermission::FunctionCall(FunctionCallPermission {
                         allowance: None,
                         receiver_id: row.account_id.to_string(),
-                        method_names: method_names.iter().map(|x| (*x).to_string()).collect(),
+                        method_names: method_names
+                            .iter()
+                            .map(|x| (*x).to_string())
+                            .collect(),
                     }),
                 },
             })
@@ -238,21 +252,32 @@ fn account_records(row: &Row, gas_price: Balance) -> Vec<StateRecord> {
     // Add init function call if smart contract was provided.
     if let Some(ref smart_contract) = row.smart_contract {
         let args = match smart_contract.as_str() {
-            "lockup.wasm" => {
-                let lockup = row.lockup.unwrap().timestamp_nanos_opt().unwrap();
+            | "lockup.wasm" => {
+                let lockup = row
+                    .lockup
+                    .unwrap()
+                    .timestamp_nanos_opt()
+                    .unwrap();
                 lockup.to_le_bytes().to_vec()
             }
-            "lockup_and_vesting.wasm" => {
+            | "lockup_and_vesting.wasm" => {
                 let mut res = vec![];
                 // Encode four dates as timestamps as i64 with LE encoding.
-                for date in &[&row.lockup, &row.vesting_start, &row.vesting_end, &row.vesting_cliff]
-                {
-                    let date = date.unwrap().timestamp_nanos_opt().unwrap();
+                for date in &[
+                    &row.lockup,
+                    &row.vesting_start,
+                    &row.vesting_end,
+                    &row.vesting_cliff,
+                ] {
+                    let date = date
+                        .unwrap()
+                        .timestamp_nanos_opt()
+                        .unwrap();
                     res.extend_from_slice(&date.to_le_bytes());
                 }
                 res
             }
-            _ => unimplemented!(),
+            | _ => unimplemented!(),
         };
         let receipt = Receipt::V0(ReceiptV0 {
             predecessor_id: row.account_id.clone(),
@@ -267,12 +292,14 @@ fn account_records(row: &Row, gas_price: Balance) -> Vec<StateRecord> {
                 gas_price,
                 output_data_receivers: vec![],
                 input_data_ids: vec![],
-                actions: vec![Action::FunctionCall(Box::new(FunctionCallAction {
-                    method_name: "init".to_string(),
-                    args,
-                    gas: INIT_GAS,
-                    deposit: 0,
-                }))],
+                actions: vec![Action::FunctionCall(Box::new(
+                    FunctionCallAction {
+                        method_name: "init".to_string(),
+                        args,
+                        gas: INIT_GAS,
+                        deposit: 0,
+                    },
+                ))],
             }),
         });
         res.push(StateRecord::PostponedReceipt(Box::new(receipt)));
@@ -295,12 +322,22 @@ mod tests {
 
     #[test]
     fn test_with_file() {
-        fn timestamp(hour: u32, min: u32, sec: u32) -> Option<DateTime<Utc>> {
-            Some(Utc.with_ymd_and_hms(2019, 12, 21, hour, min, sec).single().unwrap())
+        fn timestamp(
+            hour: u32,
+            min: u32,
+            sec: u32,
+        ) -> Option<DateTime<Utc>> {
+            Some(
+                Utc.with_ymd_and_hms(2019, 12, 21, hour, min, sec)
+                    .single()
+                    .unwrap(),
+            )
         }
 
         let file = NamedTempFile::new().unwrap();
-        let mut writer = WriterBuilder::new().has_headers(true).from_writer(file.reopen().unwrap());
+        let mut writer = WriterBuilder::new()
+            .has_headers(true)
+            .from_writer(file.reopen().unwrap());
         writer
             .serialize(Row {
                 genesis_time: Some(Utc::now()),

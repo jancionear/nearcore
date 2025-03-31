@@ -17,7 +17,10 @@ impl Hasher for StableHasher {
     fn finish(&self) -> u64 {
         self.0.finish()
     }
-    fn write(&mut self, bytes: &[u8]) {
+    fn write(
+        &mut self,
+        bytes: &[u8],
+    ) {
         self.0.write(bytes)
     }
 }

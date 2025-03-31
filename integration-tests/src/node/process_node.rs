@@ -39,15 +39,20 @@ impl Node for ProcessNode {
     }
 
     fn account_id(&self) -> Option<AccountId> {
-        self.config.validator_signer.get().map(|vs| vs.validator_id().clone())
+        self.config
+            .validator_signer
+            .get()
+            .map(|vs| vs.validator_id().clone())
     }
 
     fn start(&mut self) {
         match self.state {
-            ProcessNodeState::Stopped => {
+            | ProcessNodeState::Stopped => {
                 std::env::set_var("ADVERSARY_CONSENT", "1");
-                let child =
-                    self.get_start_node_command().spawn().expect("start node command failed");
+                let child = self
+                    .get_start_node_command()
+                    .spawn()
+                    .expect("start node command failed");
                 self.state = ProcessNodeState::Running(child);
                 let client_addr = format!("http://{}", self.config.rpc_addr().unwrap());
                 thread::sleep(Duration::from_secs(3));
@@ -64,18 +69,18 @@ impl Node for ProcessNode {
                     System::current().stop()
                 });
             }
-            ProcessNodeState::Running(_) => panic!("Node is already running"),
+            | ProcessNodeState::Running(_) => panic!("Node is already running"),
         }
     }
 
     fn kill(&mut self) {
         match self.state {
-            ProcessNodeState::Running(ref mut child) => {
+            | ProcessNodeState::Running(ref mut child) => {
                 child.kill().expect("kill failed");
                 thread::sleep(Duration::from_secs(1));
                 self.state = ProcessNodeState::Stopped;
             }
-            ProcessNodeState::Stopped => panic!("Invalid state"),
+            | ProcessNodeState::Stopped => panic!("Invalid state"),
         }
     }
 
@@ -85,8 +90,8 @@ impl Node for ProcessNode {
 
     fn is_running(&self) -> bool {
         match self.state {
-            ProcessNodeState::Stopped => false,
-            ProcessNodeState::Running(_) => true,
+            | ProcessNodeState::Stopped => false,
+            | ProcessNodeState::Running(_) => true,
         }
     }
 
@@ -112,7 +117,12 @@ impl ProcessNode {
     pub fn new(config: NearConfig) -> ProcessNode {
         let mut rng = rand::thread_rng();
         let work_dir = env::temp_dir().join(format!("process_node_{}", rng.gen::<u64>()));
-        let account_id = config.validator_signer.get().unwrap().validator_id().clone();
+        let account_id = config
+            .validator_signer
+            .get()
+            .unwrap()
+            .validator_id()
+            .clone();
         let signer = Arc::new(InMemorySigner::test_signer(&account_id));
         let result =
             ProcessNode { config, work_dir, state: ProcessNodeState::Stopped, signer, account_id };
@@ -122,7 +132,13 @@ impl ProcessNode {
 
     /// Clear storage directory and run key gen
     pub fn reset_storage(&self) {
-        Command::new("rm").arg("-r").arg(&self.work_dir).spawn().unwrap().wait().unwrap();
+        Command::new("rm")
+            .arg("-r")
+            .arg(&self.work_dir)
+            .spawn()
+            .unwrap()
+            .wait()
+            .unwrap();
         self.config.save_to_dir(&self.work_dir);
     }
 
@@ -152,11 +168,13 @@ impl ProcessNode {
 impl Drop for ProcessNode {
     fn drop(&mut self) {
         match self.state {
-            ProcessNodeState::Running(ref mut child) => {
-                let _ = child.kill().map_err(|_| error!("child process died"));
+            | ProcessNodeState::Running(ref mut child) => {
+                let _ = child
+                    .kill()
+                    .map_err(|_| error!("child process died"));
                 std::fs::remove_dir_all(&self.work_dir).unwrap();
             }
-            ProcessNodeState::Stopped => {}
+            | ProcessNodeState::Stopped => {}
         }
     }
 }

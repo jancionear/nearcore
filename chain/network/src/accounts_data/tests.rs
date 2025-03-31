@@ -22,7 +22,7 @@ fn make_account_data(
 }
 
 fn unwrap<'a, T: std::hash::Hash + std::cmp::Eq, E: std::fmt::Debug>(
-    v: &'a (T, Option<E>),
+    v: &'a (T, Option<E>)
 ) -> &'a T {
     if let Some(err) = &v.1 {
         panic!("unexpected error: {err:?}");
@@ -30,8 +30,13 @@ fn unwrap<'a, T: std::hash::Hash + std::cmp::Eq, E: std::fmt::Debug>(
     &v.0
 }
 
-fn make_signers(rng: &mut Rng, n: usize) -> Vec<ValidatorSigner> {
-    (0..n).map(|_| data::make_validator_signer(rng)).collect()
+fn make_signers(
+    rng: &mut Rng,
+    n: usize,
+) -> Vec<ValidatorSigner> {
+    (0..n)
+        .map(|_| data::make_validator_signer(rng))
+        .collect()
 }
 
 #[tokio::test]
@@ -53,9 +58,19 @@ async fn happy_path() {
     // initial insert
     let a0 = Arc::new(make_account_data(rng, &clock.clock(), 1, &signers[0]));
     let a1 = Arc::new(make_account_data(rng, &clock.clock(), 1, &signers[1]));
-    let res = cache.clone().insert(&clock.clock(), vec![a0.clone(), a1.clone()]).await;
+    let res = cache
+        .clone()
+        .insert(&clock.clock(), vec![a0.clone(), a1.clone()])
+        .await;
     assert_eq!([&a0, &a1].as_set(), unwrap(&res).as_set());
-    assert_eq!([&a0, &a1].as_set(), cache.load().data.values().collect::<HashSet<_>>());
+    assert_eq!(
+        [&a0, &a1].as_set(),
+        cache
+            .load()
+            .data
+            .values()
+            .collect::<HashSet<_>>()
+    );
 
     // entries of various types
     let a0new = Arc::new(make_account_data(rng, &clock.clock(), 2, &signers[0]));
@@ -75,15 +90,36 @@ async fn happy_path() {
         )
         .await;
     assert_eq!([&a2, &a0new].as_set(), unwrap(&res).as_set());
-    assert_eq!([&a0new, &a1, &a2].as_set(), cache.load().data.values().collect::<HashSet<_>>());
+    assert_eq!(
+        [&a0new, &a1, &a2].as_set(),
+        cache
+            .load()
+            .data
+            .values()
+            .collect::<HashSet<_>>()
+    );
 
     // try setting the same key set again, should be a noop.
     assert!(!cache.set_keys(e0));
-    assert_eq!([&a0new, &a1, &a2].as_set(), cache.load().data.values().collect::<HashSet<_>>());
+    assert_eq!(
+        [&a0new, &a1, &a2].as_set(),
+        cache
+            .load()
+            .data
+            .values()
+            .collect::<HashSet<_>>()
+    );
 
     // set_keys again. Data for accounts which are not in the new set should be dropped.
     assert!(cache.set_keys(e1));
-    assert_eq!([&a2].as_set(), cache.load().data.values().collect::<HashSet<_>>());
+    assert_eq!(
+        [&a2].as_set(),
+        cache
+            .load()
+            .data
+            .values()
+            .collect::<HashSet<_>>()
+    );
     // insert some entries again.
     let res = cache
         .clone()
@@ -96,7 +132,14 @@ async fn happy_path() {
         )
         .await;
     assert_eq!([&a5].as_set(), unwrap(&res).as_set());
-    assert_eq!([&a2, &a5].as_set(), cache.load().data.values().collect::<HashSet<_>>());
+    assert_eq!(
+        [&a2, &a5].as_set(),
+        cache
+            .load()
+            .data
+            .values()
+            .collect::<HashSet<_>>()
+    );
 }
 
 #[tokio::test]
@@ -115,8 +158,9 @@ async fn data_too_large() {
     let a1 = Arc::new(make_account_data(rng, &clock.clock(), 1, &signers[1]));
     let mut a2_too_large: SignedAccountData =
         make_account_data(rng, &clock.clock(), 1, &signers[2]);
-    *a2_too_large.payload_mut() =
-        (0..crate::network_protocol::MAX_ACCOUNT_DATA_SIZE_BYTES + 1).map(|_| 17).collect();
+    *a2_too_large.payload_mut() = (0..crate::network_protocol::MAX_ACCOUNT_DATA_SIZE_BYTES + 1)
+        .map(|_| 17)
+        .collect();
     let a2_too_large = Arc::new(a2_too_large);
 
     // too large payload => DataTooLarge
@@ -135,7 +179,14 @@ async fn data_too_large() {
     // Partial update is allowed, in case an error is encountered.
     assert_is_superset(&[&a0, &a1].as_set(), &res.0.as_set());
     // Partial update should match the state.
-    assert_eq!(res.0.as_set(), cache.load().data.values().collect::<HashSet<_>>());
+    assert_eq!(
+        res.0.as_set(),
+        cache
+            .load()
+            .data
+            .values()
+            .collect::<HashSet<_>>()
+    );
 }
 
 #[tokio::test]
@@ -173,7 +224,14 @@ async fn invalid_signature() {
     // Partial update is allowed, in case an error is encountered.
     assert_is_superset(&[&a0, &a1].as_set(), &res.0.as_set());
     // Partial update should match the state.
-    assert_eq!(res.0.as_set(), cache.load().data.values().collect::<HashSet<_>>());
+    assert_eq!(
+        res.0.as_set(),
+        cache
+            .load()
+            .data
+            .values()
+            .collect::<HashSet<_>>()
+    );
 }
 
 #[tokio::test]
@@ -196,14 +254,29 @@ async fn single_account_multiple_data() {
     // 2 entries for the same (epoch_id,account_id) => SingleAccountMultipleData
     let res = cache
         .clone()
-        .insert(&clock.clock(), vec![a0.clone(), a1.clone(), a2old.clone(), a2new.clone()])
+        .insert(
+            &clock.clock(),
+            vec![
+                a0.clone(),
+                a1.clone(),
+                a2old.clone(),
+                a2new.clone(),
+            ],
+        )
         .await;
     assert_eq!(Some(AccountDataError::SingleAccountMultipleData), res.1);
     // Partial update is allowed, in case an error is encountered.
     assert_is_superset(&[&a0, &a1, &a2old, &a2new].as_set(), &res.0.as_set());
     // Partial update should match the state, this also verifies that only 1 of the competing
     // entries has been applied.
-    assert_eq!(res.0.as_set(), cache.load().data.values().collect::<HashSet<_>>());
+    assert_eq!(
+        res.0.as_set(),
+        cache
+            .load()
+            .data
+            .values()
+            .collect::<HashSet<_>>()
+    );
 }
 
 /// Test checking that cache immediately overrides any inserted AccountData for local.signer
@@ -226,9 +299,15 @@ async fn set_local() {
     // A new AccountData should be signed.
     let local = LocalAccountData {
         signer: Arc::new(signers[0].clone().into()),
-        data: Arc::new(make_account_data(rng, &clock.clock(), 1, &signers[0]).data.clone()),
+        data: Arc::new(
+            make_account_data(rng, &clock.clock(), 1, &signers[0])
+                .data
+                .clone(),
+        ),
     };
-    let got = cache.set_local(&clock.clock(), local.clone()).unwrap();
+    let got = cache
+        .set_local(&clock.clock(), local.clone())
+        .unwrap();
     assert_eq!(local.data.as_ref(), &got.data);
     assert_eq!(local.signer.public_key(), got.account_key);
     clock.advance(time::Duration::hours(1));
@@ -242,13 +321,33 @@ async fn set_local() {
     // Regular entry for a signer outside of cache.keys. The new version should be ignored.
     let a2 = Arc::new(make_account_data(rng, &clock.clock(), 8, &signers[2]));
 
-    let res = cache.clone().insert(&clock.clock(), vec![a0.clone(), a1.clone(), a2.clone()]).await;
-    assert_eq!(res.0.as_set(), cache.load().data.values().collect::<HashSet<_>>());
-    let res: HashMap<_, _> = unwrap(&res).iter().map(|a| (a.account_key.clone(), a)).collect();
-    let got = res.get(&signers[0].public_key()).unwrap();
+    let res = cache
+        .clone()
+        .insert(&clock.clock(), vec![a0.clone(), a1.clone(), a2.clone()])
+        .await;
+    assert_eq!(
+        res.0.as_set(),
+        cache
+            .load()
+            .data
+            .values()
+            .collect::<HashSet<_>>()
+    );
+    let res: HashMap<_, _> = unwrap(&res)
+        .iter()
+        .map(|a| (a.account_key.clone(), a))
+        .collect();
+    let got = res
+        .get(&signers[0].public_key())
+        .unwrap();
     assert_eq!(local.data.as_ref(), &got.data);
     assert!(a0.version < got.version);
-    assert_eq!(a1.as_ref(), res.get(&signers[1].public_key()).unwrap().as_ref());
+    assert_eq!(
+        a1.as_ref(),
+        res.get(&signers[1].public_key())
+            .unwrap()
+            .as_ref()
+    );
     assert_eq!(None, res.get(&signers[2].public_key()));
 
     // Insert new version while local data is set but local.signer is not in cache.keys.
@@ -260,25 +359,59 @@ async fn set_local() {
     let a1 = Arc::new(make_account_data(rng, &clock.clock(), a1.version + 1, &signers[1]));
     let a2 = Arc::new(make_account_data(rng, &clock.clock(), a2.version + 1, &signers[2]));
 
-    let res = cache.clone().insert(&clock.clock(), vec![a0.clone(), a1.clone(), a2.clone()]).await;
-    assert_eq!(res.0.as_set(), cache.load().data.values().collect::<HashSet<_>>());
+    let res = cache
+        .clone()
+        .insert(&clock.clock(), vec![a0.clone(), a1.clone(), a2.clone()])
+        .await;
+    assert_eq!(
+        res.0.as_set(),
+        cache
+            .load()
+            .data
+            .values()
+            .collect::<HashSet<_>>()
+    );
     assert_eq!([&a1, &a2].as_set(), unwrap(&res).as_set());
 
     // Update local data to a signer in cache.keys.
     let local = LocalAccountData {
         signer: Arc::new(signers[2].clone().into()),
-        data: Arc::new(make_account_data(rng, &clock.clock(), 1, &signers[2]).data.clone()),
+        data: Arc::new(
+            make_account_data(rng, &clock.clock(), 1, &signers[2])
+                .data
+                .clone(),
+        ),
     };
-    let got = cache.set_local(&clock.clock(), local.clone()).unwrap();
+    let got = cache
+        .set_local(&clock.clock(), local.clone())
+        .unwrap();
     assert_eq!(local.data.as_ref(), &got.data);
     assert_eq!(local.signer.public_key(), got.account_key);
-    assert_eq!([&a1, &got].as_set(), cache.load().data.values().collect::<HashSet<_>>());
+    assert_eq!(
+        [&a1, &got].as_set(),
+        cache
+            .load()
+            .data
+            .values()
+            .collect::<HashSet<_>>()
+    );
 
     // Update local data to a signer outside of cache.keys.
     let local = LocalAccountData {
         signer: Arc::new(signers[0].clone().into()),
-        data: Arc::new(make_account_data(rng, &clock.clock(), 1, &signers[0]).data.clone()),
+        data: Arc::new(
+            make_account_data(rng, &clock.clock(), 1, &signers[0])
+                .data
+                .clone(),
+        ),
     };
     assert_eq!(None, cache.set_local(&clock.clock(), local));
-    assert_eq!([&a1, &got].as_set(), cache.load().data.values().collect::<HashSet<_>>());
+    assert_eq!(
+        [&a1, &got].as_set(),
+        cache
+            .load()
+            .data
+            .values()
+            .collect::<HashSet<_>>()
+    );
 }

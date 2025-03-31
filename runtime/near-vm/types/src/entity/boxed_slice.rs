@@ -39,17 +39,26 @@ where
     }
 
     /// Check if `k` is a valid key in the map.
-    pub fn is_valid(&self, k: K) -> bool {
+    pub fn is_valid(
+        &self,
+        k: K,
+    ) -> bool {
         k.index() < self.elems.len()
     }
 
     /// Get the element at `k` if it exists.
-    pub fn get(&self, k: K) -> Option<&V> {
+    pub fn get(
+        &self,
+        k: K,
+    ) -> Option<&V> {
         self.elems.get(k.index())
     }
 
     /// Get the element at `k` if it exists, mutable version.
-    pub fn get_mut(&mut self, k: K) -> Option<&mut V> {
+    pub fn get_mut(
+        &mut self,
+        k: K,
+    ) -> Option<&mut V> {
         self.elems.get_mut(k.index())
     }
 
@@ -102,7 +111,10 @@ where
 {
     type Output = V;
 
-    fn index(&self, k: K) -> &V {
+    fn index(
+        &self,
+        k: K,
+    ) -> &V {
         &self.elems[k.index()]
     }
 }
@@ -112,7 +124,10 @@ impl<K, V> IndexMut<K> for BoxedSlice<K, V>
 where
     K: EntityRef,
 {
-    fn index_mut(&mut self, k: K) -> &mut V {
+    fn index_mut(
+        &mut self,
+        k: K,
+    ) -> &mut V {
         &mut self.elems[k.index()]
     }
 }
@@ -185,9 +200,9 @@ mod tests {
         for (key, value) in &m {
             assert_eq!(key.index(), i);
             match i {
-                0 => assert_eq!(*value, 12),
-                1 => assert_eq!(*value, 33),
-                _ => panic!(),
+                | 0 => assert_eq!(*value, 12),
+                | 1 => assert_eq!(*value, 33),
+                | _ => panic!(),
             }
             i += 1;
         }
@@ -195,9 +210,9 @@ mod tests {
         for (key_mut, value_mut) in m.iter_mut() {
             assert_eq!(key_mut.index(), i);
             match i {
-                0 => assert_eq!(*value_mut, 12),
-                1 => assert_eq!(*value_mut, 33),
-                _ => panic!(),
+                | 0 => assert_eq!(*value_mut, 12),
+                | 1 => assert_eq!(*value_mut, 33),
+                | _ => panic!(),
             }
             i += 1;
         }
@@ -215,9 +230,9 @@ mod tests {
             i -= 1;
             assert_eq!(key.index(), i);
             match i {
-                0 => assert_eq!(*value, 12),
-                1 => assert_eq!(*value, 33),
-                _ => panic!(),
+                | 0 => assert_eq!(*value, 12),
+                | 1 => assert_eq!(*value, 33),
+                | _ => panic!(),
             }
         }
 
@@ -226,9 +241,9 @@ mod tests {
             i -= 1;
             assert_eq!(key.index(), i);
             match i {
-                0 => assert_eq!(*value, 12),
-                1 => assert_eq!(*value, 33),
-                _ => panic!(),
+                | 0 => assert_eq!(*value, 12),
+                | 1 => assert_eq!(*value, 33),
+                | _ => panic!(),
             }
         }
     }
@@ -270,18 +285,18 @@ mod tests {
         let mut i = 0;
         for value in m.values() {
             match i {
-                0 => assert_eq!(*value, 12),
-                1 => assert_eq!(*value, 33),
-                _ => panic!(),
+                | 0 => assert_eq!(*value, 12),
+                | 1 => assert_eq!(*value, 33),
+                | _ => panic!(),
             }
             i += 1;
         }
         i = 0;
         for value_mut in m.values_mut() {
             match i {
-                0 => assert_eq!(*value_mut, 12),
-                1 => assert_eq!(*value_mut, 33),
-                _ => panic!(),
+                | 0 => assert_eq!(*value_mut, 12),
+                | 1 => assert_eq!(*value_mut, 33),
+                | _ => panic!(),
             }
             i += 1;
         }
@@ -298,18 +313,18 @@ mod tests {
         for value in m.values().rev() {
             i -= 1;
             match i {
-                0 => assert_eq!(*value, 12),
-                1 => assert_eq!(*value, 33),
-                _ => panic!(),
+                | 0 => assert_eq!(*value, 12),
+                | 1 => assert_eq!(*value, 33),
+                | _ => panic!(),
             }
         }
         i = 2;
         for value_mut in m.values_mut().rev() {
             i -= 1;
             match i {
-                0 => assert_eq!(*value_mut, 12),
-                1 => assert_eq!(*value_mut, 33),
-                _ => panic!(),
+                | 0 => assert_eq!(*value_mut, 12),
+                | 1 => assert_eq!(*value_mut, 33),
+                | _ => panic!(),
             }
         }
     }

@@ -28,22 +28,38 @@ pub struct CryptoHashTimer {
 }
 
 impl CryptoHashTimer {
-    pub fn new(clock: Clock, key: CryptoHash) -> Self {
+    pub fn new(
+        clock: Clock,
+        key: CryptoHash,
+    ) -> Self {
         Self::new_with_start(clock.clone(), key, clock.now())
     }
-    pub fn new_with_start(clock: Clock, key: CryptoHash, start: Instant) -> Self {
+    pub fn new_with_start(
+        clock: Clock,
+        key: CryptoHash,
+        start: Instant,
+    ) -> Self {
         CryptoHashTimer { clock, key, start }
     }
     pub fn get_timer_value(key: CryptoHash) -> Option<Duration> {
-        CRYPTO_HASH_TIMER_RESULTS.lock().unwrap().get(&key).cloned()
+        CRYPTO_HASH_TIMER_RESULTS
+            .lock()
+            .unwrap()
+            .get(&key)
+            .cloned()
     }
 }
 
 impl Drop for CryptoHashTimer {
     fn drop(&mut self) {
         let time_passed = self.clock.now() - self.start;
-        let mut guard_ = CRYPTO_HASH_TIMER_RESULTS.lock().unwrap();
-        let previous = guard_.get(&self.key).copied().unwrap_or_default();
+        let mut guard_ = CRYPTO_HASH_TIMER_RESULTS
+            .lock()
+            .unwrap();
+        let previous = guard_
+            .get(&self.key)
+            .copied()
+            .unwrap_or_default();
         guard_.put(self.key, time_passed + previous);
     }
 }
@@ -56,8 +72,9 @@ mod tests {
 
     #[test]
     fn test_crypto_hash_timer() {
-        let crypto_hash: CryptoHash =
-            "s3N6V7CNAN2Eg6vfivMVHR4hbMZeh72fTmYbrC6dXBT".parse().unwrap();
+        let crypto_hash: CryptoHash = "s3N6V7CNAN2Eg6vfivMVHR4hbMZeh72fTmYbrC6dXBT"
+            .parse()
+            .unwrap();
         // Timer should be missing.
         let clock = FakeClock::new(Utc::UNIX_EPOCH);
         assert_eq!(CryptoHashTimer::get_timer_value(crypto_hash), None);

@@ -143,11 +143,14 @@ impl Amount {
     }
 
     pub(crate) fn from_yoctonear_diff(
-        amount: crate::utils::SignedDiff<near_primitives::types::Balance>,
+        amount: crate::utils::SignedDiff<near_primitives::types::Balance>
     ) -> Self {
         Self { value: amount, currency: Currency::near() }
     }
-    pub(crate) fn from_fungible_token(amount: u128, currency: Currency) -> Self {
+    pub(crate) fn from_fungible_token(
+        amount: u128,
+        currency: Currency,
+    ) -> Self {
         Self { value: crate::utils::SignedDiff::from(amount), currency }
     }
 }
@@ -185,9 +188,14 @@ pub(crate) struct BlockIdentifier {
 }
 
 impl BlockIdentifier {
-    pub fn new(height: BlockHeight, hash: &CryptoHash) -> Self {
+    pub fn new(
+        height: BlockHeight,
+        hash: &CryptoHash,
+    ) -> Self {
         Self {
-            index: height.try_into().expect("Rosetta only supports block indices up to i64::MAX"),
+            index: height
+                .try_into()
+                .expect("Rosetta only supports block indices up to i64::MAX"),
             hash: hash.to_string(),
         }
     }
@@ -529,7 +537,10 @@ pub(crate) struct Error {
 }
 
 impl std::fmt::Display for Error {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+    ) -> std::fmt::Result {
         let retryable = if self.retryable { " (retryable)" } else { "" };
         write!(f, "Error #{}{}: {}", self.code, retryable, self.message)
     }
@@ -538,27 +549,27 @@ impl std::fmt::Display for Error {
 impl Error {
     pub(crate) fn from_error_kind(err: crate::errors::ErrorKind) -> Self {
         match err {
-            crate::errors::ErrorKind::InvalidInput(message) => {
+            | crate::errors::ErrorKind::InvalidInput(message) => {
                 Self { code: 400, message: format!("Invalid Input: {}", message), retryable: false }
             }
-            crate::errors::ErrorKind::NotFound(message) => {
+            | crate::errors::ErrorKind::NotFound(message) => {
                 Self { code: 404, message: format!("Not Found: {}", message), retryable: false }
             }
-            crate::errors::ErrorKind::MissingBlock(message) => {
+            | crate::errors::ErrorKind::MissingBlock(message) => {
                 Self { code: 422, message: format!("Missing Block: {}", message), retryable: false }
             }
-            crate::errors::ErrorKind::WrongNetwork(message) => {
+            | crate::errors::ErrorKind::WrongNetwork(message) => {
                 Self { code: 403, message: format!("Wrong Network: {}", message), retryable: false }
             }
-            crate::errors::ErrorKind::Timeout(message) => {
+            | crate::errors::ErrorKind::Timeout(message) => {
                 Self { code: 504, message: format!("Timeout: {}", message), retryable: true }
             }
-            crate::errors::ErrorKind::InternalInvariantError(message) => Self {
+            | crate::errors::ErrorKind::InternalInvariantError(message) => Self {
                 code: 501,
                 message: format!("Internal Invariant Error (please, report it): {}", message),
                 retryable: true,
             },
-            crate::errors::ErrorKind::InternalError(message) => {
+            | crate::errors::ErrorKind::InternalError(message) => {
                 Self { code: 500, message: format!("Internal Error: {}", message), retryable: true }
             }
         }
@@ -771,8 +782,8 @@ pub(crate) enum OperationStatusKind {
 impl OperationStatusKind {
     pub(crate) fn is_successful(&self) -> bool {
         match self {
-            Self::Success => true,
-            Self::Empty => false,
+            | Self::Success => true,
+            | Self::Empty => false,
         }
     }
 }
@@ -826,7 +837,7 @@ pub(crate) struct OperationMetadata {
 
 impl OperationMetadata {
     pub(crate) fn from_predecessor(
-        predecessor_id: Option<AccountIdentifier>,
+        predecessor_id: Option<AccountIdentifier>
     ) -> Option<OperationMetadata> {
         predecessor_id.map(|predecessor_id| crate::models::OperationMetadata {
             predecessor_id: Some(predecessor_id),
@@ -996,19 +1007,19 @@ impl TryFrom<PartialBlockIdentifier> for near_primitives::types::BlockReference 
 
     fn try_from(block_identifier: PartialBlockIdentifier) -> Result<Self, Self::Error> {
         Ok(match (block_identifier.index, block_identifier.hash) {
-            (Some(index), None) => {
+            | (Some(index), None) => {
                 near_primitives::types::BlockId::Height(index.try_into().map_err(|err| {
                     Self::Error::InvalidInput(format!("Failed to parse Block Height: {}", err))
                 })?)
                 .into()
             }
-            (_, Some(hash)) => {
+            | (_, Some(hash)) => {
                 near_primitives::types::BlockId::Hash(hash.parse().map_err(|err| {
                     Self::Error::InvalidInput(format!("Failed to parse Block Hash: {}", err))
                 })?)
                 .into()
             }
-            (None, None) => near_primitives::types::BlockReference::Finality(
+            | (None, None) => near_primitives::types::BlockReference::Finality(
                 near_primitives::types::Finality::Final,
             ),
         })
@@ -1232,10 +1243,10 @@ impl TryFrom<&PublicKey> for near_crypto::PublicKey {
 
     fn try_from(PublicKey { curve_type, hex_bytes }: &PublicKey) -> Result<Self, Self::Error> {
         Ok(match curve_type {
-            CurveType::Edwards25519 => {
+            | CurveType::Edwards25519 => {
                 near_crypto::PublicKey::ED25519((hex_bytes.as_ref() as &[u8]).try_into()?)
             }
-            CurveType::Secp256k1 => {
+            | CurveType::Secp256k1 => {
                 near_crypto::PublicKey::SECP256K1((hex_bytes.as_ref() as &[u8]).try_into()?)
             }
         })
@@ -1255,8 +1266,8 @@ pub(crate) enum CurveType {
 impl From<near_crypto::KeyType> for CurveType {
     fn from(key_type: near_crypto::KeyType) -> Self {
         match key_type {
-            near_crypto::KeyType::ED25519 => Self::Edwards25519,
-            near_crypto::KeyType::SECP256K1 => Self::Secp256k1,
+            | near_crypto::KeyType::ED25519 => Self::Edwards25519,
+            | near_crypto::KeyType::SECP256K1 => Self::Secp256k1,
         }
     }
 }
@@ -1289,7 +1300,7 @@ impl TryFrom<&Signature> for near_crypto::Signature {
     type Error = near_crypto::ParseSignatureError;
 
     fn try_from(
-        Signature { signature_type, hex_bytes, .. }: &Signature,
+        Signature { signature_type, hex_bytes, .. }: &Signature
     ) -> Result<Self, Self::Error> {
         near_crypto::Signature::from_parts((*signature_type).into(), hex_bytes.as_ref())
     }
@@ -1319,8 +1330,8 @@ pub(crate) enum SignatureType {
 impl From<near_crypto::KeyType> for SignatureType {
     fn from(key_type: near_crypto::KeyType) -> Self {
         match key_type {
-            near_crypto::KeyType::ED25519 => Self::Ed25519,
-            near_crypto::KeyType::SECP256K1 => {
+            | near_crypto::KeyType::ED25519 => Self::Ed25519,
+            | near_crypto::KeyType::SECP256K1 => {
                 unimplemented!("SECP256K1 keys are not implemented in Rosetta yet")
             }
         }
@@ -1330,7 +1341,7 @@ impl From<near_crypto::KeyType> for SignatureType {
 impl From<SignatureType> for near_crypto::KeyType {
     fn from(signature_type: SignatureType) -> Self {
         match signature_type {
-            SignatureType::Ed25519 => Self::ED25519,
+            | SignatureType::Ed25519 => Self::ED25519,
         }
     }
 }

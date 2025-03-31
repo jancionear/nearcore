@@ -52,13 +52,16 @@ struct Metrics {
 }
 
 #[cfg(any(feature = "near_vm", feature = "wasmtime_vm"))]
-pub(crate) fn compilation_duration(kind: near_parameters::vm::VMKind, duration: Duration) {
+pub(crate) fn compilation_duration(
+    kind: near_parameters::vm::VMKind,
+    duration: Duration,
+) {
     use near_parameters::vm::VMKind;
     METRICS.with_borrow_mut(|m| match kind {
-        VMKind::Wasmer0 => {}
-        VMKind::Wasmtime => m.wasmtime_compilation_time += duration,
-        VMKind::Wasmer2 => {}
-        VMKind::NearVm => m.near_vm_compilation_time += duration,
+        | VMKind::Wasmer0 => {}
+        | VMKind::Wasmtime => m.wasmtime_compilation_time += duration,
+        | VMKind::Wasmer2 => {}
+        | VMKind::NearVm => m.near_vm_compilation_time += duration,
     });
 }
 
@@ -79,7 +82,10 @@ pub fn reset_metrics() {
 }
 
 /// Reports the current metrics at the end of a single VM invocation (eg. to run a function call).
-pub fn report_metrics(shard_id: &str, caller_context: &str) {
+pub fn report_metrics(
+    shard_id: &str,
+    caller_context: &str,
+) {
     METRICS.with_borrow_mut(|m| {
         if !m.near_vm_compilation_time.is_zero() {
             COMPILATION_TIME
@@ -89,7 +95,10 @@ pub fn report_metrics(shard_id: &str, caller_context: &str) {
         if !m.wasmtime_compilation_time.is_zero() {
             COMPILATION_TIME
                 .with_label_values(&["wasmtime", shard_id])
-                .observe(m.wasmtime_compilation_time.as_secs_f64());
+                .observe(
+                    m.wasmtime_compilation_time
+                        .as_secs_f64(),
+                );
         }
         if m.compiled_contract_cache_lookups > 0 {
             COMPILED_CONTRACT_CACHE_LOOKUPS_TOTAL

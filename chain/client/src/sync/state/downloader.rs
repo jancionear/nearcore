@@ -58,7 +58,9 @@ impl StateSyncDownloader {
         let clock = self.clock.clone();
         let retry_backoff = self.retry_backoff;
         async move {
-            let handle = task_tracker.get_handle(&format!("shard {} header", shard_id)).await;
+            let handle = task_tracker
+                .get_handle(&format!("shard {} header", shard_id))
+                .await;
             handle.set_status("Reading existing header");
             let existing_header =
                 get_state_header_if_exists_in_storage(&store, sync_hash, shard_id)?;
@@ -72,7 +74,10 @@ impl StateSyncDownloader {
                     let source = if fallback_source.is_some()
                         && i.load(Ordering::Relaxed) >= num_attempts_before_fallback
                     {
-                        fallback_source.as_ref().unwrap().as_ref()
+                        fallback_source
+                            .as_ref()
+                            .unwrap()
+                            .as_ref()
                     } else {
                         preferred_source.as_ref()
                     };
@@ -100,8 +105,8 @@ impl StateSyncDownloader {
 
             loop {
                 match attempt().await {
-                    Ok(header) => return Ok(header),
-                    Err(err) => {
+                    | Ok(header) => return Ok(header),
+                    | Err(err) => {
                         handle.set_status(&format!(
                             "Error: {}, will retry in {}",
                             err, retry_backoff
@@ -149,8 +154,9 @@ impl StateSyncDownloader {
             if cancel.is_cancelled() {
                 return Err(near_chain::Error::Other("Cancelled".to_owned()));
             }
-            let handle =
-                task_tracker.get_handle(&format!("shard {} part {}", shard_id, part_id)).await;
+            let handle = task_tracker
+                .get_handle(&format!("shard {} part {}", shard_id, part_id))
+                .await;
             handle.set_status("Reading existing part");
             if does_state_part_exist_on_disk(&store, sync_hash, shard_id, part_id)? {
                 return Ok(());
@@ -160,7 +166,10 @@ impl StateSyncDownloader {
                 let source = if fallback_source.is_some()
                     && num_prior_attempts >= num_attempts_before_fallback
                 {
-                    fallback_source.as_ref().unwrap().as_ref()
+                    fallback_source
+                        .as_ref()
+                        .unwrap()
+                        .as_ref()
                 } else {
                     preferred_source.as_ref()
                 };

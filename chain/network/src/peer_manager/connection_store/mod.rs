@@ -26,7 +26,10 @@ struct Inner {
 
 impl Inner {
     /// Returns whether the store contains an outbound connection to the given peer
-    fn contains_outbound(&self, peer_id: &PeerId) -> bool {
+    fn contains_outbound(
+        &self,
+        peer_id: &PeerId,
+    ) -> bool {
         for stored_info in &self.outbound {
             if stored_info.peer_info.id == *peer_id {
                 return true;
@@ -36,9 +39,16 @@ impl Inner {
     }
 
     /// If there is an outbound connection to the given peer in storage, removes it
-    fn remove_outbound(&mut self, peer_id: &PeerId) {
-        self.outbound.retain(|c| c.peer_info.id != *peer_id);
-        if let Err(err) = self.store.set_recent_outbound_connections(&self.outbound) {
+    fn remove_outbound(
+        &mut self,
+        peer_id: &PeerId,
+    ) {
+        self.outbound
+            .retain(|c| c.peer_info.id != *peer_id);
+        if let Err(err) = self
+            .store
+            .set_recent_outbound_connections(&self.outbound)
+        {
             tracing::error!(target: "network", ?err, "Failed to save recent outbound connections");
         }
     }
@@ -47,10 +57,15 @@ impl Inner {
     /// Any existing entry having the same PeerId as a newly inserted entry is dropped.
     /// Evicts from the back if OUTBOUND_CONNECTIONS_CACHE_SIZE is reached.
     /// Timestamps are stored for debugging purposes, but not otherwise used.
-    fn push_front_outbound(&mut self, mut conns: Vec<ConnectionInfo>) {
+    fn push_front_outbound(
+        &mut self,
+        mut conns: Vec<ConnectionInfo>,
+    ) {
         // Collect the PeerIds of the newly inserted connections
-        let updated_peer_ids: HashSet<PeerId> =
-            conns.iter().map(|c| c.peer_info.id.clone()).collect();
+        let updated_peer_ids: HashSet<PeerId> = conns
+            .iter()
+            .map(|c| c.peer_info.id.clone())
+            .collect();
 
         // Append entries from storage for disconnected peers, preserving order
         for stored in &self.outbound {
@@ -62,7 +77,10 @@ impl Inner {
         // Evict the longest-disconnected connections, if needed
         conns.truncate(OUTBOUND_CONNECTIONS_CACHE_SIZE);
 
-        if let Err(err) = self.store.set_recent_outbound_connections(&conns) {
+        if let Err(err) = self
+            .store
+            .set_recent_outbound_connections(&conns)
+        {
             tracing::error!(target: "network", ?err, "Failed to save recent outbound connections");
         }
         self.outbound = conns;
@@ -85,7 +103,10 @@ impl ConnectionStore {
     }
 
     /// If there is an outbound connection to the given peer in storage, removes it
-    pub fn remove_from_connection_store(&self, peer_id: &PeerId) {
+    pub fn remove_from_connection_store(
+        &self,
+        peer_id: &PeerId,
+    ) {
         self.0.update(|mut inner| {
             inner.remove_outbound(peer_id);
             ((), inner)
@@ -114,11 +135,18 @@ impl ConnectionStore {
             });
         }
 
-        return self.0.load().contains_outbound(&peer_info.id);
+        return self
+            .0
+            .load()
+            .contains_outbound(&peer_info.id);
     }
 
     /// Given a snapshot of the TIER2 connection pool, updates the connections in storage.
-    pub fn update(&self, clock: &time::Clock, tier2: &connection::PoolSnapshot) {
+    pub fn update(
+        &self,
+        clock: &time::Clock,
+        tier2: &connection::PoolSnapshot,
+    ) {
         let now = clock.now();
         let now_utc = clock.now_utc();
 

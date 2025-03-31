@@ -73,7 +73,9 @@ fn receiver() -> AccountId {
 }
 
 fn new_account_id(index: usize) -> AccountId {
-    format!("subaccount{}.test0", index).parse().unwrap()
+    format!("subaccount{}.test0", index)
+        .parse()
+        .unwrap()
 }
 
 /// Default signer (corresponding to the default sender) to use in tests of this module.
@@ -104,25 +106,34 @@ fn fee_helper() -> FeeHelper {
     crate::tests::standard_cases::fee_helper(&node)
 }
 
-fn get_nonce(env: &mut TestEnv, signer: &Signer) -> u64 {
+fn get_nonce(
+    env: &mut TestEnv,
+    signer: &Signer,
+) -> u64 {
     let request = QueryRequest::ViewAccessKey {
         account_id: signer.get_account_id(),
         public_key: signer.public_key(),
     };
     match env.query_view(request).unwrap().kind {
-        QueryResponseKind::AccessKey(view) => view.nonce,
-        _ => panic!("wrong query response"),
+        | QueryResponseKind::AccessKey(view) => view.nonce,
+        | _ => panic!("wrong query response"),
     }
 }
 
-fn account_exists(env: &mut TestEnv, account_id: AccountId) -> bool {
+fn account_exists(
+    env: &mut TestEnv,
+    account_id: AccountId,
+) -> bool {
     let request = QueryRequest::ViewAccount { account_id };
     env.query_view(request).is_ok()
 }
 
 fn get_total_supply(env: &TestEnv) -> Balance {
     let tip = env.clients[0].chain.head().unwrap();
-    let block_info = env.clients[0].chain.get_block_header(&tip.last_block_hash).unwrap();
+    let block_info = env.clients[0]
+        .chain
+        .get_block_header(&tip.last_block_hash)
+        .unwrap();
     block_info.total_supply()
 }
 
@@ -144,7 +155,11 @@ fn execute_transaction_from_actions(
         0,
     );
     let tx_result = env.execute_tx(tx);
-    let height = env.clients[0].chain.head().unwrap().height;
+    let height = env.clients[0]
+        .chain
+        .head()
+        .unwrap()
+        .height;
     for i in 0..2 {
         env.produce_block(0, height + 1 + i);
     }
@@ -181,7 +196,11 @@ fn exec_transfers(
         })));
     }
 
-    if config.transfers.nonrefundable_transfer_first && config.transfers.nonrefundable_amount > 0 {
+    if config
+        .transfers
+        .nonrefundable_transfer_first
+        && config.transfers.nonrefundable_amount > 0
+    {
         actions.push(Action::NonrefundableStorageTransfer(NonrefundableStorageTransferAction {
             deposit: config.transfers.nonrefundable_amount,
         }));
@@ -189,7 +208,11 @@ fn exec_transfers(
     if config.transfers.regular_amount > 0 {
         actions.push(Action::Transfer(TransferAction { deposit: config.transfers.regular_amount }));
     }
-    if !config.transfers.nonrefundable_transfer_first && config.transfers.nonrefundable_amount > 0 {
+    if !config
+        .transfers
+        .nonrefundable_transfer_first
+        && config.transfers.nonrefundable_amount > 0
+    {
         actions.push(Action::NonrefundableStorageTransfer(NonrefundableStorageTransferAction {
             deposit: config.transfers.nonrefundable_amount,
         }));
@@ -203,8 +226,8 @@ fn exec_transfers(
     let tx_result = execute_transaction_from_actions(env, actions, &signer, receiver.clone());
 
     let outcome = match &tx_result {
-        Ok(outcome) => outcome,
-        _ => {
+        | Ok(outcome) => outcome,
+        | _ => {
             return tx_result;
         }
     };
@@ -224,8 +247,10 @@ fn exec_transfers(
 
     let receiver_expected_amount_after = receiver_before_amount + config.transfers.regular_amount;
     let receiver_expected_permanent_storage_bytes_after = receiver_before_permanent_storage_bytes
-        + (config.transfers.nonrefundable_amount / fee_helper().rt_cfg.storage_amount_per_byte())
-            as StorageUsage;
+        + (config.transfers.nonrefundable_amount
+            / fee_helper()
+                .rt_cfg
+                .storage_amount_per_byte()) as StorageUsage;
     let receiver_after = env.query_account(receiver);
     assert_eq!(receiver_after.amount, receiver_expected_amount_after);
     assert_eq!(
@@ -264,7 +289,9 @@ fn delete_account(
     signer: &Signer,
     beneficiary_id: AccountId,
 ) -> Result<FinalExecutionOutcomeView, InvalidTxError> {
-    let actions = vec![Action::DeleteAccount(DeleteAccountAction { beneficiary_id })];
+    let actions = vec![Action::DeleteAccount(
+        DeleteAccountAction { beneficiary_id },
+    )];
     execute_transaction_from_actions(env, actions, &signer, signer.get_account_id())
 }
 
@@ -294,13 +321,17 @@ fn deleting_account_with_permanent_storage_bytes() {
             deploy_contract: true,
         },
     );
-    create_account_tx_result.unwrap().assert_success();
+    create_account_tx_result
+        .unwrap()
+        .assert_success();
 
     // Delete the new account (that has permanent storage bytes worth 1 NEAR).
     let beneficiary_id = receiver();
     let beneficiary_before = env.query_account(beneficiary_id.clone());
     let delete_account_tx_result = delete_account(&mut env, &new_account, beneficiary_id.clone());
-    delete_account_tx_result.unwrap().assert_success();
+    delete_account_tx_result
+        .unwrap()
+        .assert_success();
     assert!(!account_exists(&mut env, new_account_id));
 
     // Check that the beneficiary account received the remaining balance from the deleted account but nothing more.
@@ -338,7 +369,9 @@ fn permanent_storage_bytes_cannot_be_transferred() {
             deploy_contract: false,
         },
     );
-    create_account_tx_result.unwrap().assert_success();
+    create_account_tx_result
+        .unwrap()
+        .assert_success();
 
     // Although `new_account` has permanent storage bytes worth 1 NEAR, it cannot make neither refundable nor non-refundable transfer of 1 yoctoNEAR.
     for nonrefundable in [false, true] {
@@ -358,19 +391,25 @@ fn permanent_storage_bytes_cannot_be_transferred() {
             },
         );
         match transfer_tx_result {
-            Err(InvalidTxError::NotEnoughBalance { signer_id, balance, .. }) => {
+            | Err(InvalidTxError::NotEnoughBalance { signer_id, balance, .. }) => {
                 assert_eq!(signer_id, new_account_id);
                 assert_eq!(balance, 0);
             }
-            _ => panic!("Expected NotEnoughBalance error"),
+            | _ => panic!("Expected NotEnoughBalance error"),
         }
     }
 }
 
 fn calculate_named_account_storage_usage(contract_size: usize) -> u64 {
     let account_id = new_account_id(0);
-    let mut account_storage_usage = fee_helper().cfg().storage_usage_config.num_bytes_account;
-    account_storage_usage += fee_helper().cfg().storage_usage_config.num_extra_bytes_record;
+    let mut account_storage_usage = fee_helper()
+        .cfg()
+        .storage_usage_config
+        .num_bytes_account;
+    account_storage_usage += fee_helper()
+        .cfg()
+        .storage_usage_config
+        .num_extra_bytes_record;
     account_storage_usage +=
         PublicKey::from_seed(KeyType::ED25519, account_id.as_str()).len() as u64;
     account_storage_usage += borsh::object_length(&AccessKey::full_access()).unwrap() as u64;
@@ -380,12 +419,19 @@ fn calculate_named_account_storage_usage(contract_size: usize) -> u64 {
 /// Permanent storage bytes allows to have account with zero balance and more than 1kB of state.
 #[test]
 fn permanent_storage_bytes_allows_1kb_state_with_zero_balance() {
-    assert!(fee_helper().rt_cfg.storage_amount_per_byte() > 0);
+    assert!(
+        fee_helper()
+            .rt_cfg
+            .storage_amount_per_byte()
+            > 0
+    );
     let mut env = setup_env();
     let new_account_id = new_account_id(0);
     let storage_bytes_required = calculate_named_account_storage_usage(TEST_CONTRACT_SIZE) as u128;
-    let nonrefundable_amount_required =
-        storage_bytes_required * fee_helper().rt_cfg.storage_amount_per_byte();
+    let nonrefundable_amount_required = storage_bytes_required
+        * fee_helper()
+            .rt_cfg
+            .storage_amount_per_byte();
     let tx_result = exec_transfers(
         &mut env,
         signer(),
@@ -410,8 +456,10 @@ fn insufficient_nonrefundable_transfer_amount() {
     let mut env = setup_env();
     let new_account_id = new_account_id(0);
     let storage_bytes_required = calculate_named_account_storage_usage(TEST_CONTRACT_SIZE) as u128;
-    let nonrefundable_amount_required =
-        storage_bytes_required * fee_helper().rt_cfg.storage_amount_per_byte();
+    let nonrefundable_amount_required = storage_bytes_required
+        * fee_helper()
+            .rt_cfg
+            .storage_amount_per_byte();
     let tx_result = exec_transfers(
         &mut env,
         signer(),
@@ -428,7 +476,9 @@ fn insufficient_nonrefundable_transfer_amount() {
             deploy_contract: true,
         },
     );
-    let status = &tx_result.unwrap().receipts_outcome[0].outcome.status;
+    let status = &tx_result.unwrap().receipts_outcome[0]
+        .outcome
+        .status;
     assert!(matches!(
         status,
         ExecutionStatusView::Failure(TxExecutionError::ActionError(
@@ -447,11 +497,15 @@ fn storage_staking_and_permanent_storage_bytes_taken_into_account() {
     let storage_bytes_required = calculate_named_account_storage_usage(TEST_CONTRACT_SIZE) as u128;
     // Just third of the required storage bytes will be covered by permanent storage bytes.
     let permanent_storage_bytes = storage_bytes_required / 3;
-    let nonrefundable_amount =
-        permanent_storage_bytes * fee_helper().rt_cfg.storage_amount_per_byte();
+    let nonrefundable_amount = permanent_storage_bytes
+        * fee_helper()
+            .rt_cfg
+            .storage_amount_per_byte();
     // Remaining storage allowance will be provided by storage staking.
     let storage_stake = (storage_bytes_required - permanent_storage_bytes)
-        * fee_helper().rt_cfg.storage_amount_per_byte();
+        * fee_helper()
+            .rt_cfg
+            .storage_amount_per_byte();
     let tx_result = exec_transfers(
         &mut env,
         signer(),
@@ -576,7 +630,9 @@ fn non_refundable_transfer_create_near_implicit_account() {
             tx_result.unwrap().assert_success();
         } else {
             // Non-refundable transfer must be the only action in an implicit account creation transaction.
-            let status = &tx_result.unwrap().receipts_outcome[0].outcome.status;
+            let status = &tx_result.unwrap().receipts_outcome[0]
+                .outcome
+                .status;
             assert!(matches!(
                 status,
                 ExecutionStatusView::Failure(TxExecutionError::ActionError(
@@ -609,7 +665,9 @@ fn non_refundable_transfer_create_eth_implicit_account() {
             tx_result.unwrap().assert_success();
         } else {
             // Non-refundable transfer must be the only action in an implicit account creation transaction.
-            let status = &tx_result.unwrap().receipts_outcome[0].outcome.status;
+            let status = &tx_result.unwrap().receipts_outcome[0]
+                .outcome
+                .status;
             assert!(matches!(
                 status,
                 ExecutionStatusView::Failure(TxExecutionError::ActionError(
@@ -635,7 +693,9 @@ fn reject_non_refundable_transfer_existing_account() {
                 deploy_contract: false,
             },
         );
-        let status = &tx_result.unwrap().receipts_outcome[0].outcome.status;
+        let status = &tx_result.unwrap().receipts_outcome[0]
+            .outcome
+            .status;
         assert!(matches!(
             status,
             ExecutionStatusView::Failure(TxExecutionError::ActionError(

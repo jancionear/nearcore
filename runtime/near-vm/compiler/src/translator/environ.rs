@@ -60,15 +60,24 @@ impl<'data> ModuleEnvironment<'data> {
     /// Translate a wasm module using this environment. This consumes the
     /// `ModuleEnvironment` and produces a `ModuleInfoTranslation`.
     #[tracing::instrument(target = "near_vm", level = "trace", skip_all)]
-    pub fn translate(mut self, data: &'data [u8]) -> WasmResult<Self> {
+    pub fn translate(
+        mut self,
+        data: &'data [u8],
+    ) -> WasmResult<Self> {
         assert!(self.module_translation_state.is_none());
         let module_translation_state = translate_module(data, &mut self)?;
         self.module_translation_state = Some(module_translation_state);
         Ok(self)
     }
 
-    pub(crate) fn declare_export(&mut self, export: ExportIndex, name: &str) -> WasmResult<()> {
-        self.module.exports.insert(String::from(name), export);
+    pub(crate) fn declare_export(
+        &mut self,
+        export: ExportIndex,
+        name: &str,
+    ) -> WasmResult<()> {
+        self.module
+            .exports
+            .insert(String::from(name), export);
         Ok(())
     }
 
@@ -82,19 +91,31 @@ impl<'data> ModuleEnvironment<'data> {
             (
                 String::from(module),
                 String::from(field),
-                self.module.imports.len().try_into().unwrap(),
+                self.module
+                    .imports
+                    .len()
+                    .try_into()
+                    .unwrap(),
             ),
             import,
         );
         Ok(())
     }
 
-    pub(crate) fn reserve_signatures(&mut self, num: u32) -> WasmResult<()> {
-        self.module.signatures.reserve_exact(usize::try_from(num).unwrap());
+    pub(crate) fn reserve_signatures(
+        &mut self,
+        num: u32,
+    ) -> WasmResult<()> {
+        self.module
+            .signatures
+            .reserve_exact(usize::try_from(num).unwrap());
         Ok(())
     }
 
-    pub(crate) fn declare_signature(&mut self, sig: FunctionType) -> WasmResult<()> {
+    pub(crate) fn declare_signature(
+        &mut self,
+        sig: FunctionType,
+    ) -> WasmResult<()> {
         // TODO: Deduplicate signatures.
         self.module.signatures.push(sig);
         Ok(())
@@ -188,33 +209,58 @@ impl<'data> ModuleEnvironment<'data> {
         Ok(())
     }
 
-    pub(crate) fn reserve_func_types(&mut self, num: u32) -> WasmResult<()> {
-        self.module.functions.reserve_exact(usize::try_from(num).unwrap());
-        self.function_body_inputs.reserve_exact(usize::try_from(num).unwrap());
+    pub(crate) fn reserve_func_types(
+        &mut self,
+        num: u32,
+    ) -> WasmResult<()> {
+        self.module
+            .functions
+            .reserve_exact(usize::try_from(num).unwrap());
+        self.function_body_inputs
+            .reserve_exact(usize::try_from(num).unwrap());
         Ok(())
     }
 
-    pub(crate) fn declare_func_type(&mut self, sig_index: SignatureIndex) -> WasmResult<()> {
+    pub(crate) fn declare_func_type(
+        &mut self,
+        sig_index: SignatureIndex,
+    ) -> WasmResult<()> {
         self.module.functions.push(sig_index);
         Ok(())
     }
 
-    pub(crate) fn reserve_tables(&mut self, num: u32) -> WasmResult<()> {
-        self.module.tables.reserve_exact(usize::try_from(num).unwrap());
+    pub(crate) fn reserve_tables(
+        &mut self,
+        num: u32,
+    ) -> WasmResult<()> {
+        self.module
+            .tables
+            .reserve_exact(usize::try_from(num).unwrap());
         Ok(())
     }
 
-    pub(crate) fn declare_table(&mut self, table: TableType) -> WasmResult<()> {
+    pub(crate) fn declare_table(
+        &mut self,
+        table: TableType,
+    ) -> WasmResult<()> {
         self.module.tables.push(table);
         Ok(())
     }
 
-    pub(crate) fn reserve_memories(&mut self, num: u32) -> WasmResult<()> {
-        self.module.memories.reserve_exact(usize::try_from(num).unwrap());
+    pub(crate) fn reserve_memories(
+        &mut self,
+        num: u32,
+    ) -> WasmResult<()> {
+        self.module
+            .memories
+            .reserve_exact(usize::try_from(num).unwrap());
         Ok(())
     }
 
-    pub(crate) fn declare_memory(&mut self, memory: MemoryType) -> WasmResult<()> {
+    pub(crate) fn declare_memory(
+        &mut self,
+        memory: MemoryType,
+    ) -> WasmResult<()> {
         if memory.shared {
             return Err(WasmError::Unsupported("shared memories are not supported yet".to_owned()));
         }
@@ -222,8 +268,13 @@ impl<'data> ModuleEnvironment<'data> {
         Ok(())
     }
 
-    pub(crate) fn reserve_globals(&mut self, num: u32) -> WasmResult<()> {
-        self.module.globals.reserve_exact(usize::try_from(num).unwrap());
+    pub(crate) fn reserve_globals(
+        &mut self,
+        num: u32,
+    ) -> WasmResult<()> {
+        self.module
+            .globals
+            .reserve_exact(usize::try_from(num).unwrap());
         Ok(())
     }
 
@@ -233,12 +284,19 @@ impl<'data> ModuleEnvironment<'data> {
         initializer: GlobalInit,
     ) -> WasmResult<()> {
         self.module.globals.push(global);
-        self.module.global_initializers.push(initializer);
+        self.module
+            .global_initializers
+            .push(initializer);
         Ok(())
     }
 
-    pub(crate) fn reserve_exports(&mut self, num: u32) -> WasmResult<()> {
-        self.module.exports.reserve(usize::try_from(num).unwrap());
+    pub(crate) fn reserve_exports(
+        &mut self,
+        num: u32,
+    ) -> WasmResult<()> {
+        self.module
+            .exports
+            .reserve(usize::try_from(num).unwrap());
         Ok(())
     }
 
@@ -274,14 +332,22 @@ impl<'data> ModuleEnvironment<'data> {
         self.declare_export(ExportIndex::Global(global_index), name)
     }
 
-    pub(crate) fn declare_start_function(&mut self, func_index: FunctionIndex) -> WasmResult<()> {
+    pub(crate) fn declare_start_function(
+        &mut self,
+        func_index: FunctionIndex,
+    ) -> WasmResult<()> {
         debug_assert!(self.module.start_function.is_none());
         self.module.start_function = Some(func_index);
         Ok(())
     }
 
-    pub(crate) fn reserve_table_initializers(&mut self, num: u32) -> WasmResult<()> {
-        self.module.table_initializers.reserve_exact(usize::try_from(num).unwrap());
+    pub(crate) fn reserve_table_initializers(
+        &mut self,
+        num: u32,
+    ) -> WasmResult<()> {
+        self.module
+            .table_initializers
+            .reserve_exact(usize::try_from(num).unwrap());
         Ok(())
     }
 
@@ -292,12 +358,9 @@ impl<'data> ModuleEnvironment<'data> {
         offset: usize,
         elements: Box<[FunctionIndex]>,
     ) -> WasmResult<()> {
-        self.module.table_initializers.push(OwnedTableInitializer {
-            table_index,
-            base,
-            offset,
-            elements,
-        });
+        self.module
+            .table_initializers
+            .push(OwnedTableInitializer { table_index, base, offset, elements });
         Ok(())
     }
 
@@ -306,7 +369,10 @@ impl<'data> ModuleEnvironment<'data> {
         elem_index: ElemIndex,
         segments: Box<[FunctionIndex]>,
     ) -> WasmResult<()> {
-        let old = self.module.passive_elements.insert(elem_index, segments);
+        let old = self
+            .module
+            .passive_elements
+            .insert(elem_index, segments);
         debug_assert!(
             old.is_none(),
             "should never get duplicate element indices, that would be a bug in `near_vm_compiler`'s \
@@ -326,8 +392,12 @@ impl<'data> ModuleEnvironment<'data> {
         Ok(())
     }
 
-    pub(crate) fn reserve_data_initializers(&mut self, num: u32) -> WasmResult<()> {
-        self.data_initializers.reserve_exact(usize::try_from(num).unwrap());
+    pub(crate) fn reserve_data_initializers(
+        &mut self,
+        num: u32,
+    ) -> WasmResult<()> {
+        self.data_initializers
+            .reserve_exact(usize::try_from(num).unwrap());
         Ok(())
     }
 
@@ -338,14 +408,18 @@ impl<'data> ModuleEnvironment<'data> {
         offset: usize,
         data: &'data [u8],
     ) -> WasmResult<()> {
-        self.data_initializers.push(DataInitializer {
-            location: DataInitializerLocation { memory_index, base, offset },
-            data,
-        });
+        self.data_initializers
+            .push(DataInitializer {
+                location: DataInitializerLocation { memory_index, base, offset },
+                data,
+            });
         Ok(())
     }
 
-    pub(crate) fn reserve_passive_data(&mut self, _count: u32) -> WasmResult<()> {
+    pub(crate) fn reserve_passive_data(
+        &mut self,
+        _count: u32,
+    ) -> WasmResult<()> {
         // TODO(0-copy): consider finding a more appropriate data structure for this?
         Ok(())
     }
@@ -355,7 +429,10 @@ impl<'data> ModuleEnvironment<'data> {
         data_index: DataIndex,
         data: &'data [u8],
     ) -> WasmResult<()> {
-        let old = self.module.passive_data.insert(data_index, Arc::from(data));
+        let old = self
+            .module
+            .passive_data
+            .insert(data_index, Arc::from(data));
         debug_assert!(
             old.is_none(),
             "a module can't have duplicate indices, this would be a near_vm-compiler bug"
@@ -363,7 +440,10 @@ impl<'data> ModuleEnvironment<'data> {
         Ok(())
     }
 
-    pub(crate) fn declare_module_name(&mut self, name: &'data str) -> WasmResult<()> {
+    pub(crate) fn declare_module_name(
+        &mut self,
+        name: &'data str,
+    ) -> WasmResult<()> {
         self.module.name = Some(name.to_string());
         Ok(())
     }
@@ -373,13 +453,18 @@ impl<'data> ModuleEnvironment<'data> {
         func_index: FunctionIndex,
         name: &'data str,
     ) -> WasmResult<()> {
-        self.module.function_names.insert(func_index, name.to_string());
+        self.module
+            .function_names
+            .insert(func_index, name.to_string());
         Ok(())
     }
 
     /// Provides the number of imports up front. By default this does nothing, but
     /// implementations can use this to preallocate memory if desired.
-    pub(crate) fn reserve_imports(&mut self, _num: u32) -> WasmResult<()> {
+    pub(crate) fn reserve_imports(
+        &mut self,
+        _num: u32,
+    ) -> WasmResult<()> {
         Ok(())
     }
 
@@ -389,12 +474,24 @@ impl<'data> ModuleEnvironment<'data> {
     }
 
     /// Indicates that a custom section has been found in the wasm file
-    pub(crate) fn custom_section(&mut self, name: &'data str, data: &'data [u8]) -> WasmResult<()> {
+    pub(crate) fn custom_section(
+        &mut self,
+        name: &'data str,
+        data: &'data [u8],
+    ) -> WasmResult<()> {
         let custom_section = CustomSectionIndex::from_u32(
-            self.module.custom_sections_data.len().try_into().unwrap(),
+            self.module
+                .custom_sections_data
+                .len()
+                .try_into()
+                .unwrap(),
         );
-        self.module.custom_sections.insert(String::from(name), custom_section);
-        self.module.custom_sections_data.push(Arc::from(data));
+        self.module
+            .custom_sections
+            .insert(String::from(name), custom_section);
+        self.module
+            .custom_sections_data
+            .push(Arc::from(data));
         Ok(())
     }
 }

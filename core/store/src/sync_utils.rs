@@ -28,17 +28,29 @@ impl<T> Monitor<T> {
     }
 
     pub fn lock(&self) -> MonitorReadGuard<'_, T> {
-        let guard = self.mutex.lock().expect(POISONED_LOCK_ERR);
+        let guard = self
+            .mutex
+            .lock()
+            .expect(POISONED_LOCK_ERR);
         MonitorReadGuard { guard }
     }
 
     pub fn lock_mut(&self) -> MonitorWriteGuard<'_, T> {
-        let guard = self.mutex.lock().expect(POISONED_LOCK_ERR);
+        let guard = self
+            .mutex
+            .lock()
+            .expect(POISONED_LOCK_ERR);
         MonitorWriteGuard { guard, cvar: &self.cvar }
     }
 
-    pub fn wait<'a>(&'a self, guard: MonitorReadGuard<'a, T>) -> MonitorReadGuard<'a, T> {
-        let guard = self.cvar.wait(guard.guard).expect(POISONED_LOCK_ERR);
+    pub fn wait<'a>(
+        &'a self,
+        guard: MonitorReadGuard<'a, T>,
+    ) -> MonitorReadGuard<'a, T> {
+        let guard = self
+            .cvar
+            .wait(guard.guard)
+            .expect(POISONED_LOCK_ERR);
         MonitorReadGuard { guard }
     }
 }

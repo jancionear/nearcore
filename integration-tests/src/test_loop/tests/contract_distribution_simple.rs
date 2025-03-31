@@ -28,7 +28,10 @@ const NUM_CHUNK_VALIDATORS_ONLY: usize = 1;
 const NUM_VALIDATORS: usize = NUM_BLOCK_AND_CHUNK_PRODUCERS + NUM_CHUNK_VALIDATORS_ONLY;
 
 /// Executes a test that deploys to a contract to an account and calls it.
-fn test_contract_distribution_single_account(wait_cache_populate: bool, clear_cache: bool) {
+fn test_contract_distribution_single_account(
+    wait_cache_populate: bool,
+    clear_cache: bool,
+) {
     init_test_logger();
     // We need 1 more non-validator account to create, deploy-contract, and delete.
     let accounts = make_accounts(NUM_VALIDATORS + 1);
@@ -94,7 +97,10 @@ fn test_contract_distribution_call_after_clear_single_account() {
 }
 
 /// Executes a test that deploys to a contract to two different accounts and calls them.
-fn test_contract_distribution_different_accounts(wait_cache_populate: bool, clear_cache: bool) {
+fn test_contract_distribution_different_accounts(
+    wait_cache_populate: bool,
+    clear_cache: bool,
+) {
     init_test_logger();
     // We need 2 more non-validator accounts to create, deploy-contract, and delete.
     let accounts = make_accounts(NUM_VALIDATORS + 2);
@@ -217,14 +223,19 @@ fn setup(accounts: &Vec<AccountId>) -> TestLoopEnv {
     let builder = TestLoopBuilder::new();
 
     // All block_and_chunk_producers will be both block and chunk validators.
-    let block_and_chunk_producers =
-        (0..NUM_BLOCK_AND_CHUNK_PRODUCERS).map(|idx| accounts[idx].as_str()).collect_vec();
+    let block_and_chunk_producers = (0..NUM_BLOCK_AND_CHUNK_PRODUCERS)
+        .map(|idx| accounts[idx].as_str())
+        .collect_vec();
     // These are the accounts that are only chunk validators, but not block/chunk producers.
     let chunk_validators_only = (NUM_BLOCK_AND_CHUNK_PRODUCERS..NUM_VALIDATORS)
         .map(|idx| accounts[idx].as_str())
         .collect_vec();
 
-    let clients = accounts.iter().take(NUM_VALIDATORS).cloned().collect_vec();
+    let clients = accounts
+        .iter()
+        .take(NUM_VALIDATORS)
+        .cloned()
+        .collect_vec();
 
     let shard_layout = ShardLayout::single_shard();
     let validators_spec =
@@ -239,14 +250,19 @@ fn setup(accounts: &Vec<AccountId>) -> TestLoopEnv {
             accounts: &accounts,
         },
         |genesis_builder| {
-            genesis_builder.genesis_height(GENESIS_HEIGHT).transaction_validity_period(1000)
+            genesis_builder
+                .genesis_height(GENESIS_HEIGHT)
+                .transaction_validity_period(1000)
         },
         |epoch_config_builder| {
             epoch_config_builder.shuffle_shard_assignment_for_chunk_producers(true)
         },
     );
 
-    let env =
-        builder.genesis(genesis).epoch_config_store(epoch_config_store).clients(clients).build();
+    let env = builder
+        .genesis(genesis)
+        .epoch_config_store(epoch_config_store)
+        .clients(clients)
+        .build();
     env
 }

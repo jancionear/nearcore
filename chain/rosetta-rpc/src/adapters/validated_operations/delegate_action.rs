@@ -45,10 +45,18 @@ impl TryFrom<crate::models::Operation> for DelegateActionOperation {
 
     fn try_from(operation: crate::models::Operation) -> Result<Self, Self::Error> {
         Self::validate_operation_type(operation.type_)?;
-        let metadata = operation.metadata.ok_or_else(required_fields_error)?;
-        let public_key = metadata.public_key.ok_or_else(required_fields_error)?;
-        let max_block_height = metadata.max_block_height.ok_or_else(required_fields_error)?;
-        let nonce = metadata.nonce.ok_or_else(required_fields_error)?;
+        let metadata = operation
+            .metadata
+            .ok_or_else(required_fields_error)?;
+        let public_key = metadata
+            .public_key
+            .ok_or_else(required_fields_error)?;
+        let max_block_height = metadata
+            .max_block_height
+            .ok_or_else(required_fields_error)?;
+        let nonce = metadata
+            .nonce
+            .ok_or_else(required_fields_error)?;
 
         Ok(Self { receiver_id: operation.account, public_key, max_block_height, nonce })
     }

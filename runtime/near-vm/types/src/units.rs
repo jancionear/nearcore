@@ -43,7 +43,10 @@ impl Pages {
 
     /// Checked addition. Computes `self + rhs`,
     /// returning `None` if overflow occurred.
-    pub fn checked_add(self, rhs: Self) -> Option<Self> {
+    pub fn checked_add(
+        self,
+        rhs: Self,
+    ) -> Option<Self> {
         let added = (self.0 as usize) + (rhs.0 as usize);
         if added <= (WASM_MAX_PAGES as usize) {
             Some(Self(added as u32))
@@ -59,7 +62,10 @@ impl Pages {
 }
 
 impl fmt::Debug for Pages {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter,
+    ) -> fmt::Result {
         write!(f, "{} pages", self.0)
     }
 }
@@ -75,7 +81,10 @@ impl From<u32> for Pages {
 pub struct Bytes(pub usize);
 
 impl fmt::Debug for Bytes {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter,
+    ) -> fmt::Result {
         write!(f, "{} bytes", self.0)
     }
 }
@@ -103,7 +112,10 @@ where
     T: Into<Self>,
 {
     type Output = Self;
-    fn sub(self, rhs: T) -> Self {
+    fn sub(
+        self,
+        rhs: T,
+    ) -> Self {
         Self(self.0 - rhs.into().0)
     }
 }
@@ -113,7 +125,10 @@ where
     T: Into<Self>,
 {
     type Output = Self;
-    fn add(self, rhs: T) -> Self {
+    fn add(
+        self,
+        rhs: T,
+    ) -> Self {
         Self(self.0 + rhs.into().0)
     }
 }
@@ -127,7 +142,9 @@ impl TryFrom<Bytes> for Pages {
     type Error = PageCountOutOfRange;
 
     fn try_from(bytes: Bytes) -> Result<Self, Self::Error> {
-        let pages: u32 = (bytes.0 / WASM_PAGE_SIZE).try_into().or(Err(PageCountOutOfRange))?;
+        let pages: u32 = (bytes.0 / WASM_PAGE_SIZE)
+            .try_into()
+            .or(Err(PageCountOutOfRange))?;
         Ok(Self(pages))
     }
 }
@@ -137,7 +154,10 @@ where
     T: Into<Self>,
 {
     type Output = Self;
-    fn sub(self, rhs: T) -> Self {
+    fn sub(
+        self,
+        rhs: T,
+    ) -> Self {
         Self(self.0 - rhs.into().0)
     }
 }
@@ -147,7 +167,10 @@ where
     T: Into<Self>,
 {
     type Output = Self;
-    fn add(self, rhs: T) -> Self {
+    fn add(
+        self,
+        rhs: T,
+    ) -> Self {
         Self(self.0 + rhs.into().0)
     }
 }

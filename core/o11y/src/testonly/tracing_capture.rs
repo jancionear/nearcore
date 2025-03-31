@@ -43,17 +43,26 @@ impl TracingCapture {
     /// The intended use-case is for testing multithreaded code: by *blocking*
     /// in the `on_log` for specific log-lines, the test can maneuver the
     /// threads into particularly interesting interleaving.
-    pub fn set_callback(&mut self, on_log: impl Fn(&str) + Send + Sync + 'static) {
+    pub fn set_callback(
+        &mut self,
+        on_log: impl Fn(&str) + Send + Sync + 'static,
+    ) {
         self.captured.lock().unwrap().on_log = Arc::new(on_log)
     }
 }
 
 impl tracing::Subscriber for Subscriber {
-    fn enabled(&self, _metadata: &tracing::Metadata<'_>) -> bool {
+    fn enabled(
+        &self,
+        _metadata: &tracing::Metadata<'_>,
+    ) -> bool {
         true
     }
 
-    fn new_span(&self, span: &tracing::span::Attributes<'_>) -> tracing::span::Id {
+    fn new_span(
+        &self,
+        span: &tracing::span::Attributes<'_>,
+    ) -> tracing::span::Id {
         let buf = span.metadata().name().to_string();
 
         let buf = {
@@ -72,16 +81,42 @@ impl tracing::Subscriber for Subscriber {
 
         tracing::span::Id::from_u64(guard.logs.len() as u64)
     }
-    fn record(&self, _span: &tracing::span::Id, _values: &tracing::span::Record<'_>) {}
-    fn record_follows_from(&self, _span: &tracing::span::Id, _follows: &tracing::span::Id) {}
-    fn event(&self, _event: &tracing::Event<'_>) {}
-    fn enter(&self, _span: &tracing::span::Id) {}
-    fn exit(&self, _span: &tracing::span::Id) {}
+    fn record(
+        &self,
+        _span: &tracing::span::Id,
+        _values: &tracing::span::Record<'_>,
+    ) {
+    }
+    fn record_follows_from(
+        &self,
+        _span: &tracing::span::Id,
+        _follows: &tracing::span::Id,
+    ) {
+    }
+    fn event(
+        &self,
+        _event: &tracing::Event<'_>,
+    ) {
+    }
+    fn enter(
+        &self,
+        _span: &tracing::span::Id,
+    ) {
+    }
+    fn exit(
+        &self,
+        _span: &tracing::span::Id,
+    ) {
+    }
 }
 
 struct AppendToString(String);
 impl tracing::field::Visit for AppendToString {
-    fn record_debug(&mut self, field: &tracing::field::Field, value: &dyn std::fmt::Debug) {
+    fn record_debug(
+        &mut self,
+        field: &tracing::field::Field,
+        value: &dyn std::fmt::Debug,
+    ) {
         let _ = write!(self.0, " {}={:?}", field.name(), value);
     }
 }

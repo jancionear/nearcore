@@ -30,42 +30,70 @@ pub fn distribute_remaining_bandwidth(
     let mut receiver_infos: ShardIndexMap<EndpointInfo> = ShardIndexMap::new(shard_layout);
 
     for shard_index in shard_layout.shard_indexes() {
-        let sender_budget = sender_budgets.get(&shard_index).copied().unwrap_or(0);
+        let sender_budget = sender_budgets
+            .get(&shard_index)
+            .copied()
+            .unwrap_or(0);
         sender_infos
             .insert(shard_index, EndpointInfo { links_num: 0, bandwidth_left: sender_budget });
 
-        let receiver_budget = receiver_budgets.get(&shard_index).copied().unwrap_or(0);
+        let receiver_budget = receiver_budgets
+            .get(&shard_index)
+            .copied()
+            .unwrap_or(0);
         receiver_infos
             .insert(shard_index, EndpointInfo { links_num: 0, bandwidth_left: receiver_budget });
     }
 
     for sender in shard_layout.shard_indexes() {
         for receiver in shard_layout.shard_indexes() {
-            if *is_link_allowed.get(&ShardLink::new(sender, receiver)).unwrap_or(&false) {
-                sender_infos.get_mut(&sender).unwrap().links_num += 1;
-                receiver_infos.get_mut(&receiver).unwrap().links_num += 1;
+            if *is_link_allowed
+                .get(&ShardLink::new(sender, receiver))
+                .unwrap_or(&false)
+            {
+                sender_infos
+                    .get_mut(&sender)
+                    .unwrap()
+                    .links_num += 1;
+                receiver_infos
+                    .get_mut(&receiver)
+                    .unwrap()
+                    .links_num += 1;
             }
         }
     }
 
     let mut senders_by_avg_link_bandwidth: Vec<ShardIndex> = shard_layout.shard_indexes().collect();
-    senders_by_avg_link_bandwidth
-        .sort_by_key(|shard| sender_infos.get(shard).unwrap().average_link_bandwidth());
+    senders_by_avg_link_bandwidth.sort_by_key(|shard| {
+        sender_infos
+            .get(shard)
+            .unwrap()
+            .average_link_bandwidth()
+    });
 
     let mut receivers_by_avg_link_bandwidth: Vec<ShardIndex> =
         shard_layout.shard_indexes().collect();
-    receivers_by_avg_link_bandwidth
-        .sort_by_key(|shard| receiver_infos.get(shard).unwrap().average_link_bandwidth());
+    receivers_by_avg_link_bandwidth.sort_by_key(|shard| {
+        receiver_infos
+            .get(shard)
+            .unwrap()
+            .average_link_bandwidth()
+    });
 
     let mut bandwidth_grants: ShardLinkMap<Bandwidth> = ShardLinkMap::new(shard_layout);
     for sender in senders_by_avg_link_bandwidth {
         let sender_info = sender_infos.get_mut(&sender).unwrap();
         for &receiver in &receivers_by_avg_link_bandwidth {
-            if !*is_link_allowed.get(&ShardLink::new(sender, receiver)).unwrap_or(&false) {
+            if !*is_link_allowed
+                .get(&ShardLink::new(sender, receiver))
+                .unwrap_or(&false)
+            {
                 continue;
             }
 
-            let receiver_info = receiver_infos.get_mut(&receiver).unwrap();
+            let receiver_info = receiver_infos
+                .get_mut(&receiver)
+                .unwrap();
 
             if sender_info.links_num == 0 || receiver_info.links_num == 0 {
                 break;
@@ -143,8 +171,8 @@ mod tests {
 
         let mut is_link_allowed_map = ShardLinkMap::new(&shard_layout);
         let default_allowed = match &allowed_links {
-            AllowedLinks::AllAllowed => true,
-            AllowedLinks::AllowedList(_) | AllowedLinks::NoneAllowed => false,
+            | AllowedLinks::AllAllowed => true,
+            | AllowedLinks::AllowedList(_) | AllowedLinks::NoneAllowed => false,
         };
         for sender_index in shard_layout.shard_indexes() {
             for receiver_index in shard_layout.shard_indexes() {
@@ -240,7 +268,15 @@ mod tests {
     fn test_two_to_one() {
         let allowed_links = AllowedLinks::AllowedList(vec![(1, 0), (1, 2), (0, 1), (2, 1)]);
         let granted = run_distribute_remaining(&[100, 100, 100], &[100, 100, 100], allowed_links);
-        assert_grants(&granted, &[(0, 1, 50), (1, 0, 50), (1, 2, 50), (2, 1, 50)]);
+        assert_grants(
+            &granted,
+            &[
+                (0, 1, 50),
+                (1, 0, 50),
+                (1, 2, 50),
+                (2, 1, 50),
+            ],
+        );
     }
 
     /// Three shards, two of them are fully congested.
@@ -251,7 +287,16 @@ mod tests {
     fn test_two_fully_congested() {
         let allowed_links = AllowedLinks::AllowedList(vec![(0, 0), (0, 1), (1, 0), (1, 2), (2, 0)]);
         let granted = run_distribute_remaining(&[300, 300, 300], &[300, 300, 300], allowed_links);
-        assert_grants(&granted, &[(0, 0, 100), (0, 1, 200), (1, 0, 100), (1, 2, 200), (2, 0, 100)]);
+        assert_grants(
+            &granted,
+            &[
+                (0, 0, 100),
+                (0, 1, 200),
+                (1, 0, 100),
+                (1, 2, 200),
+                (2, 0, 100),
+            ],
+        );
     }
 
     /// Run `distribute_remaining_bandwidth` on a random test scenario
@@ -282,10 +327,12 @@ mod tests {
                 rng.gen_range(0..1000)
             }
         }
-        let sender_budgets: Vec<Bandwidth> =
-            (0..num_shards).map(|_| generate_budget(&mut rng)).collect();
-        let receiver_budgets: Vec<Bandwidth> =
-            (0..num_shards).map(|_| generate_budget(&mut rng)).collect();
+        let sender_budgets: Vec<Bandwidth> = (0..num_shards)
+            .map(|_| generate_budget(&mut rng))
+            .collect();
+        let receiver_budgets: Vec<Bandwidth> = (0..num_shards)
+            .map(|_| generate_budget(&mut rng))
+            .collect();
         println!("sender_budgets: {:?}", sender_budgets);
         println!("receiver_budgets: {:?}", receiver_budgets);
 
@@ -337,7 +384,9 @@ mod tests {
         // Ensure that bandwidth is not granted on forbidden links
         for sender in 0..num_shards {
             for receiver in 0..num_shards {
-                let granted = *grants.get(&ShardLink::new(sender, receiver)).unwrap_or(&0);
+                let granted = *grants
+                    .get(&ShardLink::new(sender, receiver))
+                    .unwrap_or(&0);
 
                 if !active_links.contains(&(sender, receiver)) {
                     assert_eq!(granted, 0);

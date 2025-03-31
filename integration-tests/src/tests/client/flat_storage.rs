@@ -22,8 +22,14 @@ use nearcore::test_utils::TestEnvNightshadeSetupExt;
 const START_HEIGHT: BlockHeight = 7;
 
 /// Setup environment with one Near client for testing.
-fn setup_env(genesis: &Genesis, store: Store) -> TestEnv {
-    TestEnv::builder(&genesis.config).stores(vec![store]).nightshade_runtimes(genesis).build()
+fn setup_env(
+    genesis: &Genesis,
+    store: Store,
+) -> TestEnv {
+    TestEnv::builder(&genesis.config)
+        .stores(vec![store])
+        .nightshade_runtimes(genesis)
+        .build()
 }
 
 /// Tests the flat storage iterator. Running on a chain with 3 shards, and couple blocks produced.
@@ -31,7 +37,10 @@ fn setup_env(genesis: &Genesis, store: Store) -> TestEnv {
 fn test_flat_storage_iter() {
     init_test_logger();
     let num_shards = 3;
-    let boundary_accounts = vec!["test0".parse().unwrap(), "test1".parse().unwrap()];
+    let boundary_accounts = vec![
+        "test0".parse().unwrap(),
+        "test1".parse().unwrap(),
+    ];
     let shard_layout = ShardLayout::multi_shard_custom(boundary_accounts, 0);
 
     let genesis = Genesis::test_with_seeds(
@@ -63,7 +72,9 @@ fn test_flat_storage_iter() {
     };
 
     for shard_index in 0..3 {
-        let shard_id = shard_layout.get_shard_id(shard_index).unwrap();
+        let shard_id = shard_layout
+            .get_shard_id(shard_index)
+            .unwrap();
         let shard_uid = ShardUId::from_shard_id_and_layout(shard_id, &shard_layout);
         let items: Vec<_> = store.iter(shard_uid).collect();
 
@@ -109,7 +120,10 @@ fn test_not_supported_block() {
     init_test_logger();
     let genesis = Genesis::test(vec!["test0".parse().unwrap()], 1);
     let shard_layout = ShardLayout::single_shard();
-    let shard_uid = shard_layout.shard_uids().next().unwrap();
+    let shard_uid = shard_layout
+        .shard_uids()
+        .next()
+        .unwrap();
     let store = create_test_store();
 
     let mut env = setup_env(&genesis, store);
@@ -141,7 +155,10 @@ fn test_not_supported_block() {
     // head 1 block further and invalidates it.
     let mut get_ref_results = vec![];
     for height in flat_head_height..START_HEIGHT - 1 {
-        let block_hash = env.clients[0].chain.get_block_hash_by_height(height).unwrap();
+        let block_hash = env.clients[0]
+            .chain
+            .get_block_hash_by_height(height)
+            .unwrap();
         let state_root = *env.clients[0]
             .chain
             .get_chunk_extra(

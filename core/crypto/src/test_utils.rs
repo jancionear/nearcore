@@ -24,17 +24,25 @@ fn secp256k1_secret_key_from_seed(seed: &str) -> secp256k1::SecretKey {
 
 impl PublicKey {
     #[cfg(feature = "rand")]
-    pub fn from_seed(key_type: KeyType, seed: &str) -> Self {
+    pub fn from_seed(
+        key_type: KeyType,
+        seed: &str,
+    ) -> Self {
         match key_type {
-            KeyType::ED25519 => {
+            | KeyType::ED25519 => {
                 let keypair = ed25519_key_pair_from_seed(seed);
                 PublicKey::ED25519(crate::signature::ED25519PublicKey(
                     keypair.verifying_key().to_bytes(),
                 ))
             }
-            KeyType::SECP256K1 => {
+            | KeyType::SECP256K1 => {
                 let secret_key = SecretKey::SECP256K1(secp256k1_secret_key_from_seed(seed));
-                PublicKey::SECP256K1(secret_key.public_key().unwrap_as_secp256k1().clone())
+                PublicKey::SECP256K1(
+                    secret_key
+                        .public_key()
+                        .unwrap_as_secp256k1()
+                        .clone(),
+                )
             }
         }
     }
@@ -42,13 +50,16 @@ impl PublicKey {
 
 impl SecretKey {
     #[cfg(feature = "rand")]
-    pub fn from_seed(key_type: KeyType, seed: &str) -> Self {
+    pub fn from_seed(
+        key_type: KeyType,
+        seed: &str,
+    ) -> Self {
         match key_type {
-            KeyType::ED25519 => {
+            | KeyType::ED25519 => {
                 let keypair = ed25519_key_pair_from_seed(seed);
                 SecretKey::ED25519(crate::signature::ED25519SecretKey(keypair.to_keypair_bytes()))
             }
-            KeyType::SECP256K1 => SecretKey::SECP256K1(secp256k1_secret_key_from_seed(seed)),
+            | KeyType::SECP256K1 => SecretKey::SECP256K1(secp256k1_secret_key_from_seed(seed)),
         }
     }
 }
@@ -59,15 +70,18 @@ impl Signature {
     /// Empty signature that doesn't correspond to anything.
     pub fn empty(key_type: KeyType) -> Self {
         match key_type {
-            KeyType::ED25519 => Signature::ED25519(ed25519_dalek::Signature::from_bytes(&SIG)),
-            _ => unimplemented!(),
+            | KeyType::ED25519 => Signature::ED25519(ed25519_dalek::Signature::from_bytes(&SIG)),
+            | _ => unimplemented!(),
         }
     }
 }
 
 impl InMemorySigner {
     #[cfg(feature = "rand")]
-    pub fn from_random(account_id: near_account_id::AccountId, key_type: KeyType) -> Self {
+    pub fn from_random(
+        account_id: near_account_id::AccountId,
+        key_type: KeyType,
+    ) -> Self {
         let secret_key = SecretKey::from_random(key_type);
         Self { account_id, public_key: secret_key.public_key(), secret_key }
     }

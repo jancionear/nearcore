@@ -45,14 +45,20 @@ impl Test {
         heavy_test(move || run_actix(async move { self.run_impl(None) }))
     }
 
-    fn run_with_chunk_distribution_network(self, config: ChunkDistributionNetworkConfig) {
+    fn run_with_chunk_distribution_network(
+        self,
+        config: ChunkDistributionNetworkConfig,
+    ) {
         heavy_test(move || run_actix(async move { self.run_impl(Some(config)) }))
     }
 
     /// Runs block producing client and stops after network mock received seven blocks
     /// Confirms that the blocks form a chain (which implies the chunks are distributed).
     /// Confirms that the number of messages transmitting the chunks matches the expected number.
-    fn run_impl(self, chunk_distribution_config: Option<ChunkDistributionNetworkConfig>) {
+    fn run_impl(
+        self,
+        chunk_distribution_config: Option<ChunkDistributionNetworkConfig>,
+    ) {
         init_test_logger();
 
         let connectors: Arc<RwLock<Vec<ActorHandlesForTesting>>> = Arc::new(RwLock::new(vec![]));
@@ -90,8 +96,9 @@ impl Test {
             ]);
         }
         let archive = vec![false; vs.all_validators().count()];
-        let key_pairs =
-            (0..vs.all_validators().count()).map(|_| PeerInfo::random()).collect::<Vec<_>>();
+        let key_pairs = (0..vs.all_validators().count())
+            .map(|_| PeerInfo::random())
+            .collect::<Vec<_>>();
 
         let (conn, _) = setup_mock_all_validators(
             Clock::real(),
@@ -109,11 +116,14 @@ impl Test {
             Box::new(move |_, from_whom: AccountId, msg: &PeerManagerMessageRequest| {
                 let msg = msg.as_network_requests_ref();
                 match msg {
-                    NetworkRequests::PartialEncodedChunkMessage {
+                    | NetworkRequests::PartialEncodedChunkMessage {
                         account_id: to_whom,
                         partial_encoded_chunk: _,
                     } => {
-                        if self.test4_config.drop_messages_from.contains(&from_whom.as_str())
+                        if self
+                            .test4_config
+                            .drop_messages_from
+                            .contains(&from_whom.as_str())
                             && to_whom == "test4"
                         {
                             println!(
@@ -122,12 +132,17 @@ impl Test {
                             return (NetworkResponses::NoResponse.into(), false);
                         }
                     }
-                    NetworkRequests::PartialEncodedChunkForward { account_id: to_whom, .. } => {
+                    | NetworkRequests::PartialEncodedChunkForward {
+                        account_id: to_whom, ..
+                    } => {
                         if self.drop_all_chunk_forward_msgs {
                             println!("Dropping Partial Encoded Chunk Forward Message");
                             return (NetworkResponses::NoResponse.into(), false);
                         }
-                        if self.test4_config.drop_messages_from.contains(&from_whom.as_str())
+                        if self
+                            .test4_config
+                            .drop_messages_from
+                            .contains(&from_whom.as_str())
                             && to_whom == "test4"
                         {
                             println!(
@@ -136,31 +151,39 @@ impl Test {
                             return (NetworkResponses::NoResponse.into(), false);
                         }
                     }
-                    NetworkRequests::PartialEncodedChunkRequest {
+                    | NetworkRequests::PartialEncodedChunkRequest {
                         target: AccountIdOrPeerTrackingShard { account_id: Some(to_whom), .. },
                         ..
                     } => {
-                        if self.test4_config.drop_messages_from.contains(&to_whom.as_str())
+                        if self
+                            .test4_config
+                            .drop_messages_from
+                            .contains(&to_whom.as_str())
                             && from_whom == "test4"
                         {
                             info!("Dropping Partial Encoded Chunk Request from test4 to {to_whom}");
                             return (NetworkResponses::NoResponse.into(), false);
                         }
-                        if !self.test4_config.drop_messages_from.is_empty()
+                        if !self
+                            .test4_config
+                            .drop_messages_from
+                            .is_empty()
                             && from_whom == "test4"
                             && to_whom == "test2"
                         {
                             info!("Observed Partial Encoded Chunk Request from test4 to test2");
                         }
                     }
-                    _ => {}
+                    | _ => {}
                 };
                 (NetworkResponses::NoResponse.into(), true)
             }),
         );
         *connectors.write().unwrap() = conn;
 
-        let view_client = connectors.write().unwrap()[0].view_client_actor.clone();
+        let view_client = connectors.write().unwrap()[0]
+            .view_client_actor
+            .clone();
         let view_client_loop = view_client.clone();
 
         let actor = view_client.send(GetBlock::latest().with_span_context());
@@ -286,13 +309,20 @@ impl Test {
                 }
 
                 if block_producer == "test4" {
-                    if !self.test4_config.drop_messages_from.is_empty() {
+                    if !self
+                        .test4_config
+                        .drop_messages_from
+                        .is_empty()
+                    {
                         // If messages to test4 are dropped, on block production it
                         // generally will receive block approvals significantly later
                         // than chunks, so some chunks may end up missing.
                         if self.test4_config.assert_missed_chunk {
                             assert!(
-                                block.chunks.iter().any(|c| c.height_created != h),
+                                block
+                                    .chunks
+                                    .iter()
+                                    .any(|c| c.height_created != h),
                                 "All chunks are present"
                             );
                             found_test4_missed_chunk = true;

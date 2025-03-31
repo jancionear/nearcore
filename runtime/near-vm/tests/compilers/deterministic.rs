@@ -6,15 +6,21 @@ use near_vm_test_api::{wat2wasm, BaseTunables};
 fn compile_and_compare(wasm: &[u8]) -> Result<()> {
     let compiler = Singlepass::default();
     let pool = MemoryPool::new(1, 0x10000).unwrap();
-    let engine = Universal::new(compiler).code_memory_pool(pool).engine();
+    let engine = Universal::new(compiler)
+        .code_memory_pool(pool)
+        .engine();
     let tunables = BaseTunables::for_target(engine.target());
 
     // compile for first time
-    let executable = engine.compile_universal(wasm, &tunables).unwrap();
+    let executable = engine
+        .compile_universal(wasm, &tunables)
+        .unwrap();
     let serialized1 = executable.serialize().unwrap();
 
     // compile for second time
-    let executable = engine.compile_universal(wasm, &tunables).unwrap();
+    let executable = engine
+        .compile_universal(wasm, &tunables)
+        .unwrap();
     let serialized2 = executable.serialize().unwrap();
 
     assert_eq!(serialized1, serialized2);

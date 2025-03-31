@@ -40,7 +40,10 @@ struct AccountRecords {
 }
 
 // set the total balance to what's in src, keeping the locked amount the same
-fn set_total_balance(dst: &mut Account, src: &Account) {
+fn set_total_balance(
+    dst: &mut Account,
+    src: &Account,
+) {
     let total = src.amount() + src.locked();
     if total > dst.locked() {
         dst.set_amount(total - dst.locked());
@@ -59,7 +62,10 @@ impl AccountRecords {
         ret
     }
 
-    fn new_validator(stake: Balance, num_bytes_account: u64) -> Self {
+    fn new_validator(
+        stake: Balance,
+        num_bytes_account: u64,
+    ) -> Self {
         let mut ret = Self::default();
         ret.set_account(0, stake, 0, num_bytes_account);
         ret.amount_needed = true;
@@ -85,9 +91,12 @@ impl AccountRecords {
         self.account = Some(account);
     }
 
-    fn update_from_existing(&mut self, existing: &Account) {
+    fn update_from_existing(
+        &mut self,
+        existing: &Account,
+    ) {
         match &mut self.account {
-            Some(account) => {
+            | Some(account) => {
                 // an account added in extra_records (or one of the validators) also exists in the original
                 // records. Set the storage usage to reflect whatever's in the original records, and at the
                 // end we will add to the storage usage with any extra keys added for this account
@@ -97,7 +106,7 @@ impl AccountRecords {
                     set_total_balance(account, existing);
                 }
             }
-            None => {
+            | None => {
                 let mut account = existing.clone();
                 account.set_amount(account.amount() + account.locked());
                 account.set_locked(0);
@@ -107,7 +116,10 @@ impl AccountRecords {
         self.amount_needed = false;
     }
 
-    fn push_extra_record(&mut self, record: StateRecord) {
+    fn push_extra_record(
+        &mut self,
+        record: StateRecord,
+    ) {
         self.extra_records.push(record);
     }
 
@@ -122,7 +134,7 @@ impl AccountRecords {
         <S as SerializeSeq>::Error: Send + Sync + 'static,
     {
         match self.account {
-            Some(mut account) => {
+            | Some(mut account) => {
                 for (public_key, access_key) in self.keys {
                     let storage_usage = account.storage_usage()
                         + public_key.len() as u64
@@ -145,7 +157,7 @@ impl AccountRecords {
                     seq.serialize_element(record)?;
                 }
             }
-            None => {
+            | None => {
                 tracing::warn!("access keys for {} were included in --extra-records, but no Account record was found. Not adding them to the output", &account_id);
             }
         }
@@ -160,8 +172,12 @@ fn validator_records(
     let mut records = HashMap::new();
     for AccountInfo { account_id, public_key, amount } in validators.iter() {
         let mut r = AccountRecords::new_validator(*amount, num_bytes_account);
-        r.keys.insert(public_key.clone(), AccessKey::full_access());
-        if records.insert(account_id.clone(), r).is_some() {
+        r.keys
+            .insert(public_key.clone(), AccessKey::full_access());
+        if records
+            .insert(account_id.clone(), r)
+            .is_some()
+        {
             anyhow::bail!("validator {} specified twice", account_id);
         }
     }
@@ -189,14 +205,14 @@ fn parse_extra_records(
     let mut result = Ok(());
     near_chain_configs::stream_records_from_file(reader, |r| {
         match r {
-            StateRecord::Account { account_id, account } => {
+            | StateRecord::Account { account_id, account } => {
                 if account.code_hash() != CryptoHash::default() {
                     result = Err(anyhow::anyhow!(
                         "FIXME: accounts in --extra-records with code_hash set not supported"
                     ));
                 }
                 match records.entry(account_id.clone()) {
-                    hash_map::Entry::Vacant(e) => {
+                    | hash_map::Entry::Vacant(e) => {
                         let r = AccountRecords::new(
                             account.amount(),
                             account.locked(),
@@ -205,7 +221,7 @@ fn parse_extra_records(
                         );
                         e.insert(r);
                     }
-                    hash_map::Entry::Occupied(mut e) => {
+                    | hash_map::Entry::Occupied(mut e) => {
                         let r = e.get_mut();
 
                         if r.account.is_some() {
@@ -223,10 +239,14 @@ fn parse_extra_records(
                     }
                 }
             }
-            StateRecord::AccessKey { account_id, public_key, access_key } => {
-                records.entry(account_id).or_default().keys.insert(public_key, access_key);
+            | StateRecord::AccessKey { account_id, public_key, access_key } => {
+                records
+                    .entry(account_id)
+                    .or_default()
+                    .keys
+                    .insert(public_key, access_key);
             }
-            _ => {
+            | _ => {
                 result = Err(anyhow::anyhow!(
                     "FIXME: only Account and AccessKey records are supported in --extra-records"
                 ));
@@ -250,16 +270,24 @@ fn wanted_records(
 
         for (account_id, account_records) in extra {
             match records.entry(account_id) {
-                hash_map::Entry::Occupied(mut e) => {
+                | hash_map::Entry::Occupied(mut e) => {
                     let validator_records = e.get_mut();
 
                     if let Some(account) = &account_records.account {
-                        set_total_balance(validator_records.account.as_mut().unwrap(), account);
+                        set_total_balance(
+                            validator_records
+                                .account
+                                .as_mut()
+                                .unwrap(),
+                            account,
+                        );
                         validator_records.amount_needed = false;
                     }
-                    validator_records.keys.extend(account_records.keys);
+                    validator_records
+                        .keys
+                        .extend(account_records.keys);
                 }
-                hash_map::Entry::Vacant(e) => {
+                | hash_map::Entry::Vacant(e) => {
                     e.insert(account_records);
                 }
             }
@@ -327,15 +355,17 @@ pub fn amend_genesis(
 
     near_chain_configs::stream_records_from_file(reader, |mut r| {
         match &mut r {
-            StateRecord::AccessKey { account_id, public_key, access_key } => {
+            | StateRecord::AccessKey { account_id, public_key, access_key } => {
                 if let Some(a) = wanted.get_mut(account_id) {
                     if let Some(a) = a.keys.remove(public_key) {
                         *access_key = a;
                     }
                 }
-                records_seq.serialize_element(&r).unwrap();
+                records_seq
+                    .serialize_element(&r)
+                    .unwrap();
             }
-            StateRecord::Account { account_id, account } => {
+            | StateRecord::Account { account_id, account } => {
                 if let Some(acc) = wanted.get_mut(account_id) {
                     acc.update_from_existing(account);
                 } else {
@@ -344,18 +374,24 @@ pub fn amend_genesis(
                         account.set_locked(0);
                     }
                     total_supply += account.amount() + account.locked();
-                    records_seq.serialize_element(&r).unwrap();
+                    records_seq
+                        .serialize_element(&r)
+                        .unwrap();
                 }
             }
-            StateRecord::Contract { account_id, .. } => {
+            | StateRecord::Contract { account_id, .. } => {
                 if let Some(records) = wanted.get_mut(account_id) {
                     records.push_extra_record(r);
                 } else {
-                    records_seq.serialize_element(&r).unwrap();
+                    records_seq
+                        .serialize_element(&r)
+                        .unwrap();
                 }
             }
-            _ => {
-                records_seq.serialize_element(&r).unwrap();
+            | _ => {
+                records_seq
+                    .serialize_element(&r)
+                    .unwrap();
             }
         };
     })?;
@@ -378,15 +414,31 @@ pub fn amend_genesis(
     // here we have already checked that there are no duplicate validators in wanted_records()
     genesis.config.validators = validators;
     if let Some(chain_id) = &genesis_changes.chain_id {
-        genesis.config.chain_id.clone_from(&chain_id);
+        genesis
+            .config
+            .chain_id
+            .clone_from(&chain_id);
     }
     if let Some(shard_layout) = shard_layout {
         genesis.config.shard_layout = shard_layout;
     }
-    genesis.config.avg_hidden_validator_seats_per_shard =
-        genesis.config.shard_layout.shard_ids().into_iter().map(|_| 0).collect();
-    genesis.config.num_block_producer_seats_per_shard = utils::get_num_seats_per_shard(
-        genesis.config.shard_layout.shard_ids().count() as NumShards,
+    genesis
+        .config
+        .avg_hidden_validator_seats_per_shard = genesis
+        .config
+        .shard_layout
+        .shard_ids()
+        .into_iter()
+        .map(|_| 0)
+        .collect();
+    genesis
+        .config
+        .num_block_producer_seats_per_shard = utils::get_num_seats_per_shard(
+        genesis
+            .config
+            .shard_layout
+            .shard_ids()
+            .count() as NumShards,
         genesis.config.num_block_producer_seats,
     );
     if let Some(v) = genesis_changes.protocol_version {
@@ -396,7 +448,9 @@ pub fn amend_genesis(
         genesis.config.epoch_length = l;
     }
     if let Some(t) = genesis_changes.transaction_validity_period {
-        genesis.config.transaction_validity_period = t;
+        genesis
+            .config
+            .transaction_validity_period = t;
     }
     if let Some(r) = genesis_changes.protocol_reward_rate {
         genesis.config.protocol_reward_rate = r;
@@ -405,13 +459,19 @@ pub fn amend_genesis(
         genesis.config.max_inflation_rate = r;
     }
     if let Some(t) = genesis_changes.block_producer_kickout_threshold {
-        genesis.config.block_producer_kickout_threshold = t;
+        genesis
+            .config
+            .block_producer_kickout_threshold = t;
     }
     if let Some(t) = genesis_changes.chunk_producer_kickout_threshold {
-        genesis.config.chunk_producer_kickout_threshold = t;
+        genesis
+            .config
+            .chunk_producer_kickout_threshold = t;
     }
     if let Some(t) = genesis_changes.chunk_validator_only_kickout_threshold {
-        genesis.config.chunk_validator_only_kickout_threshold = t;
+        genesis
+            .config
+            .chunk_validator_only_kickout_threshold = t;
     }
     if let Some(l) = genesis_changes.gas_limit {
         genesis.config.gas_limit = l;
@@ -482,7 +542,7 @@ mod test {
     impl TestStateRecord {
         fn parse(&self) -> StateRecord {
             match &self {
-                Self::Account { account_id, amount, locked, storage_usage } => {
+                | Self::Account { account_id, amount, locked, storage_usage } => {
                     // `permanent_storage_bytes` can be implemented if this is required in state records.
                     let permanent_storage_bytes = 0;
                     let account = Account::new(
@@ -495,12 +555,12 @@ mod test {
                     );
                     StateRecord::Account { account_id: account_id.parse().unwrap(), account }
                 }
-                Self::AccessKey { account_id, public_key } => StateRecord::AccessKey {
+                | Self::AccessKey { account_id, public_key } => StateRecord::AccessKey {
                     account_id: account_id.parse().unwrap(),
                     public_key: public_key.parse().unwrap(),
                     access_key: AccessKey::full_access(),
                 },
-                Self::Contract { account_id } => StateRecord::Contract {
+                | Self::Contract { account_id } => StateRecord::Contract {
                     account_id: account_id.parse().unwrap(),
                     code: vec![123],
                 },
@@ -543,7 +603,7 @@ mod test {
 
         for r in got_records {
             match r {
-                StateRecord::Account { account_id, account } => {
+                | StateRecord::Account { account_id, account } => {
                     if got_accounts
                         .insert(
                             account_id.clone(),
@@ -559,7 +619,7 @@ mod test {
                         anyhow::bail!("two account records in the output for {}", &account_id);
                     }
                 }
-                StateRecord::AccessKey { account_id, public_key, access_key } => {
+                | StateRecord::AccessKey { account_id, public_key, access_key } => {
                     if !got_keys.insert((account_id.clone(), public_key.clone(), access_key)) {
                         anyhow::bail!(
                             "two access key records in the output for {}, {}",
@@ -568,21 +628,23 @@ mod test {
                         );
                     }
                 }
-                StateRecord::Contract { account_id, .. } => {
+                | StateRecord::Contract { account_id, .. } => {
                     if !got_accounts.contains_key(&account_id) {
                         anyhow::bail!(
                             "account {} has a code state record before the account state record",
                             &account_id
                         );
                     }
-                    *got_contracts.entry(account_id).or_default() += 1;
+                    *got_contracts
+                        .entry(account_id)
+                        .or_default() += 1;
                 }
-                _ => anyhow::bail!("got an unexpected record in the output: {}", r),
+                | _ => anyhow::bail!("got an unexpected record in the output: {}", r),
             };
         }
         for r in wanted_records {
             match r {
-                StateRecord::Account { account_id, account } => {
+                | StateRecord::Account { account_id, account } => {
                     wanted_accounts.insert(
                         account_id,
                         (
@@ -593,13 +655,15 @@ mod test {
                         ),
                     );
                 }
-                StateRecord::AccessKey { account_id, public_key, access_key } => {
+                | StateRecord::AccessKey { account_id, public_key, access_key } => {
                     wanted_keys.insert((account_id, public_key, access_key));
                 }
-                StateRecord::Contract { account_id, .. } => {
-                    *wanted_contracts.entry(account_id).or_default() += 1;
+                | StateRecord::Contract { account_id, .. } => {
+                    *wanted_contracts
+                        .entry(account_id)
+                        .or_default() += 1;
                 }
-                _ => anyhow::bail!("got an unexpected record in the output: {}", r),
+                | _ => anyhow::bail!("got an unexpected record in the output: {}", r),
             };
         }
 
@@ -611,15 +675,27 @@ mod test {
 
     impl TestCase {
         fn parse(&self) -> anyhow::Result<ParsedTestCase> {
-            let initial_validators = self.initial_validators.iter().map(|v| v.parse()).collect();
-            let records_in: Vec<_> = self.records_in.iter().map(|r| r.parse()).collect();
+            let initial_validators = self
+                .initial_validators
+                .iter()
+                .map(|v| v.parse())
+                .collect();
+            let records_in: Vec<_> = self
+                .records_in
+                .iter()
+                .map(|r| r.parse())
+                .collect();
 
             let num_shards = 4;
             let shard_layout = ShardLayout::multi_shard(num_shards, 3);
 
             let genesis_config = GenesisConfig {
                 protocol_version: PROTOCOL_VERSION,
-                genesis_time: from_timestamp(Clock::real().now_utc().unix_timestamp_nanos() as u64),
+                genesis_time: from_timestamp(
+                    Clock::real()
+                        .now_utc()
+                        .unix_timestamp_nanos() as u64,
+                ),
                 chain_id: "rusttestnet".to_string(),
                 genesis_height: 0,
                 num_block_producer_seats: near_chain_configs::NUM_BLOCK_PRODUCER_SEATS,
@@ -667,9 +743,21 @@ mod test {
             Ok(ParsedTestCase {
                 genesis,
                 records_file_in,
-                validators_in: self.validators_in.iter().map(|v| v.parse()).collect(),
-                extra_records: self.extra_records.iter().map(|r| r.parse()).collect(),
-                wanted_records: self.wanted_records.iter().map(|r| r.parse()).collect(),
+                validators_in: self
+                    .validators_in
+                    .iter()
+                    .map(|v| v.parse())
+                    .collect(),
+                extra_records: self
+                    .extra_records
+                    .iter()
+                    .map(|r| r.parse())
+                    .collect(),
+                wanted_records: self
+                    .wanted_records
+                    .iter()
+                    .map(|r| r.parse())
+                    .collect(),
             })
         }
 

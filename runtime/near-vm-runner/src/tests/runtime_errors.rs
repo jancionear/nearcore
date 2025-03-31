@@ -119,7 +119,10 @@ fn test_export_not_found() {
 
 #[test]
 fn test_empty_method() {
-    test_builder().wat(SIMPLE_CONTRACT).method("").expect(&expect![[r#"
+    test_builder()
+        .wat(SIMPLE_CONTRACT)
+        .method("")
+        .expect(&expect![[r#"
         VMOutcome: balance 4 storage_usage 12 return data None burnt gas 0 used gas 0
         Err: MethodEmptyName
     "#]]);
@@ -205,7 +208,12 @@ fn test_div_by_zero_contract() {
 
 #[test]
 fn test_float_to_int_contract() {
-    for op in ["i32.trunc_f64_s", "i32.trunc_f64_u", "i64.trunc_f64_s", "i64.trunc_f64_u"] {
+    for op in [
+        "i32.trunc_f64_s",
+        "i32.trunc_f64_u",
+        "i64.trunc_f64_s",
+        "i64.trunc_f64_u",
+    ] {
         test_builder()
             .wat(&format!(
                 r#"
@@ -583,7 +591,10 @@ fn test_bad_import_3() {
 
 #[test]
 fn test_bad_import_4() {
-    test_builder().wasm(&bad_import_func("env")).opaque_error().expect(&expect![[r#"
+    test_builder()
+        .wasm(&bad_import_func("env"))
+        .opaque_error()
+        .expect(&expect![[r#"
         VMOutcome: balance 4 storage_usage 12 return data None burnt gas 97535778 used gas 97535778
         Err: ...
     "#]]);
@@ -654,7 +665,10 @@ fn test_external_call_ok() {
 
 #[test]
 fn test_external_call_error() {
-    test_builder().wat(EXTERNAL_CALL_CONTRACT).gas(100).expect(&expect![[r#"
+    test_builder()
+        .wat(EXTERNAL_CALL_CONTRACT)
+        .gas(100)
+        .expect(&expect![[r#"
         VMOutcome: balance 4 storage_usage 12 return data None burnt gas 100 used gas 100
         Err: Exceeded the prepaid gas.
     "#]]);
@@ -803,12 +817,14 @@ fn test_nan_sign() {
 // even load a contract.
 #[test]
 fn test_gas_exceed_loading() {
-    test_builder().wat(SIMPLE_CONTRACT).method("non_empty_non_existing").gas(1).expect(&expect![[
-        r#"
+    test_builder()
+        .wat(SIMPLE_CONTRACT)
+        .method("non_empty_non_existing")
+        .gas(1)
+        .expect(&expect![[r#"
             VMOutcome: balance 4 storage_usage 12 return data None burnt gas 1 used gas 1
             Err: Exceeded the prepaid gas.
-        "#
-    ]]);
+        "#]]);
 }
 
 // Call the "gas" host function with unreasonably large values, trying to force
@@ -902,11 +918,18 @@ mod fix_contract_loading_cost_protocol_upgrade {
             Err: Exceeded the prepaid gas.
         "#]];
         let test_after = test_builder().wat(ALMOST_TRIVIAL_CONTRACT);
-        let cfg_costs = &test_after.configs().next().unwrap().wasm_config.ext_costs;
+        let cfg_costs = &test_after
+            .configs()
+            .next()
+            .unwrap()
+            .wasm_config
+            .ext_costs;
         let loading_base = cfg_costs.gas_cost(ExtCosts::contract_loading_base);
         let loading_byte = cfg_costs.gas_cost(ExtCosts::contract_loading_bytes);
         let wasm_length = test_after.get_wasm().len();
-        test_after.gas(loading_base + wasm_length as u64 * loading_byte).expect(&expect);
+        test_after
+            .gas(loading_base + wasm_length as u64 * loading_byte)
+            .expect(&expect);
         test_builder()
             .wat(ALMOST_TRIVIAL_CONTRACT)
             .only_protocol_versions(vec![FIX_CONTRACT_LOADING_COST - 1])
@@ -923,12 +946,19 @@ mod fix_contract_loading_cost_protocol_upgrade {
             Err: Exceeded the prepaid gas.
         "#]];
         let test_after = test_builder().wat(ALMOST_TRIVIAL_CONTRACT);
-        let cfg_costs = &test_after.configs().next().unwrap().wasm_config.ext_costs;
+        let cfg_costs = &test_after
+            .configs()
+            .next()
+            .unwrap()
+            .wasm_config
+            .ext_costs;
         let loading_base = cfg_costs.gas_cost(ExtCosts::contract_loading_base);
         let loading_byte = cfg_costs.gas_cost(ExtCosts::contract_loading_bytes);
         let wasm_length = test_after.get_wasm().len();
         let prepaid_gas = loading_base + wasm_length as u64 * loading_byte + 884037;
-        test_after.gas(prepaid_gas).expect(&expect);
+        test_after
+            .gas(prepaid_gas)
+            .expect(&expect);
         test_builder()
             .wat(ALMOST_TRIVIAL_CONTRACT)
             .only_protocol_versions(vec![FIX_CONTRACT_LOADING_COST - 1])
@@ -1034,8 +1064,18 @@ mod fix_contract_loading_cost_protocol_upgrade {
 fn test_regression_9393() {
     let before_builder = test_builder().only_protocol_versions(vec![62]);
     let after_builder = test_builder().only_protocol_versions(vec![63]);
-    let before_cost = before_builder.configs().next().unwrap().wasm_config.regular_op_cost;
-    let after_cost = after_builder.configs().next().unwrap().wasm_config.regular_op_cost;
+    let before_cost = before_builder
+        .configs()
+        .next()
+        .unwrap()
+        .wasm_config
+        .regular_op_cost;
+    let after_cost = after_builder
+        .configs()
+        .next()
+        .unwrap()
+        .wasm_config
+        .regular_op_cost;
     assert_eq!(
         before_cost, after_cost,
         "this test is not set up to test with different insn costs"

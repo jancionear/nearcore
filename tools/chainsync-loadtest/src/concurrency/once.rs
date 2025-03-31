@@ -25,7 +25,10 @@ impl<T: Clone + Send + Sync> Once<T> {
 
     // set() sets the value of Once to x.
     // Returns x back to the caller, in case Once has already been set.
-    pub fn set(&self, x: T) -> Result<(), T> {
+    pub fn set(
+        &self,
+        x: T,
+    ) -> Result<(), T> {
         let mut v = self.value.write();
         if v.is_some() {
             return Err(x);

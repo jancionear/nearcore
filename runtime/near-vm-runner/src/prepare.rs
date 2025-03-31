@@ -24,7 +24,9 @@ pub fn prepare_contract(
     config: &Config,
     kind: VMKind,
 ) -> Result<Vec<u8>, PrepareError> {
-    let prepare = config.limit_config.contract_prepare_version;
+    let prepare = config
+        .limit_config
+        .contract_prepare_version;
     // NearVM => ContractPrepareVersion::V2
     assert!(
         (kind != VMKind::NearVm) || (prepare == crate::logic::ContractPrepareVersion::V2),
@@ -32,16 +34,16 @@ pub fn prepare_contract(
     );
     let features = crate::features::WasmFeatures::from(prepare);
     match prepare {
-        crate::logic::ContractPrepareVersion::V0 => {
+        | crate::logic::ContractPrepareVersion::V0 => {
             // NB: v1 here is not a bug, we are reusing the code.
             prepare_v1::validate_contract(original_code, features, config)?;
             prepare_v0::prepare_contract(original_code, config)
         }
-        crate::logic::ContractPrepareVersion::V1 => {
+        | crate::logic::ContractPrepareVersion::V1 => {
             prepare_v1::validate_contract(original_code, features, config)?;
             prepare_v1::prepare_contract(original_code, config)
         }
-        crate::logic::ContractPrepareVersion::V2 => {
+        | crate::logic::ContractPrepareVersion::V2 => {
             prepare_v2::prepare_contract(original_code, features, config, kind)
         }
     }

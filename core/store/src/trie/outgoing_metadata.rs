@@ -63,8 +63,10 @@ impl OutgoingMetadatas {
         receipt_gas: Gas,
         state_update: &mut TrieUpdate,
     ) -> Result<(), StorageError> {
-        let metadata =
-            self.metadatas.entry(shard_id).or_insert_with(|| ReceiptGroupsQueue::new(shard_id));
+        let metadata = self
+            .metadatas
+            .entry(shard_id)
+            .or_insert_with(|| ReceiptGroupsQueue::new(shard_id));
         metadata.update_on_receipt_pushed(
             receipt_size,
             receipt_gas,
@@ -90,7 +92,10 @@ impl OutgoingMetadatas {
     }
 
     /// Get metadata for the outgoing buffer to this shard.
-    pub fn get_metadata_for_shard(&self, shard_id: &ShardId) -> Option<&ReceiptGroupsQueue> {
+    pub fn get_metadata_for_shard(
+        &self,
+        shard_id: &ShardId,
+    ) -> Option<&ReceiptGroupsQueue> {
         self.metadatas.get(shard_id)
     }
 }
@@ -114,33 +119,36 @@ pub struct ReceiptGroupV0 {
 
 impl ReceiptGroup {
     /// Create a new group which will contain one receipt with this size and gas.
-    pub fn new(receipt_size: ByteSize, receipt_gas: Gas) -> ReceiptGroup {
+    pub fn new(
+        receipt_size: ByteSize,
+        receipt_gas: Gas,
+    ) -> ReceiptGroup {
         ReceiptGroup::V0(ReceiptGroupV0 { size: receipt_size.as_u64(), gas: receipt_gas.into() })
     }
 
     /// Total size of receipts in this group.
     pub fn size(&self) -> u64 {
         match self {
-            ReceiptGroup::V0(group) => group.size,
+            | ReceiptGroup::V0(group) => group.size,
         }
     }
 
     pub fn size_mut(&mut self) -> &mut u64 {
         match self {
-            ReceiptGroup::V0(group) => &mut group.size,
+            | ReceiptGroup::V0(group) => &mut group.size,
         }
     }
 
     /// Total gas of receipts in this group.
     pub fn gas(&self) -> u128 {
         match self {
-            ReceiptGroup::V0(group) => group.gas,
+            | ReceiptGroup::V0(group) => group.gas,
         }
     }
 
     pub fn gas_mut(&mut self) -> &mut u128 {
         match self {
-            ReceiptGroup::V0(group) => &mut group.gas,
+            | ReceiptGroup::V0(group) => &mut group.gas,
         }
     }
 
@@ -261,12 +269,15 @@ impl ReceiptGroupsQueue {
             &TrieKey::BufferedReceiptGroupsQueueData { receiving_shard: receiver_shard },
         )?;
         let data_v0_opt = data_opt.map(|data_enum| match data_enum {
-            ReceiptGroupsQueueData::V0(data_v0) => data_v0,
+            | ReceiptGroupsQueueData::V0(data_v0) => data_v0,
         });
         Ok(data_v0_opt)
     }
 
-    fn save_data(&self, state_update: &mut TrieUpdate) {
+    fn save_data(
+        &self,
+        state_update: &mut TrieUpdate,
+    ) {
         let data_enum = ReceiptGroupsQueueData::V0(self.data.clone());
         set(
             state_update,
@@ -292,21 +303,23 @@ impl ReceiptGroupsQueue {
 
         // Take out the last group from the queue and inspect it.
         match self.pop_back(state_update)? {
-            Some(mut last_group) => {
+            | Some(mut last_group) => {
                 if groups_config.should_start_new_group(&last_group, receipt_size, receipt_gas) {
                     // Adding the new receipt to the last group would make the group too large.
                     // Start a new group for the receipt.
-                    self.push_back(state_update, &last_group).expect("Integer overflow on push");
+                    self.push_back(state_update, &last_group)
+                        .expect("Integer overflow on push");
                     self.push_back(state_update, &ReceiptGroup::new(receipt_size, receipt_gas))
                         .expect("Integer overflow on push");
                 } else {
                     // It's okay to add the new receipt to the last group, do it.
                     add_size_checked(last_group.size_mut(), receipt_size);
                     add_gas_checked(last_group.gas_mut(), receipt_gas);
-                    self.push_back(state_update, &last_group).expect("Integer overflow on push");
+                    self.push_back(state_update, &last_group)
+                        .expect("Integer overflow on push");
                 }
             }
-            None => {
+            | None => {
                 // No groups in the queue, start a new group which contains the new receipt.
                 self.push_back(state_update, &ReceiptGroup::new(receipt_size, receipt_gas))
                     .expect("Integer overflow on push");
@@ -352,7 +365,8 @@ impl ReceiptGroupsQueue {
         trie: &'a dyn TrieAccess,
         side_effects: bool,
     ) -> impl Iterator<Item = Result<u64, StorageError>> + 'a {
-        self.iter(trie, side_effects).map(|group_res| group_res.map(|group| group.size()))
+        self.iter(trie, side_effects)
+            .map(|group_res| group_res.map(|group| group.size()))
     }
 
     /// Total size of all receipts in the queue.
@@ -374,8 +388,13 @@ impl ReceiptGroupsQueue {
 impl TrieQueue for ReceiptGroupsQueue {
     type Item<'a> = ReceiptGroup;
 
-    fn load_indices(&self, trie: &dyn TrieAccess) -> Result<TrieQueueIndices, StorageError> {
-        Ok(Self::load_data(trie, self.receiver_shard)?.unwrap_or_default().indices)
+    fn load_indices(
+        &self,
+        trie: &dyn TrieAccess,
+    ) -> Result<TrieQueueIndices, StorageError> {
+        Ok(Self::load_data(trie, self.receiver_shard)?
+            .unwrap_or_default()
+            .indices)
     }
 
     fn indices(&self) -> TrieQueueIndices {
@@ -386,36 +405,55 @@ impl TrieQueue for ReceiptGroupsQueue {
         &mut self.data.indices
     }
 
-    fn write_indices(&self, state_update: &mut TrieUpdate) {
+    fn write_indices(
+        &self,
+        state_update: &mut TrieUpdate,
+    ) {
         self.save_data(state_update);
     }
 
-    fn trie_key(&self, index: u64) -> TrieKey {
+    fn trie_key(
+        &self,
+        index: u64,
+    ) -> TrieKey {
         TrieKey::BufferedReceiptGroupsQueueItem { receiving_shard: self.receiver_shard, index }
     }
 }
 
-fn add_size_checked(total: &mut u64, delta: ByteSize) {
+fn add_size_checked(
+    total: &mut u64,
+    delta: ByteSize,
+) {
     *total = total
         .checked_add(delta.as_u64())
         .expect("add_size_checked - Overflow! Reached exabytes of size!");
 }
 
-fn subtract_size_checked(total: &mut u64, delta: ByteSize) {
+fn subtract_size_checked(
+    total: &mut u64,
+    delta: ByteSize,
+) {
     *total = total
         .checked_sub(delta.as_u64())
         .expect("subtract_size_checked - Underflow! Negative size!");
 }
 
-fn add_gas_checked(total: &mut u128, delta: Gas) {
+fn add_gas_checked(
+    total: &mut u128,
+    delta: Gas,
+) {
     *total = total
         .checked_add(delta.into())
         .expect("add_gas_checked - Overflow! Total gas doesn't fit into u128!");
 }
 
-fn subtract_gas_checked(total: &mut u128, delta: Gas) {
-    *total =
-        total.checked_sub(delta.into()).expect("subtract_gas_checked - Underflow! Negative gas!")
+fn subtract_gas_checked(
+    total: &mut u128,
+    delta: Gas,
+) {
+    *total = total
+        .checked_sub(delta.into())
+        .expect("subtract_gas_checked - Underflow! Negative gas!")
 }
 
 #[cfg(test)]
@@ -464,10 +502,15 @@ mod tests {
     fn make_trie_update() -> TrieUpdate {
         let shard_layout_version = 1;
         let shard_layout = ShardLayout::multi_shard(2, shard_layout_version);
-        let shard_uid = shard_layout.shard_uids().next().unwrap();
+        let shard_uid = shard_layout
+            .shard_uids()
+            .next()
+            .unwrap();
         let state_root = Trie::EMPTY_ROOT;
 
-        let tries = TestTriesBuilder::new().with_shard_layout(shard_layout).build();
+        let tries = TestTriesBuilder::new()
+            .with_shard_layout(shard_layout)
+            .build();
         let trie = tries.get_trie_for_shard(shard_uid, state_root);
         TrieUpdate::new(trie)
     }
@@ -479,8 +522,14 @@ mod tests {
             ReceiptGroupsConfig { size_upper_bound: ByteSize::kb(100), gas_upper_bound: Gas::MAX };
         let mut queue = ReceiptGroupsQueue::new(ShardId::new(0));
 
-        fn group_sizes(queue: &ReceiptGroupsQueue, trie: &TrieUpdate) -> Vec<u64> {
-            queue.iter_receipt_group_sizes(trie, false).map(|size_res| size_res.unwrap()).collect()
+        fn group_sizes(
+            queue: &ReceiptGroupsQueue,
+            trie: &TrieUpdate,
+        ) -> Vec<u64> {
+            queue
+                .iter_receipt_group_sizes(trie, false)
+                .map(|size_res| size_res.unwrap())
+                .collect()
         }
 
         let ten_kb = ByteSize::kb(10);
@@ -490,40 +539,64 @@ mod tests {
 
         assert_eq!(group_sizes(&queue, trie_update), Vec::<u64>::new());
 
-        queue.update_on_receipt_pushed(ten_kb, 10, trie_update, &config).unwrap();
+        queue
+            .update_on_receipt_pushed(ten_kb, 10, trie_update, &config)
+            .unwrap();
         assert_eq!(group_sizes(&queue, trie_update), vec![10_000]);
 
-        queue.update_on_receipt_pushed(ten_kb, 10, trie_update, &config).unwrap();
+        queue
+            .update_on_receipt_pushed(ten_kb, 10, trie_update, &config)
+            .unwrap();
         assert_eq!(group_sizes(&queue, trie_update), vec![20_000]);
 
-        queue.update_on_receipt_pushed(fifty_kb, 10, trie_update, &config).unwrap();
+        queue
+            .update_on_receipt_pushed(fifty_kb, 10, trie_update, &config)
+            .unwrap();
         assert_eq!(group_sizes(&queue, trie_update), vec![70_000]);
 
-        queue.update_on_receipt_popped(ten_kb, 10, trie_update).unwrap();
+        queue
+            .update_on_receipt_popped(ten_kb, 10, trie_update)
+            .unwrap();
         assert_eq!(group_sizes(&queue, trie_update), vec![60_000]);
 
-        queue.update_on_receipt_pushed(hundred_kb, 10, trie_update, &config).unwrap();
+        queue
+            .update_on_receipt_pushed(hundred_kb, 10, trie_update, &config)
+            .unwrap();
         assert_eq!(group_sizes(&queue, trie_update), vec![60_000, 100_000]);
 
-        queue.update_on_receipt_pushed(ten_kb, 10, trie_update, &config).unwrap();
+        queue
+            .update_on_receipt_pushed(ten_kb, 10, trie_update, &config)
+            .unwrap();
         assert_eq!(group_sizes(&queue, trie_update), vec![60_000, 100_000, 10_000]);
 
-        queue.update_on_receipt_pushed(two_hundred_kb, 10, trie_update, &config).unwrap();
+        queue
+            .update_on_receipt_pushed(two_hundred_kb, 10, trie_update, &config)
+            .unwrap();
         assert_eq!(group_sizes(&queue, trie_update), vec![60_000, 100_000, 10_000, 200_000]);
 
-        queue.update_on_receipt_popped(ten_kb, 10, trie_update).unwrap();
+        queue
+            .update_on_receipt_popped(ten_kb, 10, trie_update)
+            .unwrap();
         assert_eq!(group_sizes(&queue, trie_update), vec![50_000, 100_000, 10_000, 200_000]);
 
-        queue.update_on_receipt_popped(fifty_kb, 10, trie_update).unwrap();
+        queue
+            .update_on_receipt_popped(fifty_kb, 10, trie_update)
+            .unwrap();
         assert_eq!(group_sizes(&queue, trie_update), vec![100_000, 10_000, 200_000]);
 
-        queue.update_on_receipt_popped(hundred_kb, 10, trie_update).unwrap();
+        queue
+            .update_on_receipt_popped(hundred_kb, 10, trie_update)
+            .unwrap();
         assert_eq!(group_sizes(&queue, trie_update), vec![10_000, 200_000]);
 
-        queue.update_on_receipt_popped(ten_kb, 10, trie_update).unwrap();
+        queue
+            .update_on_receipt_popped(ten_kb, 10, trie_update)
+            .unwrap();
         assert_eq!(group_sizes(&queue, trie_update), vec![200_000]);
 
-        queue.update_on_receipt_popped(two_hundred_kb, 10, trie_update).unwrap();
+        queue
+            .update_on_receipt_popped(two_hundred_kb, 10, trie_update)
+            .unwrap();
         assert_eq!(group_sizes(&queue, trie_update), Vec::<u64>::new());
     }
 
@@ -567,7 +640,7 @@ mod tests {
             };
 
             match self.groups.pop_back() {
-                Some(last_group) => {
+                | Some(last_group) => {
                     if config.should_start_new_group(&last_group.into(), receipt_size, receipt_gas)
                     {
                         self.groups.push_back(last_group);
@@ -580,11 +653,15 @@ mod tests {
                         });
                     }
                 }
-                None => self.groups.push_back(new_receipt_group),
+                | None => self.groups.push_back(new_receipt_group),
             }
         }
 
-        pub fn update_on_receipt_popped(&mut self, receipt_size: ByteSize, receipt_gas: Gas) {
+        pub fn update_on_receipt_popped(
+            &mut self,
+            receipt_size: ByteSize,
+            receipt_gas: Gas,
+        ) {
             let mut first_group = self.groups.pop_front().unwrap();
             first_group.total_size -= receipt_size.as_u64() as u128;
             first_group.total_gas -= receipt_gas as u128;
@@ -660,22 +737,33 @@ mod tests {
 
             if rng.gen::<bool>() {
                 // Reload the queue from trie. Tests that all changes are persisted after every operation.
-                groups_queue =
-                    ReceiptGroupsQueue::load(trie_update, ShardId::new(0)).unwrap().unwrap();
+                groups_queue = ReceiptGroupsQueue::load(trie_update, ShardId::new(0))
+                    .unwrap()
+                    .unwrap();
             }
 
-            let groups_queue_groups: Vec<ReceiptGroup> =
-                groups_queue.iter(trie_update, false).map(|group_res| group_res.unwrap()).collect();
-            let test_queue_groups: Vec<ReceiptGroup> =
-                test_queue.groups.iter().copied().map(|g| g.into()).collect();
+            let groups_queue_groups: Vec<ReceiptGroup> = groups_queue
+                .iter(trie_update, false)
+                .map(|group_res| group_res.unwrap())
+                .collect();
+            let test_queue_groups: Vec<ReceiptGroup> = test_queue
+                .groups
+                .iter()
+                .copied()
+                .map(|g| g.into())
+                .collect();
             assert_eq!(groups_queue_groups, test_queue_groups);
 
             let total_size = groups_queue.total_size();
             let total_gas = groups_queue.total_gas();
-            let expected_total_size: u64 =
-                buffered_receipts.iter().map(|(size, _)| size.as_u64()).sum();
-            let expected_total_gas =
-                buffered_receipts.iter().map(|(_, gas)| *gas as u128).sum::<u128>();
+            let expected_total_size: u64 = buffered_receipts
+                .iter()
+                .map(|(size, _)| size.as_u64())
+                .sum();
+            let expected_total_gas = buffered_receipts
+                .iter()
+                .map(|(_, gas)| *gas as u128)
+                .sum::<u128>();
             assert_eq!(total_size, expected_total_size);
             assert_eq!(total_gas, expected_total_gas);
             assert_eq!(groups_queue.total_receipts_num(), buffered_receipts.len() as u64);
@@ -723,14 +811,19 @@ mod tests {
                 // Ideal bandwidth request produced from individual receipt sizes.
                 let ideal_bandwidth_request = BandwidthRequest::make_from_receipt_sizes(
                     ShardUId::single_shard().shard_id(),
-                    buffered_receipts.iter().map(|s| Ok::<u64, Infallible>(s.as_u64())),
+                    buffered_receipts
+                        .iter()
+                        .map(|s| Ok::<u64, Infallible>(s.as_u64())),
                     &scheduler_params,
                 )
                 .unwrap();
                 // Bandwidth request produced from receipt groups.
                 let groups_bandwidth_request = BandwidthRequest::make_from_receipt_sizes(
                     ShardUId::single_shard().shard_id(),
-                    test_queue.groups.iter().map(|g| Ok::<u64, Infallible>(g.total_size as u64)),
+                    test_queue
+                        .groups
+                        .iter()
+                        .map(|g| Ok::<u64, Infallible>(g.total_size as u64)),
                     &scheduler_params,
                 )
                 .unwrap();

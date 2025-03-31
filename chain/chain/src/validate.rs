@@ -202,15 +202,15 @@ fn validate_congestion_info(
 ) -> Result<(), Error> {
     match (extra_congestion_info, header_congestion_info) {
         // If both are none then there is no congestion info to validate.
-        (None, None) => Ok(()),
+        | (None, None) => Ok(()),
         // It is invalid to have one None and one Some. The congestion info in
         // header should always be derived from the congestion info in extra.
-        (None, Some(_)) | (Some(_), None) => Err(Error::InvalidCongestionInfo(format!(
+        | (None, Some(_)) | (Some(_), None) => Err(Error::InvalidCongestionInfo(format!(
             "Congestion Information mismatch. extra: {:?}, header: {:?}",
             extra_congestion_info, header_congestion_info
         ))),
         // Congestion Info is present in both the extra and the header. Validate it.
-        (Some(extra), Some(header)) => CongestionInfo::validate_extra_and_header(extra, header)
+        | (Some(extra), Some(header)) => CongestionInfo::validate_extra_and_header(extra, header)
             .then_some(())
             .ok_or_else(|| {
                 Error::InvalidCongestionInfo(format!(
@@ -228,8 +228,8 @@ fn validate_bandwidth_requests(
     if extra_bandwidth_requests != header_bandwidth_requests {
         fn requests_len(requests_opt: Option<&BandwidthRequests>) -> usize {
             match requests_opt {
-                Some(BandwidthRequests::V1(requests_v1)) => requests_v1.requests.len(),
-                None => 0,
+                | Some(BandwidthRequests::V1(requests_v1)) => requests_v1.requests.len(),
+                | None => 0,
             }
         }
         let error_info_str = format!(
@@ -326,8 +326,8 @@ fn validate_chunk_proofs_challenge(
     let block_header = BlockHeader::try_from_slice(&chunk_proofs.block_header)?;
     validate_header_authorship(epoch_manager, &block_header)?;
     let chunk_header = match &*chunk_proofs.chunk {
-        MaybeEncodedShardChunk::Encoded(encoded_chunk) => encoded_chunk.cloned_header(),
-        MaybeEncodedShardChunk::Decoded(chunk) => chunk.cloned_header(),
+        | MaybeEncodedShardChunk::Encoded(encoded_chunk) => encoded_chunk.cloned_header(),
+        | MaybeEncodedShardChunk::Decoded(chunk) => chunk.cloned_header(),
     };
     let chunk_producer = validate_chunk_authorship(epoch_manager, &chunk_header)?;
     let account_to_slash_for_valid_challenge = Ok((*block_header.hash(), vec![chunk_producer]));
@@ -342,19 +342,19 @@ fn validate_chunk_proofs_challenge(
     // Temporary holds the decoded chunk, since we use a reference below to avoid cloning it.
     let tmp_chunk;
     let chunk_ref = match &*chunk_proofs.chunk {
-        MaybeEncodedShardChunk::Encoded(encoded_chunk) => {
+        | MaybeEncodedShardChunk::Encoded(encoded_chunk) => {
             match encoded_chunk.decode_chunk(epoch_manager.num_data_parts()) {
-                Ok(chunk) => {
+                | Ok(chunk) => {
                     tmp_chunk = Some(chunk);
                     tmp_chunk.as_ref().unwrap()
                 }
-                Err(_) => {
+                | Err(_) => {
                     // Chunk can't be decoded. Good challenge.
                     return account_to_slash_for_valid_challenge;
                 }
             }
         }
-        MaybeEncodedShardChunk::Decoded(chunk) => chunk,
+        | MaybeEncodedShardChunk::Decoded(chunk) => chunk,
     };
 
     if !validate_chunk_proofs(chunk_ref, epoch_manager)? {
@@ -469,13 +469,13 @@ pub fn validate_challenge(
         return Err(Error::InvalidChallenge);
     }
     match &challenge.body {
-        ChallengeBody::BlockDoubleSign(block_double_sign) => {
+        | ChallengeBody::BlockDoubleSign(block_double_sign) => {
             validate_double_sign(epoch_manager, block_double_sign)
         }
-        ChallengeBody::ChunkProofs(chunk_proofs) => {
+        | ChallengeBody::ChunkProofs(chunk_proofs) => {
             validate_chunk_proofs_challenge(epoch_manager, chunk_proofs)
         }
-        ChallengeBody::ChunkState(chunk_state) => {
+        | ChallengeBody::ChunkState(chunk_state) => {
             validate_chunk_state_challenge(runtime, chunk_state)
         }
     }
@@ -487,7 +487,11 @@ mod tests {
 
     use super::*;
 
-    fn make_tx(account_id: &str, seed: &str, nonce: Nonce) -> SignedTransaction {
+    fn make_tx(
+        account_id: &str,
+        seed: &str,
+        nonce: Nonce,
+    ) -> SignedTransaction {
         let account_id: AccountId = account_id.parse().unwrap();
         let signer = InMemorySigner::from_seed(account_id.clone(), KeyType::ED25519, seed);
         SignedTransaction::send_money(
@@ -540,7 +544,10 @@ mod tests {
 
     #[test]
     pub fn test_transaction_order_same_tx() {
-        let transactions = vec![make_tx("test_a", "test_A", 1), make_tx("test_a", "test_A", 1)];
+        let transactions = vec![
+            make_tx("test_a", "test_A", 1),
+            make_tx("test_a", "test_A", 1),
+        ];
         assert!(!validate_transactions_order(&transactions));
     }
 

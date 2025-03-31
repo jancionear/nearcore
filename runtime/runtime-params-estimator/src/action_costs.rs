@@ -148,14 +148,20 @@ impl ActionEstimation {
 
     /// Set how to generate the predecessor, also known as sender, for each
     /// transaction or action receipt.
-    fn predecessor(mut self, predecessor: AccountRequirement) -> Self {
+    fn predecessor(
+        mut self,
+        predecessor: AccountRequirement,
+    ) -> Self {
         self.predecessor = predecessor;
         self
     }
 
     /// Set how to generate the receiver account id for each transaction or
     /// action receipt.
-    fn receiver(mut self, receiver: AccountRequirement) -> Self {
+    fn receiver(
+        mut self,
+        receiver: AccountRequirement,
+    ) -> Self {
         self.receiver = receiver;
         self
     }
@@ -165,13 +171,19 @@ impl ActionEstimation {
     /// Calling this multiple times is allowed and inner iterations will
     /// duplicate the full group as a block, rather than individual actions.
     /// (3 * AB = ABABAB, not AAABBB)
-    fn add_action(mut self, action: Action) -> Self {
+    fn add_action(
+        mut self,
+        action: Action,
+    ) -> Self {
         self.actions.push(action);
         self
     }
 
     /// Set how many times the actions are duplicated per receipt or transaction.
-    fn inner_iters(mut self, inner_iters: usize) -> Self {
+    fn inner_iters(
+        mut self,
+        inner_iters: usize,
+    ) -> Self {
         self.inner_iters = inner_iters;
         self
     }
@@ -181,21 +193,30 @@ impl ActionEstimation {
     /// This overrides the CLI argument that is usually used for number of
     /// iterations. Use this when a certain estimation requires a minimum amount
     /// of iterations.
-    fn min_outer_iters(mut self, outer_iters: usize) -> Self {
+    fn min_outer_iters(
+        mut self,
+        outer_iters: usize,
+    ) -> Self {
         self.outer_iters = self.outer_iters.max(outer_iters);
         self
     }
 
     /// If enabled, the estimation will automatically subtract the cost of an
     /// empty action receipt from the measurement. (enabled by default)
-    fn subtract_base(mut self, yes: bool) -> Self {
+    fn subtract_base(
+        mut self,
+        yes: bool,
+    ) -> Self {
         self.subtract_base = yes;
         self
     }
 
     /// Set the smallest gas value for which we need accurate estimations,
     /// values below will be clamped.
-    fn min_gas(mut self, gas: Gas) -> Self {
+    fn min_gas(
+        mut self,
+        gas: Gas,
+    ) -> Self {
         self.min_gas = gas;
         self
     }
@@ -207,7 +228,10 @@ impl ActionEstimation {
     /// average is a good statistic. But some estimations keep having outliers.
     /// If we cannot get rid of those, we can fall back to using a percentile of
     /// the sample distribution as a more meaningful statistic.
-    fn report_percentile(mut self, rank: f32) -> Self {
+    fn report_percentile(
+        mut self,
+        rank: f32,
+    ) -> Self {
         self.reported_statistic = Statistic::Percentile(rank);
         self
     }
@@ -222,7 +246,10 @@ impl ActionEstimation {
     /// Network costs should also be taken into account here but we don't do that,
     /// yet.
     #[track_caller]
-    fn verify_cost(&self, testbed: &mut Testbed) -> GasCost {
+    fn verify_cost(
+        &self,
+        testbed: &mut Testbed,
+    ) -> GasCost {
         self.estimate_average_cost(testbed, Self::verify_actions_cost)
     }
 
@@ -231,13 +258,20 @@ impl ActionEstimation {
     /// This is the "apply" cost only, without validation, without sending and
     /// without overhead that does not scale with the number of actions.
     #[track_caller]
-    fn apply_cost(&self, testbed: &mut Testbed) -> GasCost {
+    fn apply_cost(
+        &self,
+        testbed: &mut Testbed,
+    ) -> GasCost {
         self.estimate_average_cost(testbed, Self::apply_actions_cost)
     }
 
     /// Estimate the cost of verifying a set of actions once.
     #[track_caller]
-    fn verify_actions_cost(&self, testbed: &mut Testbed, actions: Vec<Action>) -> GasCost {
+    fn verify_actions_cost(
+        &self,
+        testbed: &mut Testbed,
+        actions: Vec<Action>,
+    ) -> GasCost {
         let tb = testbed.transaction_builder();
         let signer_id = tb.account_by_requirement(self.signer, None);
         let predecessor_id = tb.account_by_requirement(self.predecessor, Some(&signer_id));
@@ -248,7 +282,11 @@ impl ActionEstimation {
 
     /// Estimate the cost of applying a set of actions once.
     #[track_caller]
-    fn apply_actions_cost(&self, testbed: &mut Testbed, actions: Vec<Action>) -> GasCost {
+    fn apply_actions_cost(
+        &self,
+        testbed: &mut Testbed,
+        actions: Vec<Action>,
+    ) -> GasCost {
         let tb = testbed.transaction_builder();
 
         let signer_id = tb.account_by_requirement(self.signer, None);
@@ -286,8 +324,13 @@ impl ActionEstimation {
             "inner iterations don't work if there are no actions to multiply"
         );
         let num_total_actions = self.actions.len() * self.inner_iters;
-        let actions: Vec<Action> =
-            self.actions.iter().cloned().cycle().take(num_total_actions).collect();
+        let actions: Vec<Action> = self
+            .actions
+            .iter()
+            .cloned()
+            .cycle()
+            .take(num_total_actions)
+            .collect();
 
         let gas_results = iter::repeat_with(|| estimated_fn(self, testbed, actions.clone()))
             .skip(self.warmup)
@@ -304,8 +347,10 @@ impl ActionEstimation {
             if self.subtract_base { estimated_fn(self, testbed, vec![]) } else { GasCost::zero() };
 
         let cost_per_tx = match self.reported_statistic {
-            Statistic::Average => average_cost(gas_results),
-            Statistic::Percentile(rank) => percentiles(gas_results, &[rank]).next().unwrap(),
+            | Statistic::Average => average_cost(gas_results),
+            | Statistic::Percentile(rank) => percentiles(gas_results, &[rank])
+                .next()
+                .unwrap(),
         };
         let gas_tolerance = self.inner_iters as u64 * self.min_gas;
         let gas_per_action = cost_per_tx
@@ -474,19 +519,27 @@ pub(crate) fn function_call_byte_exec(ctx: &mut EstimatorContext) -> GasCost {
 }
 
 pub(crate) fn transfer_send_sir(ctx: &mut EstimatorContext) -> GasCost {
-    ActionEstimation::new_sir(ctx).add_action(transfer_action()).verify_cost(&mut ctx.testbed())
+    ActionEstimation::new_sir(ctx)
+        .add_action(transfer_action())
+        .verify_cost(&mut ctx.testbed())
 }
 
 pub(crate) fn transfer_send_not_sir(ctx: &mut EstimatorContext) -> GasCost {
-    ActionEstimation::new(ctx).add_action(transfer_action()).verify_cost(&mut ctx.testbed())
+    ActionEstimation::new(ctx)
+        .add_action(transfer_action())
+        .verify_cost(&mut ctx.testbed())
 }
 
 pub(crate) fn transfer_exec(ctx: &mut EstimatorContext) -> GasCost {
-    ActionEstimation::new_sir(ctx).add_action(transfer_action()).apply_cost(&mut ctx.testbed())
+    ActionEstimation::new_sir(ctx)
+        .add_action(transfer_action())
+        .apply_cost(&mut ctx.testbed())
 }
 
 pub(crate) fn stake_send_sir(ctx: &mut EstimatorContext) -> GasCost {
-    ActionEstimation::new_sir(ctx).add_action(stake_action()).verify_cost(&mut ctx.testbed())
+    ActionEstimation::new_sir(ctx)
+        .add_action(stake_action())
+        .verify_cost(&mut ctx.testbed())
 }
 
 /// This is not a useful action, as staking only works with sender = receiver.
@@ -581,11 +634,15 @@ pub(crate) fn add_function_call_key_byte_exec(ctx: &mut EstimatorContext) -> Gas
 }
 
 pub(crate) fn delete_key_send_sir(ctx: &mut EstimatorContext) -> GasCost {
-    ActionEstimation::new_sir(ctx).add_action(delete_key_action()).verify_cost(&mut ctx.testbed())
+    ActionEstimation::new_sir(ctx)
+        .add_action(delete_key_action())
+        .verify_cost(&mut ctx.testbed())
 }
 
 pub(crate) fn delete_key_send_not_sir(ctx: &mut EstimatorContext) -> GasCost {
-    ActionEstimation::new(ctx).add_action(delete_key_action()).verify_cost(&mut ctx.testbed())
+    ActionEstimation::new(ctx)
+        .add_action(delete_key_action())
+        .verify_cost(&mut ctx.testbed())
 }
 
 pub(crate) fn delete_key_exec(ctx: &mut EstimatorContext) -> GasCost {
@@ -625,7 +682,10 @@ pub(crate) fn new_action_receipt_exec(ctx: &mut EstimatorContext) -> GasCost {
 }
 
 pub(crate) fn delegate_send_sir(ctx: &mut EstimatorContext) -> GasCost {
-    let receiver_id: AccountId = "a".repeat(AccountId::MAX_LEN).parse().unwrap();
+    let receiver_id: AccountId = "a"
+        .repeat(AccountId::MAX_LEN)
+        .parse()
+        .unwrap();
     let sender_id: AccountId = genesis_populate::get_account_id(0);
 
     ActionEstimation::new_sir(ctx)
@@ -643,7 +703,10 @@ pub(crate) fn delegate_send_sir(ctx: &mut EstimatorContext) -> GasCost {
 }
 
 pub(crate) fn delegate_send_not_sir(ctx: &mut EstimatorContext) -> GasCost {
-    let receiver_id: AccountId = "a".repeat(AccountId::MAX_LEN).parse().unwrap();
+    let receiver_id: AccountId = "a"
+        .repeat(AccountId::MAX_LEN)
+        .parse()
+        .unwrap();
     let sender_id: AccountId = genesis_populate::get_account_id(0);
     ActionEstimation::new(ctx)
         .add_action(empty_delegate_action(0, receiver_id, sender_id))
@@ -660,7 +723,10 @@ pub(crate) fn delegate_send_not_sir(ctx: &mut EstimatorContext) -> GasCost {
 }
 
 pub(crate) fn delegate_exec(ctx: &mut EstimatorContext) -> GasCost {
-    let receiver_id: AccountId = "a".repeat(AccountId::MAX_LEN).parse().unwrap();
+    let receiver_id: AccountId = "a"
+        .repeat(AccountId::MAX_LEN)
+        .parse()
+        .unwrap();
     let sender_id: AccountId = genesis_populate::get_account_id(0);
     let mut builder = ActionEstimation::new_sir(ctx)
         // nonce check would fail with cloned actions, therefore inner iterations don't work
@@ -715,7 +781,10 @@ fn add_fn_access_key_action(size: ActionSize) -> Action {
     // 3 bytes for "foo" and one for an implicit separator
     let method_names = vec!["foo".to_owned(); size.key_methods_list() as usize / 4];
     // This is charged flat, therefore it should always be max len.
-    let receiver_id = "a".repeat(AccountId::MAX_LEN).parse().unwrap();
+    let receiver_id = "a"
+        .repeat(AccountId::MAX_LEN)
+        .parse()
+        .unwrap();
     Action::AddKey(Box::new(near_primitives::transaction::AddKeyAction {
         public_key: PublicKey::from_seed(KeyType::ED25519, "seed"),
         access_key: AccessKey {
@@ -742,7 +811,10 @@ fn transfer_action() -> Action {
 fn function_call_action(size: ActionSize) -> Action {
     let total_size = size.function_call_payload();
     let method_len = 4.min(total_size) as usize;
-    let method_name: String = "noop".chars().take(method_len).collect();
+    let method_name: String = "noop"
+        .chars()
+        .take(method_len)
+        .collect();
     let arg_len = total_size as usize - method_len;
     Action::FunctionCall(Box::new(near_primitives::transaction::FunctionCallAction {
         method_name,
@@ -789,31 +861,31 @@ impl ActionSize {
     fn function_call_payload(self) -> u64 {
         match self {
             // calling "noop" requires 4 bytes
-            ActionSize::Min => 4,
+            | ActionSize::Min => 4,
             // max_arguments_length: 4_194_304
             // max_transaction_size: 1_572_864
-            ActionSize::Max => (1_572_864 / 100) - 35,
+            | ActionSize::Max => (1_572_864 / 100) - 35,
         }
     }
 
     fn key_methods_list(self) -> u64 {
         match self {
-            ActionSize::Min => 0,
+            | ActionSize::Min => 0,
             // max_number_bytes_method_names: 2000
-            ActionSize::Max => 2000,
+            | ActionSize::Max => 2000,
         }
     }
 
     fn deploy_contract(self) -> u64 {
         match self {
             // small number that still allows to generate a valid contract
-            ActionSize::Min => 120,
+            | ActionSize::Min => 120,
             // max_number_bytes_method_names: 2000
             // This size exactly touches tx limit with 1 deploy action. If this suddenly
             // fails with `InvalidTxError(TransactionSizeExceeded`, it could be a
             // protocol change due to the TX limit computation changing.
             // The test `test_deploy_contract_tx_max_size` checks this.
-            ActionSize::Max => 1_572_864 - 182,
+            | ActionSize::Max => 1_572_864 - 182,
         }
     }
 }
@@ -835,8 +907,12 @@ mod tests {
         let receiver_0 = get_account_id(1);
         let sender_1 = get_account_id(1000);
         let receiver_1 = get_account_id(20001);
-        let test_accounts =
-            vec![sender_0.clone(), sender_1.clone(), receiver_0.clone(), receiver_1.clone()];
+        let test_accounts = vec![
+            sender_0.clone(),
+            sender_1.clone(),
+            receiver_0.clone(),
+            receiver_1.clone(),
+        ];
         let mut tb = crate::TransactionBuilder::new(test_accounts);
 
         let tx_0 = tb.transaction_from_actions(sender_0, receiver_0, vec![deploy_action.clone()]);

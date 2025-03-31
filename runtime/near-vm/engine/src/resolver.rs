@@ -12,14 +12,20 @@ use near_vm_vm::{
     VMGlobalImport, VMImport, VMImportType, VMMemoryImport, VMTableImport,
 };
 
-fn is_compatible_table(ex: &TableType, im: &TableType) -> bool {
+fn is_compatible_table(
+    ex: &TableType,
+    im: &TableType,
+) -> bool {
     (ex.ty == near_vm_types::Type::FuncRef || ex.ty == im.ty)
         && im.minimum <= ex.minimum
         && (im.maximum.is_none()
             || (ex.maximum.is_some() && im.maximum.unwrap() >= ex.maximum.unwrap()))
 }
 
-fn is_compatible_memory(ex: &MemoryType, im: &MemoryType) -> bool {
+fn is_compatible_memory(
+    ex: &MemoryType,
+    im: &MemoryType,
+) -> bool {
     im.minimum <= ex.minimum
         && (im.maximum.is_none()
             || (ex.maximum.is_some() && im.maximum.unwrap() >= ex.maximum.unwrap()))
@@ -46,16 +52,18 @@ pub fn resolve_imports(
     for VMImport { import_no, module, field, ty } in imports {
         let resolved = resolver.resolve(*import_no, module, field);
         let import_extern = || match ty {
-            &VMImportType::Table(t) => ExternType::Table(t),
-            &VMImportType::Memory(t, _) => ExternType::Memory(t),
-            &VMImportType::Global(t) => ExternType::Global(t),
-            &VMImportType::Function { sig, static_trampoline: _ } => ExternType::Function(
-                engine.lookup_signature(sig).expect("VMSharedSignatureIndex is not valid?"),
+            | &VMImportType::Table(t) => ExternType::Table(t),
+            | &VMImportType::Memory(t, _) => ExternType::Memory(t),
+            | &VMImportType::Global(t) => ExternType::Global(t),
+            | &VMImportType::Function { sig, static_trampoline: _ } => ExternType::Function(
+                engine
+                    .lookup_signature(sig)
+                    .expect("VMSharedSignatureIndex is not valid?"),
             ),
         };
         let resolved = match resolved {
-            Some(r) => r,
-            None => {
+            | Some(r) => r,
+            | None => {
                 return Err(LinkError::Import(
                     module.to_string(),
                     field.to_string(),
@@ -64,24 +72,24 @@ pub fn resolve_imports(
             }
         };
         let export_extern = || match resolved {
-            Export::Function(ref f) => ExternType::Function(
+            | Export::Function(ref f) => ExternType::Function(
                 engine
                     .lookup_signature(f.vm_function.signature)
                     .expect("VMSharedSignatureIndex not registered with engine (wrong engine?)"),
             ),
-            Export::Table(ref t) => ExternType::Table(*t.ty()),
-            Export::Memory(ref m) => ExternType::Memory(m.ty()),
-            Export::Global(ref g) => {
+            | Export::Table(ref t) => ExternType::Table(*t.ty()),
+            | Export::Memory(ref m) => ExternType::Memory(m.ty()),
+            | Export::Global(ref g) => {
                 let global = g.from.ty();
                 ExternType::Global(*global)
             }
         };
         match (&resolved, ty) {
-            (Export::Function(ex), VMImportType::Function { sig, static_trampoline })
+            | (Export::Function(ex), VMImportType::Function { sig, static_trampoline })
                 if ex.vm_function.signature == *sig =>
             {
                 let address = match ex.vm_function.kind {
-                    VMFunctionKind::Dynamic => {
+                    | VMFunctionKind::Dynamic => {
                         // If this is a dynamic imported function,
                         // the address of the function is the address of the
                         // reverse trampoline.
@@ -91,7 +99,7 @@ pub fn resolve_imports(
                         // TODO: We should check that the f.vmctx actually matches
                         // the shape of `VMDynamicFunctionImportContext`
                     }
-                    VMFunctionKind::Static => ex.vm_function.address,
+                    | VMFunctionKind::Static => ex.vm_function.address,
                 };
 
                 // Clone the host env for this `Instance`.
@@ -129,9 +137,18 @@ pub fn resolve_imports(
                     trampoline,
                 });
 
-                let initializer = ex.metadata.as_ref().and_then(|m| m.import_init_function_ptr);
-                let clone = ex.metadata.as_ref().map(|m| m.host_env_clone_fn);
-                let destructor = ex.metadata.as_ref().map(|m| m.host_env_drop_fn);
+                let initializer = ex
+                    .metadata
+                    .as_ref()
+                    .and_then(|m| m.import_init_function_ptr);
+                let clone = ex
+                    .metadata
+                    .as_ref()
+                    .map(|m| m.host_env_clone_fn);
+                let destructor = ex
+                    .metadata
+                    .as_ref()
+                    .map(|m| m.host_env_drop_fn);
                 let import_function_env =
                     if let (Some(clone), Some(destructor)) = (clone, destructor) {
                         ImportFunctionEnv::Env { env, clone, initializer, destructor }
@@ -141,7 +158,7 @@ pub fn resolve_imports(
 
                 host_function_env_initializers.push(import_function_env);
             }
-            (Export::Table(ex), VMImportType::Table(im)) if is_compatible_table(ex.ty(), im) => {
+            | (Export::Table(ex), VMImportType::Table(im)) if is_compatible_table(ex.ty(), im) => {
                 let import_table_ty = ex.from.ty();
                 if import_table_ty.ty != im.ty {
                     return Err(LinkError::Import(
@@ -153,7 +170,7 @@ pub fn resolve_imports(
                 table_imports
                     .push(VMTableImport { definition: ex.from.vmtable(), from: ex.from.clone() });
             }
-            (Export::Memory(ex), VMImportType::Memory(im, import_memory_style))
+            | (Export::Memory(ex), VMImportType::Memory(im, import_memory_style))
                 if is_compatible_memory(&ex.ty(), im) =>
             {
                 // Sanity-check: Ensure that the imported memory has at least
@@ -176,11 +193,11 @@ pub fn resolve_imports(
                 });
             }
 
-            (Export::Global(ex), VMImportType::Global(im)) if ex.from.ty() == im => {
+            | (Export::Global(ex), VMImportType::Global(im)) if ex.from.ty() == im => {
                 global_imports
                     .push(VMGlobalImport { definition: ex.from.vmglobal(), from: ex.from.clone() });
             }
-            _ => {
+            | _ => {
                 return Err(LinkError::Import(
                     module.to_string(),
                     field.to_string(),

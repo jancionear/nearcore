@@ -59,7 +59,11 @@ impl ExecutionResultState {
     ///
     /// Note that `context.account_balance + context.attached_deposit` must not overflow `u128`,
     /// otherwise this function will panic.
-    pub fn new(context: &VMContext, gas_counter: GasCounter, config: Arc<Config>) -> Self {
+    pub fn new(
+        context: &VMContext,
+        gas_counter: GasCounter,
+        config: Arc<Config>,
+    ) -> Self {
         let current_account_balance = context
             .account_balance
             .checked_add(context.attached_deposit)
@@ -81,9 +85,14 @@ impl ExecutionResultState {
     /// ### Args
     ///
     /// * `amount`: the amount to deduct from the current account balance.
-    fn deduct_balance(&mut self, amount: Balance) -> Result<()> {
-        self.current_account_balance =
-            self.current_account_balance.checked_sub(amount).ok_or(HostError::BalanceExceeded)?;
+    fn deduct_balance(
+        &mut self,
+        amount: Balance,
+    ) -> Result<()> {
+        self.current_account_balance = self
+            .current_account_balance
+            .checked_sub(amount)
+            .ok_or(HostError::BalanceExceeded)?;
         Ok(())
     }
 
@@ -97,23 +106,39 @@ impl ExecutionResultState {
         }
     }
 
-    fn checked_push_log(&mut self, message: String) -> Result<()> {
+    fn checked_push_log(
+        &mut self,
+        message: String,
+    ) -> Result<()> {
         let len = u64::try_from(message.len()).unwrap_or(u64::MAX);
         let Some(total_log_length) = self.total_log_length.checked_add(len) else {
             return self.total_log_length_exceeded(len);
         };
         self.total_log_length = total_log_length;
-        if self.total_log_length > self.config.limit_config.max_total_log_length {
+        if self.total_log_length
+            > self
+                .config
+                .limit_config
+                .max_total_log_length
+        {
             return self.total_log_length_exceeded(len);
         }
         self.logs.push(message);
         Ok(())
     }
 
-    fn total_log_length_exceeded<T>(&self, add_len: u64) -> Result<T> {
+    fn total_log_length_exceeded<T>(
+        &self,
+        add_len: u64,
+    ) -> Result<T> {
         Err(HostError::TotalLogLengthExceeded {
-            length: self.total_log_length.saturating_add(add_len),
-            limit: self.config.limit_config.max_total_log_length,
+            length: self
+                .total_log_length
+                .saturating_add(add_len),
+            limit: self
+                .config
+                .limit_config
+                .max_total_log_length,
         }
         .into())
     }
@@ -229,7 +254,8 @@ impl PublicKeyBuffer {
     }
 
     fn decode(self) -> Result<near_crypto::PublicKey> {
-        self.0.map_err(|_| HostError::InvalidPublicKey.into())
+        self.0
+            .map_err(|_| HostError::InvalidPublicKey.into())
     }
 }
 
@@ -245,7 +271,9 @@ impl<'a> VMLogic<'a> {
         let config = Arc::clone(&result_state.config);
         let recorded_storage_counter = RecordedStorageCounter::new(
             ext.get_recorded_storage_size(),
-            config.limit_config.per_receipt_storage_proof_size_limit,
+            config
+                .limit_config
+                .per_receipt_storage_proof_size_limit,
         );
         let remaining_stack = u64::from(config.limit_config.max_stack_height);
         Self {
@@ -286,21 +314,34 @@ impl<'a> VMLogic<'a> {
     // #########################
     // # Finite-wasm internals #
     // #########################
-    pub fn finite_wasm_gas(&mut self, gas: u64) -> Result<()> {
+    pub fn finite_wasm_gas(
+        &mut self,
+        gas: u64,
+    ) -> Result<()> {
         self.gas(gas)
     }
 
-    pub fn finite_wasm_stack(&mut self, operand_size: u64, frame_size: u64) -> Result<()> {
-        self.remaining_stack =
-            match self.remaining_stack.checked_sub(operand_size.saturating_add(frame_size)) {
-                Some(s) => s,
-                None => return Err(VMLogicError::HostError(HostError::MemoryAccessViolation)),
-            };
+    pub fn finite_wasm_stack(
+        &mut self,
+        operand_size: u64,
+        frame_size: u64,
+    ) -> Result<()> {
+        self.remaining_stack = match self
+            .remaining_stack
+            .checked_sub(operand_size.saturating_add(frame_size))
+        {
+            | Some(s) => s,
+            | None => return Err(VMLogicError::HostError(HostError::MemoryAccessViolation)),
+        };
         self.gas(((frame_size + 7) / 8) * u64::from(self.config.regular_op_cost))?;
         Ok(())
     }
 
-    pub fn finite_wasm_unstack(&mut self, operand_size: u64, frame_size: u64) -> Result<()> {
+    pub fn finite_wasm_unstack(
+        &mut self,
+        operand_size: u64,
+        frame_size: u64,
+    ) -> Result<()> {
         self.remaining_stack = self
             .remaining_stack
             .checked_add(operand_size.saturating_add(frame_size))
@@ -314,7 +355,11 @@ impl<'a> VMLogic<'a> {
 
     /// Convenience function for testing.
     #[cfg(test)]
-    pub fn wrapped_internal_write_register(&mut self, register_id: u64, data: &[u8]) -> Result<()> {
+    pub fn wrapped_internal_write_register(
+        &mut self,
+        register_id: u64,
+        data: &[u8],
+    ) -> Result<()> {
         self.registers.set(
             &mut self.result_state.gas_counter,
             &self.config.limit_config,
@@ -343,10 +388,19 @@ impl<'a> VMLogic<'a> {
     /// # Cost
     ///
     /// `base + read_register_base + read_register_byte * num_bytes + write_memory_base + write_memory_byte * num_bytes`
-    pub fn read_register(&mut self, register_id: u64, ptr: u64) -> Result<()> {
-        self.result_state.gas_counter.pay_base(base)?;
-        let data = self.registers.get(&mut self.result_state.gas_counter, register_id)?;
-        self.memory.set(&mut self.result_state.gas_counter, ptr, data)
+    pub fn read_register(
+        &mut self,
+        register_id: u64,
+        ptr: u64,
+    ) -> Result<()> {
+        self.result_state
+            .gas_counter
+            .pay_base(base)?;
+        let data = self
+            .registers
+            .get(&mut self.result_state.gas_counter, register_id)?;
+        self.memory
+            .set(&mut self.result_state.gas_counter, ptr, data)
     }
 
     /// Returns the size of the blob stored in the given register.
@@ -360,9 +414,17 @@ impl<'a> VMLogic<'a> {
     /// # Cost
     ///
     /// `base`
-    pub fn register_len(&mut self, register_id: u64) -> Result<u64> {
-        self.result_state.gas_counter.pay_base(base)?;
-        Ok(self.registers.get_len(register_id).unwrap_or(u64::MAX))
+    pub fn register_len(
+        &mut self,
+        register_id: u64,
+    ) -> Result<u64> {
+        self.result_state
+            .gas_counter
+            .pay_base(base)?;
+        Ok(self
+            .registers
+            .get_len(register_id)
+            .unwrap_or(u64::MAX))
     }
 
     /// Copies `data` from the guest memory into the register. If register is unused will initialize
@@ -378,8 +440,15 @@ impl<'a> VMLogic<'a> {
     /// # Cost
     ///
     /// `base + read_memory_base + read_memory_bytes * num_bytes + write_register_base + write_register_bytes * num_bytes`
-    pub fn write_register(&mut self, register_id: u64, data_len: u64, data_ptr: u64) -> Result<()> {
-        self.result_state.gas_counter.pay_base(base)?;
+    pub fn write_register(
+        &mut self,
+        register_id: u64,
+        data_len: u64,
+        data_ptr: u64,
+    ) -> Result<()> {
+        self.result_state
+            .gas_counter
+            .pay_base(base)?;
         let data = self
             .memory
             .view(&mut self.result_state.gas_counter, MemSlice { ptr: data_ptr, len: data_len })?;
@@ -412,8 +481,14 @@ impl<'a> VMLogic<'a> {
     ///
     /// For nul-terminated string:
     /// `(read_memory_base + read_memory_byte) * num_bytes + utf8_decoding_base + utf8_decoding_byte * num_bytes`
-    fn get_utf8_string(&mut self, len: u64, ptr: u64) -> Result<String> {
-        self.result_state.gas_counter.pay_base(utf8_decoding_base)?;
+    fn get_utf8_string(
+        &mut self,
+        len: u64,
+        ptr: u64,
+    ) -> Result<String> {
+        self.result_state
+            .gas_counter
+            .pay_base(utf8_decoding_base)?;
         let mut buf;
         let max_len = self
             .config
@@ -422,7 +497,9 @@ impl<'a> VMLogic<'a> {
             .saturating_sub(self.result_state.total_log_length);
         if len != u64::MAX {
             if len > max_len {
-                return self.result_state.total_log_length_exceeded(len);
+                return self
+                    .result_state
+                    .total_log_length_exceeded(len);
             }
             buf = self
                 .memory
@@ -432,17 +509,23 @@ impl<'a> VMLogic<'a> {
             buf = vec![];
             for i in 0..=max_len {
                 // self.memory_get_u8 will check for u64 overflow on the first iteration (i == 0)
-                let el = self.memory.get_u8(&mut self.result_state.gas_counter, ptr + i)?;
+                let el = self
+                    .memory
+                    .get_u8(&mut self.result_state.gas_counter, ptr + i)?;
                 if el == 0 {
                     break;
                 }
                 if i == max_len {
-                    return self.result_state.total_log_length_exceeded(max_len.saturating_add(1));
+                    return self
+                        .result_state
+                        .total_log_length_exceeded(max_len.saturating_add(1));
                 }
                 buf.push(el);
             }
         }
-        self.result_state.gas_counter.pay_per(utf8_decoding_byte, buf.len() as _)?;
+        self.result_state
+            .gas_counter
+            .pay_per(utf8_decoding_byte, buf.len() as _)?;
         String::from_utf8(buf).map_err(|_| HostError::BadUTF8.into())
     }
 
@@ -451,8 +534,15 @@ impl<'a> VMLogic<'a> {
     /// * The cost is 0
     /// * It's up to the caller to set correct len
     #[cfg(feature = "sandbox")]
-    fn sandbox_get_utf8_string(&mut self, len: u64, ptr: u64) -> Result<String> {
-        let buf = self.memory.view_for_free(MemSlice { ptr, len })?.into_owned();
+    fn sandbox_get_utf8_string(
+        &mut self,
+        len: u64,
+        ptr: u64,
+    ) -> Result<String> {
+        let buf = self
+            .memory
+            .view_for_free(MemSlice { ptr, len })?
+            .into_owned();
         String::from_utf8(buf).map_err(|_| HostError::BadUTF8.into())
     }
 
@@ -471,8 +561,14 @@ impl<'a> VMLogic<'a> {
     ///
     /// For nul-terminated string:
     /// `read_memory_base * num_bytes / 2 + read_memory_byte * num_bytes + utf16_decoding_base + utf16_decoding_byte * num_bytes`
-    fn get_utf16_string(&mut self, mut len: u64, ptr: u64) -> Result<String> {
-        self.result_state.gas_counter.pay_base(utf16_decoding_base)?;
+    fn get_utf16_string(
+        &mut self,
+        mut len: u64,
+        ptr: u64,
+    ) -> Result<String> {
+        self.result_state
+            .gas_counter
+            .pay_base(utf16_decoding_base)?;
         let max_len = self
             .config
             .limit_config
@@ -481,20 +577,31 @@ impl<'a> VMLogic<'a> {
 
         let mem_view = if len == u64::MAX {
             len = self.get_nul_terminated_utf16_len(ptr, max_len)?;
-            self.memory.view_for_free(MemSlice { ptr, len })
+            self.memory
+                .view_for_free(MemSlice { ptr, len })
         } else {
-            self.memory.view(&mut self.result_state.gas_counter, MemSlice { ptr, len })
+            self.memory
+                .view(&mut self.result_state.gas_counter, MemSlice { ptr, len })
         }?;
 
         let input = stdx::as_chunks_exact(&mem_view).map_err(|_| HostError::BadUTF16)?;
         if len > max_len {
-            return self.result_state.total_log_length_exceeded(len);
+            return self
+                .result_state
+                .total_log_length_exceeded(len);
         }
 
-        self.result_state.gas_counter.pay_per(utf16_decoding_byte, len)?;
-        char::decode_utf16(input.into_iter().copied().map(u16::from_le_bytes))
-            .collect::<Result<String, _>>()
-            .map_err(|_| HostError::BadUTF16.into())
+        self.result_state
+            .gas_counter
+            .pay_per(utf16_decoding_byte, len)?;
+        char::decode_utf16(
+            input
+                .into_iter()
+                .copied()
+                .map(u16::from_le_bytes),
+        )
+        .collect::<Result<String, _>>()
+        .map_err(|_| HostError::BadUTF16.into())
     }
 
     /// Helper function to get length of NUL-terminated UTF-16 formatted string
@@ -502,18 +609,32 @@ impl<'a> VMLogic<'a> {
     ///
     /// In other words, counts how many bytes are there to first pair of NUL
     /// bytes.
-    fn get_nul_terminated_utf16_len(&mut self, ptr: u64, max_len: u64) -> Result<u64> {
+    fn get_nul_terminated_utf16_len(
+        &mut self,
+        ptr: u64,
+        max_len: u64,
+    ) -> Result<u64> {
         let mut len = 0;
         loop {
-            if self.memory.get_u16(&mut self.result_state.gas_counter, ptr.saturating_add(len))?
+            if self
+                .memory
+                .get_u16(&mut self.result_state.gas_counter, ptr.saturating_add(len))?
                 == 0
             {
                 return Ok(len);
             }
             len = match len.checked_add(2) {
-                Some(len) if len <= max_len => len,
-                Some(len) => return self.result_state.total_log_length_exceeded(len),
-                None => return self.result_state.total_log_length_exceeded(u64::MAX),
+                | Some(len) if len <= max_len => len,
+                | Some(len) => {
+                    return self
+                        .result_state
+                        .total_log_length_exceeded(len)
+                }
+                | None => {
+                    return self
+                        .result_state
+                        .total_log_length_exceeded(u64::MAX)
+                }
             };
         }
     }
@@ -524,15 +645,24 @@ impl<'a> VMLogic<'a> {
 
     /// Adds a given promise to the vector of promises and returns a new promise index.
     /// Throws `NumberPromisesExceeded` if the total number of promises exceeded the limit.
-    fn checked_push_promise(&mut self, promise: Promise) -> Result<PromiseIndex> {
+    fn checked_push_promise(
+        &mut self,
+        promise: Promise,
+    ) -> Result<PromiseIndex> {
         let new_promise_idx = self.promises.len() as PromiseIndex;
         self.promises.push(promise);
         if self.promises.len() as u64
-            > self.config.limit_config.max_promises_per_function_call_action
+            > self
+                .config
+                .limit_config
+                .max_promises_per_function_call_action
         {
             Err(HostError::NumberPromisesExceeded {
                 number_of_promises: self.promises.len() as u64,
-                limit: self.config.limit_config.max_promises_per_function_call_action,
+                limit: self
+                    .config
+                    .limit_config
+                    .max_promises_per_function_call_action,
             }
             .into())
         } else {
@@ -540,7 +670,11 @@ impl<'a> VMLogic<'a> {
         }
     }
 
-    fn get_public_key(&mut self, ptr: u64, len: u64) -> Result<PublicKeyBuffer> {
+    fn get_public_key(
+        &mut self,
+        ptr: u64,
+        len: u64,
+    ) -> Result<PublicKeyBuffer> {
         Ok(PublicKeyBuffer::new(&get_memory_or_register!(self, ptr, len)?))
     }
 
@@ -557,13 +691,20 @@ impl<'a> VMLogic<'a> {
     /// # Cost
     ///
     /// `base + write_register_base + write_register_byte * num_bytes`
-    pub fn current_account_id(&mut self, register_id: u64) -> Result<()> {
-        self.result_state.gas_counter.pay_base(base)?;
+    pub fn current_account_id(
+        &mut self,
+        register_id: u64,
+    ) -> Result<()> {
+        self.result_state
+            .gas_counter
+            .pay_base(base)?;
         self.registers.set(
             &mut self.result_state.gas_counter,
             &self.config.limit_config,
             register_id,
-            self.context.current_account_id.as_bytes(),
+            self.context
+                .current_account_id
+                .as_bytes(),
         )
     }
 
@@ -580,8 +721,13 @@ impl<'a> VMLogic<'a> {
     /// # Cost
     ///
     /// `base + write_register_base + write_register_byte * num_bytes`
-    pub fn signer_account_id(&mut self, register_id: u64) -> Result<()> {
-        self.result_state.gas_counter.pay_base(base)?;
+    pub fn signer_account_id(
+        &mut self,
+        register_id: u64,
+    ) -> Result<()> {
+        self.result_state
+            .gas_counter
+            .pay_base(base)?;
 
         if self.context.is_view() {
             return Err(HostError::ProhibitedInView {
@@ -593,7 +739,9 @@ impl<'a> VMLogic<'a> {
             &mut self.result_state.gas_counter,
             &self.config.limit_config,
             register_id,
-            self.context.signer_account_id.as_bytes(),
+            self.context
+                .signer_account_id
+                .as_bytes(),
         )
     }
 
@@ -609,8 +757,13 @@ impl<'a> VMLogic<'a> {
     /// # Cost
     ///
     /// `base + write_register_base + write_register_byte * num_bytes`
-    pub fn signer_account_pk(&mut self, register_id: u64) -> Result<()> {
-        self.result_state.gas_counter.pay_base(base)?;
+    pub fn signer_account_pk(
+        &mut self,
+        register_id: u64,
+    ) -> Result<()> {
+        self.result_state
+            .gas_counter
+            .pay_base(base)?;
 
         if self.context.is_view() {
             return Err(HostError::ProhibitedInView {
@@ -622,7 +775,9 @@ impl<'a> VMLogic<'a> {
             &mut self.result_state.gas_counter,
             &self.config.limit_config,
             register_id,
-            self.context.signer_account_pk.as_slice(),
+            self.context
+                .signer_account_pk
+                .as_slice(),
         )
     }
 
@@ -638,8 +793,13 @@ impl<'a> VMLogic<'a> {
     /// # Cost
     ///
     /// `base + write_register_base + write_register_byte * num_bytes`
-    pub fn predecessor_account_id(&mut self, register_id: u64) -> Result<()> {
-        self.result_state.gas_counter.pay_base(base)?;
+    pub fn predecessor_account_id(
+        &mut self,
+        register_id: u64,
+    ) -> Result<()> {
+        self.result_state
+            .gas_counter
+            .pay_base(base)?;
 
         if self.context.is_view() {
             return Err(HostError::ProhibitedInView {
@@ -651,7 +811,9 @@ impl<'a> VMLogic<'a> {
             &mut self.result_state.gas_counter,
             &self.config.limit_config,
             register_id,
-            self.context.predecessor_account_id.as_bytes(),
+            self.context
+                .predecessor_account_id
+                .as_bytes(),
         )
     }
 
@@ -662,8 +824,13 @@ impl<'a> VMLogic<'a> {
     /// # Cost
     ///
     /// `base + write_register_base + write_register_byte * num_bytes`
-    pub fn input(&mut self, register_id: u64) -> Result<()> {
-        self.result_state.gas_counter.pay_base(base)?;
+    pub fn input(
+        &mut self,
+        register_id: u64,
+    ) -> Result<()> {
+        self.result_state
+            .gas_counter
+            .pay_base(base)?;
 
         self.registers.set(
             &mut self.result_state.gas_counter,
@@ -682,7 +849,9 @@ impl<'a> VMLogic<'a> {
     ///
     /// `base`
     pub fn block_index(&mut self) -> Result<u64> {
-        self.result_state.gas_counter.pay_base(base)?;
+        self.result_state
+            .gas_counter
+            .pay_base(base)?;
         Ok(self.context.block_height)
     }
 
@@ -692,7 +861,9 @@ impl<'a> VMLogic<'a> {
     ///
     /// `base`
     pub fn block_timestamp(&mut self) -> Result<u64> {
-        self.result_state.gas_counter.pay_base(base)?;
+        self.result_state
+            .gas_counter
+            .pay_base(base)?;
         Ok(self.context.block_timestamp)
     }
 
@@ -702,7 +873,9 @@ impl<'a> VMLogic<'a> {
     ///
     /// `base`
     pub fn epoch_height(&mut self) -> Result<EpochHeight> {
-        self.result_state.gas_counter.pay_base(base)?;
+        self.result_state
+            .gas_counter
+            .pay_base(base)?;
         Ok(self.context.epoch_height)
     }
 
@@ -718,11 +891,19 @@ impl<'a> VMLogic<'a> {
         account_id_ptr: u64,
         stake_ptr: u64,
     ) -> Result<()> {
-        self.result_state.gas_counter.pay_base(base)?;
+        self.result_state
+            .gas_counter
+            .pay_base(base)?;
         let account_id = self.read_and_parse_account_id(account_id_ptr, account_id_len)?;
-        self.result_state.gas_counter.pay_base(validator_stake_base)?;
-        let balance = self.ext.validator_stake(&account_id)?.unwrap_or_default();
-        self.memory.set_u128(&mut self.result_state.gas_counter, stake_ptr, balance)
+        self.result_state
+            .gas_counter
+            .pay_base(validator_stake_base)?;
+        let balance = self
+            .ext
+            .validator_stake(&account_id)?
+            .unwrap_or_default();
+        self.memory
+            .set_u128(&mut self.result_state.gas_counter, stake_ptr, balance)
     }
 
     /// Get the total validator stake of the current epoch.
@@ -732,11 +913,19 @@ impl<'a> VMLogic<'a> {
     /// # Cost
     ///
     /// `base + memory_write_base + memory_write_size * 16 + validator_total_stake_base`
-    pub fn validator_total_stake(&mut self, stake_ptr: u64) -> Result<()> {
-        self.result_state.gas_counter.pay_base(base)?;
-        self.result_state.gas_counter.pay_base(validator_total_stake_base)?;
+    pub fn validator_total_stake(
+        &mut self,
+        stake_ptr: u64,
+    ) -> Result<()> {
+        self.result_state
+            .gas_counter
+            .pay_base(base)?;
+        self.result_state
+            .gas_counter
+            .pay_base(validator_total_stake_base)?;
         let total_stake = self.ext.validator_total_stake()?;
-        self.memory.set_u128(&mut self.result_state.gas_counter, stake_ptr, total_stake)
+        self.memory
+            .set_u128(&mut self.result_state.gas_counter, stake_ptr, total_stake)
     }
 
     /// Returns the number of bytes used by the contract if it was saved to the trie as of the
@@ -750,7 +939,9 @@ impl<'a> VMLogic<'a> {
     ///
     /// `base`
     pub fn storage_usage(&mut self) -> Result<StorageUsage> {
-        self.result_state.gas_counter.pay_base(base)?;
+        self.result_state
+            .gas_counter
+            .pay_base(base)?;
         Ok(self.result_state.current_storage_usage)
     }
 
@@ -764,12 +955,18 @@ impl<'a> VMLogic<'a> {
     /// # Cost
     ///
     /// `base + memory_write_base + memory_write_size * 16`
-    pub fn account_balance(&mut self, balance_ptr: u64) -> Result<()> {
-        self.result_state.gas_counter.pay_base(base)?;
+    pub fn account_balance(
+        &mut self,
+        balance_ptr: u64,
+    ) -> Result<()> {
+        self.result_state
+            .gas_counter
+            .pay_base(base)?;
         self.memory.set_u128(
             &mut self.result_state.gas_counter,
             balance_ptr,
-            self.result_state.current_account_balance,
+            self.result_state
+                .current_account_balance,
         )
     }
 
@@ -778,8 +975,13 @@ impl<'a> VMLogic<'a> {
     /// # Cost
     ///
     /// `base + memory_write_base + memory_write_size * 16`
-    pub fn account_locked_balance(&mut self, balance_ptr: u64) -> Result<()> {
-        self.result_state.gas_counter.pay_base(base)?;
+    pub fn account_locked_balance(
+        &mut self,
+        balance_ptr: u64,
+    ) -> Result<()> {
+        self.result_state
+            .gas_counter
+            .pay_base(base)?;
         self.memory.set_u128(
             &mut self.result_state.gas_counter,
             balance_ptr,
@@ -797,8 +999,13 @@ impl<'a> VMLogic<'a> {
     /// # Cost
     ///
     /// `base + memory_write_base + memory_write_size * 16`
-    pub fn attached_deposit(&mut self, balance_ptr: u64) -> Result<()> {
-        self.result_state.gas_counter.pay_base(base)?;
+    pub fn attached_deposit(
+        &mut self,
+        balance_ptr: u64,
+    ) -> Result<()> {
+        self.result_state
+            .gas_counter
+            .pay_base(base)?;
 
         self.memory.set_u128(
             &mut self.result_state.gas_counter,
@@ -817,7 +1024,9 @@ impl<'a> VMLogic<'a> {
     ///
     /// `base`
     pub fn prepaid_gas(&mut self) -> Result<Gas> {
-        self.result_state.gas_counter.pay_base(base)?;
+        self.result_state
+            .gas_counter
+            .pay_base(base)?;
         if self.context.is_view() {
             return Err(
                 HostError::ProhibitedInView { method_name: "prepaid_gas".to_string() }.into()
@@ -836,7 +1045,9 @@ impl<'a> VMLogic<'a> {
     ///
     /// `base`
     pub fn used_gas(&mut self) -> Result<Gas> {
-        self.result_state.gas_counter.pay_base(base)?;
+        self.result_state
+            .gas_counter
+            .pay_base(base)?;
         if self.context.is_view() {
             return Err(HostError::ProhibitedInView { method_name: "used_gas".to_string() }.into());
         }
@@ -880,7 +1091,9 @@ impl<'a> VMLogic<'a> {
         value_ptr: u64,
         register_id: u64,
     ) -> Result<()> {
-        self.result_state.gas_counter.pay_base(alt_bn128_g1_multiexp_base)?;
+        self.result_state
+            .gas_counter
+            .pay_base(alt_bn128_g1_multiexp_base)?;
         let data = get_memory_or_register!(self, value_ptr, value_len)?;
 
         let elements = super::alt_bn128::split_elements(&data)?;
@@ -930,11 +1143,15 @@ impl<'a> VMLogic<'a> {
         value_ptr: u64,
         register_id: u64,
     ) -> Result<()> {
-        self.result_state.gas_counter.pay_base(alt_bn128_g1_sum_base)?;
+        self.result_state
+            .gas_counter
+            .pay_base(alt_bn128_g1_sum_base)?;
         let data = get_memory_or_register!(self, value_ptr, value_len)?;
 
         let elements = super::alt_bn128::split_elements(&data)?;
-        self.result_state.gas_counter.pay_per(alt_bn128_g1_sum_element, elements.len() as u64)?;
+        self.result_state
+            .gas_counter
+            .pay_per(alt_bn128_g1_sum_element, elements.len() as u64)?;
 
         let res = super::alt_bn128::g1_sum(elements)?;
 
@@ -973,8 +1190,14 @@ impl<'a> VMLogic<'a> {
     /// # Cost
     ///
     /// `base + write_register_base + write_register_byte * num_bytes + alt_bn128_pairing_base + alt_bn128_pairing_element * num_elements`
-    pub fn alt_bn128_pairing_check(&mut self, value_len: u64, value_ptr: u64) -> Result<u64> {
-        self.result_state.gas_counter.pay_base(alt_bn128_pairing_check_base)?;
+    pub fn alt_bn128_pairing_check(
+        &mut self,
+        value_len: u64,
+        value_ptr: u64,
+    ) -> Result<u64> {
+        self.result_state
+            .gas_counter
+            .pay_base(alt_bn128_pairing_check_base)?;
         let data = get_memory_or_register!(self, value_ptr, value_len)?;
 
         let elements = super::alt_bn128::split_elements(&data)?;
@@ -1283,8 +1506,14 @@ bls12381_map_fp2_to_g2_base + bls12381_map_fp2_to_g2_element * num_elements`
     /// # Cost
     /// `base + write_register_base + write_register_byte * num_bytes +
     ///   bls12381_pairing_base + bls12381_pairing_element * num_elements`
-    pub fn bls12381_pairing_check(&mut self, value_len: u64, value_ptr: u64) -> Result<u64> {
-        self.result_state.gas_counter.pay_base(bls12381_pairing_base)?;
+    pub fn bls12381_pairing_check(
+        &mut self,
+        value_len: u64,
+        value_ptr: u64,
+    ) -> Result<u64> {
+        self.result_state
+            .gas_counter
+            .pay_base(bls12381_pairing_base)?;
 
         const BLS_P1_SIZE: usize = 96;
         const BLS_P2_SIZE: usize = 192;
@@ -1293,7 +1522,9 @@ bls12381_map_fp2_to_g2_base + bls12381_map_fp2_to_g2_element * num_elements`
         let data = get_memory_or_register!(self, value_ptr, value_len)?;
         let elements_count = data.len() / ITEM_SIZE;
 
-        self.result_state.gas_counter.pay_per(bls12381_pairing_element, elements_count as u64)?;
+        self.result_state
+            .gas_counter
+            .pay_per(bls12381_pairing_element, elements_count as u64)?;
 
         super::bls12381::pairing_check(&data)
     }
@@ -1399,8 +1630,13 @@ bls12381_p2_decompress_base + bls12381_p2_decompress_element * num_elements`
     /// # Cost
     ///
     /// `base + write_register_base + write_register_byte * num_bytes`.
-    pub fn random_seed(&mut self, register_id: u64) -> Result<()> {
-        self.result_state.gas_counter.pay_base(base)?;
+    pub fn random_seed(
+        &mut self,
+        register_id: u64,
+    ) -> Result<()> {
+        self.result_state
+            .gas_counter
+            .pay_base(base)?;
         self.registers.set(
             &mut self.result_state.gas_counter,
             &self.config.limit_config,
@@ -1419,10 +1655,19 @@ bls12381_p2_decompress_base + bls12381_p2_decompress_element * num_elements`
     /// # Cost
     ///
     /// `base + write_register_base + write_register_byte * num_bytes + sha256_base + sha256_byte * num_bytes`
-    pub fn sha256(&mut self, value_len: u64, value_ptr: u64, register_id: u64) -> Result<()> {
-        self.result_state.gas_counter.pay_base(sha256_base)?;
+    pub fn sha256(
+        &mut self,
+        value_len: u64,
+        value_ptr: u64,
+        register_id: u64,
+    ) -> Result<()> {
+        self.result_state
+            .gas_counter
+            .pay_base(sha256_base)?;
         let value = get_memory_or_register!(self, value_ptr, value_len)?;
-        self.result_state.gas_counter.pay_per(sha256_byte, value.len() as u64)?;
+        self.result_state
+            .gas_counter
+            .pay_per(sha256_byte, value.len() as u64)?;
 
         use sha2::Digest;
 
@@ -1445,10 +1690,19 @@ bls12381_p2_decompress_base + bls12381_p2_decompress_element * num_elements`
     /// # Cost
     ///
     /// `base + write_register_base + write_register_byte * num_bytes + keccak256_base + keccak256_byte * num_bytes`
-    pub fn keccak256(&mut self, value_len: u64, value_ptr: u64, register_id: u64) -> Result<()> {
-        self.result_state.gas_counter.pay_base(keccak256_base)?;
+    pub fn keccak256(
+        &mut self,
+        value_len: u64,
+        value_ptr: u64,
+        register_id: u64,
+    ) -> Result<()> {
+        self.result_state
+            .gas_counter
+            .pay_base(keccak256_base)?;
         let value = get_memory_or_register!(self, value_ptr, value_len)?;
-        self.result_state.gas_counter.pay_per(keccak256_byte, value.len() as u64)?;
+        self.result_state
+            .gas_counter
+            .pay_per(keccak256_byte, value.len() as u64)?;
 
         use sha3::Digest;
 
@@ -1471,10 +1725,19 @@ bls12381_p2_decompress_base + bls12381_p2_decompress_element * num_elements`
     /// # Cost
     ///
     /// `base + write_register_base + write_register_byte * num_bytes + keccak512_base + keccak512_byte * num_bytes`
-    pub fn keccak512(&mut self, value_len: u64, value_ptr: u64, register_id: u64) -> Result<()> {
-        self.result_state.gas_counter.pay_base(keccak512_base)?;
+    pub fn keccak512(
+        &mut self,
+        value_len: u64,
+        value_ptr: u64,
+        register_id: u64,
+    ) -> Result<()> {
+        self.result_state
+            .gas_counter
+            .pay_base(keccak512_base)?;
         let value = get_memory_or_register!(self, value_ptr, value_len)?;
-        self.result_state.gas_counter.pay_per(keccak512_byte, value.len() as u64)?;
+        self.result_state
+            .gas_counter
+            .pay_per(keccak512_byte, value.len() as u64)?;
 
         use sha3::Digest;
 
@@ -1499,8 +1762,15 @@ bls12381_p2_decompress_base + bls12381_p2_decompress_element * num_elements`
     ///  Where `message_blocks` is `(value_len + 9).div_ceil(64)`.
     ///
     /// `base + write_register_base + write_register_byte * num_bytes + ripemd160_base + ripemd160_block * message_blocks`
-    pub fn ripemd160(&mut self, value_len: u64, value_ptr: u64, register_id: u64) -> Result<()> {
-        self.result_state.gas_counter.pay_base(ripemd160_base)?;
+    pub fn ripemd160(
+        &mut self,
+        value_len: u64,
+        value_ptr: u64,
+        register_id: u64,
+    ) -> Result<()> {
+        self.result_state
+            .gas_counter
+            .pay_base(ripemd160_base)?;
         let value = get_memory_or_register!(self, value_ptr, value_len)?;
 
         let message_blocks = value
@@ -1510,7 +1780,9 @@ bls12381_p2_decompress_base + bls12381_p2_decompress_element * num_elements`
             / 64
             + 1;
 
-        self.result_state.gas_counter.pay_per(ripemd160_block, message_blocks as u64)?;
+        self.result_state
+            .gas_counter
+            .pay_per(ripemd160_block, message_blocks as u64)?;
 
         use ripemd::Digest;
 
@@ -1553,7 +1825,9 @@ bls12381_p2_decompress_base + bls12381_p2_decompress_element * num_elements`
         malleability_flag: u64,
         register_id: u64,
     ) -> Result<u64> {
-        self.result_state.gas_counter.pay_base(ecrecover_base)?;
+        self.result_state
+            .gas_counter
+            .pay_base(ecrecover_base)?;
 
         let signature = {
             let vec = get_memory_or_register!(self, sig_ptr, sig_len)?;
@@ -1656,7 +1930,9 @@ bls12381_p2_decompress_base + bls12381_p2_decompress_element * num_elements`
     ) -> Result<u64> {
         use ed25519_dalek::Verifier;
 
-        self.result_state.gas_counter.pay_base(ed25519_verify_base)?;
+        self.result_state
+            .gas_counter
+            .pay_base(ed25519_verify_base)?;
 
         let signature: ed25519_dalek::Signature = {
             let vec = get_memory_or_register!(self, signature_ptr, signature_len)?;
@@ -1675,7 +1951,9 @@ bls12381_p2_decompress_base + bls12381_p2_decompress_element * num_elements`
         };
 
         let message = get_memory_or_register!(self, message_ptr, message_len)?;
-        self.result_state.gas_counter.pay_per(ed25519_verify_byte, message.len() as u64)?;
+        self.result_state
+            .gas_counter
+            .pay_per(ed25519_verify_byte, message.len() as u64)?;
 
         let public_key: ed25519_dalek::VerifyingKey = {
             let vec = get_memory_or_register!(self, public_key_ptr, public_key_len)?;
@@ -1686,14 +1964,14 @@ bls12381_p2_decompress_base + bls12381_p2_decompress_element * num_elements`
                     })
                 })?;
             match ed25519_dalek::VerifyingKey::from_bytes(b) {
-                Ok(public_key) => public_key,
-                Err(_) => return Ok(false as u64),
+                | Ok(public_key) => public_key,
+                | Err(_) => return Ok(false as u64),
             }
         };
 
         match public_key.verify(&message, &signature) {
-            Err(_) => Ok(false as u64),
-            Ok(()) => Ok(true as u64),
+            | Err(_) => Ok(false as u64),
+            | Ok(()) => Ok(true as u64),
         }
     }
 
@@ -1704,16 +1982,27 @@ bls12381_p2_decompress_base + bls12381_p2_decompress_element * num_elements`
     /// * If passed gas amount somehow overflows internal gas counters returns `IntegerOverflow`;
     /// * If we exceed usage limit imposed on burnt gas returns `GasLimitExceeded`;
     /// * If we exceed the `prepaid_gas` then returns `GasExceeded`.
-    pub fn gas(&mut self, gas: Gas) -> Result<()> {
-        self.result_state.gas_counter.burn_gas(Gas::from(gas))
+    pub fn gas(
+        &mut self,
+        gas: Gas,
+    ) -> Result<()> {
+        self.result_state
+            .gas_counter
+            .burn_gas(Gas::from(gas))
     }
 
-    pub fn gas_opcodes(&mut self, opcodes: u32) -> Result<()> {
+    pub fn gas_opcodes(
+        &mut self,
+        opcodes: u32,
+    ) -> Result<()> {
         self.gas(opcodes as u64 * self.config.regular_op_cost as u64)
     }
 
     /// An alias for [`VMLogic::gas`].
-    pub fn burn_gas(&mut self, gas: Gas) -> Result<()> {
+    pub fn burn_gas(
+        &mut self,
+        gas: Gas,
+    ) -> Result<()> {
         self.gas(gas)
     }
 
@@ -1723,12 +2012,18 @@ bls12381_p2_decompress_base + bls12381_p2_decompress_element * num_elements`
     /// be made to be a no-op.
     ///
     /// This function might be intrinsified.
-    pub fn gas_seen_from_wasm(&mut self, opcodes: u32) -> Result<()> {
+    pub fn gas_seen_from_wasm(
+        &mut self,
+        opcodes: u32,
+    ) -> Result<()> {
         self.gas_opcodes(opcodes)
     }
 
     #[cfg(feature = "test_features")]
-    pub fn sleep_nanos(&mut self, nanos: u64) -> Result<()> {
+    pub fn sleep_nanos(
+        &mut self,
+        nanos: u64,
+    ) -> Result<()> {
         let duration = std::time::Duration::from_nanos(nanos);
         std::thread::sleep(duration);
         Ok(())
@@ -1752,26 +2047,42 @@ bls12381_p2_decompress_base + bls12381_p2_decompress_element * num_elements`
     /// Notice that we prepay all base cost upon the creation of the data dependency, we are going to
     /// pay for the content transmitted through the dependency upon the actual creation of the
     /// DataReceipt.
-    fn pay_gas_for_new_receipt(&mut self, sir: bool, data_dependencies: &[bool]) -> Result<()> {
+    fn pay_gas_for_new_receipt(
+        &mut self,
+        sir: bool,
+        data_dependencies: &[bool],
+    ) -> Result<()> {
         let fees_config_cfg = &self.fees_config;
-        let mut burn_gas = fees_config_cfg.fee(ActionCosts::new_action_receipt).send_fee(sir);
-        let mut use_gas = fees_config_cfg.fee(ActionCosts::new_action_receipt).exec_fee();
+        let mut burn_gas = fees_config_cfg
+            .fee(ActionCosts::new_action_receipt)
+            .send_fee(sir);
+        let mut use_gas = fees_config_cfg
+            .fee(ActionCosts::new_action_receipt)
+            .exec_fee();
         for dep in data_dependencies {
             // Both creation and execution for data receipts are considered burnt gas.
             burn_gas = burn_gas
-                .checked_add(fees_config_cfg.fee(ActionCosts::new_data_receipt_base).send_fee(*dep))
+                .checked_add(
+                    fees_config_cfg
+                        .fee(ActionCosts::new_data_receipt_base)
+                        .send_fee(*dep),
+                )
                 .ok_or(HostError::IntegerOverflow)?
-                .checked_add(fees_config_cfg.fee(ActionCosts::new_data_receipt_base).exec_fee())
+                .checked_add(
+                    fees_config_cfg
+                        .fee(ActionCosts::new_data_receipt_base)
+                        .exec_fee(),
+                )
                 .ok_or(HostError::IntegerOverflow)?;
         }
-        use_gas = use_gas.checked_add(burn_gas).ok_or(HostError::IntegerOverflow)?;
+        use_gas = use_gas
+            .checked_add(burn_gas)
+            .ok_or(HostError::IntegerOverflow)?;
         // This should go to `new_data_receipt_base` and `new_action_receipt` in parts.
         // But we have to keep charing these two together unless we make a protocol change.
-        self.result_state.gas_counter.pay_action_accumulated(
-            burn_gas,
-            use_gas,
-            ActionCosts::new_action_receipt,
-        )
+        self.result_state
+            .gas_counter
+            .pay_action_accumulated(burn_gas, use_gas, ActionCosts::new_action_receipt)
     }
 
     /// Creates a promise that will execute a method on account with given arguments and attaches
@@ -1892,17 +2203,23 @@ bls12381_p2_decompress_base + bls12381_p2_decompress_element * num_elements`
         promise_idx_ptr: u64,
         promise_idx_count: u64,
     ) -> Result<PromiseIndex> {
-        self.result_state.gas_counter.pay_base(base)?;
+        self.result_state
+            .gas_counter
+            .pay_base(base)?;
         if self.context.is_view() {
             return Err(
                 HostError::ProhibitedInView { method_name: "promise_and".to_string() }.into()
             );
         }
-        self.result_state.gas_counter.pay_base(promise_and_base)?;
+        self.result_state
+            .gas_counter
+            .pay_base(promise_and_base)?;
         let memory_len = promise_idx_count
             .checked_mul(size_of::<u64>() as u64)
             .ok_or(HostError::IntegerOverflow)?;
-        self.result_state.gas_counter.pay_per(promise_and_per_promise, memory_len)?;
+        self.result_state
+            .gas_counter
+            .pay_per(promise_and_per_promise, memory_len)?;
 
         // Read indices as little endian u64.
         let promise_indices = self.memory.view(
@@ -1921,20 +2238,26 @@ bls12381_p2_decompress_base + bls12381_p2_decompress_element * num_elements`
                 .get(promise_idx as usize)
                 .ok_or(HostError::InvalidPromiseIndex { promise_idx })?;
             match &promise {
-                Promise::Receipt(receipt_idx) => {
+                | Promise::Receipt(receipt_idx) => {
                     receipt_dependencies.push(*receipt_idx);
                 }
-                Promise::NotReceipt(receipt_indices) => {
+                | Promise::NotReceipt(receipt_indices) => {
                     receipt_dependencies.extend(receipt_indices.clone());
                 }
             }
             // Checking this in the loop to prevent abuse of too many joined vectors.
             if receipt_dependencies.len() as u64
-                > self.config.limit_config.max_number_input_data_dependencies
+                > self
+                    .config
+                    .limit_config
+                    .max_number_input_data_dependencies
             {
                 return Err(HostError::NumberInputDataDependenciesExceeded {
                     number_of_input_data_dependencies: receipt_dependencies.len() as u64,
-                    limit: self.config.limit_config.max_number_input_data_dependencies,
+                    limit: self
+                        .config
+                        .limit_config
+                        .max_number_input_data_dependencies,
                 }
                 .into());
             }
@@ -1966,7 +2289,9 @@ bls12381_p2_decompress_base + bls12381_p2_decompress_element * num_elements`
         account_id_len: u64,
         account_id_ptr: u64,
     ) -> Result<u64> {
-        self.result_state.gas_counter.pay_base(base)?;
+        self.result_state
+            .gas_counter
+            .pay_base(base)?;
         if self.context.is_view() {
             return Err(HostError::ProhibitedInView {
                 method_name: "promise_batch_create".to_string(),
@@ -1976,7 +2301,9 @@ bls12381_p2_decompress_base + bls12381_p2_decompress_element * num_elements`
         let account_id = self.read_and_parse_account_id(account_id_ptr, account_id_len)?;
         let sir = account_id == self.context.current_account_id;
         self.pay_gas_for_new_receipt(sir, &[])?;
-        let new_receipt_idx = self.ext.create_action_receipt(vec![], account_id)?;
+        let new_receipt_idx = self
+            .ext
+            .create_action_receipt(vec![], account_id)?;
 
         self.checked_push_promise(Promise::Receipt(new_receipt_idx))
     }
@@ -2008,7 +2335,9 @@ bls12381_p2_decompress_base + bls12381_p2_decompress_element * num_elements`
         account_id_len: u64,
         account_id_ptr: u64,
     ) -> Result<u64> {
-        self.result_state.gas_counter.pay_base(base)?;
+        self.result_state
+            .gas_counter
+            .pay_base(base)?;
         if self.context.is_view() {
             return Err(HostError::ProhibitedInView {
                 method_name: "promise_batch_then".to_string(),
@@ -2022,18 +2351,24 @@ bls12381_p2_decompress_base + bls12381_p2_decompress_element * num_elements`
             .get(promise_idx as usize)
             .ok_or(HostError::InvalidPromiseIndex { promise_idx })?;
         let receipt_dependencies = match &promise {
-            Promise::Receipt(receipt_idx) => vec![*receipt_idx],
-            Promise::NotReceipt(receipt_indices) => receipt_indices.clone(),
+            | Promise::Receipt(receipt_idx) => vec![*receipt_idx],
+            | Promise::NotReceipt(receipt_indices) => receipt_indices.clone(),
         };
 
         let sir = account_id == self.context.current_account_id;
         let deps: Vec<_> = receipt_dependencies
             .iter()
-            .map(|&receipt_idx| self.ext.get_receipt_receiver(receipt_idx) == &account_id)
+            .map(|&receipt_idx| {
+                self.ext
+                    .get_receipt_receiver(receipt_idx)
+                    == &account_id
+            })
             .collect();
         self.pay_gas_for_new_receipt(sir, &deps)?;
 
-        let new_receipt_idx = self.ext.create_action_receipt(receipt_dependencies, account_id)?;
+        let new_receipt_idx = self
+            .ext
+            .create_action_receipt(receipt_dependencies, account_id)?;
 
         self.checked_push_promise(Promise::Receipt(new_receipt_idx))
     }
@@ -2050,11 +2385,13 @@ bls12381_p2_decompress_base + bls12381_p2_decompress_element * num_elements`
             .get(promise_idx as usize)
             .ok_or(HostError::InvalidPromiseIndex { promise_idx })?;
         let receipt_idx = match &promise {
-            Promise::Receipt(receipt_idx) => Ok(*receipt_idx),
-            Promise::NotReceipt(_) => Err(HostError::CannotAppendActionToJointPromise),
+            | Promise::Receipt(receipt_idx) => Ok(*receipt_idx),
+            | Promise::NotReceipt(_) => Err(HostError::CannotAppendActionToJointPromise),
         }?;
 
-        let account_id = self.ext.get_receipt_receiver(receipt_idx);
+        let account_id = self
+            .ext
+            .get_receipt_receiver(receipt_idx);
         let sir = account_id == &self.context.current_account_id;
         Ok((receipt_idx, sir))
     }
@@ -2073,8 +2410,13 @@ bls12381_p2_decompress_base + bls12381_p2_decompress_element * num_elements`
     ///
     /// `burnt_gas := base + dispatch action fee`
     /// `used_gas := burnt_gas + exec action fee`
-    pub fn promise_batch_action_create_account(&mut self, promise_idx: u64) -> Result<()> {
-        self.result_state.gas_counter.pay_base(base)?;
+    pub fn promise_batch_action_create_account(
+        &mut self,
+        promise_idx: u64,
+    ) -> Result<()> {
+        self.result_state
+            .gas_counter
+            .pay_base(base)?;
         if self.context.is_view() {
             return Err(HostError::ProhibitedInView {
                 method_name: "promise_batch_action_create_account".to_string(),
@@ -2085,7 +2427,8 @@ bls12381_p2_decompress_base + bls12381_p2_decompress_element * num_elements`
 
         self.pay_action_base(ActionCosts::create_account, sir)?;
 
-        self.ext.append_action_create_account(receipt_idx)?;
+        self.ext
+            .append_action_create_account(receipt_idx)?;
         Ok(())
     }
 
@@ -2112,7 +2455,9 @@ bls12381_p2_decompress_base + bls12381_p2_decompress_element * num_elements`
         code_len: u64,
         code_ptr: u64,
     ) -> Result<()> {
-        self.result_state.gas_counter.pay_base(base)?;
+        self.result_state
+            .gas_counter
+            .pay_base(base)?;
         if self.context.is_view() {
             return Err(HostError::ProhibitedInView {
                 method_name: "promise_batch_action_deploy_contract".to_string(),
@@ -2121,7 +2466,10 @@ bls12381_p2_decompress_base + bls12381_p2_decompress_element * num_elements`
         }
         let code = get_memory_or_register!(self, code_ptr, code_len)?;
         let code_len = code.len() as u64;
-        let limit = self.config.limit_config.max_contract_size;
+        let limit = self
+            .config
+            .limit_config
+            .max_contract_size;
         if code_len > limit {
             return Err(HostError::ContractSizeExceeded { size: code_len, limit }.into());
         }
@@ -2132,7 +2480,8 @@ bls12381_p2_decompress_base + bls12381_p2_decompress_element * num_elements`
         self.pay_action_base(ActionCosts::deploy_contract_base, sir)?;
         self.pay_action_per_byte(ActionCosts::deploy_contract_byte, code_len, sir)?;
 
-        self.ext.append_action_deploy_contract(receipt_idx, code)?;
+        self.ext
+            .append_action_deploy_contract(receipt_idx, code)?;
         Ok(())
     }
 
@@ -2223,14 +2572,18 @@ bls12381_p2_decompress_base + bls12381_p2_decompress_element * num_elements`
         gas: Gas,
         gas_weight: u64,
     ) -> Result<()> {
-        self.result_state.gas_counter.pay_base(base)?;
+        self.result_state
+            .gas_counter
+            .pay_base(base)?;
         if self.context.is_view() {
             return Err(HostError::ProhibitedInView {
                 method_name: "promise_batch_action_function_call".to_string(),
             }
             .into());
         }
-        let amount = self.memory.get_u128(&mut self.result_state.gas_counter, amount_ptr)?;
+        let amount = self
+            .memory
+            .get_u128(&mut self.result_state.gas_counter, amount_ptr)?;
         let method_name = get_memory_or_register!(self, method_name_ptr, method_name_len)?;
         if method_name.is_empty() {
             return Err(HostError::EmptyMethodName.into());
@@ -2246,16 +2599,20 @@ bls12381_p2_decompress_base + bls12381_p2_decompress_element * num_elements`
         self.pay_action_base(ActionCosts::function_call_base, sir)?;
         self.pay_action_per_byte(ActionCosts::function_call_byte, num_bytes, sir)?;
         // Prepaid gas
-        self.result_state.gas_counter.prepay_gas(gas)?;
-        self.result_state.deduct_balance(amount)?;
-        self.ext.append_action_function_call_weight(
-            receipt_idx,
-            method_name,
-            arguments,
-            amount,
-            gas,
-            GasWeight(gas_weight),
-        )
+        self.result_state
+            .gas_counter
+            .prepay_gas(gas)?;
+        self.result_state
+            .deduct_balance(amount)?;
+        self.ext
+            .append_action_function_call_weight(
+                receipt_idx,
+                method_name,
+                arguments,
+                amount,
+                gas,
+                GasWeight(gas_weight),
+            )
     }
 
     /// Appends `Transfer` action to the batch of actions for the given promise pointed by
@@ -2279,17 +2636,23 @@ bls12381_p2_decompress_base + bls12381_p2_decompress_element * num_elements`
         promise_idx: u64,
         amount_ptr: u64,
     ) -> Result<()> {
-        self.result_state.gas_counter.pay_base(base)?;
+        self.result_state
+            .gas_counter
+            .pay_base(base)?;
         if self.context.is_view() {
             return Err(HostError::ProhibitedInView {
                 method_name: "promise_batch_action_transfer".to_string(),
             }
             .into());
         }
-        let amount = self.memory.get_u128(&mut self.result_state.gas_counter, amount_ptr)?;
+        let amount = self
+            .memory
+            .get_u128(&mut self.result_state.gas_counter, amount_ptr)?;
 
         let (receipt_idx, sir) = self.promise_idx_to_receipt_idx_with_sir(promise_idx)?;
-        let receiver_id = self.ext.get_receipt_receiver(receipt_idx);
+        let receiver_id = self
+            .ext
+            .get_receipt_receiver(receipt_idx);
         let send_fee = transfer_send_fee(
             &self.fees_config,
             sir,
@@ -2304,14 +2667,16 @@ bls12381_p2_decompress_base + bls12381_p2_decompress_element * num_elements`
             receiver_id.get_account_type(),
         );
         let burn_gas = send_fee;
-        let use_gas = burn_gas.checked_add(exec_fee).ok_or(HostError::IntegerOverflow)?;
-        self.result_state.gas_counter.pay_action_accumulated(
-            burn_gas,
-            use_gas,
-            ActionCosts::transfer,
-        )?;
-        self.result_state.deduct_balance(amount)?;
-        self.ext.append_action_transfer(receipt_idx, amount)?;
+        let use_gas = burn_gas
+            .checked_add(exec_fee)
+            .ok_or(HostError::IntegerOverflow)?;
+        self.result_state
+            .gas_counter
+            .pay_action_accumulated(burn_gas, use_gas, ActionCosts::transfer)?;
+        self.result_state
+            .deduct_balance(amount)?;
+        self.ext
+            .append_action_transfer(receipt_idx, amount)?;
         Ok(())
     }
 
@@ -2339,18 +2704,23 @@ bls12381_p2_decompress_base + bls12381_p2_decompress_element * num_elements`
         public_key_len: u64,
         public_key_ptr: u64,
     ) -> Result<()> {
-        self.result_state.gas_counter.pay_base(base)?;
+        self.result_state
+            .gas_counter
+            .pay_base(base)?;
         if self.context.is_view() {
             return Err(HostError::ProhibitedInView {
                 method_name: "promise_batch_action_stake".to_string(),
             }
             .into());
         }
-        let amount = self.memory.get_u128(&mut self.result_state.gas_counter, amount_ptr)?;
+        let amount = self
+            .memory
+            .get_u128(&mut self.result_state.gas_counter, amount_ptr)?;
         let public_key = self.get_public_key(public_key_ptr, public_key_len)?;
         let (receipt_idx, sir) = self.promise_idx_to_receipt_idx_with_sir(promise_idx)?;
         self.pay_action_base(ActionCosts::stake, sir)?;
-        self.ext.append_action_stake(receipt_idx, amount, public_key.decode()?);
+        self.ext
+            .append_action_stake(receipt_idx, amount, public_key.decode()?);
         Ok(())
     }
 
@@ -2378,7 +2748,9 @@ bls12381_p2_decompress_base + bls12381_p2_decompress_element * num_elements`
         public_key_ptr: u64,
         nonce: u64,
     ) -> Result<()> {
-        self.result_state.gas_counter.pay_base(base)?;
+        self.result_state
+            .gas_counter
+            .pay_base(base)?;
         if self.context.is_view() {
             return Err(HostError::ProhibitedInView {
                 method_name: "promise_batch_action_add_key_with_full_access".to_string(),
@@ -2388,7 +2760,8 @@ bls12381_p2_decompress_base + bls12381_p2_decompress_element * num_elements`
         let public_key = self.get_public_key(public_key_ptr, public_key_len)?;
         let (receipt_idx, sir) = self.promise_idx_to_receipt_idx_with_sir(promise_idx)?;
         self.pay_action_base(ActionCosts::add_full_access_key, sir)?;
-        self.ext.append_action_add_key_with_full_access(receipt_idx, public_key.decode()?, nonce);
+        self.ext
+            .append_action_add_key_with_full_access(receipt_idx, public_key.decode()?, nonce);
         Ok(())
     }
 
@@ -2423,7 +2796,9 @@ bls12381_p2_decompress_base + bls12381_p2_decompress_element * num_elements`
         method_names_len: u64,
         method_names_ptr: u64,
     ) -> Result<()> {
-        self.result_state.gas_counter.pay_base(base)?;
+        self.result_state
+            .gas_counter
+            .pay_base(base)?;
         if self.context.is_view() {
             return Err(HostError::ProhibitedInView {
                 method_name: "promise_batch_action_add_key_with_function_call".to_string(),
@@ -2431,7 +2806,9 @@ bls12381_p2_decompress_base + bls12381_p2_decompress_element * num_elements`
             .into());
         }
         let public_key = self.get_public_key(public_key_ptr, public_key_len)?;
-        let allowance = self.memory.get_u128(&mut self.result_state.gas_counter, allowance_ptr)?;
+        let allowance = self
+            .memory
+            .get_u128(&mut self.result_state.gas_counter, allowance_ptr)?;
         let allowance = if allowance > 0 { Some(allowance) } else { None };
         let receiver_id = self.read_and_parse_account_id(receiver_id_ptr, receiver_id_len)?;
         let raw_method_names = get_memory_or_register!(self, method_names_ptr, method_names_len)?;
@@ -2440,18 +2817,22 @@ bls12381_p2_decompress_base + bls12381_p2_decompress_element * num_elements`
         let (receipt_idx, sir) = self.promise_idx_to_receipt_idx_with_sir(promise_idx)?;
 
         // +1 is to account for null-terminating characters.
-        let num_bytes = method_names.iter().map(|v| v.len() as u64 + 1).sum::<u64>();
+        let num_bytes = method_names
+            .iter()
+            .map(|v| v.len() as u64 + 1)
+            .sum::<u64>();
         self.pay_action_base(ActionCosts::add_function_call_key_base, sir)?;
         self.pay_action_per_byte(ActionCosts::add_function_call_key_byte, num_bytes, sir)?;
 
-        self.ext.append_action_add_key_with_function_call(
-            receipt_idx,
-            public_key.decode()?,
-            nonce,
-            allowance,
-            receiver_id,
-            method_names,
-        )?;
+        self.ext
+            .append_action_add_key_with_function_call(
+                receipt_idx,
+                public_key.decode()?,
+                nonce,
+                allowance,
+                receiver_id,
+                method_names,
+            )?;
         Ok(())
     }
 
@@ -2478,7 +2859,9 @@ bls12381_p2_decompress_base + bls12381_p2_decompress_element * num_elements`
         public_key_len: u64,
         public_key_ptr: u64,
     ) -> Result<()> {
-        self.result_state.gas_counter.pay_base(base)?;
+        self.result_state
+            .gas_counter
+            .pay_base(base)?;
         if self.context.is_view() {
             return Err(HostError::ProhibitedInView {
                 method_name: "promise_batch_action_delete_key".to_string(),
@@ -2488,7 +2871,8 @@ bls12381_p2_decompress_base + bls12381_p2_decompress_element * num_elements`
         let public_key = self.get_public_key(public_key_ptr, public_key_len)?;
         let (receipt_idx, sir) = self.promise_idx_to_receipt_idx_with_sir(promise_idx)?;
         self.pay_action_base(ActionCosts::delete_key, sir)?;
-        self.ext.append_action_delete_key(receipt_idx, public_key.decode()?);
+        self.ext
+            .append_action_delete_key(receipt_idx, public_key.decode()?);
         Ok(())
     }
 
@@ -2514,7 +2898,9 @@ bls12381_p2_decompress_base + bls12381_p2_decompress_element * num_elements`
         beneficiary_id_len: u64,
         beneficiary_id_ptr: u64,
     ) -> Result<()> {
-        self.result_state.gas_counter.pay_base(base)?;
+        self.result_state
+            .gas_counter
+            .pay_base(base)?;
         if self.context.is_view() {
             return Err(HostError::ProhibitedInView {
                 method_name: "promise_batch_action_delete_account".to_string(),
@@ -2527,7 +2913,8 @@ bls12381_p2_decompress_base + bls12381_p2_decompress_element * num_elements`
         let (receipt_idx, sir) = self.promise_idx_to_receipt_idx_with_sir(promise_idx)?;
         self.pay_action_base(ActionCosts::delete_account, sir)?;
 
-        self.ext.append_action_delete_account(receipt_idx, beneficiary_id)?;
+        self.ext
+            .append_action_delete_account(receipt_idx, beneficiary_id)?;
         Ok(())
     }
 
@@ -2580,14 +2967,18 @@ bls12381_p2_decompress_base + bls12381_p2_decompress_element * num_elements`
         gas_weight: u64,
         register_id: u64,
     ) -> Result<u64> {
-        self.result_state.gas_counter.pay_base(base)?;
+        self.result_state
+            .gas_counter
+            .pay_base(base)?;
         if self.context.is_view() {
             return Err(HostError::ProhibitedInView {
                 method_name: "promise_yield_create".to_string(),
             }
             .into());
         }
-        self.result_state.gas_counter.pay_base(yield_create_base)?;
+        self.result_state
+            .gas_counter
+            .pay_base(yield_create_base)?;
 
         let method_name = get_memory_or_register!(self, method_name_ptr, method_name_len)?;
         if method_name.is_empty() {
@@ -2599,27 +2990,33 @@ bls12381_p2_decompress_base + bls12381_p2_decompress_element * num_elements`
 
         // Input can't be large enough to overflow, WebAssembly address space is 32-bits.
         let num_bytes = method_name.len() as u64 + arguments.len() as u64;
-        self.result_state.gas_counter.pay_per(yield_create_byte, num_bytes)?;
+        self.result_state
+            .gas_counter
+            .pay_per(yield_create_byte, num_bytes)?;
         // Prepay gas for the callback so that it cannot be used for this execution any longer.
-        self.result_state.gas_counter.prepay_gas(gas)?;
+        self.result_state
+            .gas_counter
+            .prepay_gas(gas)?;
 
         // Here we are creating a receipt with a single data dependency which will then be
         // resolved by the resume call.
         self.pay_gas_for_new_receipt(true, &[true])?;
-        let (new_receipt_idx, data_id) =
-            self.ext.create_promise_yield_receipt(self.context.current_account_id.clone())?;
+        let (new_receipt_idx, data_id) = self
+            .ext
+            .create_promise_yield_receipt(self.context.current_account_id.clone())?;
 
         let new_promise_idx = self.checked_push_promise(Promise::Receipt(new_receipt_idx))?;
         self.pay_action_base(ActionCosts::function_call_base, true)?;
         self.pay_action_per_byte(ActionCosts::function_call_byte, num_bytes, true)?;
-        self.ext.append_action_function_call_weight(
-            new_receipt_idx,
-            method_name,
-            arguments,
-            0,
-            gas,
-            GasWeight(gas_weight),
-        )?;
+        self.ext
+            .append_action_function_call_weight(
+                new_receipt_idx,
+                method_name,
+                arguments,
+                0,
+                gas,
+                GasWeight(gas_weight),
+            )?;
 
         self.registers.set(
             &mut self.result_state.gas_counter,
@@ -2663,31 +3060,48 @@ bls12381_p2_decompress_base + bls12381_p2_decompress_element * num_elements`
         payload_len: u64,
         payload_ptr: u64,
     ) -> Result<u32, VMLogicError> {
-        self.result_state.gas_counter.pay_base(base)?;
+        self.result_state
+            .gas_counter
+            .pay_base(base)?;
         if self.context.is_view() {
             return Err(HostError::ProhibitedInView {
                 method_name: "promise_submit_data".to_string(),
             }
             .into());
         }
-        self.result_state.gas_counter.pay_base(yield_resume_base)?;
-        self.result_state.gas_counter.pay_per(yield_resume_byte, payload_len)?;
+        self.result_state
+            .gas_counter
+            .pay_base(yield_resume_base)?;
+        self.result_state
+            .gas_counter
+            .pay_per(yield_resume_byte, payload_len)?;
         let data_id = get_memory_or_register!(self, data_id_ptr, data_id_len)?;
         let payload = get_memory_or_register!(self, payload_ptr, payload_len)?;
         let payload_len = payload.len() as u64;
-        if payload_len > self.config.limit_config.max_yield_payload_size {
+        if payload_len
+            > self
+                .config
+                .limit_config
+                .max_yield_payload_size
+        {
             return Err(HostError::YieldPayloadLength {
                 length: payload_len,
-                limit: self.config.limit_config.max_yield_payload_size,
+                limit: self
+                    .config
+                    .limit_config
+                    .max_yield_payload_size,
             }
             .into());
         }
 
-        let data_id: [_; CryptoHash::LENGTH] =
-            (&*data_id).try_into().map_err(|_| HostError::DataIdMalformed)?;
+        let data_id: [_; CryptoHash::LENGTH] = (&*data_id)
+            .try_into()
+            .map_err(|_| HostError::DataIdMalformed)?;
         let data_id = CryptoHash(data_id);
         let payload = payload.into_owned();
-        self.ext.submit_promise_resume_data(data_id, payload).map(u32::from)
+        self.ext
+            .submit_promise_resume_data(data_id, payload)
+            .map(u32::from)
     }
 
     /// If the current function is invoked by a callback we can access the execution results of the
@@ -2705,7 +3119,9 @@ bls12381_p2_decompress_base + bls12381_p2_decompress_element * num_elements`
     ///
     /// `base`
     pub fn promise_results_count(&mut self) -> Result<u64> {
-        self.result_state.gas_counter.pay_base(base)?;
+        self.result_state
+            .gas_counter
+            .pay_base(base)?;
         if self.context.is_view() {
             return Err(HostError::ProhibitedInView {
                 method_name: "promise_results_count".to_string(),
@@ -2737,8 +3153,14 @@ bls12381_p2_decompress_base + bls12381_p2_decompress_element * num_elements`
     /// # Cost
     ///
     /// `base + cost of writing data into a register`
-    pub fn promise_result(&mut self, result_idx: u64, register_id: u64) -> Result<u64> {
-        self.result_state.gas_counter.pay_base(base)?;
+    pub fn promise_result(
+        &mut self,
+        result_idx: u64,
+        register_id: u64,
+    ) -> Result<u64> {
+        self.result_state
+            .gas_counter
+            .pay_base(base)?;
         if self.context.is_view() {
             return Err(
                 HostError::ProhibitedInView { method_name: "promise_result".to_string() }.into()
@@ -2750,8 +3172,8 @@ bls12381_p2_decompress_base + bls12381_p2_decompress_element * num_elements`
             .get(result_idx as usize)
             .ok_or(HostError::InvalidPromiseResultIndex { result_idx })?
         {
-            PromiseResult::NotReady => Ok(0),
-            PromiseResult::Successful(data) => {
+            | PromiseResult::NotReady => Ok(0),
+            | PromiseResult::Successful(data) => {
                 self.registers.set(
                     &mut self.result_state.gas_counter,
                     &self.config.limit_config,
@@ -2760,7 +3182,7 @@ bls12381_p2_decompress_base + bls12381_p2_decompress_element * num_elements`
                 )?;
                 Ok(1)
             }
-            PromiseResult::Failed => Ok(2),
+            | PromiseResult::Failed => Ok(2),
         }
     }
 
@@ -2775,9 +3197,16 @@ bls12381_p2_decompress_base + bls12381_p2_decompress_element * num_elements`
     /// # Cost
     ///
     /// `base + promise_return`
-    pub fn promise_return(&mut self, promise_idx: u64) -> Result<()> {
-        self.result_state.gas_counter.pay_base(base)?;
-        self.result_state.gas_counter.pay_base(promise_return)?;
+    pub fn promise_return(
+        &mut self,
+        promise_idx: u64,
+    ) -> Result<()> {
+        self.result_state
+            .gas_counter
+            .pay_base(base)?;
+        self.result_state
+            .gas_counter
+            .pay_base(promise_return)?;
         if self.context.is_view() {
             return Err(
                 HostError::ProhibitedInView { method_name: "promise_return".to_string() }.into()
@@ -2788,11 +3217,11 @@ bls12381_p2_decompress_base + bls12381_p2_decompress_element * num_elements`
             .get(promise_idx as usize)
             .ok_or(HostError::InvalidPromiseIndex { promise_idx })?
         {
-            Promise::Receipt(receipt_idx) => {
+            | Promise::Receipt(receipt_idx) => {
                 self.result_state.return_data = ReturnData::ReceiptIndex(*receipt_idx);
                 Ok(())
             }
-            Promise::NotReceipt(_) => Err(HostError::CannotReturnJointPromise.into()),
+            | Promise::NotReceipt(_) => Err(HostError::CannotReturnJointPromise.into()),
         }
     }
 
@@ -2811,15 +3240,29 @@ bls12381_p2_decompress_base + bls12381_p2_decompress_element * num_elements`
     ///
     /// # Cost
     /// `base + cost of reading return value from memory or register + dispatch&exec cost per byte of the data sent * num data receivers`
-    pub fn value_return(&mut self, value_len: u64, value_ptr: u64) -> Result<()> {
-        self.result_state.gas_counter.pay_base(base)?;
+    pub fn value_return(
+        &mut self,
+        value_len: u64,
+        value_ptr: u64,
+    ) -> Result<()> {
+        self.result_state
+            .gas_counter
+            .pay_base(base)?;
         let return_val = get_memory_or_register!(self, value_ptr, value_len)?;
         let mut burn_gas: Gas = 0;
         let num_bytes = return_val.len() as u64;
-        if num_bytes > self.config.limit_config.max_length_returned_data {
+        if num_bytes
+            > self
+                .config
+                .limit_config
+                .max_length_returned_data
+        {
             return Err(HostError::ReturnedValueLengthExceeded {
                 length: num_bytes,
-                limit: self.config.limit_config.max_length_returned_data,
+                limit: self
+                    .config
+                    .limit_config
+                    .max_length_returned_data,
             }
             .into());
         }
@@ -2838,7 +3281,9 @@ bls12381_p2_decompress_base + bls12381_p2_decompress_element * num_elements`
                         .fee(ActionCosts::new_data_receipt_byte)
                         .send_fee(sir)
                         .checked_add(
-                            self.fees_config.fee(ActionCosts::new_data_receipt_byte).exec_fee(),
+                            self.fees_config
+                                .fee(ActionCosts::new_data_receipt_byte)
+                                .exec_fee(),
                         )
                         .ok_or(HostError::IntegerOverflow)?
                         .checked_mul(num_bytes)
@@ -2846,11 +3291,9 @@ bls12381_p2_decompress_base + bls12381_p2_decompress_element * num_elements`
                 )
                 .ok_or(HostError::IntegerOverflow)?;
         }
-        self.result_state.gas_counter.pay_action_accumulated(
-            burn_gas,
-            burn_gas,
-            ActionCosts::new_data_receipt_byte,
-        )?;
+        self.result_state
+            .gas_counter
+            .pay_action_accumulated(burn_gas, burn_gas, ActionCosts::new_data_receipt_byte)?;
         self.result_state.return_data = ReturnData::Value(return_val.into_owned());
         Ok(())
     }
@@ -2861,7 +3304,9 @@ bls12381_p2_decompress_base + bls12381_p2_decompress_element * num_elements`
     ///
     /// `base`
     pub fn panic(&mut self) -> Result<()> {
-        self.result_state.gas_counter.pay_base(base)?;
+        self.result_state
+            .gas_counter
+            .pay_base(base)?;
         Err(HostError::GuestPanic { panic_msg: "explicit guest panic".to_string() }.into())
     }
 
@@ -2876,8 +3321,14 @@ bls12381_p2_decompress_base + bls12381_p2_decompress_element * num_elements`
     ///
     /// # Cost
     /// `base + cost of reading and decoding a utf8 string`
-    pub fn panic_utf8(&mut self, len: u64, ptr: u64) -> Result<()> {
-        self.result_state.gas_counter.pay_base(base)?;
+    pub fn panic_utf8(
+        &mut self,
+        len: u64,
+        ptr: u64,
+    ) -> Result<()> {
+        self.result_state
+            .gas_counter
+            .pay_base(base)?;
         Err(HostError::GuestPanic { panic_msg: self.get_utf8_string(len, ptr)? }.into())
     }
 
@@ -2896,13 +3347,25 @@ bls12381_p2_decompress_base + bls12381_p2_decompress_element * num_elements`
     /// # Cost
     ///
     /// `base + log_base + log_byte + num_bytes + utf8 decoding cost`
-    pub fn log_utf8(&mut self, len: u64, ptr: u64) -> Result<()> {
-        self.result_state.gas_counter.pay_base(base)?;
-        self.result_state.check_can_add_a_log_message()?;
+    pub fn log_utf8(
+        &mut self,
+        len: u64,
+        ptr: u64,
+    ) -> Result<()> {
+        self.result_state
+            .gas_counter
+            .pay_base(base)?;
+        self.result_state
+            .check_can_add_a_log_message()?;
         let message = self.get_utf8_string(len, ptr)?;
-        self.result_state.gas_counter.pay_base(log_base)?;
-        self.result_state.gas_counter.pay_per(log_byte, message.len() as u64)?;
-        self.result_state.checked_push_log(message)
+        self.result_state
+            .gas_counter
+            .pay_base(log_base)?;
+        self.result_state
+            .gas_counter
+            .pay_per(log_byte, message.len() as u64)?;
+        self.result_state
+            .checked_push_log(message)
     }
 
     /// Logs the UTF-16 encoded string. If `len == u64::MAX` then treats the string as
@@ -2920,14 +3383,26 @@ bls12381_p2_decompress_base + bls12381_p2_decompress_element * num_elements`
     /// # Cost
     ///
     /// `base + log_base + log_byte * num_bytes + utf16 decoding cost`
-    pub fn log_utf16(&mut self, len: u64, ptr: u64) -> Result<()> {
-        self.result_state.gas_counter.pay_base(base)?;
-        self.result_state.check_can_add_a_log_message()?;
+    pub fn log_utf16(
+        &mut self,
+        len: u64,
+        ptr: u64,
+    ) -> Result<()> {
+        self.result_state
+            .gas_counter
+            .pay_base(base)?;
+        self.result_state
+            .check_can_add_a_log_message()?;
         let message = self.get_utf16_string(len, ptr)?;
-        self.result_state.gas_counter.pay_base(log_base)?;
+        self.result_state
+            .gas_counter
+            .pay_base(log_base)?;
         // Let's not use `encode_utf16` for gas per byte here, since it's a lot of compute.
-        self.result_state.gas_counter.pay_per(log_byte, message.len() as u64)?;
-        self.result_state.checked_push_log(message)
+        self.result_state
+            .gas_counter
+            .pay_per(log_byte, message.len() as u64)?;
+        self.result_state
+            .checked_push_log(message)
     }
 
     /// Special import kept for compatibility with AssemblyScript contracts. Not called by smart
@@ -2945,26 +3420,42 @@ bls12381_p2_decompress_base + bls12381_p2_decompress_element * num_elements`
     /// # Cost
     ///
     /// `base +  log_base + log_byte * num_bytes + utf16 decoding cost`
-    pub fn abort(&mut self, msg_ptr: u32, filename_ptr: u32, line: u32, col: u32) -> Result<()> {
-        self.result_state.gas_counter.pay_base(base)?;
+    pub fn abort(
+        &mut self,
+        msg_ptr: u32,
+        filename_ptr: u32,
+        line: u32,
+        col: u32,
+    ) -> Result<()> {
+        self.result_state
+            .gas_counter
+            .pay_base(base)?;
         if msg_ptr < 4 || filename_ptr < 4 {
             return Err(HostError::BadUTF16.into());
         }
-        self.result_state.check_can_add_a_log_message()?;
+        self.result_state
+            .check_can_add_a_log_message()?;
 
         // Underflow checked above.
-        let msg_len =
-            self.memory.get_u32(&mut self.result_state.gas_counter, (msg_ptr - 4) as u64)?;
-        let filename_len =
-            self.memory.get_u32(&mut self.result_state.gas_counter, (filename_ptr - 4) as u64)?;
+        let msg_len = self
+            .memory
+            .get_u32(&mut self.result_state.gas_counter, (msg_ptr - 4) as u64)?;
+        let filename_len = self
+            .memory
+            .get_u32(&mut self.result_state.gas_counter, (filename_ptr - 4) as u64)?;
 
         let msg = self.get_utf16_string(msg_len as u64, msg_ptr as u64)?;
         let filename = self.get_utf16_string(filename_len as u64, filename_ptr as u64)?;
 
         let message = format!("{}, filename: \"{}\" line: {} col: {}", msg, filename, line, col);
-        self.result_state.gas_counter.pay_base(log_base)?;
-        self.result_state.gas_counter.pay_per(log_byte, message.as_bytes().len() as u64)?;
-        self.result_state.checked_push_log(format!("ABORT: {}", message))?;
+        self.result_state
+            .gas_counter
+            .pay_base(log_base)?;
+        self.result_state
+            .gas_counter
+            .pay_per(log_byte, message.as_bytes().len() as u64)?;
+        self.result_state
+            .checked_push_log(format!("ABORT: {}", message))?;
 
         Err(HostError::GuestPanic { panic_msg: message }.into())
     }
@@ -2985,10 +3476,18 @@ bls12381_p2_decompress_base + bls12381_p2_decompress_element * num_elements`
     /// This is a helper function that encapsulates the following costs:
     /// cost of reading buffer from register or memory,
     /// `utf8_decoding_base + utf8_decoding_byte * num_bytes`.
-    fn read_and_parse_account_id(&mut self, ptr: u64, len: u64) -> Result<AccountId> {
+    fn read_and_parse_account_id(
+        &mut self,
+        ptr: u64,
+        len: u64,
+    ) -> Result<AccountId> {
         let buf = get_memory_or_register!(self, ptr, len)?;
-        self.result_state.gas_counter.pay_base(utf8_decoding_base)?;
-        self.result_state.gas_counter.pay_per(utf8_decoding_byte, buf.len() as u64)?;
+        self.result_state
+            .gas_counter
+            .pay_base(utf8_decoding_base)?;
+        self.result_state
+            .gas_counter
+            .pay_per(utf8_decoding_byte, buf.len() as u64)?;
 
         // We return an illegally constructed AccountId here for the sake of ensuring
         // backwards compatibility. For paths previously involving validation, like receipts
@@ -3032,35 +3531,61 @@ bls12381_p2_decompress_base + bls12381_p2_decompress_element * num_elements`
         value_ptr: u64,
         register_id: u64,
     ) -> Result<u64> {
-        self.result_state.gas_counter.pay_base(base)?;
+        self.result_state
+            .gas_counter
+            .pay_base(base)?;
         if self.context.is_view() {
             return Err(
                 HostError::ProhibitedInView { method_name: "storage_write".to_string() }.into()
             );
         }
-        self.result_state.gas_counter.pay_base(storage_write_base)?;
+        self.result_state
+            .gas_counter
+            .pay_base(storage_write_base)?;
         let key = get_memory_or_register!(self, key_ptr, key_len)?;
-        if key.len() as u64 > self.config.limit_config.max_length_storage_key {
+        if key.len() as u64
+            > self
+                .config
+                .limit_config
+                .max_length_storage_key
+        {
             return Err(HostError::KeyLengthExceeded {
                 length: key.len() as u64,
-                limit: self.config.limit_config.max_length_storage_key,
+                limit: self
+                    .config
+                    .limit_config
+                    .max_length_storage_key,
             }
             .into());
         }
         let value = get_memory_or_register!(self, value_ptr, value_len)?;
-        if value.len() as u64 > self.config.limit_config.max_length_storage_value {
+        if value.len() as u64
+            > self
+                .config
+                .limit_config
+                .max_length_storage_value
+        {
             return Err(HostError::ValueLengthExceeded {
                 length: value.len() as u64,
-                limit: self.config.limit_config.max_length_storage_value,
+                limit: self
+                    .config
+                    .limit_config
+                    .max_length_storage_value,
             }
             .into());
         }
-        self.result_state.gas_counter.pay_per(storage_write_key_byte, key.len() as u64)?;
-        self.result_state.gas_counter.pay_per(storage_write_value_byte, value.len() as u64)?;
+        self.result_state
+            .gas_counter
+            .pay_per(storage_write_key_byte, key.len() as u64)?;
+        self.result_state
+            .gas_counter
+            .pay_per(storage_write_value_byte, value.len() as u64)?;
         let nodes_before = self.ext.get_trie_nodes_count();
         // For storage write, we need to first perform a read on the key to calculate the TTN cost.
         // This storage_get must be performed through trie instead of through FlatStorage
-        let evicted_ptr = self.ext.storage_get(&key, StorageGetMode::Trie)?;
+        let evicted_ptr = self
+            .ext
+            .storage_get(&key, StorageGetMode::Trie)?;
         let evicted = Self::deref_value(
             &mut self.result_state.gas_counter,
             storage_write_evicted_byte,
@@ -3083,12 +3608,15 @@ bls12381_p2_decompress_base + bls12381_p2_decompress_element * num_elements`
             tn_db_reads = nodes_delta.db_reads,
         );
 
-        self.result_state.gas_counter.add_trie_fees(&nodes_delta)?;
+        self.result_state
+            .gas_counter
+            .add_trie_fees(&nodes_delta)?;
         self.ext.storage_set(&key, &value)?;
         let storage_config = &self.fees_config.storage_usage_config;
-        self.recorded_storage_counter.observe_size(self.ext.get_recorded_storage_size())?;
+        self.recorded_storage_counter
+            .observe_size(self.ext.get_recorded_storage_size())?;
         match evicted {
-            Some(old_value) => {
+            | Some(old_value) => {
                 // Inner value can't overflow, because the value length is limited.
                 self.result_state.current_storage_usage = self
                     .result_state
@@ -3109,7 +3637,7 @@ bls12381_p2_decompress_base + bls12381_p2_decompress_element * num_elements`
                 )?;
                 Ok(1)
             }
-            None => {
+            | None => {
                 // Inner value can't overflow, because the key/value length is limited.
                 self.result_state.current_storage_usage = self
                     .result_state
@@ -3131,11 +3659,11 @@ bls12381_p2_decompress_base + bls12381_p2_decompress_element * num_elements`
         value_ptr: Option<Box<dyn ValuePtr + 's>>,
     ) -> Result<Option<Vec<u8>>> {
         match value_ptr {
-            Some(value_ptr) => {
+            | Some(value_ptr) => {
                 gas_counter.pay_per(cost_per_byte, value_ptr.len() as u64)?;
                 value_ptr.deref().map(Some)
             }
-            None => Ok(None),
+            | None => Ok(None),
         }
     }
 
@@ -3156,40 +3684,67 @@ bls12381_p2_decompress_base + bls12381_p2_decompress_element * num_elements`
     ///
     /// `base + storage_read_base + storage_read_key_byte * num_key_bytes + storage_read_value_byte + num_value_bytes
     ///  cost to read key from register + cost to write value into register`.
-    pub fn storage_read(&mut self, key_len: u64, key_ptr: u64, register_id: u64) -> Result<u64> {
-        self.result_state.gas_counter.pay_base(base)?;
-        self.result_state.gas_counter.pay_base(storage_read_base)?;
+    pub fn storage_read(
+        &mut self,
+        key_len: u64,
+        key_ptr: u64,
+        register_id: u64,
+    ) -> Result<u64> {
+        self.result_state
+            .gas_counter
+            .pay_base(base)?;
+        self.result_state
+            .gas_counter
+            .pay_base(storage_read_base)?;
         let key = get_memory_or_register!(self, key_ptr, key_len)?;
-        if key.len() as u64 > self.config.limit_config.max_length_storage_key {
+        if key.len() as u64
+            > self
+                .config
+                .limit_config
+                .max_length_storage_key
+        {
             return Err(HostError::KeyLengthExceeded {
                 length: key.len() as u64,
-                limit: self.config.limit_config.max_length_storage_key,
+                limit: self
+                    .config
+                    .limit_config
+                    .max_length_storage_key,
             }
             .into());
         }
-        self.result_state.gas_counter.pay_per(storage_read_key_byte, key.len() as u64)?;
+        self.result_state
+            .gas_counter
+            .pay_per(storage_read_key_byte, key.len() as u64)?;
         let nodes_before = self.ext.get_trie_nodes_count();
-        let read = self.ext.storage_get(&key, self.config.storage_get_mode);
+        let read = self
+            .ext
+            .storage_get(&key, self.config.storage_get_mode);
         let nodes_delta = self
             .ext
             .get_trie_nodes_count()
             .checked_sub(&nodes_before)
             .ok_or(InconsistentStateError::IntegerOverflow)?;
-        self.result_state.gas_counter.add_trie_fees(&nodes_delta)?;
+        self.result_state
+            .gas_counter
+            .add_trie_fees(&nodes_delta)?;
         let read = match read? {
-            Some(read) => {
+            | Some(read) => {
                 // Here we'll do u32 -> usize -> u64, which is always infallible
                 let read_len = read.len() as usize;
-                self.result_state.gas_counter.pay_per(storage_read_value_byte, read_len as u64)?;
+                self.result_state
+                    .gas_counter
+                    .pay_per(storage_read_value_byte, read_len as u64)?;
                 if read_len > INLINE_DISK_VALUE_THRESHOLD {
-                    self.result_state.gas_counter.pay_base(storage_large_read_overhead_base)?;
+                    self.result_state
+                        .gas_counter
+                        .pay_base(storage_large_read_overhead_base)?;
                     self.result_state
                         .gas_counter
                         .pay_per(storage_large_read_overhead_byte, read_len as u64)?;
                 }
                 Some(read.deref()?)
             }
-            None => None,
+            | None => None,
         };
 
         #[cfg(feature = "io_trace")]
@@ -3202,9 +3757,10 @@ bls12381_p2_decompress_base + bls12381_p2_decompress_element * num_elements`
             tn_mem_reads = nodes_delta.mem_reads,
         );
 
-        self.recorded_storage_counter.observe_size(self.ext.get_recorded_storage_size())?;
+        self.recorded_storage_counter
+            .observe_size(self.ext.get_recorded_storage_size())?;
         match read {
-            Some(value) => {
+            | Some(value) => {
                 self.registers.set(
                     &mut self.result_state.gas_counter,
                     &self.config.limit_config,
@@ -3213,7 +3769,7 @@ bls12381_p2_decompress_base + bls12381_p2_decompress_element * num_elements`
                 )?;
                 Ok(1)
             }
-            None => Ok(0),
+            | None => Ok(0),
         }
     }
 
@@ -3236,27 +3792,48 @@ bls12381_p2_decompress_base + bls12381_p2_decompress_element * num_elements`
     ///
     /// `base + storage_remove_base + storage_remove_key_byte * num_key_bytes + storage_remove_ret_value_byte * num_value_bytes
     /// + cost to read the key + cost to write the value`.
-    pub fn storage_remove(&mut self, key_len: u64, key_ptr: u64, register_id: u64) -> Result<u64> {
-        self.result_state.gas_counter.pay_base(base)?;
+    pub fn storage_remove(
+        &mut self,
+        key_len: u64,
+        key_ptr: u64,
+        register_id: u64,
+    ) -> Result<u64> {
+        self.result_state
+            .gas_counter
+            .pay_base(base)?;
         if self.context.is_view() {
             return Err(
                 HostError::ProhibitedInView { method_name: "storage_remove".to_string() }.into()
             );
         }
-        self.result_state.gas_counter.pay_base(storage_remove_base)?;
+        self.result_state
+            .gas_counter
+            .pay_base(storage_remove_base)?;
         let key = get_memory_or_register!(self, key_ptr, key_len)?;
-        if key.len() as u64 > self.config.limit_config.max_length_storage_key {
+        if key.len() as u64
+            > self
+                .config
+                .limit_config
+                .max_length_storage_key
+        {
             return Err(HostError::KeyLengthExceeded {
                 length: key.len() as u64,
-                limit: self.config.limit_config.max_length_storage_key,
+                limit: self
+                    .config
+                    .limit_config
+                    .max_length_storage_key,
             }
             .into());
         }
-        self.result_state.gas_counter.pay_per(storage_remove_key_byte, key.len() as u64)?;
+        self.result_state
+            .gas_counter
+            .pay_per(storage_remove_key_byte, key.len() as u64)?;
         let nodes_before = self.ext.get_trie_nodes_count();
         // To delete a key, we need to first perform a read on the key to calculate the TTN cost.
         // This storage_get must be performed through trie instead of through FlatStorage
-        let removed_ptr = self.ext.storage_get(&key, StorageGetMode::Trie)?;
+        let removed_ptr = self
+            .ext
+            .storage_get(&key, StorageGetMode::Trie)?;
         let removed = Self::deref_value(
             &mut self.result_state.gas_counter,
             storage_remove_ret_value_byte,
@@ -3280,11 +3857,14 @@ bls12381_p2_decompress_base + bls12381_p2_decompress_element * num_elements`
             tn_db_reads = nodes_delta.db_reads,
         );
 
-        self.result_state.gas_counter.add_trie_fees(&nodes_delta)?;
+        self.result_state
+            .gas_counter
+            .add_trie_fees(&nodes_delta)?;
         let storage_config = &self.fees_config.storage_usage_config;
-        self.recorded_storage_counter.observe_size(self.ext.get_recorded_storage_size())?;
+        self.recorded_storage_counter
+            .observe_size(self.ext.get_recorded_storage_size())?;
         match removed {
-            Some(value) => {
+            | Some(value) => {
                 // Inner value can't overflow, because the key/value length is limited.
                 self.result_state.current_storage_usage = self
                     .result_state
@@ -3303,7 +3883,7 @@ bls12381_p2_decompress_base + bls12381_p2_decompress_element * num_elements`
                 )?;
                 Ok(1)
             }
-            None => Ok(0),
+            | None => Ok(0),
         }
     }
 
@@ -3319,20 +3899,40 @@ bls12381_p2_decompress_base + bls12381_p2_decompress_element * num_elements`
     /// # Cost
     ///
     /// `base + storage_has_key_base + storage_has_key_byte * num_bytes + cost of reading key`
-    pub fn storage_has_key(&mut self, key_len: u64, key_ptr: u64) -> Result<u64> {
-        self.result_state.gas_counter.pay_base(base)?;
-        self.result_state.gas_counter.pay_base(storage_has_key_base)?;
+    pub fn storage_has_key(
+        &mut self,
+        key_len: u64,
+        key_ptr: u64,
+    ) -> Result<u64> {
+        self.result_state
+            .gas_counter
+            .pay_base(base)?;
+        self.result_state
+            .gas_counter
+            .pay_base(storage_has_key_base)?;
         let key = get_memory_or_register!(self, key_ptr, key_len)?;
-        if key.len() as u64 > self.config.limit_config.max_length_storage_key {
+        if key.len() as u64
+            > self
+                .config
+                .limit_config
+                .max_length_storage_key
+        {
             return Err(HostError::KeyLengthExceeded {
                 length: key.len() as u64,
-                limit: self.config.limit_config.max_length_storage_key,
+                limit: self
+                    .config
+                    .limit_config
+                    .max_length_storage_key,
             }
             .into());
         }
-        self.result_state.gas_counter.pay_per(storage_has_key_byte, key.len() as u64)?;
+        self.result_state
+            .gas_counter
+            .pay_per(storage_has_key_byte, key.len() as u64)?;
         let nodes_before = self.ext.get_trie_nodes_count();
-        let res = self.ext.storage_has_key(&key, self.config.storage_get_mode);
+        let res = self
+            .ext
+            .storage_has_key(&key, self.config.storage_get_mode);
         let nodes_delta = self
             .ext
             .get_trie_nodes_count()
@@ -3348,8 +3948,11 @@ bls12381_p2_decompress_base + bls12381_p2_decompress_element * num_elements`
             tn_db_reads = nodes_delta.db_reads,
         );
 
-        self.result_state.gas_counter.add_trie_fees(&nodes_delta)?;
-        self.recorded_storage_counter.observe_size(self.ext.get_recorded_storage_size())?;
+        self.result_state
+            .gas_counter
+            .add_trie_fees(&nodes_delta)?;
+        self.recorded_storage_counter
+            .observe_size(self.ext.get_recorded_storage_size())?;
         Ok(res? as u64)
     }
 
@@ -3364,7 +3967,11 @@ bls12381_p2_decompress_base + bls12381_p2_decompress_element * num_elements`
     ///
     /// 0
     #[cfg(feature = "sandbox")]
-    pub fn sandbox_debug_log(&mut self, len: u64, ptr: u64) -> Result<()> {
+    pub fn sandbox_debug_log(
+        &mut self,
+        len: u64,
+        ptr: u64,
+    ) -> Result<()> {
         let message = self.sandbox_get_utf8_string(len, ptr)?;
         tracing::debug!(target: "sandbox", message = &message[..]);
         Ok(())
@@ -3387,7 +3994,11 @@ bls12381_p2_decompress_base + bls12381_p2_decompress_element * num_elements`
     ///
     /// `base + storage_iter_create_prefix_base + storage_iter_create_key_byte * num_prefix_bytes
     ///  cost of reading the prefix`.
-    pub fn storage_iter_prefix(&mut self, _prefix_len: u64, _prefix_ptr: u64) -> Result<u64> {
+    pub fn storage_iter_prefix(
+        &mut self,
+        _prefix_len: u64,
+        _prefix_ptr: u64,
+    ) -> Result<u64> {
         Err(VMLogicError::HostError(HostError::Deprecated {
             method_name: "storage_iter_prefix".to_string(),
         }))
@@ -3475,18 +4086,30 @@ bls12381_p2_decompress_base + bls12381_p2_decompress_element * num_elements`
 
     /// Properly handles gas limit exceeded error.
     pub fn process_gas_limit(&mut self) -> HostError {
-        let new_burn_gas = self.result_state.gas_counter.burnt_gas();
+        let new_burn_gas = self
+            .result_state
+            .gas_counter
+            .burnt_gas();
         let new_used_gas = self.result_state.gas_counter.used_gas();
-        self.result_state.gas_counter.process_gas_limit(new_burn_gas, new_used_gas)
+        self.result_state
+            .gas_counter
+            .process_gas_limit(new_burn_gas, new_used_gas)
     }
 
     /// A helper function to pay base cost gas fee for batching an action.
-    pub fn pay_action_base(&mut self, action: ActionCosts, sir: bool) -> Result<()> {
+    pub fn pay_action_base(
+        &mut self,
+        action: ActionCosts,
+        sir: bool,
+    ) -> Result<()> {
         let base_fee = self.fees_config.fee(action);
         let burn_gas = base_fee.send_fee(sir);
-        let use_gas =
-            burn_gas.checked_add(base_fee.exec_fee()).ok_or(HostError::IntegerOverflow)?;
-        self.result_state.gas_counter.pay_action_accumulated(burn_gas, use_gas, action)
+        let use_gas = burn_gas
+            .checked_add(base_fee.exec_fee())
+            .ok_or(HostError::IntegerOverflow)?;
+        self.result_state
+            .gas_counter
+            .pay_action_accumulated(burn_gas, use_gas, action)
     }
 
     /// A helper function to pay per byte gas fee for batching an action.
@@ -3497,14 +4120,19 @@ bls12381_p2_decompress_base + bls12381_p2_decompress_element * num_elements`
         sir: bool,
     ) -> Result<()> {
         let per_byte_fee = self.fees_config.fee(action);
-        let burn_gas =
-            num_bytes.checked_mul(per_byte_fee.send_fee(sir)).ok_or(HostError::IntegerOverflow)?;
+        let burn_gas = num_bytes
+            .checked_mul(per_byte_fee.send_fee(sir))
+            .ok_or(HostError::IntegerOverflow)?;
         let use_gas = burn_gas
             .checked_add(
-                num_bytes.checked_mul(per_byte_fee.exec_fee()).ok_or(HostError::IntegerOverflow)?,
+                num_bytes
+                    .checked_mul(per_byte_fee.exec_fee())
+                    .ok_or(HostError::IntegerOverflow)?,
             )
             .ok_or(HostError::IntegerOverflow)?;
-        self.result_state.gas_counter.pay_action_accumulated(burn_gas, use_gas, action)
+        self.result_state
+            .gas_counter
+            .pay_action_accumulated(burn_gas, use_gas, action)
     }
 }
 
@@ -3525,7 +4153,10 @@ pub struct VMOutcome {
 impl VMOutcome {
     /// Consumes the `VMLogic` object and computes the final outcome with the
     /// given error that stopped execution from finishing successfully.
-    pub fn abort(state: ExecutionResultState, error: FunctionCallError) -> VMOutcome {
+    pub fn abort(
+        state: ExecutionResultState,
+        error: FunctionCallError,
+    ) -> VMOutcome {
         let mut outcome = state.compute_outcome();
         outcome.aborted = Some(error);
         outcome
@@ -3570,11 +4201,14 @@ impl VMOutcome {
 }
 
 impl std::fmt::Debug for VMOutcome {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+    ) -> std::fmt::Result {
         let return_data_str = match &self.return_data {
-            ReturnData::None => "None".to_string(),
-            ReturnData::ReceiptIndex(_) => "Receipt".to_string(),
-            ReturnData::Value(v) => format!("Value [{} bytes]", v.len()),
+            | ReturnData::None => "None".to_string(),
+            | ReturnData::ReceiptIndex(_) => "Receipt".to_string(),
+            | ReturnData::Value(v) => format!("Value [{} bytes]", v.len()),
         };
         write!(
             f,

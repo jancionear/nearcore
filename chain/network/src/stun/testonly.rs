@@ -26,7 +26,11 @@ impl Server {
     /// In fact a TURN server is spawned, which implements a superset
     /// of STUN functionality.
     pub async fn new() -> Self {
-        let server_conn = Arc::new(tokio::net::UdpSocket::bind("[::1]:0").await.unwrap());
+        let server_conn = Arc::new(
+            tokio::net::UdpSocket::bind("[::1]:0")
+                .await
+                .unwrap(),
+        );
         let server_addr = server_conn.local_addr().unwrap();
 
         Self {

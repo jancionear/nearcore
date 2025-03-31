@@ -308,15 +308,18 @@ pub(crate) use {call_with_name, for_each_available_import};
 
 pub(crate) const fn should_trace_host_function(host_function: &str) -> bool {
     match host_function {
-        _ if str_eq(host_function, "gas") => false,
-        _ if str_eq(host_function, "finite_wasm_gas") => false,
-        _ => true,
+        | _ if str_eq(host_function, "gas") => false,
+        | _ if str_eq(host_function, "finite_wasm_gas") => false,
+        | _ => true,
     }
 }
 
 /// Constant-time string equality, work-around for `"foo" == "bar"` not working
 /// in const context yet.
-const fn str_eq(s1: &str, s2: &str) -> bool {
+const fn str_eq(
+    s1: &str,
+    s2: &str,
+) -> bool {
     let s1 = s1.as_bytes();
     let s2 = s2.as_bytes();
     if s1.len() != s2.len() {

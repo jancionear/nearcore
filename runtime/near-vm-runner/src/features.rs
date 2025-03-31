@@ -28,9 +28,9 @@ pub(crate) struct WasmFeatures {
 impl From<crate::logic::ContractPrepareVersion> for WasmFeatures {
     fn from(version: crate::logic::ContractPrepareVersion) -> Self {
         let sign_extension = match version {
-            crate::logic::ContractPrepareVersion::V0 => false,
-            crate::logic::ContractPrepareVersion::V1 => false,
-            crate::logic::ContractPrepareVersion::V2 => true,
+            | crate::logic::ContractPrepareVersion::V0 => false,
+            | crate::logic::ContractPrepareVersion::V1 => false,
+            | crate::logic::ContractPrepareVersion::V2 => true,
         };
         WasmFeatures { sign_extension }
     }

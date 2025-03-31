@@ -81,7 +81,10 @@ impl ChunkStateWitnessTracker {
 
     /// Handles an ack message for the witness. Calculates the round-trip duration and
     /// records it in the corresponding metric.
-    pub fn on_witness_ack_received(&mut self, ack: ChunkStateWitnessAck) -> () {
+    pub fn on_witness_ack_received(
+        &mut self,
+        ack: ChunkStateWitnessAck,
+    ) -> () {
         let key = ChunkStateWitnessKey { chunk_hash: ack.chunk_hash };
         tracing::trace!(target: "state_witness_tracker", witness_key=?key,
             "Received ack for state witness");
@@ -102,7 +105,10 @@ impl ChunkStateWitnessTracker {
     }
 
     /// Records the roundtrip time in metrics.
-    fn update_roundtrip_time_metric(record: &ChunkStateWitnessRecord, clock: &Clock) -> () {
+    fn update_roundtrip_time_metric(
+        record: &ChunkStateWitnessRecord,
+        clock: &Clock,
+    ) -> () {
         let received_time = clock.now();
         if received_time > record.sent_timestamp {
             metrics::CHUNK_STATE_WITNESS_NETWORK_ROUNDTRIP_TIME

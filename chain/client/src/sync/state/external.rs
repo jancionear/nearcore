@@ -39,8 +39,8 @@ impl StateSyncDownloadSourceExternal {
         let fut = conn.get_file(shard_id, &location, &file_type);
         let deadline = clock.now() + timeout;
         let typ = match &file_type {
-            StateFileType::StateHeader => "header",
-            StateFileType::StatePart { .. } => "part",
+            | StateFileType::StateHeader => "header",
+            | StateFileType::StatePart { .. } => "part",
         };
         tokio::select! {
             _ = clock.sleep_until(deadline) => {

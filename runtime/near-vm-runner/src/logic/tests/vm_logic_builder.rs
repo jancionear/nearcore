@@ -28,7 +28,10 @@ impl Default for VMLogicBuilder {
 impl VMLogicBuilder {
     pub fn view() -> Self {
         let mut builder = Self::default();
-        let max_gas_burnt = builder.config.limit_config.max_gas_burnt;
+        let max_gas_burnt = builder
+            .config
+            .limit_config
+            .max_gas_burnt;
         builder.context.view_config =
             Some(near_primitives_core::config::ViewConfig { max_gas_burnt });
         builder
@@ -37,7 +40,8 @@ impl VMLogicBuilder {
     pub fn build(&mut self) -> TestVMLogic<'_> {
         let result_state = ExecutionResultState::new(
             &self.context,
-            self.context.make_gas_counter(&self.config),
+            self.context
+                .make_gas_counter(&self.config),
             Arc::new(self.config.clone()),
         );
         TestVMLogic::from(VMLogic::new(
@@ -118,21 +122,37 @@ impl TestVMLogic<'_> {
     /// Subsequent calls to the method write buffers one after the other.  It
     /// makes it convenient to populate the memory with various different data
     /// to later use in function calls.
-    pub(super) fn internal_mem_write(&mut self, data: &[u8]) -> MemSlice {
+    pub(super) fn internal_mem_write(
+        &mut self,
+        data: &[u8],
+    ) -> MemSlice {
         let slice = self.internal_mem_write_at(self.mem_write_offset, data);
         self.mem_write_offset += slice.len;
         slice
     }
 
     /// Writes data into guest memory at given location.
-    pub(super) fn internal_mem_write_at(&mut self, ptr: u64, data: &[u8]) -> MemSlice {
-        self.memory().set_for_free(ptr, data).unwrap();
+    pub(super) fn internal_mem_write_at(
+        &mut self,
+        ptr: u64,
+        data: &[u8],
+    ) -> MemSlice {
+        self.memory()
+            .set_for_free(ptr, data)
+            .unwrap();
         MemSlice { len: u64::try_from(data.len()).unwrap(), ptr }
     }
 
     /// Reads data from guest memory into a Vector.
-    pub(super) fn internal_mem_read(&mut self, ptr: u64, len: u64) -> Vec<u8> {
-        self.memory().view_for_free(MemSlice { ptr, len }).unwrap().into_owned()
+    pub(super) fn internal_mem_read(
+        &mut self,
+        ptr: u64,
+        len: u64,
+    ) -> Vec<u8> {
+        self.memory()
+            .view_for_free(MemSlice { ptr, len })
+            .unwrap()
+            .into_owned()
     }
 
     /// Calls `logic.read_register` and then on success reads data from guest
@@ -146,15 +166,28 @@ impl TestVMLogic<'_> {
     /// The value of the register is read onto the end of the guest memory
     /// overriding anything that might already be there.
     #[track_caller]
-    pub(super) fn assert_read_register(&mut self, want: &[u8], register_id: u64) {
-        let len = self.registers().get_len(register_id).unwrap();
+    pub(super) fn assert_read_register(
+        &mut self,
+        want: &[u8],
+        register_id: u64,
+    ) {
+        let len = self
+            .registers()
+            .get_len(register_id)
+            .unwrap();
         let ptr = MockedMemory::MEMORY_SIZE - len;
-        self.read_register(register_id, ptr).unwrap();
-        let got = self.memory().view_for_free(MemSlice { ptr, len }).unwrap();
+        self.read_register(register_id, ptr)
+            .unwrap();
+        let got = self
+            .memory()
+            .view_for_free(MemSlice { ptr, len })
+            .unwrap();
         assert_eq!(want, &got[..]);
     }
 
     pub fn compute_outcome(self) -> crate::logic::VMOutcome {
-        self.logic.result_state.compute_outcome()
+        self.logic
+            .result_state
+            .compute_outcome()
     }
 }

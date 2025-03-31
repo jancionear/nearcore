@@ -44,25 +44,28 @@ impl ChunkContractAccesses {
 
     pub fn contracts(&self) -> &[CodeHash] {
         match self {
-            Self::V1(accesses) => &accesses.inner.contracts,
+            | Self::V1(accesses) => &accesses.inner.contracts,
         }
     }
 
     pub fn chunk_production_key(&self) -> &ChunkProductionKey {
         match self {
-            Self::V1(accesses) => &accesses.inner.next_chunk,
+            | Self::V1(accesses) => &accesses.inner.next_chunk,
         }
     }
 
     pub fn main_transition(&self) -> &MainTransitionKey {
         match self {
-            Self::V1(accesses) => &accesses.inner.main_transition,
+            | Self::V1(accesses) => &accesses.inner.main_transition,
         }
     }
 
-    pub fn verify_signature(&self, public_key: &PublicKey) -> bool {
+    pub fn verify_signature(
+        &self,
+        public_key: &PublicKey,
+    ) -> bool {
         match self {
-            Self::V1(accesses) => accesses.verify_signature(public_key),
+            | Self::V1(accesses) => accesses.verify_signature(public_key),
         }
     }
 }
@@ -86,8 +89,12 @@ impl ChunkContractAccessesV1 {
         Self { inner, signature }
     }
 
-    fn verify_signature(&self, public_key: &PublicKey) -> bool {
-        self.signature.verify(&borsh::to_vec(&self.inner).unwrap(), public_key)
+    fn verify_signature(
+        &self,
+        public_key: &PublicKey,
+    ) -> bool {
+        self.signature
+            .verify(&borsh::to_vec(&self.inner).unwrap(), public_key)
     }
 }
 
@@ -141,31 +148,34 @@ impl ContractCodeRequest {
 
     pub fn requester(&self) -> &AccountId {
         match self {
-            Self::V1(request) => &request.inner.requester,
+            | Self::V1(request) => &request.inner.requester,
         }
     }
 
     pub fn contracts(&self) -> &[CodeHash] {
         match self {
-            Self::V1(request) => &request.inner.contracts,
+            | Self::V1(request) => &request.inner.contracts,
         }
     }
 
     pub fn chunk_production_key(&self) -> &ChunkProductionKey {
         match self {
-            Self::V1(request) => &request.inner.next_chunk,
+            | Self::V1(request) => &request.inner.next_chunk,
         }
     }
 
     pub fn main_transition(&self) -> &MainTransitionKey {
         match self {
-            Self::V1(request) => &request.inner.main_transition,
+            | Self::V1(request) => &request.inner.main_transition,
         }
     }
 
-    pub fn verify_signature(&self, public_key: &PublicKey) -> bool {
+    pub fn verify_signature(
+        &self,
+        public_key: &PublicKey,
+    ) -> bool {
         match self {
-            Self::V1(v1) => v1.verify_signature(public_key),
+            | Self::V1(v1) => v1.verify_signature(public_key),
         }
     }
 }
@@ -194,8 +204,12 @@ impl ContractCodeRequestV1 {
         Self { inner, signature }
     }
 
-    pub fn verify_signature(&self, public_key: &PublicKey) -> bool {
-        self.signature.verify(&borsh::to_vec(&self.inner).unwrap(), public_key)
+    pub fn verify_signature(
+        &self,
+        public_key: &PublicKey,
+    ) -> bool {
+        self.signature
+            .verify(&borsh::to_vec(&self.inner).unwrap(), public_key)
     }
 }
 
@@ -249,15 +263,17 @@ impl ContractCodeResponse {
 
     pub fn chunk_production_key(&self) -> &ChunkProductionKey {
         match self {
-            Self::V1(v1) => &v1.next_chunk,
+            | Self::V1(v1) => &v1.next_chunk,
         }
     }
 
     pub fn decompress_contracts(&self) -> std::io::Result<Vec<CodeBytes>> {
         let compressed_contracts = match self {
-            Self::V1(v1) => &v1.compressed_contracts,
+            | Self::V1(v1) => &v1.compressed_contracts,
         };
-        compressed_contracts.decode().map(|(data, _size)| data)
+        compressed_contracts
+            .decode()
+            .map(|(data, _size)| data)
     }
 }
 
@@ -381,7 +397,10 @@ pub struct ContractUpdates {
 impl ContractUpdates {
     /// Returns the code-hashes of the contracts deployed.
     pub fn contract_deploy_hashes(&self) -> HashSet<CodeHash> {
-        self.contract_deploys.iter().map(|contract| (*contract.hash()).into()).collect()
+        self.contract_deploys
+            .iter()
+            .map(|contract| (*contract.hash()).into())
+            .collect()
     }
 }
 
@@ -399,7 +418,9 @@ impl ChunkContractDeploys {
     }
 
     pub fn decompress_contracts(&self) -> std::io::Result<Vec<CodeBytes>> {
-        self.compressed_contracts.decode().map(|(data, _size)| data)
+        self.compressed_contracts
+            .decode()
+            .map(|(data, _size)| data)
     }
 }
 
@@ -424,19 +445,22 @@ impl PartialEncodedContractDeploys {
 
     pub fn chunk_production_key(&self) -> &ChunkProductionKey {
         match &self {
-            Self::V1(v1) => &v1.inner.next_chunk,
+            | Self::V1(v1) => &v1.inner.next_chunk,
         }
     }
 
     pub fn part(&self) -> &PartialEncodedContractDeploysPart {
         match &self {
-            Self::V1(v1) => &v1.inner.part,
+            | Self::V1(v1) => &v1.inner.part,
         }
     }
 
-    pub fn verify_signature(&self, public_key: &PublicKey) -> bool {
+    pub fn verify_signature(
+        &self,
+        public_key: &PublicKey,
+    ) -> bool {
         match self {
-            Self::V1(accesses) => accesses.verify_signature(public_key),
+            | Self::V1(accesses) => accesses.verify_signature(public_key),
         }
     }
 }
@@ -446,7 +470,7 @@ impl Into<(ChunkProductionKey, PartialEncodedContractDeploysPart)>
 {
     fn into(self) -> (ChunkProductionKey, PartialEncodedContractDeploysPart) {
         match self {
-            Self::V1(PartialEncodedContractDeploysV1 { inner, .. }) => {
+            | Self::V1(PartialEncodedContractDeploysV1 { inner, .. }) => {
                 (inner.next_chunk, inner.part)
             }
         }
@@ -470,8 +494,12 @@ impl PartialEncodedContractDeploysV1 {
         Self { inner, signature }
     }
 
-    pub fn verify_signature(&self, public_key: &PublicKey) -> bool {
-        self.signature.verify(&borsh::to_vec(&self.inner).unwrap(), public_key)
+    pub fn verify_signature(
+        &self,
+        public_key: &PublicKey,
+    ) -> bool {
+        self.signature
+            .verify(&borsh::to_vec(&self.inner).unwrap(), public_key)
     }
 }
 
@@ -483,7 +511,10 @@ pub struct PartialEncodedContractDeploysPart {
 }
 
 impl std::fmt::Debug for PartialEncodedContractDeploysPart {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+    ) -> std::fmt::Result {
         f.debug_struct("PartialEncodedContractDeploysPart")
             .field("part_ord", &self.part_ord)
             .field("data_size", &self.data.len())
@@ -500,7 +531,10 @@ pub struct PartialEncodedContractDeploysInner {
 }
 
 impl PartialEncodedContractDeploysInner {
-    fn new(next_chunk: ChunkProductionKey, part: PartialEncodedContractDeploysPart) -> Self {
+    fn new(
+        next_chunk: ChunkProductionKey,
+        part: PartialEncodedContractDeploysPart,
+    ) -> Self {
         Self {
             next_chunk,
             part,

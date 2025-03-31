@@ -37,13 +37,19 @@ impl HandlerWithContext<FlatStorageShardCatchupRequest> for ReshardingActor {
 }
 
 impl Handler<MemtrieReloadRequest> for ReshardingActor {
-    fn handle(&mut self, _msg: MemtrieReloadRequest) {
+    fn handle(
+        &mut self,
+        _msg: MemtrieReloadRequest,
+    ) {
         // TODO(resharding)
     }
 }
 
 impl ReshardingActor {
-    pub fn new(store: Store, genesis: &ChainGenesis) -> Self {
+    pub fn new(
+        store: Store,
+        genesis: &ChainGenesis,
+    ) -> Self {
         Self {
             chain_store: ChainStore::new(
                 store,
@@ -63,16 +69,16 @@ impl ReshardingActor {
         // becomes final. If the resharding block is not yet final, the task will exit early with
         // `Postponed` status and it must be rescheduled.
         match resharder.split_shard_task(&self.chain_store) {
-            FlatStorageReshardingTaskResult::Successful { .. } => {
+            | FlatStorageReshardingTaskResult::Successful { .. } => {
                 // All good.
             }
-            FlatStorageReshardingTaskResult::Failed => {
+            | FlatStorageReshardingTaskResult::Failed => {
                 panic!("impossible to recover from a flat storage split shard failure!")
             }
-            FlatStorageReshardingTaskResult::Cancelled => {
+            | FlatStorageReshardingTaskResult::Cancelled => {
                 // The task has been cancelled. Nothing else to do.
             }
-            FlatStorageReshardingTaskResult::Postponed => {
+            | FlatStorageReshardingTaskResult::Postponed => {
                 // The task must be retried later.
                 ctx.run_later(
                     "ReshardingActor FlatStorageSplitShard",
@@ -92,16 +98,16 @@ impl ReshardingActor {
         ctx: &mut dyn DelayedActionRunner<Self>,
     ) {
         match resharder.shard_catchup_task(shard_uid, &self.chain_store) {
-            FlatStorageReshardingTaskResult::Successful { .. } => {
+            | FlatStorageReshardingTaskResult::Successful { .. } => {
                 // All good.
             }
-            FlatStorageReshardingTaskResult::Failed => {
+            | FlatStorageReshardingTaskResult::Failed => {
                 panic!("impossible to recover from a flat storage shard catchup failure!")
             }
-            FlatStorageReshardingTaskResult::Cancelled => {
+            | FlatStorageReshardingTaskResult::Cancelled => {
                 // The task has been cancelled. Nothing else to do.
             }
-            FlatStorageReshardingTaskResult::Postponed => {
+            | FlatStorageReshardingTaskResult::Postponed => {
                 // The task must be retried later.
                 ctx.run_later(
                     "ReshardingActor FlatStorageCatchup",

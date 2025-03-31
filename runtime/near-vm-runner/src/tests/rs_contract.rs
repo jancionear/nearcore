@@ -19,23 +19,28 @@ use near_parameters::vm::VMKind;
 
 /// Encode array of `u64` to be passed as a smart contract argument.
 fn encode(xs: &[u64]) -> Vec<u8> {
-    xs.iter().flat_map(|it| it.to_le_bytes()).collect()
+    xs.iter()
+        .flat_map(|it| it.to_le_bytes())
+        .collect()
 }
 
 fn test_contract(vm_kind: VMKind) -> ContractCode {
     let code = match vm_kind {
         // testing backwards-compatibility, use an old WASM
-        VMKind::Wasmer0 | VMKind::Wasmer2 => {
+        | VMKind::Wasmer0 | VMKind::Wasmer2 => {
             near_test_contracts::backwards_compatible_rs_contract()
         }
         // production and developer environment, use a cutting-edge WASM
-        VMKind::Wasmtime | VMKind::NearVm => near_test_contracts::rs_contract(),
+        | VMKind::Wasmtime | VMKind::NearVm => near_test_contracts::rs_contract(),
     };
     ContractCode::new(code.to_vec(), None)
 }
 
 #[track_caller]
-fn assert_run_result(result: VMResult, expected_value: u64) {
+fn assert_run_result(
+    result: VMResult,
+    expected_value: u64,
+) {
     let outcome = result.expect("Failed execution");
 
     if let ReturnData::Value(value) = &outcome.return_data {
@@ -57,23 +62,23 @@ pub fn test_read_write() {
         let mut fake_external = MockedExternal::with_code(code);
         let context = create_context(encode(&[10u64, 20u64]));
 
-        let runtime = vm_kind.runtime(config.clone()).expect("runtime has not been compiled");
+        let runtime = vm_kind
+            .runtime(config.clone())
+            .expect("runtime has not been compiled");
         let gas_counter = context.make_gas_counter(&config);
-        let result = runtime.prepare(&fake_external, None, gas_counter, "write_key_value").run(
-            &mut fake_external,
-            &context,
-            Arc::clone(&fees),
-        );
+        let result = runtime
+            .prepare(&fake_external, None, gas_counter, "write_key_value")
+            .run(&mut fake_external, &context, Arc::clone(&fees));
         assert_run_result(result, 0);
 
         let context = create_context(encode(&[10u64]));
-        let runtime = vm_kind.runtime(config.clone()).expect("runtime has not been compiled");
+        let runtime = vm_kind
+            .runtime(config.clone())
+            .expect("runtime has not been compiled");
         let gas_counter = context.make_gas_counter(&config);
-        let result = runtime.prepare(&fake_external, None, gas_counter, "read_value").run(
-            &mut fake_external,
-            &context,
-            Arc::clone(&fees),
-        );
+        let result = runtime
+            .prepare(&fake_external, None, gas_counter, "read_value")
+            .run(&mut fake_external, &context, Arc::clone(&fees));
         assert_run_result(result, 20);
     });
 }
@@ -118,12 +123,16 @@ fn run_test_ext(
 ) {
     let code = test_contract(vm_kind);
     let mut fake_external = MockedExternal::with_code(code);
-    fake_external.validators =
-        validators.into_iter().map(|(s, b)| (s.parse().unwrap(), b)).collect();
+    fake_external.validators = validators
+        .into_iter()
+        .map(|(s, b)| (s.parse().unwrap(), b))
+        .collect();
     let fees = Arc::new(RuntimeFeesConfig::test());
     let context = create_context(input.to_vec());
     let gas_counter = context.make_gas_counter(&config);
-    let runtime = vm_kind.runtime(config).expect("runtime has not been compiled");
+    let runtime = vm_kind
+        .runtime(config)
+        .expect("runtime has not been compiled");
     let outcome = runtime
         .prepare(&fake_external, None, gas_counter, &method)
         .run(&mut fake_external, &context, Arc::clone(&fees))
@@ -161,10 +170,13 @@ pub fn ext_used_gas() {
     with_vm_variants(&config, |vm_kind: VMKind| {
         // Note, the used_gas is not a global used_gas at the beginning of method, but instead a
         // diff in used_gas for computing fib(30) in a loop
-        let expected = match config.limit_config.contract_prepare_version {
-            crate::logic::ContractPrepareVersion::V0 => [111, 10, 200, 15, 0, 0, 0, 0],
-            crate::logic::ContractPrepareVersion::V1 => [111, 10, 200, 15, 0, 0, 0, 0],
-            crate::logic::ContractPrepareVersion::V2 => [27, 180, 237, 15, 0, 0, 0, 0],
+        let expected = match config
+            .limit_config
+            .contract_prepare_version
+        {
+            | crate::logic::ContractPrepareVersion::V0 => [111, 10, 200, 15, 0, 0, 0, 0],
+            | crate::logic::ContractPrepareVersion::V1 => [111, 10, 200, 15, 0, 0, 0, 0],
+            | crate::logic::ContractPrepareVersion::V2 => [27, 180, 237, 15, 0, 0, 0, 0],
         };
         run_test_ext(Arc::clone(&config), "ext_used_gas", &expected, &[], vec![], vm_kind)
     })
@@ -221,15 +233,17 @@ pub fn test_out_of_memory() {
     with_vm_variants(&config, |vm_kind: VMKind| {
         // TODO: currently we only run this test on Wasmer.
         match vm_kind {
-            VMKind::Wasmtime => return,
-            _ => {}
+            | VMKind::Wasmtime => return,
+            | _ => {}
         }
 
         let code = test_contract(vm_kind);
         let mut fake_external = MockedExternal::with_code(code);
         let context = create_context(Vec::new());
         let fees = Arc::new(RuntimeFeesConfig::free());
-        let runtime = vm_kind.runtime(config.clone()).expect("runtime has not been compiled");
+        let runtime = vm_kind
+            .runtime(config.clone())
+            .expect("runtime has not been compiled");
         let gas_counter = context.make_gas_counter(&config);
         let result = runtime
             .prepare(&fake_external, None, gas_counter, "out_of_memory")
@@ -238,9 +252,9 @@ pub fn test_out_of_memory() {
         assert_eq!(
             result.aborted,
             match vm_kind {
-                VMKind::Wasmer0 | VMKind::Wasmer2 | VMKind::NearVm =>
+                | VMKind::Wasmer0 | VMKind::Wasmer2 | VMKind::NearVm =>
                     Some(FunctionCallError::WasmTrap(WasmTrap::Unreachable)),
-                VMKind::Wasmtime => unreachable!(),
+                | VMKind::Wasmtime => unreachable!(),
             }
         );
     })
@@ -263,7 +277,9 @@ fn attach_unspent_gas_but_use_all_gas() {
         let code = function_call_weight_contract();
         let mut external = MockedExternal::with_code(code);
         let fees = Arc::new(RuntimeFeesConfig::test());
-        let runtime = vm_kind.runtime(config.clone()).expect("runtime has not been compiled");
+        let runtime = vm_kind
+            .runtime(config.clone())
+            .expect("runtime has not been compiled");
 
         let gas_counter = context.make_gas_counter(&config);
         let outcome = runtime
@@ -275,8 +291,10 @@ fn attach_unspent_gas_but_use_all_gas() {
         assert!(matches!(err, FunctionCallError::HostError(HostError::GasExceeded)));
 
         match &external.action_log[..] {
-            [_, MockAction::FunctionCallWeight { prepaid_gas: gas, .. }, _] => assert_eq!(*gas, 0),
-            other => panic!("unexpected actions: {other:?}"),
+            | [_, MockAction::FunctionCallWeight { prepaid_gas: gas, .. }, _] => {
+                assert_eq!(*gas, 0)
+            }
+            | other => panic!("unexpected actions: {other:?}"),
         }
     });
 }

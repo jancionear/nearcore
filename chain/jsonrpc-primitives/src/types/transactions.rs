@@ -71,21 +71,21 @@ impl TransactionInfo {
 
     pub fn to_signed_tx(&self) -> Option<&near_primitives::transaction::SignedTransaction> {
         match self {
-            TransactionInfo::Transaction(tx) => match tx {
-                SignedTransaction::SignedTransaction(tx) => Some(tx),
+            | TransactionInfo::Transaction(tx) => match tx {
+                | SignedTransaction::SignedTransaction(tx) => Some(tx),
             },
-            TransactionInfo::TransactionId { .. } => None,
+            | TransactionInfo::TransactionId { .. } => None,
         }
     }
 
     pub fn to_tx_hash_and_account(&self) -> (CryptoHash, &AccountId) {
         match self {
-            TransactionInfo::Transaction(tx) => match tx {
-                SignedTransaction::SignedTransaction(tx) => {
+            | TransactionInfo::Transaction(tx) => match tx {
+                | SignedTransaction::SignedTransaction(tx) => {
                     (tx.get_hash(), tx.transaction.signer_id())
                 }
             },
-            TransactionInfo::TransactionId { tx_hash, sender_account_id } => {
+            | TransactionInfo::TransactionId { tx_hash, sender_account_id } => {
                 (*tx_hash, sender_account_id)
             }
         }
@@ -110,7 +110,7 @@ impl From<near_primitives::views::TxStatusView> for RpcTransactionResponse {
 impl From<RpcTransactionError> for crate::errors::RpcError {
     fn from(error: RpcTransactionError) -> Self {
         let error_data = match &error {
-            RpcTransactionError::InvalidTransaction { context } => {
+            | RpcTransactionError::InvalidTransaction { context } => {
                 if let Ok(value) =
                     serde_json::to_value(crate::errors::ServerError::TxExecutionError(
                         near_primitives::errors::TxExecutionError::InvalidTxError(context.clone()),
@@ -121,12 +121,12 @@ impl From<RpcTransactionError> for crate::errors::RpcError {
                     Value::String(error.to_string())
                 }
             }
-            _ => Value::String(error.to_string()),
+            | _ => Value::String(error.to_string()),
         };
 
         let error_data_value = match serde_json::to_value(error) {
-            Ok(value) => value,
-            Err(err) => {
+            | Ok(value) => value,
+            | Err(err) => {
                 return Self::new_internal_error(
                     None,
                     format!("Failed to serialize RpcTransactionError: {:?}", err),

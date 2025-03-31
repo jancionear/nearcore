@@ -131,7 +131,7 @@ impl StatePartsSubCommand {
         let sys = actix::System::new();
         sys.block_on(async move {
             match self {
-                StatePartsSubCommand::Load {
+                | StatePartsSubCommand::Load {
                     action,
                     state_root,
                     sync_hash,
@@ -160,7 +160,7 @@ impl StatePartsSubCommand {
                     )
                     .await
                 }
-                StatePartsSubCommand::Dump {
+                | StatePartsSubCommand::Dump {
                     part_from,
                     part_to,
                     dump_header,
@@ -188,10 +188,10 @@ impl StatePartsSubCommand {
                     )
                     .await
                 }
-                StatePartsSubCommand::ReadStateHeader { epoch_selection } => {
+                | StatePartsSubCommand::ReadStateHeader { epoch_selection } => {
                     read_state_header(epoch_selection, shard_id, &chain, store)
                 }
-                StatePartsSubCommand::Finalize { sync_hash } => {
+                | StatePartsSubCommand::Finalize { sync_hash } => {
                     finalize_state_sync(sync_hash, shard_id, &mut chain)
                 }
             }
@@ -218,8 +218,8 @@ fn create_external_connection(
         ExternalConnection::Filesystem { root_dir }
     } else if let (Some(bucket), Some(region)) = (bucket, region) {
         let bucket = match mode {
-            Mode::ReadOnly => create_bucket_readonly(&bucket, &region, Duration::from_secs(5)),
-            Mode::ReadWrite => {
+            | Mode::ReadOnly => create_bucket_readonly(&bucket, &region, Duration::from_secs(5)),
+            | Mode::ReadWrite => {
                 create_bucket_read_write(&bucket, &region, Duration::from_secs(5), credentials_file)
             }
         }
@@ -256,15 +256,20 @@ pub(crate) enum EpochSelection {
 }
 
 impl EpochSelection {
-    fn to_epoch_id(&self, store: Store, chain: &Chain) -> EpochId {
+    fn to_epoch_id(
+        &self,
+        store: Store,
+        chain: &Chain,
+    ) -> EpochId {
         match self {
-            EpochSelection::Current => {
-                chain.epoch_manager.get_epoch_id(&chain.head().unwrap().last_block_hash).unwrap()
-            }
-            EpochSelection::EpochId { epoch_id } => {
+            | EpochSelection::Current => chain
+                .epoch_manager
+                .get_epoch_id(&chain.head().unwrap().last_block_hash)
+                .unwrap(),
+            | EpochSelection::EpochId { epoch_id } => {
                 EpochId(CryptoHash::from_str(epoch_id).unwrap())
             }
-            EpochSelection::EpochHeight { epoch_height } => {
+            | EpochSelection::EpochHeight { epoch_height } => {
                 // Fetch epochs at the given height.
                 // There should only be one epoch at a given height. But this is a debug tool, let's check
                 // if there are multiple epochs at a given height.
@@ -274,31 +279,48 @@ impl EpochSelection {
                 assert_eq!(epoch_ids.len(), 1, "{:#?}", epoch_ids);
                 epoch_ids[0]
             }
-            EpochSelection::BlockHash { block_hash } => {
+            | EpochSelection::BlockHash { block_hash } => {
                 let block_hash = CryptoHash::from_str(block_hash).unwrap();
-                chain.epoch_manager.get_epoch_id(&block_hash).unwrap()
+                chain
+                    .epoch_manager
+                    .get_epoch_id(&block_hash)
+                    .unwrap()
             }
-            EpochSelection::BlockHeight { block_height } => {
+            | EpochSelection::BlockHeight { block_height } => {
                 // Fetch an epoch containing the given block height.
-                let block_hash =
-                    chain.chain_store().get_block_hash_by_height(*block_height).unwrap();
-                chain.epoch_manager.get_epoch_id(&block_hash).unwrap()
+                let block_hash = chain
+                    .chain_store()
+                    .get_block_hash_by_height(*block_height)
+                    .unwrap();
+                chain
+                    .epoch_manager
+                    .get_epoch_id(&block_hash)
+                    .unwrap()
             }
         }
     }
 }
 
 /// Returns block hash of some block of the given `epoch_info` epoch.
-fn get_any_block_hash_of_epoch(epoch_info: &EpochInfo, chain: &Chain) -> CryptoHash {
+fn get_any_block_hash_of_epoch(
+    epoch_info: &EpochInfo,
+    chain: &Chain,
+) -> CryptoHash {
     let head = chain.chain_store().head().unwrap();
-    let mut cur_block_info = chain.epoch_manager.get_block_info(&head.last_block_hash).unwrap();
+    let mut cur_block_info = chain
+        .epoch_manager
+        .get_block_info(&head.last_block_hash)
+        .unwrap();
     // EpochManager doesn't have an API that maps EpochId to Blocks, and this function works
     // around that limitation by iterating over the epochs.
     // This workaround is acceptable because:
     // 1) Extending EpochManager's API is a major change.
     // 2) This use case is not critical at all.
     loop {
-        let cur_epoch_info = chain.epoch_manager.get_epoch_info(cur_block_info.epoch_id()).unwrap();
+        let cur_epoch_info = chain
+            .epoch_manager
+            .get_epoch_info(cur_block_info.epoch_id())
+            .unwrap();
         let cur_epoch_height = cur_epoch_info.epoch_height();
         assert!(
             cur_epoch_height >= epoch_info.epoch_height(),
@@ -306,10 +328,14 @@ fn get_any_block_hash_of_epoch(epoch_info: &EpochInfo, chain: &Chain) -> CryptoH
             cur_block_info,
             epoch_info.epoch_height()
         );
-        let epoch_first_block_info =
-            chain.epoch_manager.get_block_info(cur_block_info.epoch_first_block()).unwrap();
-        let prev_epoch_last_block_info =
-            chain.epoch_manager.get_block_info(epoch_first_block_info.prev_hash()).unwrap();
+        let epoch_first_block_info = chain
+            .epoch_manager
+            .get_block_info(cur_block_info.epoch_first_block())
+            .unwrap();
+        let prev_epoch_last_block_info = chain
+            .epoch_manager
+            .get_block_info(epoch_first_block_info.prev_hash())
+            .unwrap();
 
         if cur_epoch_height == epoch_info.epoch_height() {
             return *cur_block_info.hash();
@@ -338,18 +364,23 @@ async fn load_state_parts(
         {
             (state_root, *epoch_height, epoch_id, sync_hash)
         } else {
-            let epoch = chain.epoch_manager.get_epoch_info(&epoch_id).unwrap();
+            let epoch = chain
+                .epoch_manager
+                .get_epoch_info(&epoch_id)
+                .unwrap();
 
             let sync_hash = get_any_block_hash_of_epoch(&epoch, chain);
             let sync_hash = match chain.get_sync_hash(&sync_hash).unwrap() {
-                Some(h) => h,
-                None => {
+                | Some(h) => h,
+                | None => {
                     tracing::warn!(target: "state-parts", ?epoch_id, "sync hash not yet known");
                     return;
                 }
             };
 
-            let state_header = chain.get_state_response_header(shard_id, sync_hash).unwrap();
+            let state_header = chain
+                .get_state_response_header(shard_id, sync_hash)
+                .unwrap();
             let state_root = state_header.chunk_prev_state_root();
 
             (state_root, epoch.epoch_height(), epoch_id, sync_hash)
@@ -362,7 +393,10 @@ async fn load_state_parts(
         shard_id,
         &StateFileType::StatePart { part_id: 0, num_parts: 0 },
     );
-    let part_file_names = external.list_objects(shard_id, &directory_path).await.unwrap();
+    let part_file_names = external
+        .list_objects(shard_id, &directory_path)
+        .await
+        .unwrap();
     assert!(!part_file_names.is_empty());
     let num_parts = part_file_names.len() as u64;
     assert_eq!(Some(num_parts), get_num_parts_from_filename(&part_file_names[0]));
@@ -384,10 +418,13 @@ async fn load_state_parts(
         let file_type = StateFileType::StatePart { part_id, num_parts };
         let location =
             external_storage_location(chain_id, &epoch_id, epoch_height, shard_id, &file_type);
-        let part = external.get_file(shard_id, &location, &file_type).await.unwrap();
+        let part = external
+            .get_file(shard_id, &location, &file_type)
+            .await
+            .unwrap();
 
         match action {
-            LoadAction::Apply => {
+            | LoadAction::Apply => {
                 chain
                     .set_state_part(shard_id, sync_hash, PartId::new(part_id, num_parts), &part)
                     .unwrap();
@@ -403,15 +440,13 @@ async fn load_state_parts(
                     .unwrap();
                 tracing::info!(target: "state-parts", part_id, part_length = part.len(), elapsed_sec = timer.elapsed().as_secs_f64(), "Loaded a state part");
             }
-            LoadAction::Validate => {
-                assert!(chain.runtime_adapter.validate_state_part(
-                    &state_root,
-                    PartId::new(part_id, num_parts),
-                    &part
-                ));
+            | LoadAction::Validate => {
+                assert!(chain
+                    .runtime_adapter
+                    .validate_state_part(&state_root, PartId::new(part_id, num_parts), &part));
                 tracing::info!(target: "state-parts", part_id, part_length = part.len(), elapsed_sec = timer.elapsed().as_secs_f64(), "Validated a state part");
             }
-            LoadAction::Print => {
+            | LoadAction::Print => {
                 print_state_part(&state_root, PartId::new(part_id, num_parts), &part)
             }
         }
@@ -419,7 +454,11 @@ async fn load_state_parts(
     tracing::info!(target: "state-parts", total_elapsed_sec = timer.elapsed().as_secs_f64(), "Loaded all requested state parts");
 }
 
-fn print_state_part(state_root: &StateRoot, _part_id: PartId, data: &[u8]) {
+fn print_state_part(
+    state_root: &StateRoot,
+    _part_id: PartId,
+    data: &[u8],
+) {
     let trie_nodes: PartialState = BorshDeserialize::try_from_slice(data).unwrap();
     let trie =
         Trie::from_recorded_storage(PartialStorage { nodes: trie_nodes }, *state_root, false);
@@ -446,20 +485,29 @@ async fn dump_state_parts(
     external: &ExternalConnection,
 ) {
     let epoch_id = epoch_selection.to_epoch_id(store, chain);
-    let epoch = chain.epoch_manager.get_epoch_info(&epoch_id).unwrap();
+    let epoch = chain
+        .epoch_manager
+        .get_epoch_info(&epoch_id)
+        .unwrap();
     let sync_hash = get_any_block_hash_of_epoch(&epoch, chain);
     let sync_hash = match chain.get_sync_hash(&sync_hash).unwrap() {
-        Some(h) => h,
-        None => {
+        | Some(h) => h,
+        | None => {
             tracing::warn!(target: "state-parts", ?epoch_id, "sync hash not yet known");
             return;
         }
     };
-    let sync_block_header = chain.get_block_header(&sync_hash).unwrap();
-    let sync_prev_header = chain.get_previous_header(&sync_block_header).unwrap();
+    let sync_block_header = chain
+        .get_block_header(&sync_hash)
+        .unwrap();
+    let sync_prev_header = chain
+        .get_previous_header(&sync_block_header)
+        .unwrap();
     let sync_prev_prev_hash = sync_prev_header.prev_hash();
 
-    let state_header = chain.compute_state_response_header(shard_id, sync_hash).unwrap();
+    let state_header = chain
+        .compute_state_response_header(shard_id, sync_hash)
+        .unwrap();
     let state_root = state_header.chunk_prev_state_root();
     let num_parts = state_header.num_state_parts();
     let part_ids = get_part_ids(part_from, part_to, num_parts);
@@ -482,7 +530,9 @@ async fn dump_state_parts(
     // dump header
     if dump_header {
         let mut state_sync_header_buf: Vec<u8> = Vec::new();
-        state_header.serialize(&mut state_sync_header_buf).unwrap();
+        state_header
+            .serialize(&mut state_sync_header_buf)
+            .unwrap();
 
         let file_type = StateFileType::StateHeader;
         let location =
@@ -516,7 +566,10 @@ async fn dump_state_parts(
             shard_id,
             &file_type,
         );
-        external.put_file(file_type, &state_part, shard_id, &location).await.unwrap();
+        external
+            .put_file(file_type, &state_part, shard_id, &location)
+            .await
+            .unwrap();
         // part_storage.write(&state_part, part_id, num_parts);
         let elapsed_sec = timer.elapsed().as_secs_f64();
         let first_state_record = get_first_state_record(&state_root, &state_part);
@@ -532,7 +585,10 @@ async fn dump_state_parts(
 }
 
 /// Returns the first `StateRecord` encountered while iterating over a sub-trie in the state part.
-fn get_first_state_record(state_root: &StateRoot, data: &[u8]) -> Option<StateRecord> {
+fn get_first_state_record(
+    state_root: &StateRoot,
+    data: &[u8],
+) -> Option<StateRecord> {
     let trie_nodes = BorshDeserialize::try_from_slice(data).unwrap();
     let trie =
         Trie::from_recorded_storage(PartialStorage { nodes: trie_nodes }, *state_root, false);
@@ -553,25 +609,40 @@ fn read_state_header(
     store: Store,
 ) {
     let epoch_id = epoch_selection.to_epoch_id(store, chain);
-    let epoch = chain.epoch_manager.get_epoch_info(&epoch_id).unwrap();
+    let epoch = chain
+        .epoch_manager
+        .get_epoch_info(&epoch_id)
+        .unwrap();
 
     let sync_hash = get_any_block_hash_of_epoch(&epoch, chain);
     let sync_hash = match chain.get_sync_hash(&sync_hash).unwrap() {
-        Some(h) => h,
-        None => {
+        | Some(h) => h,
+        | None => {
             tracing::warn!(target: "state-parts", ?epoch_id, "sync hash not yet known");
             return;
         }
     };
 
-    let state_header = chain.chain_store().get_state_header(shard_id, sync_hash);
+    let state_header = chain
+        .chain_store()
+        .get_state_header(shard_id, sync_hash);
     tracing::info!(target: "state-parts", ?epoch_id, ?sync_hash, ?state_header);
 }
 
-fn finalize_state_sync(sync_hash: CryptoHash, shard_id: ShardId, chain: &mut Chain) {
-    chain.set_state_finalize(shard_id, sync_hash).unwrap()
+fn finalize_state_sync(
+    sync_hash: CryptoHash,
+    shard_id: ShardId,
+    chain: &mut Chain,
+) {
+    chain
+        .set_state_finalize(shard_id, sync_hash)
+        .unwrap()
 }
 
-fn get_part_ids(part_from: Option<u64>, part_to: Option<u64>, num_parts: u64) -> Range<u64> {
+fn get_part_ids(
+    part_from: Option<u64>,
+    part_to: Option<u64>,
+    num_parts: u64,
+) -> Range<u64> {
     part_from.unwrap_or(0)..part_to.unwrap_or(num_parts)
 }

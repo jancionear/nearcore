@@ -65,7 +65,10 @@ pub trait TrieQueue {
     type Item<'a>: BorshDeserialize + BorshSerialize;
 
     /// Read queue indices of the queue from the trie, depending on impl.
-    fn load_indices(&self, trie: &dyn TrieAccess) -> Result<TrieQueueIndices, StorageError>;
+    fn load_indices(
+        &self,
+        trie: &dyn TrieAccess,
+    ) -> Result<TrieQueueIndices, StorageError>;
 
     /// Read indices from a cached field.
     fn indices(&self) -> TrieQueueIndices;
@@ -75,10 +78,16 @@ pub trait TrieQueue {
 
     /// Write changed indices back to the trie, using the correct trie key
     /// depending on impl.
-    fn write_indices(&self, state_update: &mut TrieUpdate);
+    fn write_indices(
+        &self,
+        state_update: &mut TrieUpdate,
+    );
 
     /// Construct the trie key for a queue item depending on impl.
-    fn trie_key(&self, queue_index: u64) -> TrieKey;
+    fn trie_key(
+        &self,
+        queue_index: u64,
+    ) -> TrieKey;
 
     fn push_back(
         &mut self,
@@ -91,8 +100,9 @@ pub trait TrieQueue {
         let key = self.trie_key(index);
         set(state_update, key, item);
 
-        self.indices_mut().next_available_index =
-            index.checked_add(1).ok_or(IntegerOverflowError)?;
+        self.indices_mut().next_available_index = index
+            .checked_add(1)
+            .ok_or(IntegerOverflowError)?;
         self.write_indices(state_update);
         Ok(())
     }
@@ -171,11 +181,11 @@ pub trait TrieQueue {
         })?;
         let modified_item = modify_fn(first_item);
         match modified_item {
-            Some(item) => {
+            | Some(item) => {
                 set(state_update, key, &item);
                 self.write_indices(state_update);
             }
-            None => {
+            | None => {
                 // Modify function returned None, remove the first item.
                 let _removed = self.pop_front(state_update)?;
             }
@@ -188,13 +198,20 @@ pub trait TrieQueue {
     ///
     /// Unlike `pop`, this method does not return the actual items or even
     /// check if they existed in state.
-    fn pop_n(&mut self, state_update: &mut TrieUpdate, n: u64) -> Result<u64, StorageError> {
+    fn pop_n(
+        &mut self,
+        state_update: &mut TrieUpdate,
+        n: u64,
+    ) -> Result<u64, StorageError> {
         self.debug_check_unchanged(state_update);
 
         let indices = self.indices();
         let to_remove = std::cmp::min(
             n,
-            indices.next_available_index.checked_sub(indices.first_index).unwrap_or(0),
+            indices
+                .next_available_index
+                .checked_sub(indices.first_index)
+                .unwrap_or(0),
         );
 
         for index in indices.first_index..(indices.first_index + to_remove) {
@@ -241,12 +258,18 @@ pub trait TrieQueue {
     /// memory in at least one layer. But we still want to avoid it in
     /// production.
     #[cfg(debug_assertions)]
-    fn debug_check_unchanged(&self, trie: &dyn TrieAccess) {
+    fn debug_check_unchanged(
+        &self,
+        trie: &dyn TrieAccess,
+    ) {
         debug_assert_eq!(self.indices(), self.load_indices(trie).unwrap());
     }
 
     #[cfg(not(debug_assertions))]
-    fn debug_check_unchanged(&self, _trie: &dyn TrieAccess) {
+    fn debug_check_unchanged(
+        &self,
+        _trie: &dyn TrieAccess,
+    ) {
         // nop in release build
     }
 }
@@ -261,7 +284,10 @@ impl DelayedReceiptQueue {
 impl TrieQueue for DelayedReceiptQueue {
     type Item<'a> = ReceiptOrStateStoredReceipt<'a>;
 
-    fn load_indices(&self, trie: &dyn TrieAccess) -> Result<TrieQueueIndices, StorageError> {
+    fn load_indices(
+        &self,
+        trie: &dyn TrieAccess,
+    ) -> Result<TrieQueueIndices, StorageError> {
         crate::get_delayed_receipt_indices(trie).map(TrieQueueIndices::from)
     }
 
@@ -273,11 +299,17 @@ impl TrieQueue for DelayedReceiptQueue {
         &mut self.indices
     }
 
-    fn write_indices(&self, state_update: &mut TrieUpdate) {
+    fn write_indices(
+        &self,
+        state_update: &mut TrieUpdate,
+    ) {
         set(state_update, TrieKey::DelayedReceiptIndices, &self.indices);
     }
 
-    fn trie_key(&self, index: u64) -> TrieKey {
+    fn trie_key(
+        &self,
+        index: u64,
+    ) -> TrieKey {
         TrieKey::DelayedReceipt { index }
     }
 }
@@ -288,20 +320,36 @@ impl ShardsOutgoingReceiptBuffer {
         Ok(Self { shards_indices })
     }
 
-    pub fn to_shard(&mut self, shard_id: ShardId) -> OutgoingReceiptBuffer {
+    pub fn to_shard(
+        &mut self,
+        shard_id: ShardId,
+    ) -> OutgoingReceiptBuffer {
         OutgoingReceiptBuffer { shard_id, parent: self }
     }
 
     /// Returns shard IDs of all shards that have a buffer stored.
     pub fn shards(&self) -> Vec<ShardId> {
-        self.shards_indices.shard_buffers.keys().copied().collect()
+        self.shards_indices
+            .shard_buffers
+            .keys()
+            .copied()
+            .collect()
     }
 
-    pub fn buffer_len(&self, shard_id: ShardId) -> Option<u64> {
-        self.shards_indices.shard_buffers.get(&shard_id).map(TrieQueueIndices::len)
+    pub fn buffer_len(
+        &self,
+        shard_id: ShardId,
+    ) -> Option<u64> {
+        self.shards_indices
+            .shard_buffers
+            .get(&shard_id)
+            .map(TrieQueueIndices::len)
     }
 
-    fn write_indices(&self, state_update: &mut TrieUpdate) {
+    fn write_indices(
+        &self,
+        state_update: &mut TrieUpdate,
+    ) {
         set(state_update, TrieKey::BufferedReceiptIndices, &self.shards_indices);
     }
 }
@@ -309,26 +357,48 @@ impl ShardsOutgoingReceiptBuffer {
 impl TrieQueue for OutgoingReceiptBuffer<'_> {
     type Item<'a> = ReceiptOrStateStoredReceipt<'a>;
 
-    fn load_indices(&self, trie: &dyn TrieAccess) -> Result<TrieQueueIndices, StorageError> {
+    fn load_indices(
+        &self,
+        trie: &dyn TrieAccess,
+    ) -> Result<TrieQueueIndices, StorageError> {
         let all_indices: BufferedReceiptIndices =
             get(trie, &TrieKey::BufferedReceiptIndices)?.unwrap_or_default();
-        let indices = all_indices.shard_buffers.get(&self.shard_id).cloned().unwrap_or_default();
+        let indices = all_indices
+            .shard_buffers
+            .get(&self.shard_id)
+            .cloned()
+            .unwrap_or_default();
         Ok(indices)
     }
 
     fn indices(&self) -> TrieQueueIndices {
-        self.parent.shards_indices.shard_buffers.get(&self.shard_id).cloned().unwrap_or_default()
+        self.parent
+            .shards_indices
+            .shard_buffers
+            .get(&self.shard_id)
+            .cloned()
+            .unwrap_or_default()
     }
 
     fn indices_mut(&mut self) -> &mut TrieQueueIndices {
-        self.parent.shards_indices.shard_buffers.entry(self.shard_id).or_default()
+        self.parent
+            .shards_indices
+            .shard_buffers
+            .entry(self.shard_id)
+            .or_default()
     }
 
-    fn write_indices(&self, state_update: &mut TrieUpdate) {
+    fn write_indices(
+        &self,
+        state_update: &mut TrieUpdate,
+    ) {
         self.parent.write_indices(state_update);
     }
 
-    fn trie_key(&self, index: u64) -> TrieKey {
+    fn trie_key(
+        &self,
+        index: u64,
+    ) -> TrieKey {
         TrieKey::BufferedReceipt { index, receiving_shard: self.shard_id }
     }
 }
@@ -345,11 +415,11 @@ where
         let value =
             if self.side_effects { get(self.trie, &key) } else { get_pure(self.trie, &key) };
         let result = match value {
-            Err(e) => Err(e),
-            Ok(None) => Err(StorageError::StorageInconsistentState(
+            | Err(e) => Err(e),
+            | Ok(None) => Err(StorageError::StorageInconsistentState(
                 "TrieQueue::Item referenced by index should be in the state".to_owned(),
             )),
-            Ok(Some(item)) => Ok(item),
+            | Ok(Some(item)) => Ok(item),
         };
         Some(result)
     }
@@ -365,11 +435,11 @@ where
         let value =
             if self.side_effects { get(self.trie, &key) } else { get_pure(self.trie, &key) };
         let result = match value {
-            Err(e) => Err(e),
-            Ok(None) => Err(StorageError::StorageInconsistentState(
+            | Err(e) => Err(e),
+            | Ok(None) => Err(StorageError::StorageInconsistentState(
                 "TrieQueue::Item referenced by index should be in the state".to_owned(),
             )),
-            Ok(Some(item)) => Ok(item),
+            | Ok(Some(item)) => Ok(item),
         };
         Some(result)
     }
@@ -503,12 +573,18 @@ mod tests {
     ) {
         for receipt in input_receipts {
             let receipt = ReceiptOrStateStoredReceipt::Receipt(Cow::Borrowed(receipt));
-            queue.push_back(trie, &receipt).expect("pushing must not fail");
+            queue
+                .push_back(trie, &receipt)
+                .expect("pushing must not fail");
         }
-        let iterated_receipts: Vec<ReceiptOrStateStoredReceipt> =
-            queue.iter(trie, true).collect::<Result<_, _>>().expect("iterating should not fail");
-        let iterated_receipts: Vec<Receipt> =
-            iterated_receipts.into_iter().map(|receipt| receipt.into_receipt()).collect();
+        let iterated_receipts: Vec<ReceiptOrStateStoredReceipt> = queue
+            .iter(trie, true)
+            .collect::<Result<_, _>>()
+            .expect("iterating should not fail");
+        let iterated_receipts: Vec<Receipt> = iterated_receipts
+            .into_iter()
+            .map(|receipt| receipt.into_receipt())
+            .collect();
 
         // check 1: receipts should be in queue and contained in the iterator
         assert_eq!(input_receipts, iterated_receipts, "receipts were not recorded in queue");
@@ -523,15 +599,22 @@ mod tests {
         queue: &mut impl for<'a> TrieQueue<Item<'a> = ReceiptOrStateStoredReceipt<'a>>,
     ) {
         // check 2: assert newly loaded queue still contains the receipts
-        let iterated_receipts: Vec<ReceiptOrStateStoredReceipt> =
-            queue.iter(trie, true).collect::<Result<_, _>>().expect("iterating should not fail");
-        let iterated_receipts: Vec<Receipt> =
-            iterated_receipts.into_iter().map(|receipt| receipt.into_receipt()).collect();
+        let iterated_receipts: Vec<ReceiptOrStateStoredReceipt> = queue
+            .iter(trie, true)
+            .collect::<Result<_, _>>()
+            .expect("iterating should not fail");
+        let iterated_receipts: Vec<Receipt> = iterated_receipts
+            .into_iter()
+            .map(|receipt| receipt.into_receipt())
+            .collect();
         assert_eq!(input_receipts, iterated_receipts, "receipts were not persisted correctly");
 
         // check 3: pop receipts from queue and check if all are returned in the right order
         let mut popped = vec![];
-        while let Some(receipt) = queue.pop_front(trie).expect("pop must not fail") {
+        while let Some(receipt) = queue
+            .pop_front(trie)
+            .expect("pop must not fail")
+        {
             let receipt = receipt.into_receipt();
             popped.push(receipt);
         }
@@ -541,10 +624,15 @@ mod tests {
     fn init_state() -> TrieUpdate {
         let shard_layout_version = 1;
         let shard_layout = ShardLayout::multi_shard(2, shard_layout_version);
-        let shard_uid = shard_layout.shard_uids().next().unwrap();
+        let shard_uid = shard_layout
+            .shard_uids()
+            .next()
+            .unwrap();
         let state_root = Trie::EMPTY_ROOT;
 
-        let tries = TestTriesBuilder::new().with_shard_layout(shard_layout).build();
+        let tries = TestTriesBuilder::new()
+            .with_shard_layout(shard_layout)
+            .build();
         let trie = tries.get_trie_for_shard(shard_uid, state_root);
         TrieUpdate::new(trie)
     }
@@ -583,7 +671,10 @@ mod tests {
     impl TrieQueue for TestTrieQueue {
         type Item<'a> = i32;
 
-        fn load_indices(&self, trie: &dyn TrieAccess) -> Result<TrieQueueIndices, StorageError> {
+        fn load_indices(
+            &self,
+            trie: &dyn TrieAccess,
+        ) -> Result<TrieQueueIndices, StorageError> {
             Self::read_indices(trie)
         }
 
@@ -595,7 +686,10 @@ mod tests {
             &mut self.indices
         }
 
-        fn write_indices(&self, state_update: &mut TrieUpdate) {
+        fn write_indices(
+            &self,
+            state_update: &mut TrieUpdate,
+        ) {
             set(
                 state_update,
                 TrieKey::BufferedReceiptGroupsQueueData { receiving_shard: Self::fake_shard_id() },
@@ -603,7 +697,10 @@ mod tests {
             );
         }
 
-        fn trie_key(&self, index: u64) -> TrieKey {
+        fn trie_key(
+            &self,
+            index: u64,
+        ) -> TrieKey {
             TrieKey::BufferedReceiptGroupsQueueItem {
                 receiving_shard: Self::fake_shard_id(),
                 index,
@@ -626,12 +723,15 @@ mod tests {
     /// For the next 100 operations, the pops outweigh pushes 2:1. The queue will most likely
     /// be cleared during this phase.
     /// And so on, the phases repeat.
-    fn generate_random_operation(rng: &mut impl Rng, i: usize) -> RandomOperation {
+    fn generate_random_operation(
+        rng: &mut impl Rng,
+        i: usize,
+    ) -> RandomOperation {
         // The mode of operations switches every 100 operations.
         let mode = if (i / 100) % 2 == 0 { "random_balanced" } else { "mostly_pops" };
 
         let weighted_items = match mode {
-            "random_balanced" => {
+            | "random_balanced" => {
                 // Same number of items removed and added on average
                 vec![
                     (RandomOperation::PushBack(rng.gen_range(0..1000)), 3), // On average adds 3 items
@@ -641,7 +741,7 @@ mod tests {
                     (RandomOperation::PopN(rng.gen_range(0..=2)), 1), // On average removes 1 item
                 ]
             }
-            "mostly_pops" => {
+            | "mostly_pops" => {
                 // Pops are 2x as likely as pushes, to clear the queue
                 vec![
                     (RandomOperation::PushBack(rng.gen_range(0..1000)), 3), // On average adds 3 items
@@ -651,15 +751,22 @@ mod tests {
                     (RandomOperation::PopN(rng.gen_range(0..=2)), 2), // On average removes 2 items
                 ]
             }
-            other => panic!("Unknown mode: {}", other),
+            | other => panic!("Unknown mode: {}", other),
         };
 
-        weighted_items.choose_weighted(rng, |item| item.1).unwrap().0
+        weighted_items
+            .choose_weighted(rng, |item| item.1)
+            .unwrap()
+            .0
     }
 
     // Load the queue from the trie, discarding the current data stored in the variable.
     // Ensures that all changes are written to the trie after every operation.
-    fn maybe_reload_queue(trie: &mut TrieUpdate, queue: &mut TestTrieQueue, rng: &mut impl Rng) {
+    fn maybe_reload_queue(
+        trie: &mut TrieUpdate,
+        queue: &mut TestTrieQueue,
+        rng: &mut impl Rng,
+    ) {
         if rng.gen::<bool>() {
             *queue = TestTrieQueue::load(trie).unwrap();
         }
@@ -683,21 +790,23 @@ mod tests {
 
             let op = generate_random_operation(rng, i);
             match op {
-                RandomOperation::PushBack(value) => {
-                    trie_queue.push_back(&mut trie, &value).unwrap();
+                | RandomOperation::PushBack(value) => {
+                    trie_queue
+                        .push_back(&mut trie, &value)
+                        .unwrap();
                     memory_queue.push_back(value);
                 }
-                RandomOperation::PopFront => {
+                | RandomOperation::PopFront => {
                     let trie_item = trie_queue.pop_front(&mut trie).unwrap();
                     let memory_item = memory_queue.pop_front();
                     assert_eq!(trie_item, memory_item);
                 }
-                RandomOperation::PopBack => {
+                | RandomOperation::PopBack => {
                     let trie_item = trie_queue.pop_back(&mut trie).unwrap();
                     let memory_item = memory_queue.pop_back();
                     assert_eq!(trie_item, memory_item);
                 }
-                RandomOperation::ModifyFirst => {
+                | RandomOperation::ModifyFirst => {
                     if memory_queue.is_empty() {
                         // modify_first panics if the queue is empty
                         continue;
@@ -709,15 +818,19 @@ mod tests {
                         Box::new(|_: i32| -> Option<i32> { None })
                     };
 
-                    trie_queue.modify_first(&mut trie, &modify_fn).unwrap();
+                    trie_queue
+                        .modify_first(&mut trie, &modify_fn)
+                        .unwrap();
 
                     let memory_item = memory_queue.pop_front().unwrap();
                     if let Some(new_item) = modify_fn(memory_item) {
                         memory_queue.push_front(new_item);
                     }
                 }
-                RandomOperation::PopN(n) => {
-                    let trie_popped = trie_queue.pop_n(&mut trie, n as u64).unwrap();
+                | RandomOperation::PopN(n) => {
+                    let trie_popped = trie_queue
+                        .pop_n(&mut trie, n as u64)
+                        .unwrap();
                     let mut memory_popped = 0;
                     for _ in 0..n {
                         if memory_queue.pop_front().is_some() {
@@ -743,8 +856,11 @@ mod tests {
                     let trie_item = trie_iter.next().unwrap().unwrap();
                     trie_items.push(trie_item);
                 }
-                let memory_items =
-                    memory_queue.iter().take(prefix_len).copied().collect::<Vec<_>>();
+                let memory_items = memory_queue
+                    .iter()
+                    .take(prefix_len)
+                    .copied()
+                    .collect::<Vec<_>>();
                 assert_eq!(trie_items, memory_items);
             }
         }

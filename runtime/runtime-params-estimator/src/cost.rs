@@ -748,7 +748,9 @@ pub enum Cost {
 
 impl Cost {
     pub fn all() -> impl Iterator<Item = Cost> {
-        (0..(Cost::__Count as u8)).map(Cost::try_from).map(Result::unwrap)
+        (0..(Cost::__Count as u8))
+            .map(Cost::try_from)
+            .map(Result::unwrap)
     }
 }
 
@@ -767,7 +769,10 @@ impl TryFrom<u8> for Cost {
 }
 
 impl fmt::Display for Cost {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
         fmt::Debug::fmt(self, f)
     }
 }

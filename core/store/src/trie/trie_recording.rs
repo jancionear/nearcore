@@ -67,27 +67,57 @@ impl TrieRecorder {
     /// This is used to bypass witness size checks in order to generate
     /// large witness for testing.
     #[cfg(feature = "test_features")]
-    pub fn record_unaccounted(&mut self, hash: &CryptoHash, node: Arc<[u8]>) {
+    pub fn record_unaccounted(
+        &mut self,
+        hash: &CryptoHash,
+        node: Arc<[u8]>,
+    ) {
         self.recorded.insert(*hash, node);
     }
 
-    pub fn record(&mut self, hash: &CryptoHash, node: Arc<[u8]>) {
+    pub fn record(
+        &mut self,
+        hash: &CryptoHash,
+        node: Arc<[u8]>,
+    ) {
         let size = node.len();
-        if self.recorded.insert(*hash, node).is_none() {
+        if self
+            .recorded
+            .insert(*hash, node)
+            .is_none()
+        {
             self.size = self.size.checked_add(size).unwrap();
-            self.upper_bound_size = self.upper_bound_size.checked_add(size).unwrap();
+            self.upper_bound_size = self
+                .upper_bound_size
+                .checked_add(size)
+                .unwrap();
         }
     }
 
     pub fn record_key_removal(&mut self) {
         // Charge 2000 bytes for every removal
-        self.removal_counter = self.removal_counter.checked_add(1).unwrap();
-        self.upper_bound_size = self.upper_bound_size.checked_add(2000).unwrap();
+        self.removal_counter = self
+            .removal_counter
+            .checked_add(1)
+            .unwrap();
+        self.upper_bound_size = self
+            .upper_bound_size
+            .checked_add(2000)
+            .unwrap();
     }
 
-    pub fn record_code_len(&mut self, code_len: usize) {
-        self.code_len_counter = self.code_len_counter.checked_add(code_len).unwrap();
-        self.upper_bound_size = self.upper_bound_size.checked_add(code_len).unwrap();
+    pub fn record_code_len(
+        &mut self,
+        code_len: usize,
+    ) {
+        self.code_len_counter = self
+            .code_len_counter
+            .checked_add(code_len)
+            .unwrap();
+        self.upper_bound_size = self
+            .upper_bound_size
+            .checked_add(code_len)
+            .unwrap();
     }
 
     pub fn check_proof_size_limit_exceed(&self) -> bool {
@@ -98,9 +128,17 @@ impl TrieRecorder {
     }
 
     pub fn recorded_storage(&mut self) -> PartialStorage {
-        let mut nodes: Vec<_> = self.recorded.drain().map(|(_key, value)| value).collect();
+        let mut nodes: Vec<_> = self
+            .recorded
+            .drain()
+            .map(|(_key, value)| value)
+            .collect();
         nodes.sort();
         PartialStorage { nodes: PartialState::TrieValues(nodes) }
+    }
+
+    pub fn recorded_iter<'a>(&'a self) -> impl Iterator<Item = (&'a CryptoHash, &'a Arc<[u8]>)> {
+        self.recorded.iter()
     }
 
     pub fn recorded_storage_size(&self) -> usize {
@@ -113,7 +151,10 @@ impl TrieRecorder {
 
     /// Get statistics about the recorded trie. Useful for observability and debugging.
     /// This scans all of the recorded data, so could potentially be expensive to run.
-    pub fn get_stats(&self, trie_root: &CryptoHash) -> TrieRecorderStats {
+    pub fn get_stats(
+        &self,
+        trie_root: &CryptoHash,
+    ) -> TrieRecorderStats {
         let mut trie_column_sizes = Vec::new();
         for (col, col_name) in ALL_COLUMNS_WITH_NAMES {
             let subtree_size = self.get_subtree_size_by_key(trie_root, NibbleSlice::new(&[col]));
@@ -157,8 +198,8 @@ impl TrieRecorder {
                 return None;
             };
             let raw_node = match RawTrieNodeWithSize::try_from_slice(&raw_node_bytes) {
-                Ok(raw_node_with_size) => raw_node_with_size.node,
-                Err(_) => {
+                | Ok(raw_node_with_size) => raw_node_with_size.node,
+                | Err(_) => {
                     tracing::error!(
                         "get_subtree_root_by_key: failed to decode node, this shouldn't happen!"
                     );
@@ -167,21 +208,21 @@ impl TrieRecorder {
             };
 
             match raw_node {
-                RawTrieNode::Leaf(_, _) => {
+                | RawTrieNode::Leaf(_, _) => {
                     return None;
                 }
-                RawTrieNode::BranchNoValue(children)
+                | RawTrieNode::BranchNoValue(children)
                 | RawTrieNode::BranchWithValue(_, children) => {
                     let child = children[subtree_key.at(0)];
                     match child {
-                        Some(child) => {
+                        | Some(child) => {
                             cur_node_hash = child;
                             subtree_key = subtree_key.mid(1);
                         }
-                        None => return None,
+                        | None => return None,
                     }
                 }
-                RawTrieNode::Extension(existing_key, child) => {
+                | RawTrieNode::Extension(existing_key, child) => {
                     let existing_key = NibbleSlice::from_encoded(&existing_key).0;
                     if subtree_key.starts_with(&existing_key) {
                         cur_node_hash = child;
@@ -201,7 +242,10 @@ impl TrieRecorder {
     }
 
     /// Get size of all recorded nodes and values which are under `subtree_root` (including `subtree_root`).
-    fn get_subtree_size(&self, subtree_root: &CryptoHash) -> SubtreeSize {
+    fn get_subtree_size(
+        &self,
+        subtree_root: &CryptoHash,
+    ) -> SubtreeSize {
         let mut nodes_size: usize = 0;
         let mut values_size: usize = 0;
 
@@ -225,8 +269,8 @@ impl TrieRecorder {
             seen_items.insert(cur_node_hash);
 
             let raw_node = match RawTrieNodeWithSize::try_from_slice(&raw_node_bytes) {
-                Ok(raw_node_with_size) => raw_node_with_size.node,
-                Err(_) => {
+                | Ok(raw_node_with_size) => raw_node_with_size.node,
+                | Err(_) => {
                     tracing::error!(
                         "get_subtree_size: failed to decode node, this shouldn't happen!"
                     );
@@ -235,7 +279,7 @@ impl TrieRecorder {
             };
 
             match raw_node {
-                RawTrieNode::Leaf(_key, value) => {
+                | RawTrieNode::Leaf(_key, value) => {
                     if let Some(value_bytes) = self.recorded.get(&value.hash) {
                         if !seen_items.contains(&value.hash) {
                             values_size = values_size.saturating_add(value_bytes.len());
@@ -243,14 +287,14 @@ impl TrieRecorder {
                         }
                     }
                 }
-                RawTrieNode::BranchNoValue(children) => {
+                | RawTrieNode::BranchNoValue(children) => {
                     for child_opt in children.0 {
                         if let Some(child) = child_opt {
                             queue.push_back(child);
                         }
                     }
                 }
-                RawTrieNode::BranchWithValue(value, children) => {
+                | RawTrieNode::BranchWithValue(value, children) => {
                     for child_opt in children.0 {
                         if let Some(child) = child_opt {
                             queue.push_back(child);
@@ -264,7 +308,7 @@ impl TrieRecorder {
                         }
                     }
                 }
-                RawTrieNode::Extension(_key, child) => {
+                | RawTrieNode::Extension(_key, child) => {
                     queue.push_back(child);
                 }
             };
@@ -275,10 +319,17 @@ impl TrieRecorder {
 }
 
 impl SubtreeSize {
-    pub fn saturating_add(self, other: Self) -> Self {
+    pub fn saturating_add(
+        self,
+        other: Self,
+    ) -> Self {
         SubtreeSize {
-            nodes_size: self.nodes_size.saturating_add(other.nodes_size),
-            values_size: self.values_size.saturating_add(other.values_size),
+            nodes_size: self
+                .nodes_size
+                .saturating_add(other.nodes_size),
+            values_size: self
+                .values_size
+                .saturating_add(other.values_size),
         }
     }
 }
@@ -292,7 +343,7 @@ mod trie_recording_tests {
         gen_larger_changes, simplify_changes, test_populate_flat_storage, test_populate_trie,
         TestTriesBuilder,
     };
-    use crate::trie::mem::metrics::MEMTRIE_NUM_LOOKUPS;
+    use crate::trie::mem::metrics::MEM_TRIE_NUM_LOOKUPS;
     use crate::trie::TrieNodesCount;
     use crate::{DBCol, KeyLookupMode, PartialStorage, ShardTries, Store, Trie};
     use borsh::BorshDeserialize;
@@ -337,7 +388,9 @@ mod trie_recording_tests {
         p_existing_key: f64,
         p_missing_key: f64,
     ) -> PreparedTrie {
-        let tries_for_building = TestTriesBuilder::new().with_flat_storage(true).build();
+        let tries_for_building = TestTriesBuilder::new()
+            .with_flat_storage(true)
+            .build();
         let shard_uid = ShardUId::single_shard();
         let trie_changes = gen_larger_changes(&mut thread_rng(), 50);
         let trie_changes = simplify_changes(&trie_changes);
@@ -410,8 +463,11 @@ mod trie_recording_tests {
         } else {
             vec![]
         };
-        let mut keys: Vec<_> =
-            existing_keys.iter().cloned().chain(missing_keys.into_iter()).collect();
+        let mut keys: Vec<_> = existing_keys
+            .iter()
+            .cloned()
+            .chain(missing_keys.into_iter())
+            .collect();
         keys.shuffle(&mut thread_rng());
         let updates = keys
             .iter()
@@ -425,8 +481,10 @@ mod trie_recording_tests {
             })
             .filter(|_| random())
             .collect::<Vec<_>>();
-        let (keys_to_get, keys_to_get_ref) =
-            keys.into_iter().filter(|_| random()).partition::<Vec<_>, _>(|_| random());
+        let (keys_to_get, keys_to_get_ref) = keys
+            .into_iter()
+            .filter(|_| random())
+            .partition::<Vec<_>, _>(|_| random());
         PreparedTrie {
             store: tries_for_building.store().store(),
             shard_uid,
@@ -447,7 +505,10 @@ mod trie_recording_tests {
         store: &TrieStoreAdapter,
         data_in_trie: &HashMap<Vec<u8>, Vec<u8>>,
     ) {
-        let key_hashes_to_keep = data_in_trie.iter().map(|(_, v)| hash(&v)).collect::<HashSet<_>>();
+        let key_hashes_to_keep = data_in_trie
+            .iter()
+            .map(|(_, v)| hash(&v))
+            .collect::<HashSet<_>>();
         let mut update = store.store_update();
         for result in store.iter_raw_bytes() {
             let (key, value) = result.unwrap();
@@ -462,7 +523,9 @@ mod trie_recording_tests {
                 );
             }
         }
-        update.store_update().delete_all(DBCol::FlatState);
+        update
+            .store_update()
+            .delete_all(DBCol::FlatState);
         update.commit().unwrap();
     }
 
@@ -487,12 +550,22 @@ mod trie_recording_tests {
     }
 
     /// Assert equality of partial storages with human-readable output.
-    fn assert_partial_storage(storage: &PartialStorage, other_storage: &PartialStorage) {
+    fn assert_partial_storage(
+        storage: &PartialStorage,
+        other_storage: &PartialStorage,
+    ) {
         let PartialState::TrieValues(nodes) = &storage.nodes;
         let PartialState::TrieValues(other_nodes) = &other_storage.nodes;
-        let nodes: HashSet<Vec<u8>> = HashSet::from_iter(nodes.into_iter().map(|key| key.to_vec()));
-        let other_nodes: HashSet<Vec<u8>> =
-            HashSet::from_iter(other_nodes.into_iter().map(|key| key.to_vec()));
+        let nodes: HashSet<Vec<u8>> = HashSet::from_iter(
+            nodes
+                .into_iter()
+                .map(|key| key.to_vec()),
+        );
+        let other_nodes: HashSet<Vec<u8>> = HashSet::from_iter(
+            other_nodes
+                .into_iter()
+                .map(|key| key.to_vec()),
+        );
         let d: Vec<&Vec<u8>> = other_nodes.difference(&nodes).collect();
         assert_eq!(d, Vec::<&Vec<u8>>::default(), "Missing nodes in first storage");
         let d: Vec<&Vec<u8>> = nodes.difference(&other_nodes).collect();
@@ -525,7 +598,7 @@ mod trie_recording_tests {
                 .build();
             let lookup_mode =
                 if use_flat_storage { KeyLookupMode::FlatStorage } else { KeyLookupMode::Trie };
-            let memtrie_lookup_counts_before = MEMTRIE_NUM_LOOKUPS.get();
+            let mem_trie_lookup_counts_before = MEM_TRIE_NUM_LOOKUPS.get();
 
             // Check that while using flat storage counters are all zero.
             // Only use get_optimized_ref(), because get() will actually
@@ -533,7 +606,8 @@ mod trie_recording_tests {
             if use_flat_storage {
                 let trie = get_trie_for_shard(&tries, shard_uid, state_root, use_flat_storage);
                 for key in data_in_trie.keys() {
-                    trie.get_optimized_ref(key, lookup_mode).unwrap();
+                    trie.get_optimized_ref(key, lookup_mode)
+                        .unwrap();
                 }
                 assert_eq!(
                     trie.get_trie_nodes_count(),
@@ -544,7 +618,10 @@ mod trie_recording_tests {
             // Let's capture the baseline node counts - this is what will happen
             // in production.
             let trie = get_trie_for_shard(&tries, shard_uid, state_root, use_flat_storage);
-            trie.accounting_cache.borrow().enable_switch().set(enable_accounting_cache);
+            trie.accounting_cache
+                .borrow()
+                .enable_switch()
+                .set(enable_accounting_cache);
             for key in &keys_to_get {
                 assert_eq!(trie.get(key).unwrap(), data_in_trie.get(key).cloned());
             }
@@ -553,18 +630,24 @@ mod trie_recording_tests {
                     trie.get_optimized_ref(key, lookup_mode)
                         .unwrap()
                         .map(|value| value.into_value_ref()),
-                    data_in_trie.get(key).map(|value| ValueRef::new(&value))
+                    data_in_trie
+                        .get(key)
+                        .map(|value| ValueRef::new(&value))
                 );
             }
             let baseline_trie_nodes_count = trie.get_trie_nodes_count();
             println!("Baseline trie nodes count: {:?}", baseline_trie_nodes_count);
-            trie.update(updates.iter().cloned()).unwrap();
+            trie.update(updates.iter().cloned())
+                .unwrap();
 
             // Now let's do this again while recording, and make sure that the counters
             // we get are exactly the same.
             let trie = get_trie_for_shard(&tries, shard_uid, state_root, use_flat_storage)
                 .recording_reads_new_recorder();
-            trie.accounting_cache.borrow().enable_switch().set(enable_accounting_cache);
+            trie.accounting_cache
+                .borrow()
+                .enable_switch()
+                .set(enable_accounting_cache);
             for key in &keys_to_get {
                 assert_eq!(trie.get(key).unwrap(), data_in_trie.get(key).cloned());
             }
@@ -573,23 +656,31 @@ mod trie_recording_tests {
                     trie.get_optimized_ref(key, lookup_mode)
                         .unwrap()
                         .map(|value| value.into_value_ref()),
-                    data_in_trie.get(key).map(|value| ValueRef::new(&value))
+                    data_in_trie
+                        .get(key)
+                        .map(|value| ValueRef::new(&value))
                 );
             }
             assert_eq!(trie.get_trie_nodes_count(), baseline_trie_nodes_count);
-            trie.update(updates.iter().cloned()).unwrap();
+            trie.update(updates.iter().cloned())
+                .unwrap();
             let baseline_partial_storage = trie.recorded_storage().unwrap();
 
             // Now let's do this again with memtries enabled. Check that counters
             // are the same.
-            assert_eq!(MEMTRIE_NUM_LOOKUPS.get(), memtrie_lookup_counts_before);
-            tries.load_memtrie(&shard_uid, None, false).unwrap();
+            assert_eq!(MEM_TRIE_NUM_LOOKUPS.get(), mem_trie_lookup_counts_before);
+            tries
+                .load_mem_trie(&shard_uid, None, false)
+                .unwrap();
             // Delete the on-disk state so that we really know we're using
             // in-memory tries.
             destructively_delete_in_memory_state_from_disk(&store.trie_store(), &data_in_trie);
             let trie = get_trie_for_shard(&tries, shard_uid, state_root, use_flat_storage)
                 .recording_reads_new_recorder();
-            trie.accounting_cache.borrow().enable_switch().set(enable_accounting_cache);
+            trie.accounting_cache
+                .borrow()
+                .enable_switch()
+                .set(enable_accounting_cache);
             for key in &keys_to_get {
                 assert_eq!(trie.get(key).unwrap(), data_in_trie.get(key).cloned());
             }
@@ -598,11 +689,14 @@ mod trie_recording_tests {
                     trie.get_optimized_ref(key, lookup_mode)
                         .unwrap()
                         .map(|value| value.into_value_ref()),
-                    data_in_trie.get(key).map(|value| ValueRef::new(&value))
+                    data_in_trie
+                        .get(key)
+                        .map(|value| ValueRef::new(&value))
                 );
             }
             assert_eq!(trie.get_trie_nodes_count(), baseline_trie_nodes_count);
-            trie.update(updates.iter().cloned()).unwrap();
+            trie.update(updates.iter().cloned())
+                .unwrap();
 
             // Now, let's check that when doing the same lookups with the captured partial storage,
             // we still get the same counters.
@@ -615,7 +709,10 @@ mod trie_recording_tests {
             );
             let trie =
                 Trie::from_recorded_storage(partial_storage.clone(), state_root, use_flat_storage);
-            trie.accounting_cache.borrow().enable_switch().set(enable_accounting_cache);
+            trie.accounting_cache
+                .borrow()
+                .enable_switch()
+                .set(enable_accounting_cache);
             for key in &keys_to_get {
                 assert_eq!(trie.get(key).unwrap(), data_in_trie.get(key).cloned());
             }
@@ -624,16 +721,22 @@ mod trie_recording_tests {
                     trie.get_optimized_ref(key, lookup_mode)
                         .unwrap()
                         .map(|value| value.into_value_ref()),
-                    data_in_trie.get(key).map(|value| ValueRef::new(&value))
+                    data_in_trie
+                        .get(key)
+                        .map(|value| ValueRef::new(&value))
                 );
             }
             assert_eq!(trie.get_trie_nodes_count(), baseline_trie_nodes_count);
-            trie.update(updates.iter().cloned()).unwrap();
+            trie.update(updates.iter().cloned())
+                .unwrap();
 
             // Build a Trie using recorded storage and enable recording_reads on this Trie
             let trie = Trie::from_recorded_storage(partial_storage, state_root, use_flat_storage)
                 .recording_reads_new_recorder();
-            trie.accounting_cache.borrow().enable_switch().set(enable_accounting_cache);
+            trie.accounting_cache
+                .borrow()
+                .enable_switch()
+                .set(enable_accounting_cache);
             for key in &keys_to_get {
                 assert_eq!(trie.get(key).unwrap(), data_in_trie.get(key).cloned());
             }
@@ -642,16 +745,19 @@ mod trie_recording_tests {
                     trie.get_optimized_ref(key, lookup_mode)
                         .unwrap()
                         .map(|value| value.into_value_ref()),
-                    data_in_trie.get(key).map(|value| ValueRef::new(&value))
+                    data_in_trie
+                        .get(key)
+                        .map(|value| ValueRef::new(&value))
                 );
             }
             assert_eq!(trie.get_trie_nodes_count(), baseline_trie_nodes_count);
-            trie.update(updates.iter().cloned()).unwrap();
+            trie.update(updates.iter().cloned())
+                .unwrap();
             assert_partial_storage(&baseline_partial_storage, &trie.recorded_storage().unwrap());
 
             if !keys_to_get.is_empty() || !keys_to_get_ref.is_empty() {
                 // sanity check that we did indeed use in-memory tries.
-                assert!(MEMTRIE_NUM_LOOKUPS.get() > memtrie_lookup_counts_before);
+                assert!(MEM_TRIE_NUM_LOOKUPS.get() > mem_trie_lookup_counts_before);
             }
         }
     }

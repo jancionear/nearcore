@@ -109,7 +109,9 @@ impl UniversalEngine {
         let features = inner_engine.features();
         let compiler = inner_engine.compiler()?;
         let environ = near_vm_compiler::ModuleEnvironment::new();
-        let translation = environ.translate(binary).map_err(CompileError::Wasm)?;
+        let translation = environ
+            .translate(binary)
+            .map_err(CompileError::Wasm)?;
 
         let memory_styles: PrimaryMap<near_vm_types::MemoryIndex, _> = translation
             .module
@@ -213,21 +215,35 @@ impl UniversalEngine {
             .collect();
         let mut inner_engine = self.inner_mut();
 
-        let local_functions = executable.function_bodies.iter().map(|(_, b)| b.into());
+        let local_functions = executable
+            .function_bodies
+            .iter()
+            .map(|(_, b)| b.into());
         let function_call_trampolines = &executable.function_call_trampolines;
         let dynamic_function_trampolines = &executable.dynamic_function_trampolines;
         let signatures = module
             .signatures
             .iter()
-            .map(|(_, sig)| inner_engine.signatures.register(sig.clone()))
+            .map(|(_, sig)| {
+                inner_engine
+                    .signatures
+                    .register(sig.clone())
+            })
             .collect::<PrimaryMap<SignatureIndex, _>>()
             .into_boxed_slice();
         let (functions, trampolines, dynamic_trampolines, custom_sections, mut code_memory) =
             inner_engine.allocate(
                 local_functions,
-                function_call_trampolines.iter().map(|(_, b)| b.into()),
-                dynamic_function_trampolines.iter().map(|(_, b)| b.into()),
-                executable.custom_sections.iter().map(|(_, s)| s.into()),
+                function_call_trampolines
+                    .iter()
+                    .map(|(_, b)| b.into()),
+                dynamic_function_trampolines
+                    .iter()
+                    .map(|(_, b)| b.into()),
+                executable
+                    .custom_sections
+                    .iter()
+                    .map(|(_, s)| s.into()),
                 |idx: LocalFunctionIndex| {
                     let func_idx = module.import_counts.function_index(idx);
                     let sig_idx = module.functions[func_idx];
@@ -242,25 +258,27 @@ impl UniversalEngine {
                 field: String::from(field),
                 import_no: *idx,
                 ty: match entity {
-                    ImportIndex::Function(i) => {
+                    | ImportIndex::Function(i) => {
                         let sig_idx = module.functions[*i];
                         VMImportType::Function {
                             sig: signatures[sig_idx],
                             static_trampoline: trampolines[sig_idx],
                         }
                     }
-                    ImportIndex::Table(i) => VMImportType::Table(module.tables[*i]),
-                    &ImportIndex::Memory(i) => {
+                    | ImportIndex::Table(i) => VMImportType::Table(module.tables[*i]),
+                    | &ImportIndex::Memory(i) => {
                         let ty = module.memories[i];
                         VMImportType::Memory(ty, info.memory_styles[i].clone())
                     }
-                    ImportIndex::Global(i) => VMImportType::Global(module.globals[*i]),
+                    | ImportIndex::Global(i) => VMImportType::Global(module.globals[*i]),
                 },
             })
             .collect();
 
         let function_relocations = executable.function_relocations.iter();
-        let section_relocations = executable.custom_section_relocations.iter();
+        let section_relocations = executable
+            .custom_section_relocations
+            .iter();
         crate::universal::link_module(
             &functions,
             |func_idx, jt_idx| executable.function_jt_offsets[func_idx][jt_idx],
@@ -343,7 +361,9 @@ impl UniversalEngine {
             },
         )?;
         let data_segments = executable.data_initializers.iter();
-        let data_segments = data_segments.map(|s| DataInitializer::from(s).into()).collect();
+        let data_segments = data_segments
+            .map(|s| DataInitializer::from(s).into())
+            .collect();
         let element_segments = unrkyv(&module.table_initializers);
         let passive_elements: BTreeMap<near_vm_types::ElemIndex, Box<[FunctionIndex]>> =
             unrkyv(&module.passive_elements);
@@ -351,9 +371,16 @@ impl UniversalEngine {
         let import_counts: ImportCounts = unrkyv(&module.import_counts);
         let mut inner_engine = self.inner_mut();
 
-        let local_functions = executable.function_bodies.iter().map(|(_, b)| b.into());
-        let call_trampolines = executable.function_call_trampolines.iter();
-        let dynamic_trampolines = executable.dynamic_function_trampolines.iter();
+        let local_functions = executable
+            .function_bodies
+            .iter()
+            .map(|(_, b)| b.into());
+        let call_trampolines = executable
+            .function_call_trampolines
+            .iter();
+        let dynamic_trampolines = executable
+            .dynamic_function_trampolines
+            .iter();
         let signatures = module
             .signatures
             .values()
@@ -370,10 +397,17 @@ impl UniversalEngine {
                 local_functions,
                 call_trampolines.map(|(_, b)| b.into()),
                 dynamic_trampolines.map(|(_, b)| b.into()),
-                executable.custom_sections.iter().map(|(_, s)| s.into()),
+                executable
+                    .custom_sections
+                    .iter()
+                    .map(|(_, s)| s.into()),
                 |idx: LocalFunctionIndex| {
                     let func_idx = import_counts.function_index(idx);
-                    let sig_idx = unrkyv(module.functions.index_by_native(&func_idx));
+                    let sig_idx = unrkyv(
+                        module
+                            .functions
+                            .index_by_native(&func_idx),
+                    );
                     (sig_idx, signatures[sig_idx])
                 },
             )?;
@@ -386,21 +420,21 @@ impl UniversalEngine {
                     field: String::from(field.as_str()),
                     import_no: idx.into(),
                     ty: match entity {
-                        Archived::<ImportIndex>::Function(i) => {
+                        | Archived::<ImportIndex>::Function(i) => {
                             let sig_idx = unrkyv(&module.functions[i]);
                             VMImportType::Function {
                                 sig: signatures[sig_idx],
                                 static_trampoline: trampolines[sig_idx],
                             }
                         }
-                        Archived::<ImportIndex>::Table(i) => {
+                        | Archived::<ImportIndex>::Table(i) => {
                             VMImportType::Table(unrkyv(&module.tables[i]))
                         }
-                        Archived::<ImportIndex>::Memory(i) => {
+                        | Archived::<ImportIndex>::Memory(i) => {
                             let ty = unrkyv(&module.memories[i]);
                             VMImportType::Memory(ty, unrkyv(&info.memory_styles[i]))
                         }
-                        Archived::<ImportIndex>::Global(i) => {
+                        | Archived::<ImportIndex>::Global(i) => {
                             VMImportType::Global(unrkyv(&module.globals[i]))
                         }
                     },
@@ -409,7 +443,9 @@ impl UniversalEngine {
         };
 
         let function_relocations = executable.function_relocations.iter();
-        let section_relocations = executable.custom_section_relocations.iter();
+        let section_relocations = executable
+            .custom_section_relocations
+            .iter();
         crate::universal::link_module(
             &functions,
             |func_idx, jt_idx| {
@@ -462,23 +498,42 @@ impl UniversalEngine {
     }
 
     /// Register a signature
-    pub fn register_signature(&self, func_type: FunctionType) -> VMSharedSignatureIndex {
-        self.inner().signatures.register(func_type)
+    pub fn register_signature(
+        &self,
+        func_type: FunctionType,
+    ) -> VMSharedSignatureIndex {
+        self.inner()
+            .signatures
+            .register(func_type)
     }
 
     /// Register some function metadata
-    pub fn register_function_metadata(&self, func_data: VMCallerCheckedAnyfunc) -> VMFuncRef {
-        self.inner().func_data().register(func_data)
+    pub fn register_function_metadata(
+        &self,
+        func_data: VMCallerCheckedAnyfunc,
+    ) -> VMFuncRef {
+        self.inner()
+            .func_data()
+            .register(func_data)
     }
 
     /// Lookup a signature
-    pub fn lookup_signature(&self, sig: VMSharedSignatureIndex) -> Option<FunctionType> {
-        self.inner().signatures.lookup(sig).cloned()
+    pub fn lookup_signature(
+        &self,
+        sig: VMSharedSignatureIndex,
+    ) -> Option<FunctionType> {
+        self.inner()
+            .signatures
+            .lookup(sig)
+            .cloned()
     }
 
     /// Validates a WebAssembly module
     #[tracing::instrument(target = "near_vm", level = "trace", skip_all)]
-    pub fn validate(&self, binary: &[u8]) -> Result<(), CompileError> {
+    pub fn validate(
+        &self,
+        binary: &[u8],
+    ) -> Result<(), CompileError> {
         self.inner().validate(binary)
     }
 
@@ -515,8 +570,12 @@ impl UniversalEngineInner {
     }
 
     /// Validate the module
-    pub fn validate<'data>(&self, data: &'data [u8]) -> Result<(), CompileError> {
-        self.compiler()?.validate_module(self.features(), data)
+    pub fn validate<'data>(
+        &self,
+        data: &'data [u8],
+    ) -> Result<(), CompileError> {
+        self.compiler()?
+            .validate_module(self.features(), data)
     }
 
     /// The Wasm features
@@ -546,8 +605,10 @@ impl UniversalEngineInner {
         let code_memory_pool = &mut self.code_memory_pool;
         let function_count = local_functions.len();
         let call_trampoline_count = call_trampolines.len();
-        let function_bodies =
-            call_trampolines.chain(local_functions).chain(dynamic_trampolines).collect::<Vec<_>>();
+        let function_bodies = call_trampolines
+            .chain(local_functions)
+            .chain(dynamic_trampolines)
+            .collect::<Vec<_>>();
 
         // TOOD: this shouldn't be necessary....
         let mut section_types = Vec::with_capacity(custom_sections.len());
@@ -573,20 +634,28 @@ impl UniversalEngineInner {
         // -- padding between data sections
         let page_size = rustix::param::page_size();
         let total_len = 0;
-        let total_len = function_bodies.iter().fold(total_len, |acc, func| {
-            round_up(acc, ARCH_FUNCTION_ALIGNMENT.into()) + function_allocation_size(*func)
-        });
-        let total_len = executable_sections.iter().fold(total_len, |acc, exec| {
-            round_up(acc, ARCH_FUNCTION_ALIGNMENT.into()) + exec.bytes.len()
-        });
+        let total_len = function_bodies
+            .iter()
+            .fold(total_len, |acc, func| {
+                round_up(acc, ARCH_FUNCTION_ALIGNMENT.into()) + function_allocation_size(*func)
+            });
+        let total_len = executable_sections
+            .iter()
+            .fold(total_len, |acc, exec| {
+                round_up(acc, ARCH_FUNCTION_ALIGNMENT.into()) + exec.bytes.len()
+            });
         let total_len = round_up(total_len, page_size);
-        let total_len = data_sections.iter().fold(total_len, |acc, data| {
-            round_up(acc, DATA_SECTION_ALIGNMENT.into()) + data.bytes.len()
-        });
+        let total_len = data_sections
+            .iter()
+            .fold(total_len, |acc, data| {
+                round_up(acc, DATA_SECTION_ALIGNMENT.into()) + data.bytes.len()
+            });
 
-        let mut code_memory = code_memory_pool.get(total_len).map_err(|e| {
-            CompileError::Resource(format!("could not allocate code memory: {}", e))
-        })?;
+        let mut code_memory = code_memory_pool
+            .get(total_len)
+            .map_err(|e| {
+                CompileError::Resource(format!("could not allocate code memory: {}", e))
+            })?;
         let mut code_writer = unsafe {
             // SAFETY: We just popped out an unused code memory from an allocator pool.
             code_memory.writer()
@@ -643,7 +712,11 @@ impl UniversalEngineInner {
                 let index = LocalFunctionIndex::new(index);
                 let (sig_idx, sig) = function_signature(index);
                 Ok(VMLocalFunction {
-                    body: FunctionBodyPtr(unsafe { code_memory.executable_address(offset).cast() }),
+                    body: FunctionBodyPtr(unsafe {
+                        code_memory
+                            .executable_address(offset)
+                            .cast()
+                    }),
                     length: u32::try_from(length).map_err(|_| {
                         CompileError::Codegen("function body length exceeds 4GiB".into())
                     })?,
@@ -656,7 +729,11 @@ impl UniversalEngineInner {
         let allocated_dynamic_function_trampolines = allocated_functions
             .drain(..)
             .map(|(offset, _)| {
-                FunctionBodyPtr(unsafe { code_memory.executable_address(offset).cast() })
+                FunctionBodyPtr(unsafe {
+                    code_memory
+                        .executable_address(offset)
+                        .cast()
+                })
             })
             .collect::<PrimaryMap<FunctionIndex, _>>();
 
@@ -666,9 +743,17 @@ impl UniversalEngineInner {
             .into_iter()
             .map(|protection| {
                 SectionBodyPtr(if protection == CustomSectionProtection::ReadExecute {
-                    unsafe { code_memory.executable_address(*exec_iter.next().unwrap()).cast() }
+                    unsafe {
+                        code_memory
+                            .executable_address(*exec_iter.next().unwrap())
+                            .cast()
+                    }
                 } else {
-                    unsafe { code_memory.writable_address(*data_iter.next().unwrap()).cast() }
+                    unsafe {
+                        code_memory
+                            .writable_address(*data_iter.next().unwrap())
+                            .cast()
+                    }
                 })
             })
             .collect::<PrimaryMap<SectionIndex, _>>();
@@ -688,7 +773,10 @@ impl UniversalEngineInner {
     }
 }
 
-fn round_up(size: usize, multiple: usize) -> usize {
+fn round_up(
+    size: usize,
+    multiple: usize,
+) -> usize {
     debug_assert!(multiple.is_power_of_two());
     (size + (multiple - 1)) & !(multiple - 1)
 }

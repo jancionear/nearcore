@@ -59,22 +59,25 @@ pub enum RelocationKind {
 impl fmt::Display for RelocationKind {
     /// Display trait implementation drops the arch, since its used in contexts where the arch is
     /// already unambiguous, e.g. clif syntax with isa specified. In other contexts, use Debug.
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter,
+    ) -> fmt::Result {
         match *self {
-            Self::Abs4 => write!(f, "Abs4"),
-            Self::Abs8 => write!(f, "Abs8"),
-            Self::X86PCRel4 => write!(f, "PCRel4"),
-            Self::X86PCRel8 => write!(f, "PCRel8"),
-            Self::X86PCRelRodata4 => write!(f, "PCRelRodata4"),
-            Self::X86CallPCRel4 => write!(f, "CallPCRel4"),
-            Self::X86CallPLTRel4 => write!(f, "CallPLTRel4"),
-            Self::X86GOTPCRel4 => write!(f, "GOTPCRel4"),
-            Self::Arm32Call | Self::Arm64Call => write!(f, "Call"),
-            Self::Arm64Movw0 => write!(f, "Arm64MovwG0"),
-            Self::Arm64Movw1 => write!(f, "Arm64MovwG1"),
-            Self::Arm64Movw2 => write!(f, "Arm64MovwG2"),
-            Self::Arm64Movw3 => write!(f, "Arm64MovwG3"),
-            Self::ElfX86_64TlsGd => write!(f, "ElfX86_64TlsGd"),
+            | Self::Abs4 => write!(f, "Abs4"),
+            | Self::Abs8 => write!(f, "Abs8"),
+            | Self::X86PCRel4 => write!(f, "PCRel4"),
+            | Self::X86PCRel8 => write!(f, "PCRel8"),
+            | Self::X86PCRelRodata4 => write!(f, "PCRelRodata4"),
+            | Self::X86CallPCRel4 => write!(f, "CallPCRel4"),
+            | Self::X86CallPLTRel4 => write!(f, "CallPLTRel4"),
+            | Self::X86GOTPCRel4 => write!(f, "GOTPCRel4"),
+            | Self::Arm32Call | Self::Arm64Call => write!(f, "Call"),
+            | Self::Arm64Movw0 => write!(f, "Arm64MovwG0"),
+            | Self::Arm64Movw1 => write!(f, "Arm64MovwG1"),
+            | Self::Arm64Movw2 => write!(f, "Arm64MovwG2"),
+            | Self::Arm64Movw3 => write!(f, "Arm64MovwG3"),
+            | Self::ElfX86_64TlsGd => write!(f, "ElfX86_64TlsGd"),
             // Self::MachOX86_64Tlv => write!(f, "MachOX86_64Tlv"),
         }
     }
@@ -111,19 +114,25 @@ impl Relocation {
     /// to that address.
     ///
     /// The function returns the relocation address and the delta.
-    pub fn for_address(&self, start: usize, target_func_address: u64) -> (usize, u64) {
+    pub fn for_address(
+        &self,
+        start: usize,
+        target_func_address: u64,
+    ) -> (usize, u64) {
         match self.kind {
-            RelocationKind::Abs8
+            | RelocationKind::Abs8
             | RelocationKind::Arm64Movw0
             | RelocationKind::Arm64Movw1
             | RelocationKind::Arm64Movw2
             | RelocationKind::Arm64Movw3 => {
                 let reloc_address = start + self.offset as usize;
                 let reloc_addend = self.addend as isize;
-                let reloc_abs = target_func_address.checked_add(reloc_addend as u64).unwrap();
+                let reloc_abs = target_func_address
+                    .checked_add(reloc_addend as u64)
+                    .unwrap();
                 (reloc_address, reloc_abs)
             }
-            RelocationKind::X86PCRel4 => {
+            | RelocationKind::X86PCRel4 => {
                 let reloc_address = start + self.offset as usize;
                 let reloc_addend = self.addend as isize;
                 let reloc_delta_u32 = (target_func_address as u32)
@@ -132,7 +141,7 @@ impl Relocation {
                     .unwrap();
                 (reloc_address, reloc_delta_u32 as u64)
             }
-            RelocationKind::X86PCRel8 => {
+            | RelocationKind::X86PCRel8 => {
                 let reloc_address = start + self.offset as usize;
                 let reloc_addend = self.addend as isize;
                 let reloc_delta = target_func_address
@@ -141,7 +150,7 @@ impl Relocation {
                     .unwrap();
                 (reloc_address, reloc_delta)
             }
-            RelocationKind::X86CallPCRel4 | RelocationKind::X86CallPLTRel4 => {
+            | RelocationKind::X86CallPCRel4 | RelocationKind::X86CallPLTRel4 => {
                 let reloc_address = start + self.offset as usize;
                 let reloc_addend = self.addend as isize;
                 let reloc_delta_u32 = (target_func_address as u32)
@@ -149,7 +158,7 @@ impl Relocation {
                     .wrapping_add(reloc_addend as u32);
                 (reloc_address, reloc_delta_u32 as u64)
             }
-            RelocationKind::Arm64Call => {
+            | RelocationKind::Arm64Call => {
                 let reloc_address = start + self.offset as usize;
                 let reloc_addend = self.addend as isize;
                 let reloc_delta_u32 = target_func_address
@@ -160,7 +169,7 @@ impl Relocation {
             // RelocationKind::X86PCRelRodata4 => {
             //     (start, target_func_address)
             // }
-            _ => panic!("Relocation kind unsupported"),
+            | _ => panic!("Relocation kind unsupported"),
         }
     }
 }

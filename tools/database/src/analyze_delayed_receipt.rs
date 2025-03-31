@@ -45,20 +45,32 @@ impl AnalyzeDelayedReceiptCommand {
     ) -> anyhow::Result<()> {
         let mut near_config = load_config(home, genesis_validation).unwrap();
         let node_storage = open_storage(&home, &mut near_config).unwrap();
-        let store = node_storage.get_split_store().unwrap_or_else(|| node_storage.get_hot_store());
+        let store = node_storage
+            .get_split_store()
+            .unwrap_or_else(|| node_storage.get_hot_store());
         let chain_store = Rc::new(ChainStore::new(
             store.clone(),
-            near_config.genesis.config.genesis_height,
+            near_config
+                .genesis
+                .config
+                .genesis_height,
             false,
-            near_config.genesis.config.transaction_validity_period,
+            near_config
+                .genesis
+                .config
+                .transaction_validity_period,
         ));
         let epoch_manager =
             EpochManager::new_from_genesis_config(store.clone(), &near_config.genesis.config)
                 .unwrap();
 
         let tip = chain_store.head().unwrap();
-        let shard_layout = epoch_manager.get_shard_layout(&tip.epoch_id).unwrap();
-        let shard_uids = shard_layout.shard_uids().collect::<Vec<_>>();
+        let shard_layout = epoch_manager
+            .get_shard_layout(&tip.epoch_id)
+            .unwrap();
+        let shard_uids = shard_layout
+            .shard_uids()
+            .collect::<Vec<_>>();
         let shard_tries = ShardTries::new(
             store.trie_store(),
             TrieConfig::default(),
@@ -77,8 +89,8 @@ impl AnalyzeDelayedReceiptCommand {
         );
 
         let blocks_iter = match blocks_iter_opt {
-            Some(iter) => iter,
-            None => {
+            | Some(iter) => iter,
+            | None => {
                 println!("No arguments, defaulting to last 100 blocks");
                 Box::new(LastNBlocksIterator::new(100, chain_store))
             }
@@ -95,7 +107,9 @@ impl AnalyzeDelayedReceiptCommand {
                 first_analysed_block = Some((block.header().height(), *block.hash()));
             }
             last_analysed_block = Some((block.header().height(), *block.hash()));
-            let shard_layout = epoch_manager.get_shard_layout(block.header().epoch_id()).unwrap();
+            let shard_layout = epoch_manager
+                .get_shard_layout(block.header().epoch_id())
+                .unwrap();
 
             for chunk_header in block.chunks().iter_deprecated() {
                 let state_root = chunk_header.prev_state_root();
@@ -105,7 +119,9 @@ impl AnalyzeDelayedReceiptCommand {
                 );
                 let delayed_receipt_indices = get_delayed_receipt_indices(&trie_update)?;
                 if delayed_receipt_indices.len() > 0 {
-                    *shard_id_to_congested.entry(chunk_header.shard_id()).or_insert(0) += 1;
+                    *shard_id_to_congested
+                        .entry(chunk_header.shard_id())
+                        .or_insert(0) += 1;
                 }
                 println!(
                     "block height {} shard {} delayed receipts {}",
@@ -128,7 +144,9 @@ impl AnalyzeDelayedReceiptCommand {
             return Ok(());
         }
         for shard_id in shard_layout.shard_ids() {
-            let congested_chunks = *shard_id_to_congested.get(&shard_id).unwrap_or(&0);
+            let congested_chunks = *shard_id_to_congested
+                .get(&shard_id)
+                .unwrap_or(&0);
             println!(
                 "shard {} congested ratio {}",
                 shard_id,

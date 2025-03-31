@@ -9,12 +9,16 @@ use crate::{Chain, ChainStoreAccess};
 impl Chain {
     pub fn init_flat_storage(&self) -> Result<(), Error> {
         let chain_head = self.chain_store().head()?;
-        let flat_storage_manager = self.runtime_adapter.get_flat_storage_manager();
+        let flat_storage_manager = self
+            .runtime_adapter
+            .get_flat_storage_manager();
         init_flat_storage_for_current_epoch(
             &chain_head,
             self.epoch_manager.as_ref(),
             &flat_storage_manager,
-            &self.resharding_manager.flat_storage_resharder,
+            &self
+                .resharding_manager
+                .flat_storage_resharder,
         )?;
 
         // Create flat storage for the shards in the next epoch. This only
@@ -47,14 +51,16 @@ fn init_flat_storage_for_current_epoch(
         let shard_uid = epoch_manager.shard_id_to_uid(shard_id, &chain_head.epoch_id)?;
         let status = flat_storage_manager.get_flat_storage_status(shard_uid);
         match status {
-            FlatStorageStatus::Ready(_) => {
-                flat_storage_manager.create_flat_storage_for_shard(shard_uid).unwrap();
+            | FlatStorageStatus::Ready(_) => {
+                flat_storage_manager
+                    .create_flat_storage_for_shard(shard_uid)
+                    .unwrap();
             }
-            FlatStorageStatus::Creation(_) => {
+            | FlatStorageStatus::Creation(_) => {
                 panic!("Flat storage creation is no longer supported");
             }
-            FlatStorageStatus::Empty | FlatStorageStatus::Disabled => {}
-            FlatStorageStatus::Resharding(status) => {
+            | FlatStorageStatus::Empty | FlatStorageStatus::Disabled => {}
+            | FlatStorageStatus::Resharding(status) => {
                 flat_storage_resharder.resume(shard_uid, &status)?;
             }
         }
@@ -79,14 +85,16 @@ fn init_flat_storage_for_next_epoch(
         let shard_uid = epoch_manager.shard_id_to_uid(shard_id, next_epoch_id)?;
         let status = flat_storage_manager.get_flat_storage_status(shard_uid);
         match status {
-            FlatStorageStatus::Ready(_) => {
-                flat_storage_manager.create_flat_storage_for_shard(shard_uid).unwrap();
+            | FlatStorageStatus::Ready(_) => {
+                flat_storage_manager
+                    .create_flat_storage_for_shard(shard_uid)
+                    .unwrap();
             }
-            FlatStorageStatus::Creation(_) => {
+            | FlatStorageStatus::Creation(_) => {
                 panic!("Flat storage creation is no longer supported");
             }
-            FlatStorageStatus::Empty | FlatStorageStatus::Disabled => {}
-            FlatStorageStatus::Resharding(_) => {
+            | FlatStorageStatus::Empty | FlatStorageStatus::Disabled => {}
+            | FlatStorageStatus::Resharding(_) => {
                 // The flat storage for children shards will be created
                 // separately in the resharding process.
             }

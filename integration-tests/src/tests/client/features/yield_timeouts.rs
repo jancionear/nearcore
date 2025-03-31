@@ -26,12 +26,26 @@ const YIELD_TIMEOUT_HEIGHT: u64 = YIELD_CREATE_HEIGHT + TEST_CONFIG_YIELD_TIMEOU
 /// Helper function which checks the outgoing receipts from the latest block.
 /// Returns yield data ids for all PromiseYield and PromiseResume receipts.
 fn find_yield_data_ids_from_latest_block(env: &TestEnv) -> Vec<CryptoHash> {
-    let genesis_block = env.clients[0].chain.get_block_by_height(0).unwrap();
+    let genesis_block = env.clients[0]
+        .chain
+        .get_block_by_height(0)
+        .unwrap();
     let epoch_id = *genesis_block.header().epoch_id();
-    let shard_layout = env.clients[0].epoch_manager.get_shard_layout(&epoch_id).unwrap();
+    let shard_layout = env.clients[0]
+        .epoch_manager
+        .get_shard_layout(&epoch_id)
+        .unwrap();
     let shard_id = shard_layout.account_id_to_shard_id(&"test0".parse::<AccountId>().unwrap());
-    let last_block_hash = env.clients[0].chain.head().unwrap().last_block_hash;
-    let last_block_height = env.clients[0].chain.head().unwrap().height;
+    let last_block_hash = env.clients[0]
+        .chain
+        .head()
+        .unwrap()
+        .last_block_hash;
+    let last_block_height = env.clients[0]
+        .chain
+        .head()
+        .unwrap()
+        .height;
 
     let mut result = vec![];
 
@@ -58,12 +72,23 @@ fn prepare_env_with_yield(
     test_env_gas_limit: Option<u64>,
 ) -> (TestEnv, CryptoHash, CryptoHash) {
     init_test_logger();
-    let mut genesis = Genesis::test(vec!["test0".parse().unwrap(), "test1".parse().unwrap()], 1);
+    let mut genesis = Genesis::test(
+        vec![
+            "test0".parse().unwrap(),
+            "test1".parse().unwrap(),
+        ],
+        1,
+    );
     if let Some(gas_limit) = test_env_gas_limit {
         genesis.config.gas_limit = gas_limit;
     }
-    let mut env = TestEnv::builder(&genesis.config).nightshade_runtimes(&genesis).build();
-    let genesis_block = env.clients[0].chain.get_block_by_height(0).unwrap();
+    let mut env = TestEnv::builder(&genesis.config)
+        .nightshade_runtimes(&genesis)
+        .build();
+    let genesis_block = env.clients[0]
+        .chain
+        .get_block_by_height(0)
+        .unwrap();
     let signer = InMemorySigner::test_signer(&"test0".parse().unwrap());
 
     // Submit transaction deploying contract to test0
@@ -72,9 +97,9 @@ fn prepare_env_with_yield(
         "test0".parse().unwrap(),
         "test0".parse().unwrap(),
         &signer,
-        vec![Action::DeployContract(DeployContractAction {
-            code: near_test_contracts::rs_contract().to_vec(),
-        })],
+        vec![Action::DeployContract(
+            DeployContractAction { code: near_test_contracts::rs_contract().to_vec() },
+        )],
         *genesis_block.hash(),
         0,
     );
@@ -86,7 +111,11 @@ fn prepare_env_with_yield(
         env.produce_block(0, i);
     }
     assert!(matches!(
-        env.clients[0].chain.get_final_transaction_result(&tx_hash).unwrap().status,
+        env.clients[0]
+            .chain
+            .get_final_transaction_result(&tx_hash)
+            .unwrap()
+            .status,
         FinalExecutionStatus::SuccessValue(_),
     ));
 
@@ -96,12 +125,14 @@ fn prepare_env_with_yield(
         "test0".parse().unwrap(),
         "test0".parse().unwrap(),
         &signer,
-        vec![Action::FunctionCall(Box::new(FunctionCallAction {
-            method_name: "call_yield_create_return_promise".to_string(),
-            args: anticipated_yield_payload,
-            gas: 300_000_000_000_000,
-            deposit: 0,
-        }))],
+        vec![Action::FunctionCall(Box::new(
+            FunctionCallAction {
+                method_name: "call_yield_create_return_promise".to_string(),
+                args: anticipated_yield_payload,
+                gas: 300_000_000_000_000,
+                deposit: 0,
+            },
+        ))],
         *genesis_block.hash(),
         0,
     );
@@ -119,7 +150,11 @@ fn prepare_env_with_yield(
     let yield_data_ids = find_yield_data_ids_from_latest_block(&env);
     assert_eq!(yield_data_ids.len(), 1);
 
-    let last_block_height = env.clients[0].chain.head().unwrap().height;
+    let last_block_height = env.clients[0]
+        .chain
+        .head()
+        .unwrap()
+        .height;
     assert_eq!(NEXT_BLOCK_HEIGHT_AFTER_SETUP, last_block_height + 1);
 
     (env, yield_tx_hash, yield_data_ids[0])
@@ -132,19 +167,27 @@ fn invoke_yield_resume(
     yield_payload: Vec<u8>,
 ) -> CryptoHash {
     let signer = InMemorySigner::test_signer(&"test0".parse().unwrap());
-    let genesis_block = env.clients[0].chain.get_block_by_height(0).unwrap();
+    let genesis_block = env.clients[0]
+        .chain
+        .get_block_by_height(0)
+        .unwrap();
 
     let resume_transaction = SignedTransaction::from_actions(
         200,
         "test0".parse().unwrap(),
         "test0".parse().unwrap(),
         &signer,
-        vec![Action::FunctionCall(Box::new(FunctionCallAction {
-            method_name: "call_yield_resume".to_string(),
-            args: yield_payload.into_iter().chain(data_id.as_bytes().iter().cloned()).collect(),
-            gas: 300_000_000_000_000,
-            deposit: 0,
-        }))],
+        vec![Action::FunctionCall(Box::new(
+            FunctionCallAction {
+                method_name: "call_yield_resume".to_string(),
+                args: yield_payload
+                    .into_iter()
+                    .chain(data_id.as_bytes().iter().cloned())
+                    .collect(),
+                gas: 300_000_000_000_000,
+                deposit: 0,
+            },
+        ))],
         *genesis_block.hash(),
         0,
     );
@@ -162,7 +205,10 @@ fn invoke_yield_resume(
 /// inserted to client 0's mempool.
 fn create_congestion(env: &mut TestEnv) {
     let signer = InMemorySigner::test_signer(&"test0".parse().unwrap());
-    let genesis_block = env.clients[0].chain.get_block_by_height(0).unwrap();
+    let genesis_block = env.clients[0]
+        .chain
+        .get_block_by_height(0)
+        .unwrap();
 
     let mut tx_hashes = vec![];
 
@@ -172,12 +218,14 @@ fn create_congestion(env: &mut TestEnv) {
             "test0".parse().unwrap(),
             "test0".parse().unwrap(),
             &signer,
-            vec![Action::FunctionCall(Box::new(FunctionCallAction {
-                method_name: "epoch_height".to_string(),
-                args: vec![],
-                gas: 100,
-                deposit: 0,
-            }))],
+            vec![Action::FunctionCall(Box::new(
+                FunctionCallAction {
+                    method_name: "epoch_height".to_string(),
+                    args: vec![],
+                    gas: 100,
+                    deposit: 0,
+                },
+            ))],
             *genesis_block.hash(),
             0,
         );
@@ -202,7 +250,11 @@ fn simple_yield_timeout() {
 
         // The transaction will not have a result until the timeout is reached
         assert_eq!(
-            env.clients[0].chain.get_partial_transaction_result(&yield_tx_hash).unwrap().status,
+            env.clients[0]
+                .chain
+                .get_partial_transaction_result(&yield_tx_hash)
+                .unwrap()
+                .status,
             FinalExecutionStatus::Started
         );
     }
@@ -212,14 +264,22 @@ fn simple_yield_timeout() {
     // Checks that the anticipated YieldResume receipt was produced.
     assert_eq!(find_yield_data_ids_from_latest_block(&env), vec![data_id]);
     assert_eq!(
-        env.clients[0].chain.get_partial_transaction_result(&yield_tx_hash).unwrap().status,
+        env.clients[0]
+            .chain
+            .get_partial_transaction_result(&yield_tx_hash)
+            .unwrap()
+            .status,
         FinalExecutionStatus::Started
     );
 
     // In this block the resume receipt is applied and the callback will execute.
     env.produce_block(0, YIELD_TIMEOUT_HEIGHT + 1);
     assert_eq!(
-        env.clients[0].chain.get_partial_transaction_result(&yield_tx_hash).unwrap().status,
+        env.clients[0]
+            .chain
+            .get_partial_transaction_result(&yield_tx_hash)
+            .unwrap()
+            .status,
         FinalExecutionStatus::SuccessValue(vec![0u8]),
     );
 }
@@ -243,7 +303,11 @@ fn yield_timeout_under_congestion() {
 
         // The transaction will not have a result until the timeout is reached
         assert_eq!(
-            env.clients[0].chain.get_partial_transaction_result(&yield_tx_hash).unwrap().status,
+            env.clients[0]
+                .chain
+                .get_partial_transaction_result(&yield_tx_hash)
+                .unwrap()
+                .status,
             FinalExecutionStatus::Started
         );
     }
@@ -254,8 +318,11 @@ fn yield_timeout_under_congestion() {
         env.produce_block(0, next_block_height);
         next_block_height += 1;
 
-        let tx_status =
-            env.clients[0].chain.get_partial_transaction_result(&yield_tx_hash).unwrap().status;
+        let tx_status = env.clients[0]
+            .chain
+            .get_partial_transaction_result(&yield_tx_hash)
+            .unwrap()
+            .status;
 
         if tx_status == FinalExecutionStatus::Started {
             continue;
@@ -283,7 +350,11 @@ fn yield_resume_just_before_timeout() {
 
         // The transaction will not have a result until the yield execution is resumed
         assert_eq!(
-            env.clients[0].chain.get_partial_transaction_result(&yield_tx_hash).unwrap().status,
+            env.clients[0]
+                .chain
+                .get_partial_transaction_result(&yield_tx_hash)
+                .unwrap()
+                .status,
             FinalExecutionStatus::Started
         );
     }
@@ -291,7 +362,11 @@ fn yield_resume_just_before_timeout() {
     // In this block the `yield_resume` host function is invoked, producing a YieldResume receipt.
     env.produce_block(0, YIELD_TIMEOUT_HEIGHT);
     assert_eq!(
-        env.clients[0].chain.get_partial_transaction_result(&yield_tx_hash).unwrap().status,
+        env.clients[0]
+            .chain
+            .get_partial_transaction_result(&yield_tx_hash)
+            .unwrap()
+            .status,
         FinalExecutionStatus::Started
     );
     // Here we expect two receipts to be produced; one from yield_resume and one from timeout.
@@ -300,7 +375,11 @@ fn yield_resume_just_before_timeout() {
     // In this block the resume receipt is applied and the callback is executed with the resume payload.
     env.produce_block(0, YIELD_TIMEOUT_HEIGHT + 1);
     assert_eq!(
-        env.clients[0].chain.get_partial_transaction_result(&yield_tx_hash).unwrap().status,
+        env.clients[0]
+            .chain
+            .get_partial_transaction_result(&yield_tx_hash)
+            .unwrap()
+            .status,
         FinalExecutionStatus::SuccessValue(vec![16u8]),
     );
 }
@@ -325,7 +404,11 @@ fn yield_resume_after_timeout_height() {
 
         // The transaction will not have a result until the timeout is reached
         assert_eq!(
-            env.clients[0].chain.get_partial_transaction_result(&yield_tx_hash).unwrap().status,
+            env.clients[0]
+                .chain
+                .get_partial_transaction_result(&yield_tx_hash)
+                .unwrap()
+                .status,
             FinalExecutionStatus::Started
         );
     }
@@ -338,8 +421,11 @@ fn yield_resume_after_timeout_height() {
         env.produce_block(0, next_block_height);
         next_block_height += 1;
 
-        let tx_status =
-            env.clients[0].chain.get_partial_transaction_result(&yield_tx_hash).unwrap().status;
+        let tx_status = env.clients[0]
+            .chain
+            .get_partial_transaction_result(&yield_tx_hash)
+            .unwrap()
+            .status;
 
         if tx_status == FinalExecutionStatus::Started {
             continue;
@@ -362,7 +448,11 @@ fn skip_timeout_height() {
 
         // The transaction will not have a result until the timeout is reached
         assert_eq!(
-            env.clients[0].chain.get_partial_transaction_result(&yield_tx_hash).unwrap().status,
+            env.clients[0]
+                .chain
+                .get_partial_transaction_result(&yield_tx_hash)
+                .unwrap()
+                .status,
             FinalExecutionStatus::Started
         );
     }
@@ -373,14 +463,22 @@ fn skip_timeout_height() {
     // Checks that the anticipated YieldResume receipt was produced.
     assert_eq!(find_yield_data_ids_from_latest_block(&env), vec![data_id]);
     assert_eq!(
-        env.clients[0].chain.get_partial_transaction_result(&yield_tx_hash).unwrap().status,
+        env.clients[0]
+            .chain
+            .get_partial_transaction_result(&yield_tx_hash)
+            .unwrap()
+            .status,
         FinalExecutionStatus::Started
     );
 
     // In this block the resume receipt is applied and the callback will execute.
     env.produce_block(0, YIELD_TIMEOUT_HEIGHT + 2);
     assert_eq!(
-        env.clients[0].chain.get_partial_transaction_result(&yield_tx_hash).unwrap().status,
+        env.clients[0]
+            .chain
+            .get_partial_transaction_result(&yield_tx_hash)
+            .unwrap()
+            .status,
         FinalExecutionStatus::SuccessValue(vec![0u8]),
     );
 }

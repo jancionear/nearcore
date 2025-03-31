@@ -87,21 +87,21 @@ pub(crate) struct ActorHandler {
 
 pub(crate) fn unwrap_sync_accounts_data_processed(ev: Event) -> Option<SyncAccountsData> {
     match ev {
-        Event::PeerManager(PME::MessageProcessed(
+        | Event::PeerManager(PME::MessageProcessed(
             tcp::Tier::T2,
             PeerMessage::SyncAccountsData(msg),
         )) => Some(msg),
-        _ => None,
+        | _ => None,
     }
 }
 
 pub(crate) fn unwrap_sync_snapshot_hosts_data_processed(ev: Event) -> Option<SyncSnapshotHosts> {
     match ev {
-        Event::PeerManager(PME::MessageProcessed(
+        | Event::PeerManager(PME::MessageProcessed(
             tcp::Tier::T2,
             PeerMessage::SyncSnapshotHosts(msg),
         )) => Some(msg),
-        _ => None,
+        | _ => None,
     }
 }
 
@@ -114,7 +114,10 @@ pub(crate) fn make_chain_info(
     let mut account_keys = AccountKeys::new();
     for cfg in validators {
         let s = &cfg.validator.signer.get().unwrap();
-        account_keys.entry(s.validator_id().clone()).or_default().insert(s.public_key());
+        account_keys
+            .entry(s.validator_id().clone())
+            .or_default()
+            .insert(s.public_key());
     }
     chain_info.tier1_accounts = Arc::new(account_keys);
     chain_info
@@ -127,7 +130,10 @@ pub(crate) struct RawConnection {
 }
 
 impl RawConnection {
-    pub async fn handshake(mut self, clock: &time::Clock) -> peer::testonly::PeerHandle {
+    pub async fn handshake(
+        mut self,
+        clock: &time::Clock,
+    ) -> peer::testonly::PeerHandle {
         let stream_id = self.stream.id();
         let mut peer =
             peer::testonly::PeerHandle::start_endpoint(clock.clone(), self.cfg, self.stream).await;
@@ -138,33 +144,36 @@ impl RawConnection {
         // Wait for the peer manager to complete the handshake.
         self.events
             .recv_until(|ev| match ev {
-                Event::PeerManager(PME::HandshakeCompleted(ev)) if ev.stream_id == stream_id => {
+                | Event::PeerManager(PME::HandshakeCompleted(ev)) if ev.stream_id == stream_id => {
                     Some(())
                 }
-                Event::PeerManager(PME::ConnectionClosed(ev)) if ev.stream_id == stream_id => {
+                | Event::PeerManager(PME::ConnectionClosed(ev)) if ev.stream_id == stream_id => {
                     panic!("handshake aborted: {}", ev.reason)
                 }
-                _ => None,
+                | _ => None,
             })
             .await;
         peer
     }
 
     // Try to perform a handshake. PeerManager is expected to reject the handshake.
-    pub async fn manager_fail_handshake(mut self, clock: &time::Clock) -> ClosingReason {
+    pub async fn manager_fail_handshake(
+        mut self,
+        clock: &time::Clock,
+    ) -> ClosingReason {
         let stream_id = self.stream.id();
         let peer =
             peer::testonly::PeerHandle::start_endpoint(clock.clone(), self.cfg, self.stream).await;
         let reason = self
             .events
             .recv_until(|ev| match ev {
-                Event::PeerManager(PME::ConnectionClosed(ev)) if ev.stream_id == stream_id => {
+                | Event::PeerManager(PME::ConnectionClosed(ev)) if ev.stream_id == stream_id => {
                     Some(ev.reason)
                 }
-                Event::PeerManager(PME::HandshakeCompleted(ev)) if ev.stream_id == stream_id => {
+                | Event::PeerManager(PME::HandshakeCompleted(ev)) if ev.stream_id == stream_id => {
                     panic!("PeerManager accepted the handshake")
                 }
-                _ => None,
+                | _ => None,
             })
             .await;
         drop(peer);
@@ -181,7 +190,11 @@ impl ActorHandler {
         }
     }
 
-    pub async fn send_outbound_connect(&self, peer_info: &PeerInfo, tier: tcp::Tier) {
+    pub async fn send_outbound_connect(
+        &self,
+        peer_info: &PeerInfo,
+        tier: tcp::Tier,
+    ) {
         let addr = self.actix.addr.clone();
         let peer_info = peer_info.clone();
         let stream = tcp::Stream::connect(&peer_info, tier, &config::SocketOptions::default())
@@ -247,7 +260,9 @@ impl ActorHandler {
         // 3. establish connection.
         let socket = tcp::Socket::bind();
         let events = self.events.from_now();
-        let stream = socket.connect(&self.peer_info(), tcp::Tier::T2).await;
+        let stream = socket
+            .connect(&self.peer_info(), tcp::Tier::T2)
+            .await;
         let stream_id = stream.id();
         let conn = RawConnection {
             events,
@@ -263,13 +278,13 @@ impl ActorHandler {
         conn.events
             .clone()
             .recv_until(|ev| match ev {
-                Event::PeerManager(PME::HandshakeStarted(ev)) if ev.stream_id == stream_id => {
+                | Event::PeerManager(PME::HandshakeStarted(ev)) if ev.stream_id == stream_id => {
                     Some(())
                 }
-                Event::PeerManager(PME::ConnectionClosed(ev)) if ev.stream_id == stream_id => {
+                | Event::PeerManager(PME::ConnectionClosed(ev)) if ev.stream_id == stream_id => {
                     Some(())
                 }
-                _ => None,
+                | _ => None,
             })
             .await;
         conn
@@ -302,13 +317,13 @@ impl ActorHandler {
         conn.events
             .clone()
             .recv_until(|ev| match ev {
-                Event::PeerManager(PME::HandshakeStarted(ev)) if ev.stream_id == stream_id => {
+                | Event::PeerManager(PME::HandshakeStarted(ev)) if ev.stream_id == stream_id => {
                     Some(())
                 }
-                Event::PeerManager(PME::ConnectionClosed(ev)) if ev.stream_id == stream_id => {
+                | Event::PeerManager(PME::ConnectionClosed(ev)) if ev.stream_id == stream_id => {
                     Some(())
                 }
-                _ => None,
+                | _ => None,
             })
             .await;
         conn
@@ -320,7 +335,13 @@ impl ActorHandler {
     pub async fn check_consistency(&self) {
         self.with_state(|s| async move {
             // Check that the set of ready connections matches the PeerStore state.
-            let tier2: HashSet<_> = s.tier2.load().ready.keys().cloned().collect();
+            let tier2: HashSet<_> = s
+                .tier2
+                .load()
+                .ready
+                .keys()
+                .cloned()
+                .collect();
             let store: HashSet<_> = s
                 .peer_store
                 .dump()
@@ -343,8 +364,8 @@ impl ActorHandler {
                 .local_edges
                 .values()
                 .filter_map(|e| match e.edge_type() {
-                    EdgeState::Active => Some(e.other(&node_id).unwrap().clone()),
-                    EdgeState::Removed => None,
+                    | EdgeState::Active => Some(e.other(&node_id).unwrap().clone()),
+                    | EdgeState::Removed => None,
                 })
                 .collect();
             assert_eq!(tier2, local_edges);
@@ -352,13 +373,22 @@ impl ActorHandler {
         .await
     }
 
-    pub async fn fix_local_edges(&self, clock: &time::Clock, timeout: time::Duration) {
+    pub async fn fix_local_edges(
+        &self,
+        clock: &time::Clock,
+        timeout: time::Duration,
+    ) {
         let clock = clock.clone();
-        self.with_state(move |s| async move { s.fix_local_edges(&clock, timeout).await }).await
+        self.with_state(move |s| async move { s.fix_local_edges(&clock, timeout).await })
+            .await
     }
 
-    pub async fn set_chain_info(&self, chain_info: ChainInfo) -> bool {
-        self.with_state(move |s| async move { s.set_chain_info(chain_info) }).await
+    pub async fn set_chain_info(
+        &self,
+        chain_info: ChainInfo,
+    ) -> bool {
+        self.with_state(move |s| async move { s.set_chain_info(chain_info) })
+            .await
     }
 
     pub async fn tier1_advertise_proxies(
@@ -366,10 +396,14 @@ impl ActorHandler {
         clock: &time::Clock,
     ) -> Option<Arc<SignedAccountData>> {
         let clock = clock.clone();
-        self.with_state(move |s| async move { s.tier1_advertise_proxies(&clock).await }).await
+        self.with_state(move |s| async move { s.tier1_advertise_proxies(&clock).await })
+            .await
     }
 
-    pub async fn disconnect(&self, peer_id: &PeerId) {
+    pub async fn disconnect(
+        &self,
+        peer_id: &PeerId,
+    ) {
         let peer_id = peer_id.clone();
         self.with_state(move |s| async move {
             let stopped: Vec<()> = s
@@ -402,12 +436,21 @@ impl ActorHandler {
             .await
     }
 
-    pub async fn peer_store_update(&self, clock: &time::Clock) {
+    pub async fn peer_store_update(
+        &self,
+        clock: &time::Clock,
+    ) {
         let clock = clock.clone();
-        self.with_state(move |s| async move { s.peer_store.update(&clock) }).await;
+        self.with_state(move |s| async move { s.peer_store.update(&clock) })
+            .await;
     }
 
-    pub async fn send_ping(&self, clock: &time::Clock, nonce: u64, target: PeerId) {
+    pub async fn send_ping(
+        &self,
+        clock: &time::Clock,
+        nonce: u64,
+        target: PeerId,
+    ) {
         let clock = clock.clone();
         self.with_state(move |s| async move {
             s.send_ping(&clock, tcp::Tier::T2, nonce, target);
@@ -415,7 +458,10 @@ impl ActorHandler {
         .await;
     }
 
-    pub async fn announce_account(&self, aa: AnnounceAccount) {
+    pub async fn announce_account(
+        &self,
+        aa: AnnounceAccount,
+    ) {
         self.actix
             .addr
             .send(
@@ -433,20 +479,32 @@ impl ActorHandler {
     ) {
         let mut events = self.events.from_now();
         loop {
-            let got = self.with_state(move |s| async move { s.accounts_data.load() }).await;
+            let got = self
+                .with_state(move |s| async move { s.accounts_data.load() })
+                .await;
             if pred(got) {
                 break;
             }
             // It is important that we wait for the next PeerMessage::SyncAccountsData to get
             // PROCESSED, not just RECEIVED. Otherwise we would get a race condition.
-            events.recv_until(unwrap_sync_accounts_data_processed).await;
+            events
+                .recv_until(unwrap_sync_accounts_data_processed)
+                .await;
         }
     }
 
     // Awaits until the accounts_data state matches `want`.
-    pub async fn wait_for_accounts_data(&self, want: &HashSet<Arc<SignedAccountData>>) {
+    pub async fn wait_for_accounts_data(
+        &self,
+        want: &HashSet<Arc<SignedAccountData>>,
+    ) {
         self.wait_for_accounts_data_pred(|cache| {
-            &cache.data.values().cloned().collect::<HashSet<_>>() == want
+            &cache
+                .data
+                .values()
+                .cloned()
+                .collect::<HashSet<_>>()
+                == want
         })
         .await
     }
@@ -458,29 +516,44 @@ impl ActorHandler {
     ) {
         let mut events = self.events.from_now();
         loop {
-            let got = self.with_state(move |s| async move { s.snapshot_hosts.clone() }).await;
+            let got = self
+                .with_state(move |s| async move { s.snapshot_hosts.clone() })
+                .await;
             if pred(got) {
                 break;
             }
 
             // If the state doesn't match, wait until the next snapshot_hosts event is processed and check again.
-            events.recv_until(unwrap_sync_snapshot_hosts_data_processed).await;
+            events
+                .recv_until(unwrap_sync_snapshot_hosts_data_processed)
+                .await;
         }
     }
 
     // Awaits until the snapshot_hosts state matches `want`.
-    pub async fn wait_for_snapshot_hosts(&self, want: &HashSet<Arc<SnapshotHostInfo>>) {
+    pub async fn wait_for_snapshot_hosts(
+        &self,
+        want: &HashSet<Arc<SnapshotHostInfo>>,
+    ) {
         self.wait_for_snapshot_hosts_pred(|cache| {
-            &cache.get_hosts().into_iter().collect::<HashSet<_>>() == want
+            &cache
+                .get_hosts()
+                .into_iter()
+                .collect::<HashSet<_>>()
+                == want
         })
         .await
     }
 
-    pub async fn wait_for_direct_connection(&self, target_peer_id: PeerId) {
+    pub async fn wait_for_direct_connection(
+        &self,
+        target_peer_id: PeerId,
+    ) {
         let mut events = self.events.from_now();
         loop {
-            let connections =
-                self.with_state(|s| async move { s.tier2.load().ready.clone() }).await;
+            let connections = self
+                .with_state(|s| async move { s.tier2.load().ready.clone() })
+                .await;
 
             if connections.contains_key(&target_peer_id) {
                 return;
@@ -488,68 +561,86 @@ impl ActorHandler {
 
             events
                 .recv_until(|ev| match ev {
-                    Event::PeerManager(PME::HandshakeCompleted { .. }) => Some(()),
-                    _ => None,
+                    | Event::PeerManager(PME::HandshakeCompleted { .. }) => Some(()),
+                    | _ => None,
                 })
                 .await;
         }
     }
 
     // Awaits until the routing_table matches `want`.
-    pub async fn wait_for_routing_table(&self, want: &[(PeerId, Vec<PeerId>)]) {
+    pub async fn wait_for_routing_table(
+        &self,
+        want: &[(PeerId, Vec<PeerId>)],
+    ) {
         let mut events = self.events.from_now();
         loop {
-            let got =
-                self.with_state(|s| async move { s.graph.routing_table.info().next_hops }).await;
+            let got = self
+                .with_state(|s| async move { s.graph.routing_table.info().next_hops })
+                .await;
             if test_utils::expected_routing_tables(&got, want) {
                 return;
             }
             events
                 .recv_until(|ev| match ev {
-                    Event::PeerManager(PME::EdgesAdded { .. }) => Some(()),
-                    _ => None,
+                    | Event::PeerManager(PME::EdgesAdded { .. }) => Some(()),
+                    | _ => None,
                 })
                 .await;
         }
     }
 
-    pub async fn wait_for_account_owner(&self, account: &AccountId) -> PeerId {
+    pub async fn wait_for_account_owner(
+        &self,
+        account: &AccountId,
+    ) -> PeerId {
         let mut events = self.events.from_now();
         loop {
             let account = account.clone();
             let got = self
-                .with_state(|s| async move { s.account_announcements.get_account_owner(&account) })
+                .with_state(|s| async move {
+                    s.account_announcements
+                        .get_account_owner(&account)
+                })
                 .await;
             if let Some(got) = got {
                 return got;
             }
             events
                 .recv_until(|ev| match ev {
-                    Event::PeerManager(PME::AccountsAdded(_)) => Some(()),
-                    _ => None,
+                    | Event::PeerManager(PME::AccountsAdded(_)) => Some(()),
+                    | _ => None,
                 })
                 .await;
         }
     }
 
-    pub async fn wait_for_num_connected_peers(&self, wanted: usize) {
+    pub async fn wait_for_num_connected_peers(
+        &self,
+        wanted: usize,
+    ) {
         let mut events = self.events.from_now();
         loop {
-            let got = self.with_state(|s| async move { s.tier2.load().ready.len() }).await;
+            let got = self
+                .with_state(|s| async move { s.tier2.load().ready.len() })
+                .await;
             if got == wanted {
                 return;
             }
             events
                 .recv_until(|ev| match ev {
-                    Event::PeerManager(PME::EdgesAdded { .. }) => Some(()),
-                    _ => None,
+                    | Event::PeerManager(PME::EdgesAdded { .. }) => Some(()),
+                    | _ => None,
                 })
                 .await;
         }
     }
 
     /// Executes `NetworkState::tier1_connect` method.
-    pub async fn tier1_connect(&self, clock: &time::Clock) {
+    pub async fn tier1_connect(
+        &self,
+        clock: &time::Clock,
+    ) {
         let clock = clock.clone();
         self.with_state(move |s| async move {
             s.tier1_connect(&clock).await;
@@ -558,7 +649,10 @@ impl ActorHandler {
     }
 
     /// Executes `NetworkState::update_connection_store` method.
-    pub async fn update_connection_store(&self, clock: &time::Clock) {
+    pub async fn update_connection_store(
+        &self,
+        clock: &time::Clock,
+    ) {
         let clock = clock.clone();
         self.with_state(move |s| async move {
             s.update_connection_store(&clock);
@@ -593,7 +687,7 @@ pub(crate) async fn start(
                     // For some specific events we craft a response and send it back, while for
                     // most other events we send it to the sink (for what? I have no idea).
                     match event {
-                        ClientSenderForNetworkMessage::_state_request_part(msg) => {
+                        | ClientSenderForNetworkMessage::_state_request_part(msg) => {
                             let StateRequestPart { part_id, shard_id, sync_hash } = msg.message;
                             let part = Some((part_id, vec![]));
                             let state_response =
@@ -610,7 +704,7 @@ pub(crate) async fn start(
                                 ClientSenderForNetworkInput::_state_request_part(msg.message),
                             ));
                         }
-                        ClientSenderForNetworkMessage::_announce_account(msg) => {
+                        | ClientSenderForNetworkMessage::_announce_account(msg) => {
                             (msg.callback)(
                                 std::future::ready(Ok(Ok(msg
                                     .message
@@ -624,7 +718,7 @@ pub(crate) async fn start(
                                 ClientSenderForNetworkInput::_announce_account(msg.message),
                             ));
                         }
-                        _ => {
+                        | _ => {
                             send.send(Event::Client(event.into_input()));
                         }
                     }
@@ -652,10 +746,16 @@ pub(crate) async fn start(
                 clock,
                 store,
                 cfg,
-                client_sender.break_apart().into_multi_sender(),
-                peer_manager_sender.break_apart().into_multi_sender(),
+                client_sender
+                    .break_apart()
+                    .into_multi_sender(),
+                peer_manager_sender
+                    .break_apart()
+                    .into_multi_sender(),
                 shards_manager_sender,
-                state_witness_sender.break_apart().into_multi_sender(),
+                state_witness_sender
+                    .break_apart()
+                    .into_multi_sender(),
                 genesis_id,
             )
             .unwrap()
@@ -665,10 +765,11 @@ pub(crate) async fn start(
     let h = ActorHandler { cfg, actix, events: recv.clone() };
     // Wait for the server to start.
     recv.recv_until(|ev| match ev {
-        Event::PeerManager(PME::ServerStarted) => Some(()),
-        _ => None,
+        | Event::PeerManager(PME::ServerStarted) => Some(()),
+        | _ => None,
     })
     .await;
-    h.set_chain_info(chain.get_chain_info()).await;
+    h.set_chain_info(chain.get_chain_info())
+        .await;
     h
 }

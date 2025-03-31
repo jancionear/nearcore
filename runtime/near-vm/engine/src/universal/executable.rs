@@ -112,7 +112,7 @@ pub enum ExecutableSerializeError {
 impl UniversalExecutable {
     /// Serialize the executable into bytes for storage.
     pub fn serialize(
-        &self,
+        &self
     ) -> Result<Vec<u8>, Box<(dyn std::error::Error + Send + Sync + 'static)>> {
         // The format is as thus:
         //
@@ -137,23 +137,29 @@ impl<'a> UniversalExecutableRef<'a> {
     /// Get the name for specified function index.
     ///
     /// Test-only API
-    pub fn function_name(&self, index: FunctionIndex) -> Option<&str> {
+    pub fn function_name(
+        &self,
+        index: FunctionIndex,
+    ) -> Option<&str> {
         let aidx = Archived::<FunctionIndex>::new(index.index());
         let module = &self.compile_info.module;
         // First, lets see if there's a name by which this function is exported.
         for (name, idx) in module.exports.iter() {
             match idx {
-                Archived::<ExportIndex>::Function(fi) if fi == &aidx => return Some(&*name),
-                _ => continue,
+                | Archived::<ExportIndex>::Function(fi) if fi == &aidx => return Some(&*name),
+                | _ => continue,
             }
         }
-        if let Some(r) = module.function_names.get_key_value(&aidx) {
+        if let Some(r) = module
+            .function_names
+            .get_key_value(&aidx)
+        {
             return Some(r.1.as_str());
         }
         for (ArchivedTuple3(_, field, _), idx) in module.imports.iter() {
             match idx {
-                Archived::<ImportIndex>::Function(fi) if fi == &aidx => return Some(&*field),
-                _ => continue,
+                | Archived::<ImportIndex>::Function(fi) if fi == &aidx => return Some(&*field),
+                | _ => continue,
             }
         }
         None

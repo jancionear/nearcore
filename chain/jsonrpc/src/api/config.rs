@@ -21,11 +21,13 @@ impl RpcFrom<AsyncSendError> for RpcProtocolConfigError {
 impl RpcFrom<GetProtocolConfigError> for RpcProtocolConfigError {
     fn rpc_from(error: GetProtocolConfigError) -> Self {
         match error {
-            GetProtocolConfigError::UnknownBlock(error_message) => {
+            | GetProtocolConfigError::UnknownBlock(error_message) => {
                 Self::UnknownBlock { error_message }
             }
-            GetProtocolConfigError::IOError(error_message) => Self::InternalError { error_message },
-            GetProtocolConfigError::Unreachable(ref error_message) => {
+            | GetProtocolConfigError::IOError(error_message) => {
+                Self::InternalError { error_message }
+            }
+            | GetProtocolConfigError::Unreachable(ref error_message) => {
                 tracing::warn!(target: "jsonrpc", "Unreachable error occurred: {}", error_message);
                 crate::metrics::RPC_UNREACHABLE_ERROR_COUNT
                     .with_label_values(&["RpcProtocolConfigError"])

@@ -141,11 +141,20 @@ impl From<crate::RuntimeConfig> for RuntimeConfigView {
                     .fee(ActionCosts::new_action_receipt)
                     .clone(),
                 data_receipt_creation_config: DataReceiptCreationConfigView {
-                    base_cost: config.fees.fee(ActionCosts::new_data_receipt_base).clone(),
-                    cost_per_byte: config.fees.fee(ActionCosts::new_data_receipt_byte).clone(),
+                    base_cost: config
+                        .fees
+                        .fee(ActionCosts::new_data_receipt_base)
+                        .clone(),
+                    cost_per_byte: config
+                        .fees
+                        .fee(ActionCosts::new_data_receipt_byte)
+                        .clone(),
                 },
                 action_creation_config: ActionCreationConfigView {
-                    create_account_cost: config.fees.fee(ActionCosts::create_account).clone(),
+                    create_account_cost: config
+                        .fees
+                        .fee(ActionCosts::create_account)
+                        .clone(),
                     deploy_contract_cost: config
                         .fees
                         .fee(ActionCosts::deploy_contract_base)
@@ -154,15 +163,27 @@ impl From<crate::RuntimeConfig> for RuntimeConfigView {
                         .fees
                         .fee(ActionCosts::deploy_contract_byte)
                         .clone(),
-                    function_call_cost: config.fees.fee(ActionCosts::function_call_base).clone(),
+                    function_call_cost: config
+                        .fees
+                        .fee(ActionCosts::function_call_base)
+                        .clone(),
                     function_call_cost_per_byte: config
                         .fees
                         .fee(ActionCosts::function_call_byte)
                         .clone(),
-                    transfer_cost: config.fees.fee(ActionCosts::transfer).clone(),
-                    stake_cost: config.fees.fee(ActionCosts::stake).clone(),
+                    transfer_cost: config
+                        .fees
+                        .fee(ActionCosts::transfer)
+                        .clone(),
+                    stake_cost: config
+                        .fees
+                        .fee(ActionCosts::stake)
+                        .clone(),
                     add_key_cost: AccessKeyCreationConfigView {
-                        full_access_cost: config.fees.fee(ActionCosts::add_full_access_key).clone(),
+                        full_access_cost: config
+                            .fees
+                            .fee(ActionCosts::add_full_access_key)
+                            .clone(),
                         function_call_cost: config
                             .fees
                             .fee(ActionCosts::add_function_call_key_base)
@@ -172,13 +193,28 @@ impl From<crate::RuntimeConfig> for RuntimeConfigView {
                             .fee(ActionCosts::add_function_call_key_byte)
                             .clone(),
                     },
-                    delete_key_cost: config.fees.fee(ActionCosts::delete_key).clone(),
-                    delete_account_cost: config.fees.fee(ActionCosts::delete_account).clone(),
-                    delegate_cost: config.fees.fee(ActionCosts::delegate).clone(),
+                    delete_key_cost: config
+                        .fees
+                        .fee(ActionCosts::delete_key)
+                        .clone(),
+                    delete_account_cost: config
+                        .fees
+                        .fee(ActionCosts::delete_account)
+                        .clone(),
+                    delegate_cost: config
+                        .fees
+                        .fee(ActionCosts::delegate)
+                        .clone(),
                 },
                 storage_usage_config: StorageUsageConfigView {
-                    num_bytes_account: config.fees.storage_usage_config.num_bytes_account,
-                    num_extra_bytes_record: config.fees.storage_usage_config.num_extra_bytes_record,
+                    num_bytes_account: config
+                        .fees
+                        .storage_usage_config
+                        .num_bytes_account,
+                    num_extra_bytes_record: config
+                        .fees
+                        .storage_usage_config
+                        .num_extra_bytes_record,
                 },
                 burnt_gas_reward: config.fees.burnt_gas_reward,
                 pessimistic_gas_price_inflation_ratio: config
@@ -190,7 +226,9 @@ impl From<crate::RuntimeConfig> for RuntimeConfigView {
                 min_allowed_top_level_account_length: config
                     .account_creation_config
                     .min_allowed_top_level_account_length,
-                registrar_account_id: config.account_creation_config.registrar_account_id,
+                registrar_account_id: config
+                    .account_creation_config
+                    .registrar_account_id,
             },
             congestion_control_config: CongestionControlConfigView::from(
                 config.congestion_control_config,

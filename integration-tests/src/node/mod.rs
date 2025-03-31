@@ -54,19 +54,32 @@ pub trait Node: Send + Sync {
 
     fn kill(&mut self);
 
-    fn view_account(&self, account_id: &AccountId) -> Result<AccountView, String> {
+    fn view_account(
+        &self,
+        account_id: &AccountId,
+    ) -> Result<AccountView, String> {
         self.user().view_account(account_id)
     }
 
-    fn get_access_key_nonce_for_signer(&self, account_id: &AccountId) -> Result<u64, String> {
-        self.user().get_access_key_nonce_for_signer(account_id)
+    fn get_access_key_nonce_for_signer(
+        &self,
+        account_id: &AccountId,
+    ) -> Result<u64, String> {
+        self.user()
+            .get_access_key_nonce_for_signer(account_id)
     }
 
-    fn view_balance(&self, account_id: &AccountId) -> Result<Balance, String> {
+    fn view_balance(
+        &self,
+        account_id: &AccountId,
+    ) -> Result<Balance, String> {
         self.user().view_balance(account_id)
     }
 
-    fn add_transaction(&self, transaction: SignedTransaction) -> Result<(), ServerError> {
+    fn add_transaction(
+        &self,
+        transaction: SignedTransaction,
+    ) -> Result<(), ServerError> {
         self.user().add_transaction(transaction)
     }
 
@@ -104,19 +117,19 @@ pub trait Node: Send + Sync {
 impl dyn Node {
     pub fn new_sharable(config: NodeConfig) -> Arc<RwLock<dyn Node>> {
         match config {
-            NodeConfig::Runtime { account_id } => {
+            | NodeConfig::Runtime { account_id } => {
                 Arc::new(RwLock::new(RuntimeNode::new(&account_id)))
             }
-            NodeConfig::Thread(config) => Arc::new(RwLock::new(ThreadNode::new(config))),
-            NodeConfig::Process(config) => Arc::new(RwLock::new(ProcessNode::new(config))),
+            | NodeConfig::Thread(config) => Arc::new(RwLock::new(ThreadNode::new(config))),
+            | NodeConfig::Process(config) => Arc::new(RwLock::new(ProcessNode::new(config))),
         }
     }
 
     pub fn new(config: NodeConfig) -> Box<dyn Node> {
         match config {
-            NodeConfig::Runtime { account_id } => Box::new(RuntimeNode::new(&account_id)),
-            NodeConfig::Thread(config) => Box::new(ThreadNode::new(config)),
-            NodeConfig::Process(config) => Box::new(ProcessNode::new(config)),
+            | NodeConfig::Runtime { account_id } => Box::new(RuntimeNode::new(&account_id)),
+            | NodeConfig::Thread(config) => Box::new(ThreadNode::new(config)),
+            | NodeConfig::Process(config) => Box::new(ProcessNode::new(config)),
         }
     }
 }
@@ -145,7 +158,10 @@ fn near_configs_to_node_configs(
     result
 }
 
-pub fn create_nodes(num_nodes: usize, prefix: &str) -> Vec<NodeConfig> {
+pub fn create_nodes(
+    num_nodes: usize,
+    prefix: &str,
+) -> Vec<NodeConfig> {
     let (configs, validator_signers, network_signers, genesis, _) =
         create_localnet_configs(1, num_nodes as NumSeats, 0, 0, 0, prefix, vec![]);
     near_configs_to_node_configs(configs, validator_signers, network_signers, genesis)

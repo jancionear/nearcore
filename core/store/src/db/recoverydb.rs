@@ -20,27 +20,45 @@ pub struct RecoveryDB {
 
 impl Database for RecoveryDB {
     /// Returns raw bytes for given `key` ignoring any reference count decoding if any.
-    fn get_raw_bytes(&self, col: DBCol, key: &[u8]) -> std::io::Result<Option<DBSlice<'_>>> {
+    fn get_raw_bytes(
+        &self,
+        col: DBCol,
+        key: &[u8],
+    ) -> std::io::Result<Option<DBSlice<'_>>> {
         self.cold.get_raw_bytes(col, key)
     }
 
     /// Returns value for given `key` forcing a reference count decoding.
-    fn get_with_rc_stripped(&self, col: DBCol, key: &[u8]) -> std::io::Result<Option<DBSlice<'_>>> {
+    fn get_with_rc_stripped(
+        &self,
+        col: DBCol,
+        key: &[u8],
+    ) -> std::io::Result<Option<DBSlice<'_>>> {
         self.cold.get_with_rc_stripped(col, key)
     }
 
     /// Iterates over all values in a column.
-    fn iter<'a>(&'a self, col: DBCol) -> DBIterator<'a> {
+    fn iter<'a>(
+        &'a self,
+        col: DBCol,
+    ) -> DBIterator<'a> {
         self.cold.iter(col)
     }
 
     /// Iterates over values in a given column whose key has given prefix.
-    fn iter_prefix<'a>(&'a self, col: DBCol, key_prefix: &'a [u8]) -> DBIterator<'a> {
+    fn iter_prefix<'a>(
+        &'a self,
+        col: DBCol,
+        key_prefix: &'a [u8],
+    ) -> DBIterator<'a> {
         self.cold.iter_prefix(col, key_prefix)
     }
 
     /// Iterate over items in given column bypassing reference count decoding if any.
-    fn iter_raw_bytes<'a>(&'a self, col: DBCol) -> DBIterator<'a> {
+    fn iter_raw_bytes<'a>(
+        &'a self,
+        col: DBCol,
+    ) -> DBIterator<'a> {
         self.cold.iter_raw_bytes(col)
     }
 
@@ -51,15 +69,20 @@ impl Database for RecoveryDB {
         lower_bound: Option<&[u8]>,
         upper_bound: Option<&[u8]>,
     ) -> DBIterator<'a> {
-        self.cold.iter_range(col, lower_bound, upper_bound)
+        self.cold
+            .iter_range(col, lower_bound, upper_bound)
     }
 
     /// Atomically applies operations in given transaction. Also filters out `DBOp`s which are
     /// either modifying a column different from `State` or overwriting the same data.
-    fn write(&self, mut transaction: DBTransaction) -> std::io::Result<()> {
+    fn write(
+        &self,
+        mut transaction: DBTransaction,
+    ) -> std::io::Result<()> {
         self.filter_db_ops(&mut transaction);
         if !transaction.ops.is_empty() {
-            self.ops_written.fetch_add(transaction.ops.len() as i64, Ordering::Relaxed);
+            self.ops_written
+                .fetch_add(transaction.ops.len() as i64, Ordering::Relaxed);
             self.cold.write(transaction)
         } else {
             Ok(())
@@ -77,7 +100,9 @@ impl Database for RecoveryDB {
     fn get_store_statistics(&self) -> Option<crate::StoreStatistics> {
         let ops_written = (
             "ops_written".to_string(),
-            vec![StatsValue::Count(self.ops_written.load(Ordering::Relaxed))],
+            vec![StatsValue::Count(
+                self.ops_written.load(Ordering::Relaxed),
+            )],
         );
         let stats = crate::StoreStatistics { data: vec![ops_written] };
         Some(stats)
@@ -88,7 +113,8 @@ impl Database for RecoveryDB {
         path: &std::path::Path,
         columns_to_keep: Option<&[DBCol]>,
     ) -> anyhow::Result<()> {
-        self.cold.create_checkpoint(path, columns_to_keep)
+        self.cold
+            .create_checkpoint(path, columns_to_keep)
     }
 }
 
@@ -99,7 +125,10 @@ impl RecoveryDB {
     }
 
     /// Filters out deletes and other operation which aren't adding new data to the DB.
-    fn filter_db_ops(&self, transaction: &mut DBTransaction) {
+    fn filter_db_ops(
+        &self,
+        transaction: &mut DBTransaction,
+    ) {
         let mut idx = 0;
         while idx < transaction.ops.len() {
             if self.keep_db_op(&mut transaction.ops[idx]) {
@@ -111,25 +140,36 @@ impl RecoveryDB {
     }
 
     /// Returns whether the operation should be kept or dropped.
-    fn keep_db_op(&self, op: &DBOp) -> bool {
+    fn keep_db_op(
+        &self,
+        op: &DBOp,
+    ) -> bool {
         if !matches!(op.col(), DBCol::State) {
             return false;
         }
         match op {
-            DBOp::Set { col, key, value }
+            | DBOp::Set { col, key, value }
             | DBOp::Insert { col, key, value }
             | DBOp::UpdateRefcount { col, key, value } => {
                 !self.overwrites_same_data(col, key, value)
             }
-            DBOp::Delete { .. } | DBOp::DeleteAll { .. } | DBOp::DeleteRange { .. } => false,
+            | DBOp::Delete { .. } | DBOp::DeleteAll { .. } | DBOp::DeleteRange { .. } => false,
         }
     }
 
     /// Returns `true` if `value` is equal to the value stored at the location identified by `col` and `key`.
     /// The reference count is ignored, when applicable.
-    fn overwrites_same_data(&self, col: &DBCol, key: &Vec<u8>, value: &Vec<u8>) -> bool {
+    fn overwrites_same_data(
+        &self,
+        col: &DBCol,
+        key: &Vec<u8>,
+        value: &Vec<u8>,
+    ) -> bool {
         if col.is_rc() {
-            if self.get_raw_bytes(*col, &key).is_ok_and(|inner| inner.is_some()) {
+            if self
+                .get_raw_bytes(*col, &key)
+                .is_ok_and(|inner| inner.is_some())
+            {
                 // If the key exists we know the value is present, because the key is a hash of the value.
                 return true;
             }
@@ -160,10 +200,18 @@ mod test {
         RecoveryDB::new(Arc::new(ColdDB::new(cold)))
     }
 
-    fn assert_op_writes_only_once(generate_op: impl Fn() -> DBOp, db: RecoveryDB, col: DBCol) {
+    fn assert_op_writes_only_once(
+        generate_op: impl Fn() -> DBOp,
+        db: RecoveryDB,
+        col: DBCol,
+    ) {
         // The first time the operation is allowed.
-        db.write(DBTransaction { ops: vec![generate_op()] }).unwrap();
-        let got = db.cold.get_raw_bytes(col, HASH).unwrap();
+        db.write(DBTransaction { ops: vec![generate_op()] })
+            .unwrap();
+        let got = db
+            .cold
+            .get_raw_bytes(col, HASH)
+            .unwrap();
         assert_eq!(got.as_deref(), Some([VALUE, ONE].concat().as_slice()));
 
         // Repeat the same operation: DB write should get dropped.

@@ -20,7 +20,10 @@ use wasmer_runtime::wasm::MemoryDescriptor;
 use wasmer_runtime::Memory;
 use wasmer_runtime::{ImportObject, Module};
 
-fn check_method(module: &Module, method_name: &str) -> Result<(), FunctionCallError> {
+fn check_method(
+    module: &Module,
+    method_name: &str,
+) -> Result<(), FunctionCallError> {
     let info = module.info();
     use wasmer_runtime_core::module::ExportIndex::Func;
     if let Some(Func(index)) = info.exports.map.get(method_name) {
@@ -44,18 +47,18 @@ impl IntoVMError for wasmer_runtime::error::Error {
     fn into_vm_error(self) -> Result<FunctionCallError, VMRunnerError> {
         use wasmer_runtime::error::Error;
         match self {
-            Error::CompileError(err) => {
+            | Error::CompileError(err) => {
                 Ok(FunctionCallError::CompilationError(CompilationError::WasmerCompileError {
                     msg: err.to_string(),
                 }))
             }
-            Error::LinkError(err) => Ok(FunctionCallError::LinkError {
+            | Error::LinkError(err) => Ok(FunctionCallError::LinkError {
                 msg: format!("{:.500}", Error::LinkError(err).to_string()),
             }),
-            Error::RuntimeError(err) => err.into_vm_error(),
-            Error::ResolveError(err) => err.into_vm_error(),
-            Error::CallError(err) => err.into_vm_error(),
-            Error::CreationError(err) => panic!("{}", err),
+            | Error::RuntimeError(err) => err.into_vm_error(),
+            | Error::ResolveError(err) => err.into_vm_error(),
+            | Error::CallError(err) => err.into_vm_error(),
+            | Error::CreationError(err) => panic!("{}", err),
         }
     }
 }
@@ -64,8 +67,8 @@ impl IntoVMError for wasmer_runtime::error::CallError {
     fn into_vm_error(self) -> Result<FunctionCallError, VMRunnerError> {
         use wasmer_runtime::error::CallError;
         match self {
-            CallError::Resolve(err) => err.into_vm_error(),
-            CallError::Runtime(err) => err.into_vm_error(),
+            | CallError::Resolve(err) => err.into_vm_error(),
+            | CallError::Runtime(err) => err.into_vm_error(),
         }
     }
 }
@@ -74,13 +77,13 @@ impl IntoVMError for wasmer_runtime::error::ResolveError {
     fn into_vm_error(self) -> Result<FunctionCallError, VMRunnerError> {
         use wasmer_runtime::error::ResolveError as WasmerResolveError;
         Ok(match self {
-            WasmerResolveError::Signature { .. } => {
+            | WasmerResolveError::Signature { .. } => {
                 FunctionCallError::MethodResolveError(MethodResolveError::MethodInvalidSignature)
             }
-            WasmerResolveError::ExportNotFound { .. } => {
+            | WasmerResolveError::ExportNotFound { .. } => {
                 FunctionCallError::MethodResolveError(MethodResolveError::MethodNotFound)
             }
-            WasmerResolveError::ExportWrongType { .. } => {
+            | WasmerResolveError::ExportWrongType { .. } => {
                 FunctionCallError::MethodResolveError(MethodResolveError::MethodNotFound)
             }
         })
@@ -91,7 +94,7 @@ impl IntoVMError for wasmer_runtime::error::RuntimeError {
     fn into_vm_error(self) -> Result<FunctionCallError, VMRunnerError> {
         use wasmer_runtime::error::{InvokeError, RuntimeError};
         match self {
-            RuntimeError::InvokeError(invoke_error) => match invoke_error {
+            | RuntimeError::InvokeError(invoke_error) => match invoke_error {
                 // Indicates an exceptional circumstance such as a bug in Wasmer
                 // or a hardware failure.
                 // As of 0.17.0, thrown when stack unwinder fails, or when
@@ -100,7 +103,7 @@ impl IntoVMError for wasmer_runtime::error::RuntimeError {
                 // Also can be thrown on unreachable instruction, which is quite unfortunate.
                 //
                 // See https://github.com/near/wasmer/blob/0.17.2/lib/runtime-core/src/fault.rs#L285
-                InvokeError::FailedWithNoError => {
+                | InvokeError::FailedWithNoError => {
                     tracing::error!(target: "vm", "Got FailedWithNoError from wasmer0");
                     // XXX: Initially, we treated this error case as
                     // deterministic (so, we stored this error in our state,
@@ -124,37 +127,37 @@ impl IntoVMError for wasmer_runtime::error::RuntimeError {
                 }
                 // Indicates that a trap occurred that is not known to Wasmer.
                 // As of 0.17.0, thrown only from Cranelift BE.
-                InvokeError::UnknownTrap { address, signal } => {
+                | InvokeError::UnknownTrap { address, signal } => {
                     panic!(
                         "Impossible UnknownTrap error (Cranelift only): signal {} at {}",
                         signal, address
                     );
                 }
                 // A trap that Wasmer knows about occurred.
-                InvokeError::TrapCode { code, srcloc: _ } => Ok(match code {
-                    wasmer_runtime::ExceptionCode::Unreachable => {
+                | InvokeError::TrapCode { code, srcloc: _ } => Ok(match code {
+                    | wasmer_runtime::ExceptionCode::Unreachable => {
                         FunctionCallError::WasmTrap(WasmTrap::Unreachable)
                     }
-                    wasmer_runtime::ExceptionCode::IncorrectCallIndirectSignature => {
+                    | wasmer_runtime::ExceptionCode::IncorrectCallIndirectSignature => {
                         FunctionCallError::WasmTrap(WasmTrap::IncorrectCallIndirectSignature)
                     }
-                    wasmer_runtime::ExceptionCode::MemoryOutOfBounds => {
+                    | wasmer_runtime::ExceptionCode::MemoryOutOfBounds => {
                         FunctionCallError::WasmTrap(WasmTrap::MemoryOutOfBounds)
                     }
-                    wasmer_runtime::ExceptionCode::CallIndirectOOB => {
+                    | wasmer_runtime::ExceptionCode::CallIndirectOOB => {
                         FunctionCallError::WasmTrap(WasmTrap::CallIndirectOOB)
                     }
-                    wasmer_runtime::ExceptionCode::IllegalArithmetic => {
+                    | wasmer_runtime::ExceptionCode::IllegalArithmetic => {
                         FunctionCallError::WasmTrap(WasmTrap::IllegalArithmetic)
                     }
-                    wasmer_runtime::ExceptionCode::MisalignedAtomicAccess => {
+                    | wasmer_runtime::ExceptionCode::MisalignedAtomicAccess => {
                         FunctionCallError::WasmTrap(WasmTrap::MisalignedAtomicAccess)
                     }
                 }),
                 // A trap occurred that Wasmer knows about but it had a trap code that
                 // we weren't expecting or that we do not handle.
                 // As of 0.17.0, thrown only from Cranelift BE.
-                InvokeError::UnknownTrapCode { trap_code, srcloc } => {
+                | InvokeError::UnknownTrapCode { trap_code, srcloc } => {
                     panic!(
                         "Impossible UnknownTrapCode error (Cranelift only): trap {} at {}",
                         trap_code, srcloc
@@ -162,20 +165,20 @@ impl IntoVMError for wasmer_runtime::error::RuntimeError {
                 }
                 // An "early trap" occurred.
                 // As of 0.17.0, thrown only from Cranelift BE.
-                InvokeError::EarlyTrap(_) => {
+                | InvokeError::EarlyTrap(_) => {
                     panic!("Impossible EarlyTrap error (Cranelift only)");
                 }
                 // Indicates that a breakpoint was hit. The inner value is dependent
                 // upon the middleware or backend being used.
                 // As of 0.17.0, thrown only from Singlepass BE and wraps RuntimeError
                 // instance.
-                InvokeError::Breakpoint(_) => unreachable!("Wasmer breakpoint"),
+                | InvokeError::Breakpoint(_) => unreachable!("Wasmer breakpoint"),
             },
             // A metering triggered error value.
             // As of 0.17.0, thrown only from Singlepass BE, and as we do not rely
             // on Wasmer metering system cannot be returned to us. Whenever we will
             // shall be rechecked.
-            RuntimeError::Metering(_) => {
+            | RuntimeError::Metering(_) => {
                 panic!("Support metering errors properly");
             }
             // A frozen state of Wasm used to pause and resume execution.
@@ -185,12 +188,12 @@ impl IntoVMError for wasmer_runtime::error::RuntimeError {
             // to the runtime, and is triggered only from do_optimize().
             // do_optimize() is only called if backend is mentioned in
             // Run.optimized_backends option, and we don't.
-            RuntimeError::InstanceImage(_) => {
+            | RuntimeError::InstanceImage(_) => {
                 panic!("Support instance image errors properly");
             }
-            RuntimeError::User(data) => match data.downcast::<VMLogicError>() {
-                Ok(err) => (*err).try_into(),
-                Err(data) => panic!(
+            | RuntimeError::User(data) => match data.downcast::<VMLogicError>() {
+                | Ok(err) => (*err).try_into(),
+                | Err(data) => panic!(
                     "Bad error case! Output is non-deterministic {:?} {:?}",
                     data.type_id(),
                     RuntimeError::User(data).to_string()
@@ -203,7 +206,10 @@ impl IntoVMError for wasmer_runtime::error::RuntimeError {
 pub struct WasmerMemory(Memory);
 
 impl WasmerMemory {
-    pub fn new(initial_memory_pages: u32, max_memory_pages: u32) -> Self {
+    pub fn new(
+        initial_memory_pages: u32,
+        max_memory_pages: u32,
+    ) -> Self {
         WasmerMemory(
             Memory::new(
                 MemoryDescriptor::new(
@@ -223,36 +229,63 @@ impl WasmerMemory {
 }
 
 impl WasmerMemory {
-    fn with_memory<F, T>(&self, offset: u64, len: usize, func: F) -> Result<T, ()>
+    fn with_memory<F, T>(
+        &self,
+        offset: u64,
+        len: usize,
+        func: F,
+    ) -> Result<T, ()>
     where
         F: FnOnce(core::slice::Iter<'_, std::cell::Cell<u8>>) -> T,
     {
         let start = usize::try_from(offset).map_err(|_| ())?;
         let end = start.checked_add(len).ok_or(())?;
-        self.0.view().get(start..end).map(|mem| func(mem.iter())).ok_or(())
+        self.0
+            .view()
+            .get(start..end)
+            .map(|mem| func(mem.iter()))
+            .ok_or(())
     }
 }
 
 impl MemoryLike for WasmerMemory {
-    fn fits_memory(&self, slice: MemSlice) -> Result<(), ()> {
+    fn fits_memory(
+        &self,
+        slice: MemSlice,
+    ) -> Result<(), ()> {
         self.with_memory(slice.ptr, slice.len()?, |_| ())
     }
 
-    fn view_memory(&self, slice: MemSlice) -> Result<Cow<[u8]>, ()> {
+    fn view_memory(
+        &self,
+        slice: MemSlice,
+    ) -> Result<Cow<[u8]>, ()> {
         self.with_memory(slice.ptr, slice.len()?, |mem| {
             Cow::Owned(mem.map(core::cell::Cell::get).collect())
         })
     }
 
-    fn read_memory(&self, offset: u64, buffer: &mut [u8]) -> Result<(), ()> {
+    fn read_memory(
+        &self,
+        offset: u64,
+        buffer: &mut [u8],
+    ) -> Result<(), ()> {
         self.with_memory(offset, buffer.len(), |mem| {
-            buffer.iter_mut().zip(mem).for_each(|(dst, src)| *dst = src.get());
+            buffer
+                .iter_mut()
+                .zip(mem)
+                .for_each(|(dst, src)| *dst = src.get());
         })
     }
 
-    fn write_memory(&mut self, offset: u64, buffer: &[u8]) -> Result<(), ()> {
+    fn write_memory(
+        &mut self,
+        offset: u64,
+        buffer: &[u8],
+    ) -> Result<(), ()> {
         self.with_memory(offset, buffer.len(), |mem| {
-            mem.zip(buffer.iter()).for_each(|(dst, src)| dst.set(*src));
+            mem.zip(buffer.iter())
+                .for_each(|(dst, src)| dst.set(*src));
         })
     }
 }
@@ -268,8 +301,8 @@ fn run_method(
         let _span =
             tracing::debug_span!(target: "vm", "Wasmer0VM::run_method/instantiate").entered();
         match module.instantiate(import) {
-            Ok(instance) => instance,
-            Err(err) => {
+            | Ok(instance) => instance,
+            | Err(err) => {
                 let guest_aborted = err.into_vm_error()?;
                 return Ok(Err(guest_aborted));
             }
@@ -315,12 +348,12 @@ impl Wasmer0VM {
         let prepared_code = prepare::prepare_contract(code.code(), &self.config, VMKind::Wasmer0)
             .map_err(CompilationError::PrepareError)?;
         wasmer_runtime::compile(&prepared_code).map_err(|err| match err {
-            wasmer_runtime::error::CompileError::ValidationError { .. } => {
+            | wasmer_runtime::error::CompileError::ValidationError { .. } => {
                 CompilationError::WasmerCompileError { msg: err.to_string() }
             }
             // NOTE: Despite the `InternalError` name, this failure occurs if
             // the input `code` is invalid wasm.
-            wasmer_runtime::error::CompileError::InternalError { .. } => {
+            | wasmer_runtime::error::CompileError::InternalError { .. } => {
                 CompilationError::WasmerCompileError { msg: err.to_string() }
             }
         })
@@ -338,17 +371,19 @@ impl Wasmer0VM {
             let record = CompiledContractInfo {
                 wasm_bytes: code.code().len() as u64,
                 compiled: match &module_or_error {
-                    Ok(module) => {
+                    | Ok(module) => {
                         let code = module
                             .cache()
                             .and_then(|it| it.serialize())
                             .map_err(|_e| CacheError::SerializationError { hash: key.0 })?;
                         CompiledContract::Code(code)
                     }
-                    Err(err) => CompiledContract::CompileModuleError(err.clone()),
+                    | Err(err) => CompiledContract::CompileModuleError(err.clone()),
                 },
             };
-            cache.put(&key, record).map_err(CacheError::WriteError)?;
+            cache
+                .put(&key, record)
+                .map_err(CacheError::WriteError)?;
         }
 
         Ok(module_or_error)
@@ -376,12 +411,12 @@ impl Wasmer0VM {
                     .flatten();
 
                 let stored_module: Option<wasmer_runtime::Module> = match cache_record {
-                    None => None,
-                    Some(CompiledContractInfo {
+                    | None => None,
+                    | Some(CompiledContractInfo {
                         compiled: CompiledContract::CompileModuleError(err),
                         ..
                     }) => return Ok(Err(err)),
-                    Some(CompiledContractInfo {
+                    | Some(CompiledContractInfo {
                         compiled: CompiledContract::Code(serialized_module),
                         ..
                     }) => {
@@ -408,8 +443,8 @@ impl Wasmer0VM {
                 };
 
                 Ok(match stored_module {
-                    Some(it) => Ok(it),
-                    None => self.compile_and_cache(code, cache)?,
+                    | Some(it) => Ok(it),
+                    | None => self.compile_and_cache(code, cache)?,
                 })
             };
 
@@ -465,7 +500,7 @@ impl crate::runner::VM for Wasmer0VM {
 
         // TODO: consider using get_module() here, once we'll go via deployment path.
         let module = match self.compile_and_load(&code, cache) {
-            Ok(Ok(x)) => x,
+            | Ok(Ok(x)) => x,
             // Note on backwards-compatibility: This error used to be an error
             // without result, later refactored to NOP outcome. Now this returns
             // an actual outcome, including gas costs that occurred before this
@@ -473,12 +508,12 @@ impl crate::runner::VM for Wasmer0VM {
             // version do not have gas costs before reaching this code. (Also
             // see `test_old_fn_loading_behavior_preserved` for a test that
             // verifies future changes do not counteract this assumption.)
-            Ok(Err(err)) => {
+            | Ok(Err(err)) => {
                 let result =
                     PreparationResult::OutcomeAbort(FunctionCallError::CompilationError(err));
                 return Box::new(Ok(PreparedContract { config, gas_counter, result }));
             }
-            Err(err) => return Box::new(Result::Err(err)),
+            | Err(err) => return Box::new(Result::Err(err)),
         };
 
         let result = gas_counter.after_loading_executable(&config, code.code().len() as u64);
@@ -492,8 +527,12 @@ impl crate::runner::VM for Wasmer0VM {
         }
 
         let memory = WasmerMemory::new(
-            self.config.limit_config.initial_memory_pages,
-            self.config.limit_config.max_memory_pages,
+            self.config
+                .limit_config
+                .initial_memory_pages,
+            self.config
+                .limit_config
+                .max_memory_pages,
         );
         let result = PreparationResult::Ready(ReadyContract {
             vm: self,
@@ -535,21 +574,21 @@ impl crate::PreparedContract for VMResult<PreparedContract> {
         let PreparedContract { config, gas_counter, result } = (*self)?;
         let result_state = ExecutionResultState::new(&context, gas_counter, config);
         let ReadyContract { vm, mut memory, module, method } = match result {
-            PreparationResult::OutcomeAbortButNopInOldProtocol(e) => {
+            | PreparationResult::OutcomeAbortButNopInOldProtocol(e) => {
                 return Ok(VMOutcome::abort_but_nop_outcome_in_old_protocol(result_state, e));
             }
-            PreparationResult::OutcomeAbort(e) => {
+            | PreparationResult::OutcomeAbort(e) => {
                 return Ok(VMOutcome::abort(result_state, e));
             }
-            PreparationResult::Ready(r) => r,
+            | PreparationResult::Ready(r) => r,
         };
         // Note that we don't clone the actual backing memory, just increase the RC.
         let memory_copy = memory.clone();
         let mut logic = VMLogic::new(ext, context, fees_config, result_state, &mut memory);
         let import_object = build_imports(memory_copy, &vm.config, &mut logic);
         match run_method(&module, &import_object, &method)? {
-            Ok(()) => Ok(VMOutcome::ok(logic.result_state)),
-            Err(err) => Ok(VMOutcome::abort(logic.result_state, err)),
+            | Ok(()) => Ok(VMOutcome::ok(logic.result_state)),
+            | Err(err) => Ok(VMOutcome::abort(logic.result_state, err)),
         }
     }
 }

@@ -226,7 +226,7 @@ impl From<NearActions> for Vec<crate::models::Operation> {
         let mut operations = vec![];
         for action in actions {
             match action {
-                near_primitives::transaction::Action::CreateAccount(_) => {
+                | near_primitives::transaction::Action::CreateAccount(_) => {
                     let initiate_create_account_operation_id =
                         crate::models::OperationIdentifier::new(&operations);
                     operations.push(
@@ -247,7 +247,7 @@ impl From<NearActions> for Vec<crate::models::Operation> {
                     );
                 }
 
-                near_primitives::transaction::Action::DeleteAccount(action) => {
+                | near_primitives::transaction::Action::DeleteAccount(action) => {
                     let initiate_delete_account_operation_id =
                         crate::models::OperationIdentifier::new(&operations);
                     operations.push(
@@ -280,7 +280,7 @@ impl From<NearActions> for Vec<crate::models::Operation> {
                     );
                 }
 
-                near_primitives::transaction::Action::AddKey(action) => {
+                | near_primitives::transaction::Action::AddKey(action) => {
                     let initiate_add_key_operation_id =
                         crate::models::OperationIdentifier::new(&operations);
                     operations.push(
@@ -303,7 +303,7 @@ impl From<NearActions> for Vec<crate::models::Operation> {
                     );
                 }
 
-                near_primitives::transaction::Action::DeleteKey(action) => {
+                | near_primitives::transaction::Action::DeleteKey(action) => {
                     let initiate_delete_key_operation_id =
                         crate::models::OperationIdentifier::new(&operations);
                     operations.push(
@@ -325,7 +325,7 @@ impl From<NearActions> for Vec<crate::models::Operation> {
                     );
                 }
 
-                near_primitives::transaction::Action::Transfer(action) => {
+                | near_primitives::transaction::Action::Transfer(action) => {
                     let transfer_amount = crate::models::Amount::from_yoctonear(action.deposit);
 
                     let sender_transfer_operation_id =
@@ -354,7 +354,7 @@ impl From<NearActions> for Vec<crate::models::Operation> {
 
                 #[cfg(feature = "protocol_feature_nonrefundable_transfer_nep491")]
                 // Non-refundable transfer deposit is burnt for permanent storage bytes on the receiving account.
-                near_primitives::transaction::Action::NonrefundableStorageTransfer(action) => {
+                | near_primitives::transaction::Action::NonrefundableStorageTransfer(action) => {
                     let transfer_amount = crate::models::Amount::from_yoctonear(action.deposit);
 
                     let sender_transfer_operation_id =
@@ -369,7 +369,7 @@ impl From<NearActions> for Vec<crate::models::Operation> {
                     );
                 }
 
-                near_primitives::transaction::Action::Stake(action) => {
+                | near_primitives::transaction::Action::Stake(action) => {
                     operations.push(
                         validated_operations::StakeOperation {
                             account: receiver_account_identifier.clone(),
@@ -380,7 +380,7 @@ impl From<NearActions> for Vec<crate::models::Operation> {
                     );
                 }
 
-                near_primitives::transaction::Action::DeployContract(action) => {
+                | near_primitives::transaction::Action::DeployContract(action) => {
                     let initiate_deploy_contract_operation_id =
                         crate::models::OperationIdentifier::new(&operations);
                     operations.push(
@@ -402,7 +402,7 @@ impl From<NearActions> for Vec<crate::models::Operation> {
                     );
                 }
 
-                near_primitives::transaction::Action::FunctionCall(action) => {
+                | near_primitives::transaction::Action::FunctionCall(action) => {
                     let attached_amount = crate::models::Amount::from_yoctonear(action.deposit);
 
                     let mut related_operations = vec![];
@@ -443,7 +443,7 @@ impl From<NearActions> for Vec<crate::models::Operation> {
                     );
                     operations.push(deploy_contract_operation);
                 }
-                near_primitives::transaction::Action::Delegate(action) => {
+                | near_primitives::transaction::Action::Delegate(action) => {
                     let initiate_signed_delegate_action_operation_id =
                         crate::models::OperationIdentifier::new(&operations);
                     operations.push(
@@ -488,7 +488,10 @@ impl From<NearActions> for Vec<crate::models::Operation> {
                     // be a single-level recursion.
                     let delegated_operations: Vec<crate::models::Operation> = NearActions {
                         sender_account_id: action.delegate_action.sender_id.clone(),
-                        receiver_account_id: action.delegate_action.receiver_id.clone(),
+                        receiver_account_id: action
+                            .delegate_action
+                            .receiver_id
+                            .clone(),
                         actions: action
                             .delegate_action
                             .actions
@@ -500,9 +503,8 @@ impl From<NearActions> for Vec<crate::models::Operation> {
 
                     operations.extend(delegated_operations);
                 } // TODO(#8469): Implement delegate action support, for now they are ignored.
-                near_primitives::transaction::Action::DeployGlobalContract(_)
-                | near_primitives::transaction::Action::UseGlobalContract(_) => {
-                    // TODO(#12639): Implement global contracts support, ignored for now.
+                | near_primitives::transaction::Action::DeployGlobalContract(_action) => {
+                    // TODO(#12639): Implement global contract deploys support, ignored for now.
                 }
             }
         }
@@ -535,7 +537,7 @@ impl TryFrom<Vec<crate::models::Operation>> for NearActions {
         // A single iteration consumes at least one operation from the iterator
         while let Some(tail_operation) = operations.next() {
             match tail_operation.type_ {
-                crate::models::OperationType::CreateAccount => {
+                | crate::models::OperationType::CreateAccount => {
                     let create_account_operation =
                         validated_operations::CreateAccountOperation::try_from(tail_operation)?;
                     receiver_account_id.try_set(&create_account_operation.account)?;
@@ -549,7 +551,7 @@ impl TryFrom<Vec<crate::models::Operation>> for NearActions {
                     actions.push(near_primitives::transaction::CreateAccountAction {}.into())
                 }
 
-                crate::models::OperationType::RefundDeleteAccount => {
+                | crate::models::OperationType::RefundDeleteAccount => {
                     let refund_delete_account_operation =
                         validated_operations::RefundDeleteAccountOperation::try_from(
                             tail_operation,
@@ -576,7 +578,7 @@ impl TryFrom<Vec<crate::models::Operation>> for NearActions {
                     )
                 }
 
-                crate::models::OperationType::AddKey => {
+                | crate::models::OperationType::AddKey => {
                     let add_key_operation =
                         validated_operations::AddKeyOperation::try_from(tail_operation)?;
                     receiver_account_id.try_set(&add_key_operation.account)?;
@@ -587,12 +589,14 @@ impl TryFrom<Vec<crate::models::Operation>> for NearActions {
                         )?;
                     sender_account_id.try_set(&initiate_add_key_operation.sender_account)?;
 
-                    let public_key = (&add_key_operation.public_key).try_into().map_err(|_| {
-                        crate::errors::ErrorKind::InvalidInput(format!(
-                            "Invalid public_key: {:?}",
-                            add_key_operation.public_key
-                        ))
-                    })?;
+                    let public_key = (&add_key_operation.public_key)
+                        .try_into()
+                        .map_err(|_| {
+                            crate::errors::ErrorKind::InvalidInput(format!(
+                                "Invalid public_key: {:?}",
+                                add_key_operation.public_key
+                            ))
+                        })?;
 
                     actions.push(
                         near_primitives::transaction::AddKeyAction {
@@ -603,7 +607,7 @@ impl TryFrom<Vec<crate::models::Operation>> for NearActions {
                     )
                 }
 
-                crate::models::OperationType::DeleteKey => {
+                | crate::models::OperationType::DeleteKey => {
                     let delete_key_operation =
                         validated_operations::DeleteKeyOperation::try_from(tail_operation)?;
                     receiver_account_id.try_set(&delete_key_operation.account)?;
@@ -614,8 +618,9 @@ impl TryFrom<Vec<crate::models::Operation>> for NearActions {
                         )?;
                     sender_account_id.try_set(&initiate_delete_key_operation.sender_account)?;
 
-                    let public_key =
-                        (&delete_key_operation.public_key).try_into().map_err(|_| {
+                    let public_key = (&delete_key_operation.public_key)
+                        .try_into()
+                        .map_err(|_| {
                             crate::errors::ErrorKind::InvalidInput(format!(
                                 "Invalid public_key: {:?}",
                                 delete_key_operation.public_key
@@ -626,11 +631,15 @@ impl TryFrom<Vec<crate::models::Operation>> for NearActions {
                         .push(near_primitives::transaction::DeleteKeyAction { public_key }.into())
                 }
 
-                crate::models::OperationType::Transfer => {
+                | crate::models::OperationType::Transfer => {
                     let receiver_transfer_operation =
                         validated_operations::TransferOperation::try_from(tail_operation)?;
                     receiver_account_id.try_set(&receiver_transfer_operation.account)?;
-                    if !receiver_transfer_operation.amount.value.is_positive() {
+                    if !receiver_transfer_operation
+                        .amount
+                        .value
+                        .is_positive()
+                    {
                         return Err(crate::errors::ErrorKind::InvalidInput(
                             "Receiver TRANSFER operations must have positive `amount`".to_string(),
                         ));
@@ -652,23 +661,28 @@ impl TryFrom<Vec<crate::models::Operation>> for NearActions {
                     }
                     actions.push(
                         near_primitives::transaction::TransferAction {
-                            deposit: receiver_transfer_operation.amount.value.absolute_difference(),
+                            deposit: receiver_transfer_operation
+                                .amount
+                                .value
+                                .absolute_difference(),
                         }
                         .into(),
                     )
                 }
 
-                crate::models::OperationType::Stake => {
+                | crate::models::OperationType::Stake => {
                     let stake_operation =
                         validated_operations::StakeOperation::try_from(tail_operation)?;
                     receiver_account_id.try_set(&stake_operation.account)?;
 
-                    let public_key = (&stake_operation.public_key).try_into().map_err(|_| {
-                        crate::errors::ErrorKind::InvalidInput(format!(
-                            "Invalid public_key: {:?}",
-                            stake_operation.public_key
-                        ))
-                    })?;
+                    let public_key = (&stake_operation.public_key)
+                        .try_into()
+                        .map_err(|_| {
+                            crate::errors::ErrorKind::InvalidInput(format!(
+                                "Invalid public_key: {:?}",
+                                stake_operation.public_key
+                            ))
+                        })?;
 
                     actions.push(
                         near_primitives::transaction::StakeAction {
@@ -679,7 +693,7 @@ impl TryFrom<Vec<crate::models::Operation>> for NearActions {
                     )
                 }
 
-                crate::models::OperationType::DeployContract => {
+                | crate::models::OperationType::DeployContract => {
                     let deploy_contract_operation =
                         validated_operations::DeployContractOperation::try_from(tail_operation)?;
                     receiver_account_id.try_set(&deploy_contract_operation.account)?;
@@ -698,7 +712,7 @@ impl TryFrom<Vec<crate::models::Operation>> for NearActions {
                         .into(),
                     )
                 }
-                crate::models::OperationType::FunctionCall => {
+                | crate::models::OperationType::FunctionCall => {
                     let function_call_operation =
                         validated_operations::FunctionCallOperation::try_from(tail_operation)?;
                     receiver_account_id.try_set(&function_call_operation.account)?;
@@ -714,8 +728,14 @@ impl TryFrom<Vec<crate::models::Operation>> for NearActions {
                             validated_operations::TransferOperation::try_from_option(
                                 operations.next(),
                             )?;
-                        if transfer_operation.amount.value.is_positive()
-                            || transfer_operation.amount.value.absolute_difference()
+                        if transfer_operation
+                            .amount
+                            .value
+                            .is_positive()
+                            || transfer_operation
+                                .amount
+                                .value
+                                .absolute_difference()
                                 != function_call_operation.attached_amount
                         {
                             return Err(crate::errors::ErrorKind::InvalidInput(
@@ -735,7 +755,7 @@ impl TryFrom<Vec<crate::models::Operation>> for NearActions {
                         .into(),
                     )
                 }
-                crate::models::OperationType::DelegateAction => {
+                | crate::models::OperationType::DelegateAction => {
                     let delegate_action_operation =
                         validated_operations::delegate_action::DelegateActionOperation::try_from(
                             tail_operation,
@@ -758,13 +778,16 @@ impl TryFrom<Vec<crate::models::Operation>> for NearActions {
                                     .sender_account
                                     .address
                                     .into(),
-                                receiver_id: delegate_action_operation.receiver_id.address.into(),
+                                receiver_id: delegate_action_operation
+                                    .receiver_id
+                                    .address
+                                    .into(),
                                 actions: {
                                     let mut non_delegate_actions = vec![];
                                     for action in actions.into_iter() {
                                         non_delegate_actions.push(match action.try_into() {
-                                            Ok(a) => a,
-                                            Err(_) => {
+                                            | Ok(a) => a,
+                                            | Err(_) => {
                                                 return Err(crate::errors::ErrorKind::InvalidInput(
                                                     "Nested delegate actions not allowed"
                                                         .to_string(),
@@ -778,8 +801,8 @@ impl TryFrom<Vec<crate::models::Operation>> for NearActions {
                                 max_block_height: delegate_action_operation.max_block_height,
                                 public_key: match (&delegate_action_operation.public_key).try_into()
                                 {
-                                    Ok(o) => o,
-                                    Err(_) => {
+                                    | Ok(o) => o,
+                                    | Err(_) => {
                                         return Err(crate::errors::ErrorKind::InvalidInput(
                                             "Invalid public key on delegate action".to_string(),
                                         ))
@@ -792,7 +815,7 @@ impl TryFrom<Vec<crate::models::Operation>> for NearActions {
 
                     actions = vec![delegate_action];
                 }
-                crate::models::OperationType::InitiateCreateAccount
+                | crate::models::OperationType::InitiateCreateAccount
                 | crate::models::OperationType::InitiateDeleteAccount
                 | crate::models::OperationType::InitiateAddKey
                 | crate::models::OperationType::InitiateDeleteKey
@@ -825,17 +848,23 @@ impl TryFrom<Vec<crate::models::Operation>> for NearActions {
             .into();
 
         let delegate_proxy_account_id: Option<near_account_id::AccountId> =
-            delegate_proxy_account_id.into_inner().map(|a| a.address.into());
-        let sender_account_id: Option<near_account_id::AccountId> =
-            sender_account_id.into_inner().map(|a| a.address.into());
+            delegate_proxy_account_id
+                .into_inner()
+                .map(|a| a.address.into());
+        let sender_account_id: Option<near_account_id::AccountId> = sender_account_id
+            .into_inner()
+            .map(|a| a.address.into());
 
         let actual_receiver_account_id = if delegate_proxy_account_id.is_some() {
-            sender_account_id.clone().unwrap_or_else(|| receiver_account_id.clone())
+            sender_account_id
+                .clone()
+                .unwrap_or_else(|| receiver_account_id.clone())
         } else {
             receiver_account_id.clone()
         };
-        let actual_sender_account_id =
-            delegate_proxy_account_id.or_else(|| sender_account_id.clone()).unwrap_or_else(|| {
+        let actual_sender_account_id = delegate_proxy_account_id
+            .or_else(|| sender_account_id.clone())
+            .unwrap_or_else(|| {
                 // in case of reflexive action
                 receiver_account_id.clone()
             });
@@ -977,9 +1006,11 @@ mod tests {
             .await
             .unwrap();
             assert_eq!(transactions.len(), 3);
-            assert!(transactions.iter().all(|(transaction_hash, transaction)| {
-                &transaction.transaction_identifier.hash == transaction_hash
-            }));
+            assert!(transactions
+                .iter()
+                .all(|(transaction_hash, transaction)| {
+                    &transaction.transaction_identifier.hash == transaction_hash
+                }));
 
             let validators_update_transaction =
                 &transactions[&format!("block-validators-update:{}", block_hash)];
@@ -1009,61 +1040,81 @@ mod tests {
     fn test_near_actions_bijection() {
         let create_account_actions =
             vec![near_primitives::transaction::CreateAccountAction {}.into()];
-        let delete_account_actions = vec![near_primitives::transaction::DeleteAccountAction {
-            beneficiary_id: "beneficiary.near".parse().unwrap(),
-        }
-        .into()];
-        let add_key_actions = vec![near_primitives::transaction::AddKeyAction {
-            access_key: near_primitives::account::AccessKey::full_access(),
-            public_key: near_crypto::SecretKey::from_random(near_crypto::KeyType::ED25519)
-                .public_key(),
-        }
-        .into()];
-        let delete_key_actions = vec![near_primitives::transaction::DeleteKeyAction {
-            public_key: near_crypto::SecretKey::from_random(near_crypto::KeyType::ED25519)
-                .public_key(),
-        }
-        .into()];
-        let transfer_actions = vec![near_primitives::transaction::TransferAction {
-            deposit: near_primitives::types::Balance::MAX,
-        }
-        .into()];
-        let stake_actions = vec![near_primitives::transaction::StakeAction {
-            stake: 456,
-            public_key: near_crypto::SecretKey::from_random(near_crypto::KeyType::ED25519)
-                .public_key(),
-        }
-        .into()];
-        let deploy_contract_actions = vec![near_primitives::transaction::DeployContractAction {
-            code: b"binary-data".to_vec(),
-        }
-        .into()];
-        let function_call_without_balance_actions =
-            vec![near_primitives::transaction::FunctionCallAction {
+        let delete_account_actions = vec![
+            near_primitives::transaction::DeleteAccountAction {
+                beneficiary_id: "beneficiary.near".parse().unwrap(),
+            }
+            .into(),
+        ];
+        let add_key_actions = vec![
+            near_primitives::transaction::AddKeyAction {
+                access_key: near_primitives::account::AccessKey::full_access(),
+                public_key: near_crypto::SecretKey::from_random(near_crypto::KeyType::ED25519)
+                    .public_key(),
+            }
+            .into(),
+        ];
+        let delete_key_actions = vec![
+            near_primitives::transaction::DeleteKeyAction {
+                public_key: near_crypto::SecretKey::from_random(near_crypto::KeyType::ED25519)
+                    .public_key(),
+            }
+            .into(),
+        ];
+        let transfer_actions = vec![
+            near_primitives::transaction::TransferAction {
+                deposit: near_primitives::types::Balance::MAX,
+            }
+            .into(),
+        ];
+        let stake_actions = vec![
+            near_primitives::transaction::StakeAction {
+                stake: 456,
+                public_key: near_crypto::SecretKey::from_random(near_crypto::KeyType::ED25519)
+                    .public_key(),
+            }
+            .into(),
+        ];
+        let deploy_contract_actions = vec![
+            near_primitives::transaction::DeployContractAction { code: b"binary-data".to_vec() }
+                .into(),
+        ];
+        let function_call_without_balance_actions = vec![
+            near_primitives::transaction::FunctionCallAction {
                 method_name: "method-name".parse().unwrap(),
                 args: b"args".to_vec(),
                 gas: 100500,
                 deposit: 0,
             }
-            .into()];
-        let function_call_with_balance_actions =
-            vec![near_primitives::transaction::FunctionCallAction {
+            .into(),
+        ];
+        let function_call_with_balance_actions = vec![
+            near_primitives::transaction::FunctionCallAction {
                 method_name: "method-name".parse().unwrap(),
                 args: b"args".to_vec(),
                 gas: 100500,
                 deposit: near_primitives::types::Balance::MAX,
             }
-            .into()];
+            .into(),
+        ];
 
-        let wallet_style_create_account_actions =
-            [create_account_actions.to_vec(), add_key_actions.to_vec(), transfer_actions.to_vec()]
-                .concat();
-        let create_account_and_stake_immediately_actions =
-            [create_account_actions.to_vec(), transfer_actions.to_vec(), stake_actions.to_vec()]
-                .concat();
-        let deploy_contract_and_call_it_actions =
-            [deploy_contract_actions.to_vec(), function_call_with_balance_actions.to_vec()]
-                .concat();
+        let wallet_style_create_account_actions = [
+            create_account_actions.to_vec(),
+            add_key_actions.to_vec(),
+            transfer_actions.to_vec(),
+        ]
+        .concat();
+        let create_account_and_stake_immediately_actions = [
+            create_account_actions.to_vec(),
+            transfer_actions.to_vec(),
+            stake_actions.to_vec(),
+        ]
+        .concat();
+        let deploy_contract_and_call_it_actions = [
+            deploy_contract_actions.to_vec(),
+            function_call_with_balance_actions.to_vec(),
+        ]
+        .concat();
         let two_factor_auth_actions = [
             delete_key_actions.to_vec(),
             add_key_actions.to_vec(),
@@ -1108,11 +1159,19 @@ mod tests {
             assert_eq!(near_actions_recreated.actions, near_actions.actions);
         }
 
-        let sir_compatible_actions = [non_sir_compatible_actions, vec![stake_actions]].concat();
+        let sir_compatible_actions = [
+            non_sir_compatible_actions,
+            vec![stake_actions],
+        ]
+        .concat();
         for actions in sir_compatible_actions {
             let near_actions = NearActions {
-                sender_account_id: "sender-is-receiver.near".parse().unwrap(),
-                receiver_account_id: "sender-is-receiver.near".parse().unwrap(),
+                sender_account_id: "sender-is-receiver.near"
+                    .parse()
+                    .unwrap(),
+                receiver_account_id: "sender-is-receiver.near"
+                    .parse()
+                    .unwrap(),
                 actions,
             };
             println!("NEAR Actions: {:#?}", near_actions);
@@ -1138,23 +1197,29 @@ mod tests {
         let original_near_actions = NearActions {
             sender_account_id: "proxy.near".parse().unwrap(),
             receiver_account_id: "account.near".parse().unwrap(),
-            actions: vec![Action::Delegate(Box::new(SignedDelegateAction {
-                delegate_action: DelegateAction {
-                    sender_id: "account.near".parse().unwrap(),
-                    receiver_id: "receiver.near".parse().unwrap(),
-                    actions: vec![Action::Transfer(TransferAction { deposit: 1 })
-                        .try_into()
-                        .unwrap()],
-                    nonce: 0,
-                    max_block_height: 0,
-                    public_key: sk.public_key(),
+            actions: vec![Action::Delegate(Box::new(
+                SignedDelegateAction {
+                    delegate_action: DelegateAction {
+                        sender_id: "account.near".parse().unwrap(),
+                        receiver_id: "receiver.near".parse().unwrap(),
+                        actions: vec![
+                            Action::Transfer(TransferAction { deposit: 1 })
+                                .try_into()
+                                .unwrap(),
+                        ],
+                        nonce: 0,
+                        max_block_height: 0,
+                        public_key: sk.public_key(),
+                    },
+                    signature: sk.sign(&[0]),
                 },
-                signature: sk.sign(&[0]),
-            }))],
+            ))],
         };
 
-        let operations: Vec<crate::models::Operation> =
-            original_near_actions.clone().try_into().unwrap();
+        let operations: Vec<crate::models::Operation> = original_near_actions
+            .clone()
+            .try_into()
+            .unwrap();
 
         let converted_near_actions = NearActions::try_from(operations).unwrap();
 

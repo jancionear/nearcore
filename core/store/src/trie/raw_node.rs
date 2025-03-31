@@ -35,17 +35,20 @@ pub enum RawTrieNode {
 
 impl RawTrieNode {
     #[inline]
-    pub fn branch(children: Children, value: Option<ValueRef>) -> Self {
+    pub fn branch(
+        children: Children,
+        value: Option<ValueRef>,
+    ) -> Self {
         match value {
-            Some(value) => Self::BranchWithValue(value, children),
-            None => Self::BranchNoValue(children),
+            | Some(value) => Self::BranchWithValue(value, children),
+            | None => Self::BranchNoValue(children),
         }
     }
 
     pub fn has_value(&self) -> bool {
         match self {
-            Self::BranchWithValue(_, _) | Self::Leaf(_, _) => true,
-            _ => false,
+            | Self::BranchWithValue(_, _) | Self::Leaf(_, _) => true,
+            | _ => false,
         }
     }
 }
@@ -58,7 +61,10 @@ impl<T> Children<T> {
     /// Iterates over existing children; `None` entries are omitted.
     #[inline]
     pub fn iter<'a>(&'a self) -> impl Iterator<Item = (u8, &'a T)> {
-        self.0.iter().enumerate().flat_map(|(i, el)| Some(i as u8).zip(el.as_ref()))
+        self.0
+            .iter()
+            .enumerate()
+            .flat_map(|(i, el)| Some(i as u8).zip(el.as_ref()))
     }
 }
 
@@ -70,19 +76,28 @@ impl<T> Default for Children<T> {
 
 impl<T> std::ops::Index<u8> for Children<T> {
     type Output = Option<T>;
-    fn index(&self, index: u8) -> &Option<T> {
+    fn index(
+        &self,
+        index: u8,
+    ) -> &Option<T> {
         &self.0[usize::from(index)]
     }
 }
 
 impl<T> std::ops::IndexMut<u8> for Children<T> {
-    fn index_mut(&mut self, index: u8) -> &mut Option<T> {
+    fn index_mut(
+        &mut self,
+        index: u8,
+    ) -> &mut Option<T> {
         &mut self.0[usize::from(index)]
     }
 }
 
 impl<T: BorshSerialize> BorshSerialize for Children<T> {
-    fn serialize<W: std::io::Write>(&self, wr: &mut W) -> std::io::Result<()> {
+    fn serialize<W: std::io::Write>(
+        &self,
+        wr: &mut W,
+    ) -> std::io::Result<()> {
         let mut bitmap: u16 = 0;
         let mut pos: u16 = 1;
         for child in self.0.iter() {
@@ -92,7 +107,11 @@ impl<T: BorshSerialize> BorshSerialize for Children<T> {
             pos <<= 1;
         }
         bitmap.serialize(wr)?;
-        self.0.iter().flat_map(Option::as_ref).map(|child| child.serialize(wr)).collect()
+        self.0
+            .iter()
+            .flat_map(Option::as_ref)
+            .map(|child| child.serialize(wr))
+            .collect()
     }
 }
 
@@ -113,14 +132,22 @@ mod children {
     struct Debug<'a, T>((u8, &'a T));
 
     impl<T: std::fmt::Debug> std::fmt::Debug for Debug<'_, T> {
-        fn fmt(&self, fmtr: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        fn fmt(
+            &self,
+            fmtr: &mut std::fmt::Formatter<'_>,
+        ) -> std::fmt::Result {
             write!(fmtr, "{}: {:?}", self.0 .0, self.0 .1)
         }
     }
 
     impl<T: std::fmt::Debug> std::fmt::Debug for super::Children<T> {
-        fn fmt(&self, fmtr: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            fmtr.debug_list().entries(self.iter().map(Debug)).finish()
+        fn fmt(
+            &self,
+            fmtr: &mut std::fmt::Formatter<'_>,
+        ) -> std::fmt::Result {
+            fmtr.debug_list()
+                .entries(self.iter().map(Debug))
+                .finish()
         }
     }
 }
@@ -128,7 +155,10 @@ mod children {
 #[test]
 fn test_encode_decode() {
     #[track_caller]
-    fn test(node: RawTrieNode, encoded: &[u8]) {
+    fn test(
+        node: RawTrieNode,
+        encoded: &[u8],
+    ) {
         let node = RawTrieNodeWithSize { node, memory_usage: 42 };
         let mut buf = borsh::to_vec(&node).unwrap();
         assert_eq!(encoded, buf.as_slice());

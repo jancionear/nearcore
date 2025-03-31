@@ -49,8 +49,8 @@ pub fn run_bandwidth_scheduler(
 
     // Read the current scheduler state from the Trie
     let mut scheduler_state = match get_bandwidth_scheduler_state(state_update)? {
-        Some(prev_state) => prev_state,
-        None => {
+        | Some(prev_state) => prev_state,
+        | None => {
             tracing::debug!(target: "runtime", "Bandwidth scheduler state not found - initializing");
             BandwidthSchedulerState::V1(BandwidthSchedulerStateV1 {
                 link_allowances: Vec::new(),
@@ -65,13 +65,18 @@ pub fn run_bandwidth_scheduler(
     let mut shards_status: BTreeMap<ShardId, ShardStatus> = BTreeMap::new();
     for (shard_id, extended_congestion_info) in apply_state.congestion_info.iter() {
         let last_chunk_missing = extended_congestion_info.missed_chunks_count > 0;
-        let allowed_sender_shard_id: ShardId =
-            extended_congestion_info.congestion_info.allowed_shard().into();
-        let allowed_sender_shard_index: Option<ShardIndex> =
-            shard_layout.get_shard_index(allowed_sender_shard_id).ok();
+        let allowed_sender_shard_id: ShardId = extended_congestion_info
+            .congestion_info
+            .allowed_shard()
+            .into();
+        let allowed_sender_shard_index: Option<ShardIndex> = shard_layout
+            .get_shard_index(allowed_sender_shard_id)
+            .ok();
 
         let congestion_control = CongestionControl::new(
-            apply_state.config.congestion_control_config,
+            apply_state
+                .config
+                .congestion_control_config,
             extended_congestion_info.congestion_info,
             extended_congestion_info.missed_chunks_count,
         );
@@ -108,9 +113,13 @@ pub fn run_bandwidth_scheduler(
     // It would be a bit nicer to hash all inputs, but that could be slow and the serialization
     // format of the hashed structs would become part of the protocol.
     match &mut scheduler_state {
-        BandwidthSchedulerState::V1(scheduler_state) => {
+        | BandwidthSchedulerState::V1(scheduler_state) => {
             let mut sanity_check_bytes = Vec::new();
-            sanity_check_bytes.extend_from_slice(scheduler_state.sanity_check_hash.as_ref());
+            sanity_check_bytes.extend_from_slice(
+                scheduler_state
+                    .sanity_check_hash
+                    .as_ref(),
+            );
             sanity_check_bytes.extend_from_slice(CryptoHash::hash_borsh(&all_shards).as_ref());
             scheduler_state.sanity_check_hash = CryptoHash::hash_bytes(&sanity_check_bytes);
         }

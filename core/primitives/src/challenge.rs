@@ -29,9 +29,12 @@ impl Default for PartialState {
 // When debug-printing, don't dump the entire partial state; that is very unlikely to be useful,
 // and wastes a lot of screen space.
 impl Debug for PartialState {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut Formatter<'_>,
+    ) -> std::fmt::Result {
         match self {
-            PartialState::TrieValues(values) => {
+            | PartialState::TrieValues(values) => {
                 f.write_str(&format!("{} trie values", values.len()))
             }
         }
@@ -53,7 +56,10 @@ pub struct BlockDoubleSign {
 }
 
 impl std::fmt::Display for BlockDoubleSign {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+    fn fmt(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+    ) -> Result<(), std::fmt::Error> {
         write!(f, "{:?}", self)
     }
 }
@@ -126,7 +132,10 @@ impl Challenge {
         self.hash = CryptoHash::hash_borsh(&self.body);
     }
 
-    pub fn produce(body: ChallengeBody, signer: &ValidatorSigner) -> Self {
+    pub fn produce(
+        body: ChallengeBody,
+        signer: &ValidatorSigner,
+    ) -> Self {
         let hash = CryptoHash::hash_borsh(&body);
         let signature = signer.sign_bytes(hash.as_ref());
         Self { body, account_id: signer.validator_id().clone(), signature, hash }
@@ -152,7 +161,10 @@ pub struct SlashedValidator {
 }
 
 impl SlashedValidator {
-    pub fn new(account_id: AccountId, is_double_sign: bool) -> Self {
+    pub fn new(
+        account_id: AccountId,
+        is_double_sign: bool,
+    ) -> Self {
         SlashedValidator { account_id, is_double_sign }
     }
 }

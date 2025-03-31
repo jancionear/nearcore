@@ -16,16 +16,16 @@ pub enum Entry {
 impl Entry {
     pub fn from_ip(ip: net::IpAddr) -> Entry {
         Entry::Ip(match ip {
-            net::IpAddr::V4(ip) => ip.to_ipv6_mapped(),
-            net::IpAddr::V6(ip) => ip,
+            | net::IpAddr::V4(ip) => ip.to_ipv6_mapped(),
+            | net::IpAddr::V6(ip) => ip,
         })
     }
 
     pub fn from_addr(addr: net::SocketAddr) -> Entry {
         Entry::IpPort(
             match addr.ip() {
-                net::IpAddr::V4(ip) => ip.to_ipv6_mapped(),
-                net::IpAddr::V6(ip) => ip,
+                | net::IpAddr::V4(ip) => ip.to_ipv6_mapped(),
+                | net::IpAddr::V6(ip) => ip,
             },
             addr.port(),
         )
@@ -37,8 +37,8 @@ impl std::str::FromStr for Entry {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.parse::<std::net::IpAddr>() {
-            Ok(ip) => Ok(Entry::from_ip(ip)),
-            Err(_) => Ok(Entry::from_addr(s.parse::<net::SocketAddr>()?)),
+            | Ok(ip) => Ok(Entry::from_ip(ip)),
+            | Err(_) => Ok(Entry::from_addr(s.parse::<net::SocketAddr>()?)),
         }
     }
 }
@@ -58,8 +58,13 @@ impl FromIterator<Entry> for Blacklist {
 
 impl Blacklist {
     /// Returns whether given address is on the blacklist.
-    pub fn contains(&self, addr: net::SocketAddr) -> bool {
-        self.0.contains(&Entry::from_ip(addr.ip())) || self.0.contains(&Entry::from_addr(addr))
+    pub fn contains(
+        &self,
+        addr: net::SocketAddr,
+    ) -> bool {
+        self.0
+            .contains(&Entry::from_ip(addr.ip()))
+            || self.0.contains(&Entry::from_addr(addr))
     }
 }
 

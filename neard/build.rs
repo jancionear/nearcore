@@ -22,7 +22,11 @@ fn env(key: &str) -> Result<std::ffi::OsString> {
 /// Calls program with given arguments and returns its standard output.  If
 /// calling the program fails or it exits with non-zero exit status returns an
 /// error.
-fn command(prog: &str, args: &[&str], cwd: Option<std::path::PathBuf>) -> Result<Vec<u8>> {
+fn command(
+    prog: &str,
+    args: &[&str],
+    cwd: Option<std::path::PathBuf>,
+) -> Result<Vec<u8>> {
     println!("cargo:rerun-if-env-changed=PATH");
     let mut cmd = std::process::Command::new(prog);
     cmd.args(args);
@@ -56,12 +60,12 @@ fn command(prog: &str, args: &[&str], cwd: Option<std::path::PathBuf>) -> Result
 /// directory isn’t clean, the version will include `-modified` suffix.
 fn get_git_version() -> Result<String> {
     // Figure out git directory.  Don’t just assume it’s ../.git because that
-    // doesn’t work with git work trees so use `git rev-parse --git-dir` instead.
+    // doesn’t work with git worktrees so use `git rev-parse --git-dir` instead.
     let pkg_dir = std::path::PathBuf::from(env("CARGO_MANIFEST_DIR")?);
     let git_dir = command("git", &["rev-parse", "--git-dir"], Some(pkg_dir));
     let git_dir = match git_dir {
-        Ok(git_dir) => std::path::PathBuf::from(std::ffi::OsString::from_vec(git_dir)),
-        Err(msg) => {
+        | Ok(git_dir) => std::path::PathBuf::from(std::ffi::OsString::from_vec(git_dir)),
+        | Err(msg) => {
             // We’re probably not inside of a git repository so report git
             // version as unknown.
             println!("cargo:warning=unable to determine git version (not in git repository?)");
@@ -81,14 +85,20 @@ fn get_git_version() -> Result<String> {
 
     // * --always → if there is no matching tag, use commit hash
     // * --dirty=-modified → append ‘-modified’ if there are local changes
-    // * --tags → consider tags even if they are unannotated
+    // * --tags → consider tags even if they are unnanotated
     // * --match=[0-9]* → only consider tags starting with a digit; this
     //   prevents tags such as `crates-0.14.0` from being considered
-    let args = &["describe", "--always", "--dirty=-modified", "--tags", "--match=[0-9]*"];
+    let args = &[
+        "describe",
+        "--always",
+        "--dirty=-modified",
+        "--tags",
+        "--match=[0-9]*",
+    ];
     let out = command("git", args, None)?;
     match String::from_utf8_lossy(&out) {
-        std::borrow::Cow::Borrowed(version) => Ok(version.trim().to_string()),
-        std::borrow::Cow::Owned(version) => Err(anyhow!("git: invalid output: {}", version)),
+        | std::borrow::Cow::Borrowed(version) => Ok(version.trim().to_string()),
+        | std::borrow::Cow::Owned(version) => Err(anyhow!("git: invalid output: {}", version)),
     }
 }
 
@@ -105,7 +115,11 @@ fn get_enabled_features() -> String {
     let feature_start = "CARGO_FEATURE_";
     for (variable, value) in std::env::vars() {
         if variable.starts_with(feature_start) && value == "1" {
-            features.push(variable[feature_start.len()..].to_string().to_lowercase());
+            features.push(
+                variable[feature_start.len()..]
+                    .to_string()
+                    .to_lowercase(),
+            );
         }
     }
     features.sort();
@@ -123,9 +137,9 @@ fn main() {
 fn try_main() -> Result<()> {
     let version = env("CARGO_PKG_VERSION")?;
     let version = match version.to_string_lossy() {
-        std::borrow::Cow::Borrowed("0.0.0") => "trunk",
-        std::borrow::Cow::Borrowed(version) => version,
-        std::borrow::Cow::Owned(version) => {
+        | std::borrow::Cow::Borrowed("0.0.0") => "trunk",
+        | std::borrow::Cow::Borrowed(version) => version,
+        | std::borrow::Cow::Owned(version) => {
             anyhow::bail!("invalid ‘CARGO_PKG_VERSION’: {}", version)
         }
     };

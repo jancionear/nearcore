@@ -38,7 +38,10 @@ impl SignatureRegistry {
     }
 
     /// Register a signature and return its unique index.
-    pub fn register(&mut self, sig: FunctionType) -> VMSharedSignatureIndex {
+    pub fn register(
+        &mut self,
+        sig: FunctionType,
+    ) -> VMSharedSignatureIndex {
         let len = self.index_to_data.len();
         // TODO(0-copy): this. should. not. allocate. (and take FunctionTypeRef as a parameter)
         //
@@ -48,8 +51,8 @@ impl SignatureRegistry {
         //
         // Consider `transmute` or `hashbrown`'s raw_entry.
         match self.type_to_index.entry(sig.clone()) {
-            hash_map::Entry::Occupied(entry) => *entry.get(),
-            hash_map::Entry::Vacant(entry) => {
+            | hash_map::Entry::Occupied(entry) => *entry.get(),
+            | hash_map::Entry::Vacant(entry) => {
                 debug_assert!(
                     u32::try_from(len).is_ok(),
                     "invariant: can't have more than 2³²-1 signatures!"
@@ -66,7 +69,10 @@ impl SignatureRegistry {
     ///
     /// Note that for this operation to be semantically correct the `idx` must
     /// have previously come from a call to `register` of this same object.
-    pub fn lookup(&self, idx: VMSharedSignatureIndex) -> Option<&FunctionType> {
+    pub fn lookup(
+        &self,
+        idx: VMSharedSignatureIndex,
+    ) -> Option<&FunctionType> {
         self.index_to_data.get(idx.0 as usize)
     }
 }

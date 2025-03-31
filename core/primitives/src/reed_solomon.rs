@@ -52,7 +52,12 @@ pub fn reed_solomon_decode<T: BorshDeserialize>(
 
     let encoded_data = parts
         .iter()
-        .flat_map(|option| option.as_ref().expect("Missing shard").iter())
+        .flat_map(|option| {
+            option
+                .as_ref()
+                .expect("Missing shard")
+                .iter()
+        })
         .cloned()
         .take(encoded_length)
         .collect_vec();
@@ -60,11 +65,17 @@ pub fn reed_solomon_decode<T: BorshDeserialize>(
     T::try_from_slice(&encoded_data)
 }
 
-pub fn reed_solomon_part_length(encoded_length: usize, data_parts: usize) -> usize {
+pub fn reed_solomon_part_length(
+    encoded_length: usize,
+    data_parts: usize,
+) -> usize {
     (encoded_length + data_parts - 1) / data_parts
 }
 
-pub fn reed_solomon_num_data_parts(total_parts: usize, ratio_data_parts: f64) -> usize {
+pub fn reed_solomon_num_data_parts(
+    total_parts: usize,
+    ratio_data_parts: f64,
+) -> usize {
     std::cmp::max((total_parts as f64 * ratio_data_parts) as usize, 1)
 }
 
@@ -92,7 +103,10 @@ pub trait ReedSolomonEncoderDeserialize: BorshDeserialize {
 }
 
 impl ReedSolomonEncoder {
-    pub fn new(total_parts: usize, ratio_data_parts: f64) -> ReedSolomonEncoder {
+    pub fn new(
+        total_parts: usize,
+        ratio_data_parts: f64,
+    ) -> ReedSolomonEncoder {
         let rs = if total_parts > 1 {
             let data_parts = reed_solomon_num_data_parts(total_parts, ratio_data_parts);
             Some(ReedSolomon::new(data_parts, total_parts - data_parts).unwrap())
@@ -104,15 +118,15 @@ impl ReedSolomonEncoder {
 
     pub fn total_parts(&self) -> usize {
         match self.rs {
-            Some(ref rs) => rs.total_shard_count(),
-            None => 1,
+            | Some(ref rs) => rs.total_shard_count(),
+            | None => 1,
         }
     }
 
     pub fn data_parts(&self) -> usize {
         match self.rs {
-            Some(ref rs) => rs.data_shard_count(),
-            None => 1,
+            | Some(ref rs) => rs.data_shard_count(),
+            | None => 1,
         }
     }
 
@@ -121,8 +135,8 @@ impl ReedSolomonEncoder {
         data: &T,
     ) -> (Vec<ReedSolomonPart>, usize) {
         match self.rs {
-            Some(ref rs) => reed_solomon_encode(rs, data),
-            None => {
+            | Some(ref rs) => reed_solomon_encode(rs, data),
+            | None => {
                 let bytes = T::serialize_single_part(&data).unwrap();
                 let size = bytes.len();
                 (vec![Some(bytes.into_boxed_slice())], size)
@@ -136,8 +150,8 @@ impl ReedSolomonEncoder {
         encoded_length: usize,
     ) -> Result<T, std::io::Error> {
         match self.rs {
-            Some(ref rs) => reed_solomon_decode(rs, parts, encoded_length),
-            None => {
+            | Some(ref rs) => reed_solomon_decode(rs, parts, encoded_length),
+            | None => {
                 if parts.len() != 1 {
                     return Err(std::io::Error::other(format!(
                         "Expected single part, received {}",
@@ -165,7 +179,10 @@ impl ReedSolomonEncoderCache {
 
     /// Gets an encoder (or adds a new one to the cache if not present) for a
     /// given number of the total parts.
-    pub fn entry(&mut self, total_parts: usize) -> Arc<ReedSolomonEncoder> {
+    pub fn entry(
+        &mut self,
+        total_parts: usize,
+    ) -> Arc<ReedSolomonEncoder> {
         self.instances
             .entry(total_parts)
             .or_insert_with(|| {
@@ -192,7 +209,10 @@ pub enum InsertPartResult<T> {
 }
 
 impl<T: ReedSolomonEncoderDeserialize> ReedSolomonPartsTracker<T> {
-    pub fn new(encoder: Arc<ReedSolomonEncoder>, encoded_length: usize) -> Self {
+    pub fn new(
+        encoder: Arc<ReedSolomonEncoder>,
+        encoded_length: usize,
+    ) -> Self {
         Self {
             data_parts_present: 0,
             parts: vec![None; encoder.total_parts()],
@@ -223,11 +243,20 @@ impl<T: ReedSolomonEncoderDeserialize> ReedSolomonPartsTracker<T> {
         self.encoded_length
     }
 
-    pub fn has_part(&self, part_ord: usize) -> bool {
-        self.parts.get(part_ord).is_some_and(|part| part.is_some())
+    pub fn has_part(
+        &self,
+        part_ord: usize,
+    ) -> bool {
+        self.parts
+            .get(part_ord)
+            .is_some_and(|part| part.is_some())
     }
 
-    pub fn insert_part(&mut self, part_ord: usize, part: Box<[u8]>) -> InsertPartResult<T> {
+    pub fn insert_part(
+        &mut self,
+        part_ord: usize,
+        part: Box<[u8]>,
+    ) -> InsertPartResult<T> {
         if part_ord >= self.parts.len() {
             return InsertPartResult::InvalidPartOrd;
         }
@@ -240,7 +269,10 @@ impl<T: ReedSolomonEncoderDeserialize> ReedSolomonPartsTracker<T> {
         self.parts[part_ord] = Some(part);
 
         if self.has_enough_parts() {
-            InsertPartResult::Decoded(self.encoder.decode(&mut self.parts, self.encoded_length))
+            InsertPartResult::Decoded(
+                self.encoder
+                    .decode(&mut self.parts, self.encoded_length),
+            )
         } else {
             InsertPartResult::Accepted
         }

@@ -25,7 +25,10 @@ pub enum FileDownloadError {
     RemoveTemporaryFileError(std::io::Error, #[source] Box<FileDownloadError>),
 }
 
-pub(crate) fn run_download_file(url: &str, path: &Path) -> Result<(), FileDownloadError> {
+pub(crate) fn run_download_file(
+    url: &str,
+    path: &Path,
+) -> Result<(), FileDownloadError> {
     tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
@@ -46,7 +49,10 @@ async fn download_file_impl(
     let mut out = AutoXzDecoder::new(path, file);
     let https_connector = hyper_tls::HttpsConnector::new();
     let client = hyper::Client::builder().build::<_, hyper::Body>(https_connector);
-    let mut resp = client.get(uri).await.map_err(FileDownloadError::HttpError)?;
+    let mut resp = client
+        .get(uri)
+        .await
+        .map_err(FileDownloadError::HttpError)?;
     let status_code = resp.status();
     if !status_code.is_success() {
         return Err(FileDownloadError::HttpResponseCode(status_code));
@@ -77,7 +83,8 @@ async fn download_file_impl(
 
     while let Some(next_chunk_result) = resp.data().await {
         let next_chunk = next_chunk_result.map_err(FileDownloadError::HttpError)?;
-        out.write_all(next_chunk.as_ref()).await?;
+        out.write_all(next_chunk.as_ref())
+            .await?;
         bar.inc(next_chunk.len() as u64);
     }
     out.finish().await?;
@@ -88,18 +95,25 @@ async fn download_file_impl(
 /// Downloads a resource at given `url` and saves it to `path`.  On success, if
 /// file at `path` exists it will be overwritten.  On failure, file at `path` is
 /// left unchanged (if it exists).
-async fn download_file(url: &str, path: &Path) -> Result<(), FileDownloadError> {
+async fn download_file(
+    url: &str,
+    path: &Path,
+) -> Result<(), FileDownloadError> {
     let uri = url.parse()?;
 
     let (tmp_file, tmp_path) = {
-        let tmp_dir = path.parent().unwrap_or_else(|| Path::new("."));
-        tempfile::NamedTempFile::new_in(tmp_dir).map_err(FileDownloadError::OpenError)?.into_parts()
+        let tmp_dir = path
+            .parent()
+            .unwrap_or_else(|| Path::new("."));
+        tempfile::NamedTempFile::new_in(tmp_dir)
+            .map_err(FileDownloadError::OpenError)?
+            .into_parts()
     };
 
     let result = match download_file_impl(uri, &tmp_path, tokio::fs::File::from_std(tmp_file)).await
     {
-        Err(err) => Err((tmp_path, err)),
-        Ok(()) => tmp_path.persist(path).map_err(|e| {
+        | Err(err) => Err((tmp_path, err)),
+        | Ok(()) => tmp_path.persist(path).map_err(|e| {
             let from = e.path.to_path_buf();
             let to = path.to_path_buf();
             (e.path, FileDownloadError::RenameError(from, to, e.error))
@@ -107,8 +121,8 @@ async fn download_file(url: &str, path: &Path) -> Result<(), FileDownloadError> 
     };
 
     result.map_err(|(tmp_path, err)| match tmp_path.close() {
-        Ok(()) => err,
-        Err(close_err) => FileDownloadError::RemoveTemporaryFileError(close_err, Box::new(err)),
+        | Ok(()) => err,
+        | Err(close_err) => FileDownloadError::RemoveTemporaryFileError(close_err, Box::new(err)),
     })
 }
 
@@ -142,7 +156,10 @@ enum AutoXzState {
 static XZ_HEADER_MAGIC: [u8; 6] = [0xFD, 0x37, 0x7A, 0x58, 0x5A, 0x00];
 
 impl<'a> AutoXzDecoder<'a> {
-    fn new(path: &'a std::path::Path, file: tokio::fs::File) -> Self {
+    fn new(
+        path: &'a std::path::Path,
+        file: tokio::fs::File,
+    ) -> Self {
         Self { path, file, state: AutoXzState::Probing(0) }
     }
 
@@ -150,10 +167,14 @@ impl<'a> AutoXzDecoder<'a> {
     /// decompressing it if the stream is XZ-compressed.  Note that once all the
     /// data has been written [`Self::finish`] function must be called to flush
     /// internal buffers.
-    async fn write_all(&mut self, chunk: &[u8]) -> Result<(), FileDownloadError> {
+    async fn write_all(
+        &mut self,
+        chunk: &[u8],
+    ) -> Result<(), FileDownloadError> {
         if let Some(len) = self.probe(chunk) {
             if len != 0 {
-                self.write_all_impl(&XZ_HEADER_MAGIC[..len]).await?;
+                self.write_all_impl(&XZ_HEADER_MAGIC[..len])
+                    .await?;
             }
             self.write_all_impl(chunk).await?;
         }
@@ -163,9 +184,12 @@ impl<'a> AutoXzDecoder<'a> {
     /// Flushes all internal buffers and closes the output file.
     async fn finish(mut self) -> Result<(), FileDownloadError> {
         match self.state {
-            AutoXzState::Probing(pos) => self.write_all_raw(&XZ_HEADER_MAGIC[..pos]).await?,
-            AutoXzState::PlainText => (),
-            AutoXzState::Compressed(ref mut stream, ref mut buffer) => {
+            | AutoXzState::Probing(pos) => {
+                self.write_all_raw(&XZ_HEADER_MAGIC[..pos])
+                    .await?
+            }
+            | AutoXzState::PlainText => (),
+            | AutoXzState::Compressed(ref mut stream, ref mut buffer) => {
                 Self::decompress(self.path, &mut self.file, stream, buffer, b"").await?
             }
         }
@@ -181,7 +205,10 @@ impl<'a> AutoXzDecoder<'a> {
     /// need to be processed before `chunk` is processed.  If the entire data
     /// from `chunk` has been processed and it should be discarded by the
     /// caller, returns `None`.
-    fn probe(&mut self, chunk: &[u8]) -> Option<usize> {
+    fn probe(
+        &mut self,
+        chunk: &[u8],
+    ) -> Option<usize> {
         if chunk.is_empty() {
             None
         } else if let AutoXzState::Probing(pos) = self.state {
@@ -191,9 +218,8 @@ impl<'a> AutoXzDecoder<'a> {
                 Some(pos)
             } else if pos + len == XZ_HEADER_MAGIC.len() {
                 let stream = xz2::stream::Stream::new_stream_decoder(u64::max_value(), 0).unwrap();
-                // cspell:ignore uninit
-                // TODO(mina86): Once ‘new_uninit’ feature gets stabilized
-                // replaced buffer initialization by:
+                // TODO(mina86): Once ‘new_uninit’ feature gets stabilised
+                // replaced buffer initialisation by:
                 //     let buffer = Box::new_uninit_slice(64 << 10);
                 //     let buffer = unsafe { buffer.assume_init() };
                 let buffer = vec![0u8; 64 << 10].into_boxed_slice();
@@ -210,18 +236,24 @@ impl<'a> AutoXzDecoder<'a> {
 
     /// Writes data to the output file.  Panics if the object is still in
     /// probing stage.
-    async fn write_all_impl(&mut self, chunk: &[u8]) -> Result<(), FileDownloadError> {
+    async fn write_all_impl(
+        &mut self,
+        chunk: &[u8],
+    ) -> Result<(), FileDownloadError> {
         match self.state {
-            AutoXzState::Probing(_) => unreachable!(),
-            AutoXzState::PlainText => self.write_all_raw(chunk).await,
-            AutoXzState::Compressed(ref mut stream, ref mut buffer) => {
+            | AutoXzState::Probing(_) => unreachable!(),
+            | AutoXzState::PlainText => self.write_all_raw(chunk).await,
+            | AutoXzState::Compressed(ref mut stream, ref mut buffer) => {
                 Self::decompress(self.path, &mut self.file, stream, buffer, chunk).await
             }
         }
     }
 
     /// Writes data to output file directly.
-    async fn write_all_raw(&mut self, chunk: &[u8]) -> Result<(), FileDownloadError> {
+    async fn write_all_raw(
+        &mut self,
+        chunk: &[u8],
+    ) -> Result<(), FileDownloadError> {
         self.file
             .write_all(chunk)
             .await
@@ -245,17 +277,21 @@ impl<'a> AutoXzDecoder<'a> {
             let total_out = stream.total_out();
             let status = stream.process(chunk, buffer, action)?;
             match status {
-                xz2::stream::Status::Ok => (),
-                xz2::stream::Status::StreamEnd => (),
-                status => {
+                | xz2::stream::Status::Ok => (),
+                | xz2::stream::Status::StreamEnd => (),
+                | status => {
                     let status = format!("{:?}", status);
                     tracing::error!(target: "near", "Got unexpected status ‘{}’ when decompressing downloaded file.", status);
                     return Err(FileDownloadError::XzStatusError(status));
                 }
             };
-            let read = (stream.total_in() - total_in).try_into().unwrap();
+            let read = (stream.total_in() - total_in)
+                .try_into()
+                .unwrap();
             chunk = &chunk[read..];
-            let out = (stream.total_out() - total_out).try_into().unwrap();
+            let out = (stream.total_out() - total_out)
+                .try_into()
+                .unwrap();
             file.write_all(&buffer[..out])
                 .await
                 .map_err(|e| FileDownloadError::WriteError(path.to_path_buf(), e))?;
@@ -274,7 +310,10 @@ mod tests {
     use std::convert::Infallible;
     use std::sync::Arc;
 
-    async fn check_file_download(payload: &[u8], expected: Result<&[u8], &str>) {
+    async fn check_file_download(
+        payload: &[u8],
+        expected: Result<&[u8], &str>,
+    ) {
         let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
         let port = listener.local_addr().unwrap().port();
 
@@ -288,7 +327,9 @@ mod tests {
                 };
                 async move { Ok::<_, Infallible>(service_fn(handle_request)) }
             });
-            let server = Server::from_tcp(listener).unwrap().serve(make_svc);
+            let server = Server::from_tcp(listener)
+                .unwrap()
+                .serve(make_svc);
             if let Err(e) = server.await {
                 eprintln!("server error: {}", e);
             }
@@ -301,10 +342,10 @@ mod tests {
             .map(|()| std::fs::read(tmp_file.path()).unwrap());
 
         match (res, expected) {
-            (Ok(res), Ok(expected)) => assert_eq!(&res, expected),
-            (Ok(_), Err(_)) => panic!("expected an error"),
-            (Err(res), Ok(_)) => panic!("unexpected error: {res}"),
-            (Err(res), Err(expected)) => assert_eq!(res.to_string(), expected),
+            | (Ok(res), Ok(expected)) => assert_eq!(&res, expected),
+            | (Ok(_), Err(_)) => panic!("expected an error"),
+            | (Err(res), Ok(_)) => panic!("unexpected error: {res}"),
+            | (Err(res), Err(expected)) => assert_eq!(res.to_string(), expected),
         }
     }
 
@@ -323,11 +364,9 @@ mod tests {
                         \x61\xc5\xba\xc5\x84\x00\x00\x00\x89\x4e\xdf\x72\
                         \x66\xbe\xa9\x51\x00\x01\x32\x1a\x20\x18\x94\x30\
                         \x1f\xb6\xf3\x7d\x01\x00\x00\x00\x00\x04\x59\x5a";
-        // cspell:disable-next-line
         check_file_download(payload, Ok("Zażółć gęślą jaźń".as_bytes())).await;
 
         let payload = b"\xfd\x37\x7a\x58\x5a\x00A quick brown fox";
-        // cspell:disable-next-line
         check_file_download(payload, Err("Failed to decompress XZ stream: lzma data error")).await;
     }
 
@@ -349,7 +388,9 @@ mod tests {
                 };
                 async move { Ok::<_, Infallible>(service_fn(handle_request)) }
             });
-            let server = Server::from_tcp(listener).unwrap().serve(make_svc);
+            let server = Server::from_tcp(listener)
+                .unwrap()
+                .serve(make_svc);
             if let Err(e) = server.await {
                 eprintln!("server error: {}", e);
             }
@@ -370,16 +411,20 @@ mod tests {
         buffer: &[u8],
         chunk_size: usize,
     ) -> Result<Vec<u8>, FileDownloadError> {
-        let (file, path) = tempfile::NamedTempFile::new().unwrap().into_parts();
+        let (file, path) = tempfile::NamedTempFile::new()
+            .unwrap()
+            .into_parts();
         let mut out = AutoXzDecoder::new(&path, tokio::fs::File::from_std(file));
-        tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap().block_on(
-            async move {
+        tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+            .block_on(async move {
                 for chunk in buffer.chunks(chunk_size) {
                     out.write_all(chunk).await?;
                 }
                 out.finish().await
-            },
-        )?;
+            })?;
         Ok(std::fs::read(path).unwrap())
     }
 
@@ -418,7 +463,6 @@ mod tests {
                        \x1f\xb6\xf3\x7d\x01\x00\x00\x00\x00\x04\x59\x5a";
         for chunk_size in 1..11 {
             let got = auto_xz_test_write_file(buffer, chunk_size).unwrap();
-            // cspell:disable-next-line
             assert_eq!(got, "Zażółć gęślą jaźń".as_bytes());
         }
     }

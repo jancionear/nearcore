@@ -49,21 +49,32 @@ pub(crate) struct MinuteStats {
 impl TransferStats {
     /// Record event at current time `now` with `bytes` bytes.
     /// Time in `now` should be monotonically increasing.
-    pub(crate) fn record(&mut self, clock: &time::Clock, bytes: u64) {
+    pub(crate) fn record(
+        &mut self,
+        clock: &time::Clock,
+        bytes: u64,
+    ) {
         let now = clock.now();
         self.remove_old_entries(now);
         self.total_bytes_in_events += bytes;
-        self.events.push_back(Event { instant: now, bytes });
+        self.events
+            .push_back(Event { instant: now, bytes });
     }
 
     /// Get stats stored in `MinuteStats` struct.
-    pub(crate) fn minute_stats(&mut self, clock: &time::Clock) -> MinuteStats {
+    pub(crate) fn minute_stats(
+        &mut self,
+        clock: &time::Clock,
+    ) -> MinuteStats {
         self.remove_old_entries(clock.now());
         MinuteStats { bytes_per_min: self.total_bytes_in_events, count_per_min: self.events.len() }
     }
 
     /// Remove entries older than 1m.
-    fn remove_old_entries(&mut self, now: time::Instant) {
+    fn remove_old_entries(
+        &mut self,
+        now: time::Instant,
+    ) {
         while let Some(event) = self.events.pop_front() {
             if now - event.instant > TRANSFER_STATS_INTERVAL {
                 self.total_bytes_in_events -= event.bytes;

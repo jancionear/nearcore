@@ -9,16 +9,25 @@ pub struct Queue {
 }
 
 impl Queue {
-    pub fn new(shard: ShardId, name: &str) -> Self {
+    pub fn new(
+        shard: ShardId,
+        name: &str,
+    ) -> Self {
         Self { shard, name: name.to_string(), messages: VecDeque::new() }
     }
 
     pub fn size(&self) -> u64 {
-        self.messages.iter().map(|receipt| receipt.size).sum()
+        self.messages
+            .iter()
+            .map(|receipt| receipt.size)
+            .sum()
     }
 
     pub fn attached_gas(&self) -> u64 {
-        self.messages.iter().map(|receipt| receipt.attached_gas).sum()
+        self.messages
+            .iter()
+            .map(|receipt| receipt.attached_gas)
+            .sum()
     }
 
     pub fn shard(&self) -> ShardId {

@@ -31,7 +31,9 @@ pub(crate) static PREPARE_TX_SIZE: LazyLock<HistogramVec> = LazyLock::new(|| {
         &["shard_id"],
         // Maximum is < 14MB, typical values are unknown right now so buckets
         // might need to be adjusted later when we have collected data
-        Some(vec![1_000.0, 10_000., 100_000., 500_000., 1e6, 2e6, 4e6, 8e6, 12e6]),
+        Some(vec![
+            1_000.0, 10_000., 100_000., 500_000., 1e6, 2e6, 4e6, 8e6, 12e6,
+        ]),
     )
     .unwrap()
 });

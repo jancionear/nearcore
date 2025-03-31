@@ -42,10 +42,15 @@ fn benchmark_write_then_read_successful(
 }
 
 /// Generate `count` keys of `key_size` length.
-fn generate_keys(count: usize, key_size: usize) -> Vec<Vec<u8>> {
+fn generate_keys(
+    count: usize,
+    key_size: usize,
+) -> Vec<Vec<u8>> {
     let mut res: Vec<Vec<u8>> = Vec::new();
     for _k in 0..count {
-        let key: Vec<u8> = (0..key_size).map(|_| rand::random::<u8>()).collect();
+        let key: Vec<u8> = (0..key_size)
+            .map(|_| rand::random::<u8>())
+            .collect();
 
         res.push(key)
     }
@@ -54,13 +59,19 @@ fn generate_keys(count: usize, key_size: usize) -> Vec<Vec<u8>> {
 
 /// Read from DB value for given `keys` in random order for `col`.
 /// Works only for column configured without reference counting, that is `.is_rc() == false`.
-fn read_from_db(store: &Store, keys: &[Vec<u8>], col: DBCol) -> usize {
+fn read_from_db(
+    store: &Store,
+    keys: &[Vec<u8>],
+    col: DBCol,
+) -> usize {
     let mut read = 0;
     for _k in 0..keys.len() {
         let r = rand::random::<u32>() % (keys.len() as u32);
         let key = &keys[r as usize];
 
-        let val = store.get(col, key.as_ref()).map_err(|_| StorageError::StorageInternalError);
+        let val = store
+            .get(col, key.as_ref())
+            .map_err(|_| StorageError::StorageInternalError);
 
         if let Ok(Some(x)) = val {
             black_box(x);
@@ -73,11 +84,18 @@ fn read_from_db(store: &Store, keys: &[Vec<u8>], col: DBCol) -> usize {
 /// Write random value of size between `0` and `max_value_size` to given `keys` at specific column
 /// `col.`
 /// Works only for column configured without reference counting, that is `.is_rc() == false`.
-fn write_to_db(store: &Store, keys: &[Vec<u8>], max_value_size: usize, col: DBCol) {
+fn write_to_db(
+    store: &Store,
+    keys: &[Vec<u8>],
+    max_value_size: usize,
+    col: DBCol,
+) {
     let mut store_update = store.store_update();
     for key in keys.iter() {
         let x: usize = rand::random::<usize>() % max_value_size;
-        let val: Vec<u8> = (0..x).map(|_| rand::random::<u8>()).collect();
+        let val: Vec<u8> = (0..x)
+            .map(|_| rand::random::<u8>())
+            .collect();
         // NOTE:  this
         store_update.set(col, &key, &val);
     }

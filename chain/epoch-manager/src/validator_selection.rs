@@ -48,7 +48,10 @@ fn select_validators_from_proposals(
     proposals: HashMap<AccountId, ValidatorStake>,
     protocol_version: ProtocolVersion,
 ) -> ValidatorRoles {
-    let shard_ids: Vec<_> = epoch_config.shard_layout.shard_ids().collect();
+    let shard_ids: Vec<_> = epoch_config
+        .shard_layout
+        .shard_ids()
+        .collect();
     let min_stake_ratio = {
         let rational = epoch_config.minimum_stake_ratio;
         Ratio::new(*rational.numer() as u128, *rational.denom() as u128)
@@ -92,7 +95,9 @@ fn select_validators_from_proposals(
         }
         unselected_proposals.push(proposal);
     }
-    let threshold = bp_stake_threshold.min(cp_stake_threshold).min(cv_stake_threshold);
+    let threshold = bp_stake_threshold
+        .min(cp_stake_threshold)
+        .min(cv_stake_threshold);
     ValidatorRoles {
         unselected_proposals,
         chunk_producers,
@@ -121,8 +126,10 @@ fn get_chunk_producers_assignment(
         cmp::max(chunk_producers.len(), cmp::max(block_producers.len(), chunk_validators.len()));
     let mut all_validators: Vec<ValidatorStake> = Vec::with_capacity(max_validators_for_role);
     let mut validator_to_index = HashMap::new();
-    for validator in
-        chunk_producers.iter().chain(block_producers.iter()).chain(chunk_validators.iter())
+    for validator in chunk_producers
+        .iter()
+        .chain(block_producers.iter())
+        .chain(chunk_validators.iter())
     {
         let account_id = validator.account_id().clone();
         if validator_to_index.contains_key(&account_id) {
@@ -138,7 +145,10 @@ fn get_chunk_producers_assignment(
     let minimum_validators_per_shard = epoch_config.minimum_validators_per_shard as usize;
     let prev_chunk_producers_assignment = if use_stable_shard_assignment {
         let mut assignment = vec![];
-        for validator_ids in prev_epoch_info.chunk_producers_settlement().iter() {
+        for validator_ids in prev_epoch_info
+            .chunk_producers_settlement()
+            .iter()
+        {
             let mut validator_stakes = vec![];
             for validator_id in validator_ids.iter() {
                 validator_stakes.push(prev_epoch_info.get_validator(*validator_id));
@@ -150,7 +160,10 @@ fn get_chunk_producers_assignment(
         None
     };
 
-    let shard_ids: Vec<_> = epoch_config.shard_layout.shard_ids().collect();
+    let shard_ids: Vec<_> = epoch_config
+        .shard_layout
+        .shard_ids()
+        .collect();
     let shard_assignment = assign_chunk_producers_to_shards(
         chunk_producers.clone(),
         shard_ids.len() as NumShards,
@@ -166,7 +179,11 @@ fn get_chunk_producers_assignment(
 
     let chunk_producers_settlement = shard_assignment
         .into_iter()
-        .map(|vs| vs.into_iter().map(|v| validator_to_index[v.account_id()]).collect())
+        .map(|vs| {
+            vs.into_iter()
+                .map(|v| validator_to_index[v.account_id()])
+                .collect()
+        })
         .collect();
 
     Ok(ChunkProducersAssignment { all_validators, validator_to_index, chunk_producers_settlement })
@@ -185,12 +202,19 @@ pub fn proposals_to_epoch_info(
     use_stable_shard_assignment: bool,
 ) -> Result<EpochInfo, EpochError> {
     debug_assert!(
-        proposals.iter().map(|stake| stake.account_id()).collect::<HashSet<_>>().len()
+        proposals
+            .iter()
+            .map(|stake| stake.account_id())
+            .collect::<HashSet<_>>()
+            .len()
             == proposals.len(),
         "Proposals should not have duplicates"
     );
 
-    let shard_ids: Vec<_> = epoch_config.shard_layout.shard_ids().collect();
+    let shard_ids: Vec<_> = epoch_config
+        .shard_layout
+        .shard_ids()
+        .collect();
     let mut stake_change = BTreeMap::new();
     let proposals = apply_epoch_update_to_proposals(
         proposals,
@@ -216,10 +240,15 @@ pub fn proposals_to_epoch_info(
     // Add kickouts for validators which fell out of validator set.
     // Used for querying epoch info by RPC.
     let threshold = validator_roles.threshold;
-    for OrderedValidatorStake(p) in validator_roles.unselected_proposals.iter() {
+    for OrderedValidatorStake(p) in validator_roles
+        .unselected_proposals
+        .iter()
+    {
         let stake = p.stake();
         let account_id = p.account_id();
-        *stake_change.get_mut(account_id).unwrap() = 0;
+        *stake_change
+            .get_mut(account_id)
+            .unwrap() = 0;
         if prev_epoch_info.account_is_validator(account_id) {
             debug_assert!(stake < threshold);
             validator_kickout.insert(
@@ -341,7 +370,9 @@ fn apply_epoch_update_to_proposals(
             stake_change.insert(account_id, 0);
             continue;
         }
-        let p = proposals_by_account.entry(account_id).or_insert(r);
+        let p = proposals_by_account
+            .entry(account_id)
+            .or_insert(r);
         if let Some(reward) = validator_reward.get(p.account_id()) {
             *p.stake_mut() += *reward;
         }
@@ -352,9 +383,12 @@ fn apply_epoch_update_to_proposals(
 }
 
 fn order_proposals<I: IntoIterator<Item = ValidatorStake>>(
-    proposals: I,
+    proposals: I
 ) -> BinaryHeap<OrderedValidatorStake> {
-    proposals.into_iter().map(OrderedValidatorStake).collect()
+    proposals
+        .into_iter()
+        .map(OrderedValidatorStake)
+        .collect()
 }
 
 fn select_block_producers(
@@ -422,7 +456,9 @@ fn select_validators(
                 .ceil()
                 .to_integer()
         } else {
-            (min_stake_ratio * Ratio::new(total_stake, 1)).ceil().to_integer()
+            (min_stake_ratio * Ratio::new(total_stake, 1))
+                .ceil()
+                .to_integer()
         }
     };
     (validators, proposals, threshold)
@@ -439,12 +475,18 @@ impl OrderedValidatorStake {
     }
 }
 impl PartialOrd for OrderedValidatorStake {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+    fn partial_cmp(
+        &self,
+        other: &Self,
+    ) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 impl Ord for OrderedValidatorStake {
-    fn cmp(&self, other: &Self) -> Ordering {
+    fn cmp(
+        &self,
+        other: &Self,
+    ) -> Ordering {
         self.key().cmp(&other.key())
     }
 }
@@ -478,7 +520,10 @@ mod old_validator_selection {
                 let chunk_producer_proposals = order_proposals(proposals.into_values());
                 let max_cp_selected =
                     max_bp_selected + (epoch_config.num_chunk_only_producer_seats as usize);
-                let num_shards = epoch_config.shard_layout.shard_ids().count() as NumShards;
+                let num_shards = epoch_config
+                    .shard_layout
+                    .shard_ids()
+                    .count() as NumShards;
                 let (chunk_producers, not_chunk_producers, cp_stake_threshold) =
                     select_chunk_producers(
                         chunk_producer_proposals,
@@ -521,7 +566,10 @@ mod old_validator_selection {
             all_validators.push(bp.clone());
         }
 
-        let shard_ids: Vec<_> = epoch_config.shard_layout.shard_ids().collect();
+        let shard_ids: Vec<_> = epoch_config
+            .shard_layout
+            .shard_ids()
+            .collect();
         let minimum_validators_per_shard = epoch_config.minimum_validators_per_shard as usize;
         let shard_assignment = shard_assignment::old_validator_selection::assign_shards(
             chunk_producers,
@@ -533,17 +581,20 @@ mod old_validator_selection {
             num_shards: shard_ids.len() as NumShards,
         })?;
 
-        let mut chunk_producers_settlement: Vec<Vec<ValidatorId>> =
-            shard_assignment.iter().map(|vs| Vec::with_capacity(vs.len())).collect();
+        let mut chunk_producers_settlement: Vec<Vec<ValidatorId>> = shard_assignment
+            .iter()
+            .map(|vs| Vec::with_capacity(vs.len()))
+            .collect();
         let mut i = all_validators.len();
         // Here we assign validator ids to all chunk only validators
-        for (shard_validators, shard_validator_ids) in
-            shard_assignment.into_iter().zip(chunk_producers_settlement.iter_mut())
+        for (shard_validators, shard_validator_ids) in shard_assignment
+            .into_iter()
+            .zip(chunk_producers_settlement.iter_mut())
         {
             for validator in shard_validators {
                 debug_assert_eq!(i, all_validators.len());
                 match validator_to_index.entry(validator.account_id().clone()) {
-                    hash_map::Entry::Vacant(entry) => {
+                    | hash_map::Entry::Vacant(entry) => {
                         let validator_id = i as ValidatorId;
                         entry.insert(validator_id);
                         shard_validator_ids.push(validator_id);
@@ -552,7 +603,7 @@ mod old_validator_selection {
                     }
                     // Validators which have an entry in the validator_to_index map
                     // have already been inserted into `all_validators`.
-                    hash_map::Entry::Occupied(entry) => {
+                    | hash_map::Entry::Occupied(entry) => {
                         let validator_id = *entry.get();
                         shard_validator_ids.push(validator_id);
                     }
@@ -584,7 +635,10 @@ mod old_validator_selection {
             all_validators.push(bp.clone());
         }
 
-        let num_shards = epoch_config.shard_layout.shard_ids().count();
+        let num_shards = epoch_config
+            .shard_layout
+            .shard_ids()
+            .count();
         if chunk_producers.is_empty() {
             // All validators tried to unstake?
             return Err(EpochError::NotEnoughValidators {
@@ -639,7 +693,11 @@ mod tests {
         let epoch_config = create_epoch_config(2, 100, None, None, None);
         let prev_epoch_height = 7;
         let prev_epoch_info = create_prev_epoch_info(prev_epoch_height, &["test1", "test2"], &[]);
-        let proposals = create_proposals(&[("test1", 1000), ("test2", 2000), ("test3", 300)]);
+        let proposals = create_proposals(&[
+            ("test1", 1000),
+            ("test2", 2000),
+            ("test3", 300),
+        ]);
         let epoch_info = proposals_to_epoch_info(
             &epoch_config,
             [0; 32],
@@ -659,7 +717,12 @@ mod tests {
         // assign block producers in decreasing order of stake
         let mut sorted_proposals = proposals;
         sorted_proposals.sort_unstable_by(|a, b| b.stake().cmp(&a.stake()));
-        assert_eq!(sorted_proposals, epoch_info.validators_iter().collect::<Vec<_>>());
+        assert_eq!(
+            sorted_proposals,
+            epoch_info
+                .validators_iter()
+                .collect::<Vec<_>>()
+        );
 
         // All proposals become block producers
         assert_eq!(epoch_info.block_producers_settlement(), &[0, 1, 2]);
@@ -732,10 +795,14 @@ mod tests {
         // the top stakes are the chosen block producers
         let mut sorted_proposals = proposals;
         sorted_proposals.sort_unstable_by(|a, b| b.stake().cmp(&a.stake()));
-        assert!(sorted_proposals.iter().take(num_bp_seats as usize).cloned().eq(epoch_info
-            .block_producers_settlement()
-            .into_iter()
-            .map(|id| epoch_info.get_validator(*id))));
+        assert!(sorted_proposals
+            .iter()
+            .take(num_bp_seats as usize)
+            .cloned()
+            .eq(epoch_info
+                .block_producers_settlement()
+                .into_iter()
+                .map(|id| epoch_info.get_validator(*id))));
 
         // The top proposals are all chunk producers
         let mut chosen_chunk_producers: Vec<ValidatorStake> = epoch_info
@@ -754,11 +821,15 @@ mod tests {
         let kickout = epoch_info.validator_kickout();
         assert_eq!(kickout.len(), 2);
         assert_eq!(
-            kickout.get(AccountIdRef::new_or_panic("test1")).unwrap(),
+            kickout
+                .get(AccountIdRef::new_or_panic("test1"))
+                .unwrap(),
             &ValidatorKickoutReason::NotEnoughStake { stake: test1_stake, threshold: 2011 },
         );
         assert_eq!(
-            kickout.get(AccountIdRef::new_or_panic("test2")).unwrap(),
+            kickout
+                .get(AccountIdRef::new_or_panic("test2"))
+                .unwrap(),
             &ValidatorKickoutReason::NotEnoughStake { stake: 2002, threshold: 2011 },
         );
     }
@@ -921,8 +992,12 @@ mod tests {
         );
         let prev_epoch_height = 7;
         let prev_epoch_info = create_prev_epoch_info(prev_epoch_height, &["test1", "test2"], &[]);
-        let proposals =
-            create_proposals(&[("test1", 1000), ("test2", 1000), ("test3", 1000), ("test4", 1000)]);
+        let proposals = create_proposals(&[
+            ("test1", 1000),
+            ("test2", 1000),
+            ("test3", 1000),
+            ("test4", 1000),
+        ]);
 
         let epoch_info = proposals_to_epoch_info(
             &epoch_config,
@@ -953,7 +1028,11 @@ mod tests {
         let proposals = create_proposals((1..=num_shards).flat_map(|i| {
             // Each shard gets a pair of validators, one with twice as
             // much stake as the other.
-            vec![(format!("test{}", i), 1000), (format!("test{}", 100 * i), 2000)].into_iter()
+            vec![
+                (format!("test{}", i), 1000),
+                (format!("test{}", 100 * i), 2000),
+            ]
+            .into_iter()
         }));
         let epoch_info = proposals_to_epoch_info(
             &epoch_config,
@@ -971,7 +1050,9 @@ mod tests {
         for shard_id in shard_layout.shard_ids() {
             let mut counts: [i32; 2] = [0, 0];
             for h in 0..100_000 {
-                let cp = epoch_info.sample_chunk_producer(shard_layout, shard_id, h).unwrap();
+                let cp = epoch_info
+                    .sample_chunk_producer(shard_layout, shard_id, h)
+                    .unwrap();
                 // if ValidatorId is in the second half then it is the lower
                 // stake validator (because they are sorted by decreasing stake).
                 let index = if cp >= num_shards { 1 } else { 0 };
@@ -1092,8 +1173,10 @@ mod tests {
         )
         .unwrap();
 
-        let fishermen: Vec<AccountId> =
-            epoch_info.fishermen_iter().map(|v| v.take_account_id()).collect();
+        let fishermen: Vec<AccountId> = epoch_info
+            .fishermen_iter()
+            .map(|v| v.take_account_id())
+            .collect();
         assert!(fishermen.is_empty());
 
         // too low stakes are kicked out
@@ -1101,11 +1184,15 @@ mod tests {
         assert_eq!(kickout.len(), 2);
         let expected_threshold = 334;
         assert_eq!(
-            kickout.get(AccountIdRef::new_or_panic("test5")).unwrap(),
+            kickout
+                .get(AccountIdRef::new_or_panic("test5"))
+                .unwrap(),
             &ValidatorKickoutReason::NotEnoughStake { stake: 100, threshold: expected_threshold },
         );
         assert_eq!(
-            kickout.get(AccountIdRef::new_or_panic("test6")).unwrap(),
+            kickout
+                .get(AccountIdRef::new_or_panic("test6"))
+                .unwrap(),
             &ValidatorKickoutReason::NotEnoughStake { stake: 50, threshold: expected_threshold },
         );
 
@@ -1165,7 +1252,11 @@ mod tests {
         let prev_epoch_height = 7;
         let prev_epoch_info = create_prev_epoch_info(
             prev_epoch_height,
-            &[("test1", 10_000), ("test2", 2000), ("test3", 3000)],
+            &[
+                ("test1", 10_000),
+                ("test2", 2000),
+                ("test3", 3000),
+            ],
             &[],
         );
         let mut kick_out = HashMap::new();
@@ -1191,7 +1282,11 @@ mod tests {
     #[test]
     fn test_validator_assignment_with_rewards() {
         // validator balances are updated based on their rewards
-        let validators = [("test1", 3000), ("test2", 2000), ("test3", 1000)];
+        let validators = [
+            ("test1", 3000),
+            ("test2", 2000),
+            ("test3", 1000),
+        ];
         let rewards: [u128; 3] = [7, 8, 9];
         let epoch_config = create_epoch_config(1, 100, None, None, None);
         let prev_epoch_height = 7;
@@ -1214,8 +1309,9 @@ mod tests {
         )
         .unwrap();
 
-        for (v, ((_, stake), reward)) in
-            epoch_info.validators_iter().zip(validators.iter().zip(rewards.iter()))
+        for (v, ((_, stake), reward)) in epoch_info
+            .validators_iter()
+            .zip(validators.iter().zip(rewards.iter()))
         {
             assert_eq!(v.stake(), stake + reward);
         }
@@ -1270,7 +1366,10 @@ mod tests {
     }
 
     fn to_map(vs: &[ValidatorStake]) -> HashMap<AccountId, ValidatorId> {
-        vs.iter().enumerate().map(|(i, v)| (v.account_id().clone(), i as u64)).collect()
+        vs.iter()
+            .enumerate()
+            .map(|(i, v)| (v.account_id().clone(), i as u64))
+            .collect()
     }
 
     fn create_proposals<I, T>(ps: I) -> Vec<ValidatorStake>
@@ -1278,7 +1377,9 @@ mod tests {
         T: IntoValidatorStake,
         I: IntoIterator<Item = T>,
     {
-        ps.into_iter().map(IntoValidatorStake::into_validator_stake).collect()
+        ps.into_iter()
+            .map(IntoValidatorStake::into_validator_stake)
+            .collect()
     }
 
     #[derive(Debug, PartialEq, Eq, Copy, Clone)]

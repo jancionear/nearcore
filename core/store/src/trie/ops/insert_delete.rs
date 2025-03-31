@@ -21,9 +21,12 @@ where
         new_node: GenericUpdatedTrieNode<N, V>,
         old_child: Option<UpdatedNodeId>,
     ) {
-        let new_memory_usage =
-            children_memory_usage.saturating_add(new_node.memory_usage_direct()).saturating_sub(
-                old_child.map(|child| self.get_node_ref(child).memory_usage).unwrap_or_default(),
+        let new_memory_usage = children_memory_usage
+            .saturating_add(new_node.memory_usage_direct())
+            .saturating_sub(
+                old_child
+                    .map(|child| self.get_node_ref(child).memory_usage)
+                    .unwrap_or_default(),
             );
         self.place_node_at(
             node_id,
@@ -54,11 +57,14 @@ where
             let children_memory_usage = memory_usage.saturating_sub(node.memory_usage_direct());
 
             match node {
-                GenericUpdatedTrieNode::Empty => {
+                | GenericUpdatedTrieNode::Empty => {
                     // There was no node here, create a new leaf.
                     let value_handle = self.store_value(value);
                     let node = GenericUpdatedTrieNode::Leaf {
-                        extension: partial.encoded(true).into_vec().into_boxed_slice(),
+                        extension: partial
+                            .encoded(true)
+                            .into_vec()
+                            .into_boxed_slice(),
                         value: value_handle,
                     };
                     let memory_usage = node.memory_usage_direct();
@@ -68,7 +74,7 @@ where
                     );
                     break;
                 }
-                GenericUpdatedTrieNode::Branch { children, value: old_value } => {
+                | GenericUpdatedTrieNode::Branch { children, value: old_value } => {
                     if partial.is_empty() {
                         // This branch node is exactly where the value should be added.
                         if let Some(value) = old_value {
@@ -88,8 +94,8 @@ where
                         let mut new_children = children;
                         let child = &mut new_children[partial.at(0) as usize];
                         let new_node_id = match child.take() {
-                            Some(node_id) => self.ensure_updated(node_id)?,
-                            None => self.place_node(GenericUpdatedTrieNodeWithSize::empty()),
+                            | Some(node_id) => self.ensure_updated(node_id)?,
+                            | None => self.place_node(GenericUpdatedTrieNodeWithSize::empty()),
                         };
                         *child = Some(GenericNodeOrIndex::Updated(new_node_id));
                         self.calc_memory_usage_and_store(
@@ -106,7 +112,7 @@ where
                         continue;
                     }
                 }
-                GenericUpdatedTrieNode::Leaf { extension, value: old_value } => {
+                | GenericUpdatedTrieNode::Leaf { extension, value: old_value } => {
                     let existing_key = NibbleSlice::from_encoded(&extension).0;
                     let common_prefix = partial.common_prefix(&existing_key);
                     if common_prefix == existing_key.len() && common_prefix == partial.len() {
@@ -131,7 +137,10 @@ where
                             GenericUpdatedTrieNode::Branch { children, value: Some(old_value) }
                         } else {
                             let branch_idx = existing_key.at(0) as usize;
-                            let new_extension = existing_key.mid(1).encoded(true).into_vec();
+                            let new_extension = existing_key
+                                .mid(1)
+                                .encoded(true)
+                                .into_vec();
                             let new_node = GenericUpdatedTrieNode::Leaf {
                                 extension: new_extension.into_boxed_slice(),
                                 value: old_value,
@@ -188,7 +197,7 @@ where
                         continue;
                     }
                 }
-                GenericUpdatedTrieNode::Extension { extension, child: old_child, .. } => {
+                | GenericUpdatedTrieNode::Extension { extension, child: old_child, .. } => {
                     let existing_key = NibbleSlice::from_encoded(&extension).0;
                     let common_prefix = partial.common_prefix(&existing_key);
                     if common_prefix == 0 {
@@ -286,7 +295,9 @@ where
         for i in (0..path.len() - 1).rev() {
             let node_id = path.get(i).unwrap();
             let child_id = path.get(i + 1).unwrap();
-            let child_memory_usage = self.get_node_ref(*child_id).memory_usage;
+            let child_memory_usage = self
+                .get_node_ref(*child_id)
+                .memory_usage;
             let mut node = self.take_node(*node_id);
             node.memory_usage += child_memory_usage;
             self.place_node_at(*node_id, node);
@@ -319,13 +330,13 @@ where
             let children_memory_usage = memory_usage.saturating_sub(node.memory_usage_direct());
 
             match node {
-                GenericUpdatedTrieNode::Empty => {
+                | GenericUpdatedTrieNode::Empty => {
                     // Nothing to delete.
                     self.place_node_at(node_id, GenericUpdatedTrieNodeWithSize::empty());
                     key_deleted = false;
                     break;
                 }
-                GenericUpdatedTrieNode::Leaf { extension, value } => {
+                | GenericUpdatedTrieNode::Leaf { extension, value } => {
                     if NibbleSlice::from_encoded(&extension).0 == partial {
                         self.delete_value(value)?;
                         self.place_node_at(node_id, GenericUpdatedTrieNodeWithSize::empty());
@@ -341,7 +352,7 @@ where
                         break;
                     }
                 }
-                GenericUpdatedTrieNode::Branch { mut children, value } => {
+                | GenericUpdatedTrieNode::Branch { mut children, value } => {
                     if partial.is_empty() {
                         if value.is_none() {
                             // Key being deleted doesn't exist.
@@ -365,8 +376,8 @@ where
                     } else {
                         let child = &mut children[partial.at(0) as usize];
                         let old_child_id = match child.take() {
-                            Some(node_id) => node_id,
-                            None => {
+                            | Some(node_id) => node_id,
+                            | None => {
                                 // Key being deleted doesn't exist.
                                 let node = GenericUpdatedTrieNode::Branch { children, value };
                                 self.place_node_at(
@@ -391,7 +402,7 @@ where
                         continue;
                     }
                 }
-                GenericUpdatedTrieNode::Extension { extension, child } => {
+                | GenericUpdatedTrieNode::Extension { extension, child } => {
                     let (common_prefix, existing_len) = {
                         let extension_nibbles = NibbleSlice::from_encoded(&extension).0;
                         (extension_nibbles.common_prefix(&partial), extension_nibbles.len())

@@ -73,20 +73,23 @@ enum RpcBroadcastTx {
 impl JsonRpcRequest {
     fn method_and_params(&self) -> (&str, serde_json::Value) {
         match self {
-            JsonRpcRequest::Query(request) => ("query", json!(request)),
-            JsonRpcRequest::Block(request) => ("block", json!(request)),
-            JsonRpcRequest::Chunk(request) => ("chunk", json!(request)),
-            JsonRpcRequest::Tx(request) => ("tx", json!(request)),
-            JsonRpcRequest::Validators(request) => ("validators", json!(request)),
-            JsonRpcRequest::GasPrice(request) => ("gas_price", json!(request)),
-            JsonRpcRequest::BroadcastTxAsync(request) => ("broadcast_tx_async", json!(request)),
-            JsonRpcRequest::BroadcastTxCommit(request) => ("broadcast_tx_commit", json!(request)),
+            | JsonRpcRequest::Query(request) => ("query", json!(request)),
+            | JsonRpcRequest::Block(request) => ("block", json!(request)),
+            | JsonRpcRequest::Chunk(request) => ("chunk", json!(request)),
+            | JsonRpcRequest::Tx(request) => ("tx", json!(request)),
+            | JsonRpcRequest::Validators(request) => ("validators", json!(request)),
+            | JsonRpcRequest::GasPrice(request) => ("gas_price", json!(request)),
+            | JsonRpcRequest::BroadcastTxAsync(request) => ("broadcast_tx_async", json!(request)),
+            | JsonRpcRequest::BroadcastTxCommit(request) => ("broadcast_tx_commit", json!(request)),
         }
     }
 }
 
 impl Serialize for Base64String {
-    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+    fn serialize<S: Serializer>(
+        &self,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error> {
         let encoded = near_primitives::serialize::to_base64(&self.0);
         serializer.serialize_str(&encoded)
     }
@@ -95,7 +98,10 @@ impl Serialize for Base64String {
 static RUNTIME: std::sync::LazyLock<std::sync::Mutex<tokio::runtime::Runtime>> =
     std::sync::LazyLock::new(|| {
         std::sync::Mutex::new(
-            tokio::runtime::Builder::new_multi_thread().enable_all().build().unwrap(),
+            tokio::runtime::Builder::new_multi_thread()
+                .enable_all()
+                .build()
+                .unwrap(),
         )
     });
 
@@ -121,23 +127,26 @@ fuzz_target!(|requests: Vec<JsonRpcRequest>| {
         }
     }
 
-    RUNTIME.lock().unwrap().block_on(async move {
-        for request in requests {
-            let (method, params) = request.method_and_params();
-            eprintln!("POST DATA: {{method = {}}} {{params = {}}}", method, params);
+    RUNTIME
+        .lock()
+        .unwrap()
+        .block_on(async move {
+            for request in requests {
+                let (method, params) = request.method_and_params();
+                eprintln!("POST DATA: {{method = {}}} {{params = {}}}", method, params);
 
-            let client = awc::Client::new();
-            let addr = unsafe {
-                #[allow(static_mut_refs)]
-                NODE_ADDR.as_ref().unwrap().to_string()
-            };
-            let result_or_error =
-                test_utils::call_method::<serde_json::Value>(&client, &addr, method, params)
-                    .await
-                    .unwrap();
-            eprintln!("RESPONSE: {:#?}", result_or_error);
-            assert!(result_or_error["error"] != serde_json::json!(null));
-        }
-        true
-    });
+                let client = awc::Client::new();
+                let addr = unsafe {
+                    #[allow(static_mut_refs)]
+                    NODE_ADDR.as_ref().unwrap().to_string()
+                };
+                let result_or_error =
+                    test_utils::call_method::<serde_json::Value>(&client, &addr, method, params)
+                        .await
+                        .unwrap();
+                eprintln!("RESPONSE: {:#?}", result_or_error);
+                assert!(result_or_error["error"] != serde_json::json!(null));
+            }
+            true
+        });
 });

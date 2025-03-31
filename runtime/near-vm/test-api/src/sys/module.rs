@@ -99,7 +99,10 @@ impl Module {
     /// ```
     #[allow(unreachable_code)]
     #[tracing::instrument(target = "near_vm", level = "trace", skip_all)]
-    pub fn new(store: &Store, bytes: impl AsRef<[u8]>) -> Result<Self, CompileError> {
+    pub fn new(
+        store: &Store,
+        bytes: impl AsRef<[u8]>,
+    ) -> Result<Self, CompileError> {
         #[cfg(feature = "wat")]
         let bytes = wat::parse_bytes(bytes.as_ref()).map_err(|e| {
             CompileError::Wasm(WasmError::Generic(format!("Error when converting wat: {}", e)))
@@ -114,7 +117,10 @@ impl Module {
     /// the WebAssembly text format (if the "wat" feature is enabled for
     /// this crate).
     #[tracing::instrument(target = "near_vm", level = "trace", skip_all)]
-    pub(crate) fn from_binary(store: &Store, binary: &[u8]) -> Result<Self, CompileError> {
+    pub(crate) fn from_binary(
+        store: &Store,
+        binary: &[u8],
+    ) -> Result<Self, CompileError> {
         let engine = store.engine();
         engine.validate(binary)?;
         let executable = engine.compile_universal(binary, store.tunables())?;
@@ -155,7 +161,10 @@ impl Module {
 }
 
 impl fmt::Debug for Module {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
         f.debug_struct("Module").finish()
     }
 }

@@ -25,7 +25,10 @@ fn cast_to_u32(sz: usize) -> u32 {
 
 /// Align an offset used in this module to a specific byte-width by rounding up
 #[inline]
-const fn align(offset: u32, width: u32) -> u32 {
+const fn align(
+    offset: u32,
+    width: u32,
+) -> u32 {
     (offset + (width - 1)) / width * width
 }
 
@@ -117,7 +120,10 @@ impl VMOffsets {
 
     /// Add imports and locals from the provided ModuleInfo.
     #[tracing::instrument(target = "near_vm", level = "trace", skip_all)]
-    pub fn with_module_info(mut self, module: &ModuleInfo) -> Self {
+    pub fn with_module_info(
+        mut self,
+        module: &ModuleInfo,
+    ) -> Self {
         self.num_imported_functions = module.import_counts.functions;
         self.num_imported_tables = module.import_counts.tables;
         self.num_imported_memories = module.import_counts.memories;
@@ -133,7 +139,10 @@ impl VMOffsets {
     }
 
     /// Add imports and locals from the provided ModuleInfo.
-    pub fn with_archived_module_info(mut self, module: &rkyv::Archived<ModuleInfo>) -> Self {
+    pub fn with_archived_module_info(
+        mut self,
+        module: &rkyv::Archived<ModuleInfo>,
+    ) -> Self {
         self.num_imported_functions = module.import_counts.functions.into();
         self.num_imported_tables = module.import_counts.tables.into();
         self.num_imported_memories = module.import_counts.memories.into();
@@ -169,7 +178,12 @@ impl VMOffsets {
             next_item_align: usize,
         ) -> u32 {
             align(
-                base.checked_add(num_items.checked_mul(prev_item_size).unwrap()).unwrap(),
+                base.checked_add(
+                    num_items
+                        .checked_mul(prev_item_size)
+                        .unwrap(),
+                )
+                .unwrap(),
                 next_item_align as u32,
             )
         }
@@ -241,8 +255,14 @@ impl VMOffsets {
             u32::from(self.pointer_size),
             align_of::<u32>(),
         );
-        self.vmctx_stack_limit_initial_begin = self.vmctx_stack_limit_begin.checked_add(4).unwrap();
-        self.size_of_vmctx = self.vmctx_stack_limit_begin.checked_add(4).unwrap();
+        self.vmctx_stack_limit_initial_begin = self
+            .vmctx_stack_limit_begin
+            .checked_add(4)
+            .unwrap();
+        self.size_of_vmctx = self
+            .vmctx_stack_limit_begin
+            .checked_add(4)
+            .unwrap();
     }
 }
 
@@ -590,7 +610,10 @@ impl VMOffsets {
     ///
     /// [`VMSharedSignatureIndex`]: crate::sig_registry::VMSharedSignatureIndex
     // Remember updating precompute upon changes
-    pub fn vmctx_vmshared_signature_id(&self, index: SignatureIndex) -> u32 {
+    pub fn vmctx_vmshared_signature_id(
+        &self,
+        index: SignatureIndex,
+    ) -> u32 {
         assert_lt!(index.as_u32(), self.num_signature_ids);
         self.vmctx_signature_ids_begin
             + index.as_u32() * u32::from(self.size_of_vmshared_signature_index())
@@ -600,7 +623,10 @@ impl VMOffsets {
     ///
     /// [`VMFunctionImport`]: crate::vmcontext::VMFunctionImport
     // Remember updating precompute upon changes
-    pub fn vmctx_vmfunction_import(&self, index: FunctionIndex) -> u32 {
+    pub fn vmctx_vmfunction_import(
+        &self,
+        index: FunctionIndex,
+    ) -> u32 {
         assert_lt!(index.as_u32(), self.num_imported_functions);
         self.vmctx_imported_functions_begin
             + index.as_u32() * u32::from(self.size_of_vmfunction_import())
@@ -610,7 +636,10 @@ impl VMOffsets {
     ///
     /// [`VMTableImport`]: crate::vmcontext::VMTableImport
     // Remember updating precompute upon changes
-    pub fn vmctx_vmtable_import(&self, index: TableIndex) -> u32 {
+    pub fn vmctx_vmtable_import(
+        &self,
+        index: TableIndex,
+    ) -> u32 {
         assert_lt!(index.as_u32(), self.num_imported_tables);
         self.vmctx_imported_tables_begin + index.as_u32() * u32::from(self.size_of_vmtable_import())
     }
@@ -619,7 +648,10 @@ impl VMOffsets {
     ///
     /// [`VMMemoryImport`]: crate::vmcontext::VMMemoryImport
     // Remember updating precompute upon changes
-    pub fn vmctx_vmmemory_import(&self, index: MemoryIndex) -> u32 {
+    pub fn vmctx_vmmemory_import(
+        &self,
+        index: MemoryIndex,
+    ) -> u32 {
         assert_lt!(index.as_u32(), self.num_imported_memories);
         self.vmctx_imported_memories_begin
             + index.as_u32() * u32::from(self.size_of_vmmemory_import())
@@ -629,7 +661,10 @@ impl VMOffsets {
     ///
     /// [`VMGlobalImport`]: crate::vmcontext::VMGlobalImport
     // Remember updating precompute upon changes
-    pub fn vmctx_vmglobal_import(&self, index: GlobalIndex) -> u32 {
+    pub fn vmctx_vmglobal_import(
+        &self,
+        index: GlobalIndex,
+    ) -> u32 {
         assert_lt!(index.as_u32(), self.num_imported_globals);
         self.vmctx_imported_globals_begin
             + index.as_u32() * u32::from(self.size_of_vmglobal_import())
@@ -639,7 +674,10 @@ impl VMOffsets {
     ///
     /// [`VMTableDefinition`]: crate::vmcontext::VMTableDefinition
     // Remember updating precompute upon changes
-    pub fn vmctx_vmtable_definition(&self, index: LocalTableIndex) -> u32 {
+    pub fn vmctx_vmtable_definition(
+        &self,
+        index: LocalTableIndex,
+    ) -> u32 {
         assert_lt!(index.as_u32(), self.num_local_tables);
         self.vmctx_tables_begin + index.as_u32() * u32::from(self.size_of_vmtable_definition())
     }
@@ -648,7 +686,10 @@ impl VMOffsets {
     ///
     /// [`VMMemoryDefinition`]: crate::vmcontext::VMMemoryDefinition
     // Remember updating precompute upon changes
-    pub fn vmctx_vmmemory_definition(&self, index: LocalMemoryIndex) -> u32 {
+    pub fn vmctx_vmmemory_definition(
+        &self,
+        index: LocalMemoryIndex,
+    ) -> u32 {
         assert_lt!(index.as_u32(), self.num_local_memories);
         self.vmctx_memories_begin + index.as_u32() * u32::from(self.size_of_vmmemory_definition())
     }
@@ -657,20 +698,29 @@ impl VMOffsets {
     ///
     /// [`VMGlobalDefinition`]: crate::vmcontext::VMGlobalDefinition
     // Remember updating precompute upon changes
-    pub fn vmctx_vmglobal_definition(&self, index: LocalGlobalIndex) -> u32 {
+    pub fn vmctx_vmglobal_definition(
+        &self,
+        index: LocalGlobalIndex,
+    ) -> u32 {
         assert_lt!(index.as_u32(), self.num_local_globals);
         self.vmctx_globals_begin + index.as_u32() * u32::from(self.size_of_vmglobal_local())
     }
 
     /// Return the offset to the `body` field in `*const VMFunctionBody` index `index`.
     // Remember updating precompute upon changes
-    pub fn vmctx_vmfunction_import_body(&self, index: FunctionIndex) -> u32 {
+    pub fn vmctx_vmfunction_import_body(
+        &self,
+        index: FunctionIndex,
+    ) -> u32 {
         self.vmctx_vmfunction_import(index) + u32::from(self.vmfunction_import_body())
     }
 
     /// Return the offset to the `vmctx` field in `*const VMFunctionBody` index `index`.
     // Remember updating precompute upon changes
-    pub fn vmctx_vmfunction_import_vmctx(&self, index: FunctionIndex) -> u32 {
+    pub fn vmctx_vmfunction_import_vmctx(
+        &self,
+        index: FunctionIndex,
+    ) -> u32 {
         self.vmctx_vmfunction_import(index) + u32::from(self.vmfunction_import_vmctx())
     }
 
@@ -678,7 +728,10 @@ impl VMOffsets {
     ///
     /// [`VMTableImport`]: crate::vmcontext::VMTableImport
     // Remember updating precompute upon changes
-    pub fn vmctx_vmtable_import_definition(&self, index: TableIndex) -> u32 {
+    pub fn vmctx_vmtable_import_definition(
+        &self,
+        index: TableIndex,
+    ) -> u32 {
         self.vmctx_vmtable_import(index) + u32::from(self.vmtable_import_definition())
     }
 
@@ -686,7 +739,10 @@ impl VMOffsets {
     ///
     /// [`VMTableDefinition`]: crate::vmcontext::VMTableDefinition
     // Remember updating precompute upon changes
-    pub fn vmctx_vmtable_definition_base(&self, index: LocalTableIndex) -> u32 {
+    pub fn vmctx_vmtable_definition_base(
+        &self,
+        index: LocalTableIndex,
+    ) -> u32 {
         self.vmctx_vmtable_definition(index) + u32::from(self.vmtable_definition_base())
     }
 
@@ -694,7 +750,10 @@ impl VMOffsets {
     ///
     /// [`VMTableDefinition`]: crate::vmcontext::VMTableDefinition
     // Remember updating precompute upon changes
-    pub fn vmctx_vmtable_definition_current_elements(&self, index: LocalTableIndex) -> u32 {
+    pub fn vmctx_vmtable_definition_current_elements(
+        &self,
+        index: LocalTableIndex,
+    ) -> u32 {
         self.vmctx_vmtable_definition(index) + u32::from(self.vmtable_definition_current_elements())
     }
 
@@ -702,7 +761,10 @@ impl VMOffsets {
     ///
     /// [`VMMemoryImport`]: crate::vmcontext::VMMemoryImport
     // Remember updating precompute upon changes
-    pub fn vmctx_vmmemory_import_definition(&self, index: MemoryIndex) -> u32 {
+    pub fn vmctx_vmmemory_import_definition(
+        &self,
+        index: MemoryIndex,
+    ) -> u32 {
         self.vmctx_vmmemory_import(index) + u32::from(self.vmmemory_import_definition())
     }
 
@@ -710,7 +772,10 @@ impl VMOffsets {
     ///
     /// [`VMMemoryImport`]: crate::vmcontext::VMMemoryImport
     // Remember updating precompute upon changes
-    pub fn vmctx_vmmemory_import_from(&self, index: MemoryIndex) -> u32 {
+    pub fn vmctx_vmmemory_import_from(
+        &self,
+        index: MemoryIndex,
+    ) -> u32 {
         self.vmctx_vmmemory_import(index) + u32::from(self.vmmemory_import_from())
     }
 
@@ -718,7 +783,10 @@ impl VMOffsets {
     ///
     /// [`VMMemoryDefinition`]: crate::vmcontext::VMMemoryDefinition
     // Remember updating precompute upon changes
-    pub fn vmctx_vmmemory_definition_base(&self, index: LocalMemoryIndex) -> u32 {
+    pub fn vmctx_vmmemory_definition_base(
+        &self,
+        index: LocalMemoryIndex,
+    ) -> u32 {
         self.vmctx_vmmemory_definition(index) + u32::from(self.vmmemory_definition_base())
     }
 
@@ -726,7 +794,10 @@ impl VMOffsets {
     ///
     /// [`VMMemoryDefinition`]: crate::vmcontext::VMMemoryDefinition
     // Remember updating precompute upon changes
-    pub fn vmctx_vmmemory_definition_current_length(&self, index: LocalMemoryIndex) -> u32 {
+    pub fn vmctx_vmmemory_definition_current_length(
+        &self,
+        index: LocalMemoryIndex,
+    ) -> u32 {
         self.vmctx_vmmemory_definition(index) + u32::from(self.vmmemory_definition_current_length())
     }
 
@@ -734,13 +805,19 @@ impl VMOffsets {
     ///
     /// [`VMGlobalImport`]: crate::vmcontext::VMGlobalImport
     // Remember updating precompute upon changes
-    pub fn vmctx_vmglobal_import_definition(&self, index: GlobalIndex) -> u32 {
+    pub fn vmctx_vmglobal_import_definition(
+        &self,
+        index: GlobalIndex,
+    ) -> u32 {
         self.vmctx_vmglobal_import(index) + u32::from(self.vmglobal_import_definition())
     }
 
     /// Return the offset to builtin function in `VMBuiltinFunctionsArray` index `index`.
     // Remember updating precompute upon changes
-    pub fn vmctx_builtin_function(&self, index: VMBuiltinFunctionIndex) -> u32 {
+    pub fn vmctx_builtin_function(
+        &self,
+        index: VMBuiltinFunctionIndex,
+    ) -> u32 {
         self.vmctx_builtin_functions_begin + index.index() * u32::from(self.pointer_size)
     }
 

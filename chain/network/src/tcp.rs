@@ -69,22 +69,35 @@ pub(crate) struct Socket(tokio::net::TcpSocket);
 impl Socket {
     pub fn bind() -> Self {
         let socket = tokio::net::TcpSocket::new_v6().unwrap();
-        socket.bind("[::1]:0".parse().unwrap()).unwrap();
+        socket
+            .bind("[::1]:0".parse().unwrap())
+            .unwrap();
         Self(socket)
     }
 
-    pub async fn connect(self, peer_info: &PeerInfo, tier: Tier) -> Stream {
+    pub async fn connect(
+        self,
+        peer_info: &PeerInfo,
+        tier: Tier,
+    ) -> Stream {
         // TODO(gprusak): this could replace Stream::connect,
         // however this means that we will have to replicate everything
         // that tokio::net::TcpStream sets on the socket.
         // As long as Socket::connect is test-only we may ignore that.
-        let stream = self.0.connect(peer_info.addr.unwrap()).await.unwrap();
+        let stream = self
+            .0
+            .connect(peer_info.addr.unwrap())
+            .await
+            .unwrap();
         Stream::new(stream, StreamType::Outbound { peer_id: peer_info.id.clone(), tier }).unwrap()
     }
 }
 
 impl Stream {
-    fn new(stream: tokio::net::TcpStream, type_: StreamType) -> std::io::Result<Self> {
+    fn new(
+        stream: tokio::net::TcpStream,
+        type_: StreamType,
+    ) -> std::io::Result<Self> {
         Ok(Self { peer_addr: stream.peer_addr()?, local_addr: stream.local_addr()?, stream, type_ })
     }
 
@@ -98,13 +111,13 @@ impl Stream {
             .ok_or_else(|| anyhow!("Trying to connect to peer with no public address"))?;
 
         let socket = match addr {
-            std::net::SocketAddr::V4(_) => tokio::net::TcpSocket::new_v4()?,
-            std::net::SocketAddr::V6(_) => tokio::net::TcpSocket::new_v6()?,
+            | std::net::SocketAddr::V4(_) => tokio::net::TcpSocket::new_v4()?,
+            | std::net::SocketAddr::V6(_) => tokio::net::TcpSocket::new_v6()?,
         };
 
         // Avoid setting the buffer sizes for T1 connections, which are numerous and lightweight.
         match tier {
-            Tier::T2 => {
+            | Tier::T2 => {
                 if let Some(so_recv_buffer) = socket_options.recv_buffer_size {
                     socket.set_recv_buffer_size(so_recv_buffer)?;
                     tracing::debug!(target: "network", "so_recv_buffer wanted {} got {:?}", so_recv_buffer, socket.recv_buffer_size());
@@ -115,7 +128,7 @@ impl Stream {
                     tracing::debug!(target: "network", "so_send_buffer wanted {} got {:?}", so_send_buffer, socket.send_buffer_size());
                 }
             }
-            _ => {}
+            | _ => {}
         };
 
         // The `connect` may take several minutes. This happens when the
@@ -135,7 +148,10 @@ impl Stream {
     /// Establishes a loopback TCP connection to localhost with random ports.
     /// Returns a pair of streams: (outbound,inbound).
     #[cfg(test)]
-    pub async fn loopback(peer_id: PeerId, tier: Tier) -> (Stream, Stream) {
+    pub async fn loopback(
+        peer_id: PeerId,
+        tier: Tier,
+    ) -> (Stream, Stream) {
         let listener_addr = ListenerAddr::reserve_for_test();
         let peer_info = PeerInfo { id: peer_id, addr: Some(*listener_addr), account_id: None };
         let socket_options = SocketOptions::default();
@@ -148,8 +164,10 @@ impl Stream {
     // TEST-ONLY used in reporting test events.
     pub(crate) fn id(&self) -> StreamId {
         match self.type_ {
-            StreamType::Inbound => StreamId { inbound: self.local_addr, outbound: self.peer_addr },
-            StreamType::Outbound { .. } => {
+            | StreamType::Inbound => {
+                StreamId { inbound: self.local_addr, outbound: self.peer_addr }
+            }
+            | StreamType::Outbound { .. } => {
                 StreamId { inbound: self.peer_addr, outbound: self.local_addr }
             }
         }
@@ -181,13 +199,19 @@ impl Stream {
 pub struct ListenerAddr(std::net::SocketAddr);
 
 impl fmt::Debug for ListenerAddr {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
         self.0.fmt(f)
     }
 }
 
 impl fmt::Display for ListenerAddr {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
         self.0.fmt(f)
     }
 }
@@ -215,9 +239,14 @@ impl ListenerAddr {
         let guard = tokio::net::TcpSocket::new_v6().unwrap();
         guard.set_reuseaddr(true).unwrap();
         guard.set_reuseport(true).unwrap();
-        guard.bind("[::1]:0".parse().unwrap()).unwrap();
+        guard
+            .bind("[::1]:0".parse().unwrap())
+            .unwrap();
         let addr = guard.local_addr().unwrap();
-        RESERVED_LISTENER_ADDRS.lock().unwrap().insert(addr, guard);
+        RESERVED_LISTENER_ADDRS
+            .lock()
+            .unwrap()
+            .insert(addr, guard);
         Self(addr)
     }
 
@@ -229,10 +258,14 @@ impl ListenerAddr {
     /// Constructs a Listener out of ListenerAddr.
     pub(crate) fn listener(&self) -> std::io::Result<Listener> {
         let socket = match &self.0 {
-            std::net::SocketAddr::V4(_) => tokio::net::TcpSocket::new_v4()?,
-            std::net::SocketAddr::V6(_) => tokio::net::TcpSocket::new_v6()?,
+            | std::net::SocketAddr::V4(_) => tokio::net::TcpSocket::new_v4()?,
+            | std::net::SocketAddr::V6(_) => tokio::net::TcpSocket::new_v6()?,
         };
-        if RESERVED_LISTENER_ADDRS.lock().unwrap().contains_key(&self.0) {
+        if RESERVED_LISTENER_ADDRS
+            .lock()
+            .unwrap()
+            .contains_key(&self.0)
+        {
             socket.set_reuseport(true)?;
         }
         socket.set_reuseaddr(true)?;

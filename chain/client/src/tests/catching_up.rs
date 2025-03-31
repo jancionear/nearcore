@@ -28,20 +28,29 @@ use near_primitives::views::QueryRequest;
 use near_primitives::views::QueryResponseKind::ViewAccount;
 
 fn get_validators_and_key_pairs() -> (ValidatorSchedule, Vec<PeerInfo>) {
-    let vs = ValidatorSchedule::new().num_shards(4).block_producers_per_epoch(vec![
-        ["test1.1", "test1.2", "test1.3", "test1.4"]
+    let vs = ValidatorSchedule::new()
+        .num_shards(4)
+        .block_producers_per_epoch(vec![
+            [
+                "test1.1", "test1.2", "test1.3", "test1.4",
+            ]
             .iter()
             .map(|account_id| account_id.parse().unwrap())
             .collect(),
-        ["test2.1", "test2.2", "test2.3", "test2.4"]
+            [
+                "test2.1", "test2.2", "test2.3", "test2.4",
+            ]
             .iter()
             .map(|account_id| account_id.parse().unwrap())
             .collect(),
-        ["test3.1", "test3.2", "test3.3", "test3.4", "test3.5", "test3.6", "test3.7", "test3.8"]
+            [
+                "test3.1", "test3.2", "test3.3", "test3.4", "test3.5", "test3.6", "test3.7",
+                "test3.8",
+            ]
             .iter()
             .map(|account_id| account_id.parse().unwrap())
             .collect(),
-    ]);
+        ]);
     let key_pairs = vec![
         PeerInfo::random(),
         PeerInfo::random(),
@@ -129,7 +138,11 @@ fn ultra_slow_test_catchup_receipts_sync_distant_epoch() {
     test_catchup_receipts_sync_common(35, 1, false)
 }
 
-fn test_catchup_receipts_sync_common(wait_till: u64, send: u64, sync_hold: bool) {
+fn test_catchup_receipts_sync_common(
+    wait_till: u64,
+    send: u64,
+    sync_hold: bool,
+) {
     init_integration_logger();
     run_actix(async move {
         let connectors: Arc<RwLock<Vec<ActorHandlesForTesting>>> = Arc::new(RwLock::new(vec![]));
@@ -167,10 +180,12 @@ fn test_catchup_receipts_sync_common(wait_till: u64, send: u64, sync_hold: bool)
                 let destination_shard_id = account_id_to_shard_id(&account_to, 4);
 
                 let mut phase = phase.write().unwrap();
-                let mut seen_heights_with_receipts = seen_heights_with_receipts.write().unwrap();
+                let mut seen_heights_with_receipts = seen_heights_with_receipts
+                    .write()
+                    .unwrap();
                 let mut seen_hashes_with_state = seen_hashes_with_state.write().unwrap();
                 match *phase {
-                    ReceiptsSyncPhases::WaitingForFirstBlock => {
+                    | ReceiptsSyncPhases::WaitingForFirstBlock => {
                         if let NetworkRequests::Block { block } = msg {
                             assert!(block.header().height() <= send);
                             // This tx is rather fragile, specifically it's important that
@@ -201,7 +216,7 @@ fn test_catchup_receipts_sync_common(wait_till: u64, send: u64, sync_hold: bool)
                             }
                         }
                     }
-                    ReceiptsSyncPhases::WaitingForSecondBlock => {
+                    | ReceiptsSyncPhases::WaitingForSecondBlock => {
                         // This block now contains a chunk with the transaction sent above.
                         if let NetworkRequests::Block { block } = msg {
                             assert!(block.header().height() <= send + 1);
@@ -210,7 +225,7 @@ fn test_catchup_receipts_sync_common(wait_till: u64, send: u64, sync_hold: bool)
                             }
                         }
                     }
-                    ReceiptsSyncPhases::WaitingForDistantEpoch => {
+                    | ReceiptsSyncPhases::WaitingForDistantEpoch => {
                         // This block now contains a chunk with the transaction sent above.
                         if let NetworkRequests::Block { block } = msg {
                             assert!(block.header().height() >= send + 1);
@@ -238,8 +253,11 @@ fn test_catchup_receipts_sync_common(wait_till: u64, send: u64, sync_hold: bool)
                                     partial_encoded_chunk.header.shard_id(),
                                     source_shard_id
                                 );
-                                seen_heights_with_receipts
-                                    .insert(partial_encoded_chunk.header.height_created());
+                                seen_heights_with_receipts.insert(
+                                    partial_encoded_chunk
+                                        .header
+                                        .height_created(),
+                                );
                             } else {
                                 assert_ne!(
                                     partial_encoded_chunk.header.shard_id(),
@@ -298,7 +316,7 @@ fn test_catchup_receipts_sync_common(wait_till: u64, send: u64, sync_hold: bool)
                             }
                         }
                     }
-                    ReceiptsSyncPhases::VerifyingOutgoingReceipts => {
+                    | ReceiptsSyncPhases::VerifyingOutgoingReceipts => {
                         for height in send + 2..=wait_till {
                             println!(
                                 "checking height {:?} out of {:?}, result = {:?}",
@@ -313,7 +331,7 @@ fn test_catchup_receipts_sync_common(wait_till: u64, send: u64, sync_hold: bool)
                         }
                         *phase = ReceiptsSyncPhases::WaitingForValidate;
                     }
-                    ReceiptsSyncPhases::WaitingForValidate => {
+                    | ReceiptsSyncPhases::WaitingForValidate => {
                         // This block now contains a chunk with the transaction sent above.
                         if let NetworkRequests::Block { block } = msg {
                             assert!(block.header().height() >= wait_till);
@@ -323,8 +341,9 @@ fn test_catchup_receipts_sync_common(wait_till: u64, send: u64, sync_hold: bool)
                             }
                             if block.header().height() == wait_till + 10 {
                                 for i in 0..16 {
-                                    let actor =
-                                        connectors1.write().unwrap()[i].view_client_actor.send(
+                                    let actor = connectors1.write().unwrap()[i]
+                                        .view_client_actor
+                                        .send(
                                             Query::new(
                                                 BlockReference::latest(),
                                                 QueryRequest::ViewAccount {
@@ -404,14 +423,21 @@ fn ultra_slow_test_catchup_random_single_part_sync_height_6() {
     test_catchup_random_single_part_sync_common(false, false, 6)
 }
 
-fn test_catchup_random_single_part_sync_common(skip_15: bool, non_zero: bool, height: u64) {
+fn test_catchup_random_single_part_sync_common(
+    skip_15: bool,
+    non_zero: bool,
+    height: u64,
+) {
     init_integration_logger();
     run_actix(async move {
         let connectors: Arc<RwLock<Vec<ActorHandlesForTesting>>> = Arc::new(RwLock::new(vec![]));
 
         let (vs, key_pairs) = get_validators_and_key_pairs();
         let vs = vs.validator_groups(2);
-        let validators = vs.all_block_producers().cloned().collect::<Vec<_>>();
+        let validators = vs
+            .all_block_producers()
+            .cloned()
+            .collect::<Vec<_>>();
         let phase = Arc::new(RwLock::new(RandomSinglePartPhases::WaitingForFirstBlock));
         let seen_heights_same_block = Arc::new(RwLock::new(HashSet::<CryptoHash>::new()));
 
@@ -419,12 +445,16 @@ fn test_catchup_random_single_part_sync_common(skip_15: bool, non_zero: bool, he
 
         let check_amount =
             move |amounts: Arc<RwLock<HashMap<_, _, _>>>, account_id: AccountId, amount: u128| {
-                match amounts.write().unwrap().entry(account_id) {
-                    Entry::Occupied(entry) => {
+                match amounts
+                    .write()
+                    .unwrap()
+                    .entry(account_id)
+                {
+                    | Entry::Occupied(entry) => {
                         println!("OCCUPIED {:?}", entry);
                         assert_eq!(*entry.get(), amount);
                     }
-                    Entry::Vacant(entry) => {
+                    | Entry::Vacant(entry) => {
                         println!("VACANT {:?}", entry);
                         if non_zero {
                             assert_ne!(amount % 100, 0);
@@ -455,13 +485,13 @@ fn test_catchup_random_single_part_sync_common(skip_15: bool, non_zero: bool, he
                 let mut seen_heights_same_block = seen_heights_same_block.write().unwrap();
                 let mut phase = phase.write().unwrap();
                 match *phase {
-                    RandomSinglePartPhases::WaitingForFirstBlock => {
+                    | RandomSinglePartPhases::WaitingForFirstBlock => {
                         if let NetworkRequests::Block { block } = msg {
                             assert_eq!(block.header().height(), 1);
                             *phase = RandomSinglePartPhases::WaitingForThirdEpoch;
                         }
                     }
-                    RandomSinglePartPhases::WaitingForThirdEpoch => {
+                    | RandomSinglePartPhases::WaitingForThirdEpoch => {
                         if let NetworkRequests::Block { block } = msg {
                             if block.header().height() == 1 {
                                 return (NetworkResponses::NoResponse.into(), false);
@@ -504,7 +534,7 @@ fn test_catchup_random_single_part_sync_common(skip_15: bool, non_zero: bool, he
                             }
                         }
                     }
-                    RandomSinglePartPhases::WaitingForSixEpoch => {
+                    | RandomSinglePartPhases::WaitingForSixEpoch => {
                         if let NetworkRequests::Block { block } = msg {
                             assert!(block.header().height() >= height);
                             assert!(block.header().height() <= 32);
@@ -515,8 +545,9 @@ fn test_catchup_random_single_part_sync_common(skip_15: bool, non_zero: bool, he
                                     for j in 0..16 {
                                         let amounts1 = amounts.clone();
                                         let validator = validators[j].clone();
-                                        let actor =
-                                            connectors1.write().unwrap()[i].view_client_actor.send(
+                                        let actor = connectors1.write().unwrap()[i]
+                                            .view_client_actor
+                                            .send(
                                                 Query::new(
                                                     BlockReference::latest(),
                                                     QueryRequest::ViewAccount {
@@ -552,11 +583,15 @@ fn test_catchup_random_single_part_sync_common(skip_15: bool, non_zero: bool, he
                                 assert_eq!(seen_heights_same_block.len(), 1);
                                 let amounts1 = amounts.clone();
                                 for flat_validator in &validators {
-                                    match amounts1.write().unwrap().entry(flat_validator.clone()) {
-                                        Entry::Occupied(_) => {
+                                    match amounts1
+                                        .write()
+                                        .unwrap()
+                                        .entry(flat_validator.clone())
+                                    {
+                                        | Entry::Occupied(_) => {
                                             continue;
                                         }
-                                        Entry::Vacant(entry) => {
+                                        | Entry::Vacant(entry) => {
                                             println!(
                                                 "VALIDATOR = {:?}, ENTRY = {:?}",
                                                 flat_validator, entry
@@ -573,13 +608,26 @@ fn test_catchup_random_single_part_sync_common(skip_15: bool, non_zero: bool, he
                             ..
                         } = msg
                         {
-                            if partial_encoded_chunk.header.height_created() == 22 {
-                                seen_heights_same_block
-                                    .insert(*partial_encoded_chunk.header.prev_block_hash());
+                            if partial_encoded_chunk
+                                .header
+                                .height_created()
+                                == 22
+                            {
+                                seen_heights_same_block.insert(
+                                    *partial_encoded_chunk
+                                        .header
+                                        .prev_block_hash(),
+                                );
                             }
                             if skip_15 {
-                                if partial_encoded_chunk.header.height_created() == 14
-                                    || partial_encoded_chunk.header.height_created() == 15
+                                if partial_encoded_chunk
+                                    .header
+                                    .height_created()
+                                    == 14
+                                    || partial_encoded_chunk
+                                        .header
+                                        .height_created()
+                                        == 15
                                 {
                                     return (NetworkResponses::NoResponse.into(), false);
                                 }
@@ -612,10 +660,10 @@ fn ultra_slow_test_catchup_sanity_blocks_produced() {
 
         let check_height =
             move |hash: CryptoHash, height| match heights1.write().unwrap().entry(hash) {
-                Entry::Occupied(entry) => {
+                | Entry::Occupied(entry) => {
                     assert_eq!(*entry.get(), height);
                 }
-                Entry::Vacant(entry) => {
+                | Entry::Vacant(entry) => {
                     entry.insert(height);
                 }
             };
@@ -759,14 +807,22 @@ fn test_all_chunks_accepted_common(
                     if verbose {
                         if responded.contains(&(
                             *route_back,
-                            response.parts.iter().map(|x| x.part_ord).collect(),
+                            response
+                                .parts
+                                .iter()
+                                .map(|x| x.part_ord)
+                                .collect(),
                             response.chunk_hash.clone(),
                         )) {
                             println!("=== SAME RESPONSE AGAIN!");
                         }
                         responded.insert((
                             *route_back,
-                            response.parts.iter().map(|x| x.part_ord).collect(),
+                            response
+                                .parts
+                                .iter()
+                                .map(|x| x.part_ord)
+                                .collect(),
                             response.chunk_hash.clone(),
                         ));
                     }

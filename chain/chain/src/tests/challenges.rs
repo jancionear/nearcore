@@ -11,13 +11,15 @@ fn test_no_challenge_on_same_header() {
     let prev_hash = *chain.head_header().unwrap().hash();
     let prev = chain.get_block(&prev_hash).unwrap();
     let block = TestBlockBuilder::new(Clock::real(), &prev, signer).build();
-    chain.process_block_test(&None, block.clone()).unwrap();
+    chain
+        .process_block_test(&None, block.clone())
+        .unwrap();
     assert_eq!(chain.head().unwrap().height, 1);
     let mut challenges = vec![];
     if let Err(e) = chain.process_block_header(block.header(), &mut challenges) {
         match e {
-            Error::BlockKnown(_) => {}
-            _ => panic!("Wrong error kind {}", e),
+            | Error::BlockKnown(_) => {}
+            | _ => panic!("Wrong error kind {}", e),
         }
         assert!(challenges.is_empty());
     } else {

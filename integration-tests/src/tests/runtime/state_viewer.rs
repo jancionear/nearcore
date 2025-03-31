@@ -52,7 +52,7 @@ impl ProofVerifier {
         let mut expected_hash = state_root;
         while let Some(node) = self.nodes.get(expected_hash) {
             match &node.node {
-                RawTrieNode::Leaf(node_key, value) => {
+                | RawTrieNode::Leaf(node_key, value) => {
                     let nib = &NibbleSlice::from_encoded(&node_key).0;
                     return if &key != nib {
                         expected.is_none()
@@ -60,7 +60,7 @@ impl ProofVerifier {
                         expected.is_some_and(|expected| value == expected)
                     };
                 }
-                RawTrieNode::Extension(node_key, child_hash) => {
+                | RawTrieNode::Extension(node_key, child_hash) => {
                     expected_hash = child_hash;
 
                     // To avoid unnecessary copy
@@ -70,28 +70,28 @@ impl ProofVerifier {
                     }
                     key = key.mid(nib.len());
                 }
-                RawTrieNode::BranchNoValue(children) => {
+                | RawTrieNode::BranchNoValue(children) => {
                     if key.is_empty() {
                         return expected.is_none();
                     }
                     match children[key.at(0)] {
-                        Some(ref child_hash) => {
+                        | Some(ref child_hash) => {
                             key = key.mid(1);
                             expected_hash = child_hash;
                         }
-                        None => return expected.is_none(),
+                        | None => return expected.is_none(),
                     }
                 }
-                RawTrieNode::BranchWithValue(value, children) => {
+                | RawTrieNode::BranchWithValue(value, children) => {
                     if key.is_empty() {
                         return expected.is_some_and(|exp| value == exp);
                     }
                     match children[key.at(0)] {
-                        Some(ref child_hash) => {
+                        | Some(ref child_hash) => {
                             key = key.mid(1);
                             expected_hash = child_hash;
                         }
-                        None => return expected.is_none(),
+                        | None => return expected.is_none(),
                     }
                 }
             }
@@ -156,7 +156,8 @@ fn test_view_call_try_changing_storage() {
     );
     let err = result.unwrap_err();
     assert!(
-        err.to_string().contains(r#"ProhibitedInView { method_name: "storage_write" }"#),
+        err.to_string()
+            .contains(r#"ProhibitedInView { method_name: "storage_write" }"#),
         "Got different error that doesn't match: {}",
         err
     );
@@ -165,7 +166,10 @@ fn test_view_call_try_changing_storage() {
 #[test]
 fn test_view_call_with_args() {
     let (viewer, root) = get_test_trie_viewer();
-    let args: Vec<_> = [1u64, 2u64].iter().flat_map(|x| (*x).to_le_bytes().to_vec()).collect();
+    let args: Vec<_> = [1u64, 2u64]
+        .iter()
+        .flat_map(|x| (*x).to_le_bytes().to_vec())
+        .collect();
     let mut logs = vec![];
     let view_state = ViewApplyState {
         block_height: 1,
@@ -217,8 +221,15 @@ fn assert_view_state(
     // Test with proof included
     let result = view_state(true).unwrap();
     assert_eq!(values, result.values);
-    let got = result.proof.iter().map(|bytes| to_base64(bytes)).collect::<Vec<_>>();
-    let got = got.iter().map(String::as_str).collect::<Vec<_>>();
+    let got = result
+        .proof
+        .iter()
+        .map(|bytes| to_base64(bytes))
+        .collect::<Vec<_>>();
+    let got = got
+        .iter()
+        .map(String::as_str)
+        .collect::<Vec<_>>();
     // The proof isn’t deterministic because the state contains test contracts
     // which aren’t built hermetically.  Fortunately, only the first two items
     // in the proof are affected.  First one is the state root which is an
@@ -285,7 +296,10 @@ fn test_view_state() {
         b"321".to_vec(),
     );
     state_update.commit(StateChangeCause::InitialState);
-    let trie_changes = state_update.finalize().unwrap().trie_changes;
+    let trie_changes = state_update
+        .finalize()
+        .unwrap()
+        .trie_changes;
     let mut db_changes = tries.store_update();
     let new_root = tries.apply_all(&trie_changes, shard_uid, &mut db_changes);
     db_changes.commit().unwrap();
@@ -303,7 +317,10 @@ fn test_view_state() {
         "AAMAAAAgMjMDAAAApmWkWSBCL51Bfkhn79xPuKBKHz//H6B+mY6G9/eieuNtAAAAAAAAAA==",
         "AAMAAAAgMjEDAAAAjSPPbIboNKeqbt7VTCbOK7LnSQNTjGG91dIZeZerL3JtAAAAAAAAAA==",
     ];
-    let values = [(&b"test123"[..], &b"123"[..]), (&b"test321"[..], &b"321"[..])];
+    let values = [
+        (&b"test123"[..], &b"123"[..]),
+        (&b"test321"[..], &b"321"[..]),
+    ];
     assert_view_state(&trie_viewer, &state_update, b"", &values, &proof);
     assert_view_state(&trie_viewer, &state_update, b"test", &values, &proof);
 

@@ -32,13 +32,25 @@ struct Inner {
 impl Inner {
     /// Select a connected peer on some shortest path to `peer_id`.
     /// If there are several such peers, pick the least recently used one.
-    fn find_next_hop(&mut self, peer_id: &PeerId) -> Result<PeerId, FindRouteError> {
-        let peers = self.next_hops.get(peer_id).ok_or(FindRouteError::PeerUnreachable)?;
+    fn find_next_hop(
+        &mut self,
+        peer_id: &PeerId,
+    ) -> Result<PeerId, FindRouteError> {
+        let peers = self
+            .next_hops
+            .get(peer_id)
+            .ok_or(FindRouteError::PeerUnreachable)?;
         let next_hop = peers
             .iter()
-            .min_by_key(|p| self.last_routed.get(*p).copied().unwrap_or(0))
+            .min_by_key(|p| {
+                self.last_routed
+                    .get(*p)
+                    .copied()
+                    .unwrap_or(0)
+            })
             .ok_or(FindRouteError::PeerUnreachable)?;
-        self.last_routed.put(next_hop.clone(), self.find_route_calls);
+        self.last_routed
+            .put(next_hop.clone(), self.find_route_calls);
         self.find_route_calls += 1;
         Ok(next_hop.clone())
     }
@@ -74,7 +86,9 @@ impl RoutingTableView {
         next_hops: Arc<routing::NextHopTable>,
         distance: Arc<routing::DistanceTable>,
     ) {
-        self.0.lock().update(next_hops, distance)
+        self.0
+            .lock()
+            .update(next_hops, distance)
     }
 
     pub(crate) fn reachable_peers(&self) -> usize {
@@ -93,12 +107,26 @@ impl RoutingTableView {
         self.0.lock().find_next_hop(target)
     }
 
-    pub(crate) fn get_distance(&self, peer_id: &PeerId) -> Option<u32> {
-        self.0.lock().distance.get(peer_id).copied()
+    pub(crate) fn get_distance(
+        &self,
+        peer_id: &PeerId,
+    ) -> Option<u32> {
+        self.0
+            .lock()
+            .distance
+            .get(peer_id)
+            .copied()
     }
 
-    pub(crate) fn view_route(&self, peer_id: &PeerId) -> Option<Vec<PeerId>> {
-        self.0.lock().next_hops.get(peer_id).cloned()
+    pub(crate) fn view_route(
+        &self,
+        peer_id: &PeerId,
+    ) -> Option<Vec<PeerId>> {
+        self.0
+            .lock()
+            .next_hops
+            .get(peer_id)
+            .cloned()
     }
 
     pub(crate) fn info(&self) -> RoutingTableInfo {

@@ -27,7 +27,9 @@ impl UndoBlockCommand {
             near_config.config.archival_config(),
         );
 
-        let storage = store_opener.open_in_mode(Mode::ReadWrite).unwrap();
+        let storage = store_opener
+            .open_in_mode(Mode::ReadWrite)
+            .unwrap();
         let store = storage.get_hot_store();
 
         let epoch_manager = EpochManager::new_arc_handle(
@@ -38,9 +40,17 @@ impl UndoBlockCommand {
 
         let mut chain_store = ChainStore::new(
             store,
-            near_config.genesis.config.genesis_height,
-            near_config.client_config.save_trie_changes,
-            near_config.genesis.config.transaction_validity_period,
+            near_config
+                .genesis
+                .config
+                .genesis_height,
+            near_config
+                .client_config
+                .save_trie_changes,
+            near_config
+                .genesis
+                .config
+                .transaction_validity_period,
         );
 
         if self.reset_only_body {

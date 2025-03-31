@@ -20,13 +20,13 @@ pub fn test_ts_contract() {
         let fees = Arc::new(RuntimeFeesConfig::test());
 
         // Call method that panics.
-        let runtime = vm_kind.runtime(config.clone()).expect("runtime has not been compiled");
+        let runtime = vm_kind
+            .runtime(config.clone())
+            .expect("runtime has not been compiled");
         let gas_counter = context.make_gas_counter(&config);
-        let result = runtime.prepare(&fake_external, None, gas_counter, "try_panic").run(
-            &mut fake_external,
-            &context,
-            Arc::clone(&fees),
-        );
+        let result = runtime
+            .prepare(&fake_external, None, gas_counter, "try_panic")
+            .run(&mut fake_external, &context, Arc::clone(&fees));
         let outcome = result.expect("execution failed");
         assert_eq!(
             outcome.aborted,
@@ -37,7 +37,9 @@ pub fn test_ts_contract() {
 
         // Call method that writes something into storage.
         let context = create_context(b"foo bar".to_vec());
-        let runtime = vm_kind.runtime(config.clone()).expect("runtime has not been compiled");
+        let runtime = vm_kind
+            .runtime(config.clone())
+            .expect("runtime has not been compiled");
         let gas_counter = context.make_gas_counter(&config);
         runtime
             .prepare(&fake_external, None, gas_counter, "try_storage_write")
@@ -54,7 +56,9 @@ pub fn test_ts_contract() {
 
         // Call method that reads the value from storage using registers.
         let context = create_context(b"foo".to_vec());
-        let runtime = vm_kind.runtime(config.clone()).expect("runtime has not been compiled");
+        let runtime = vm_kind
+            .runtime(config.clone())
+            .expect("runtime has not been compiled");
         let gas_counter = context.make_gas_counter(&config);
         let outcome = runtime
             .prepare(&fake_external, None, gas_counter, "try_storage_read")

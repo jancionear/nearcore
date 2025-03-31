@@ -10,13 +10,18 @@ use crate::Client;
 impl Client {
     // Temporary feature to make node produce state witness for every chunk in every processed block
     // and then self-validate it.
-    pub(crate) fn shadow_validate_block_chunks(&mut self, block: &Block) -> Result<(), Error> {
+    pub(crate) fn shadow_validate_block_chunks(
+        &mut self,
+        block: &Block,
+    ) -> Result<(), Error> {
         if !cfg!(feature = "shadow_chunk_validation") {
             return Ok(());
         }
         let block_hash = block.hash();
         tracing::debug!(target: "client", ?block_hash, "shadow validation for block chunks");
-        let prev_block = self.chain.get_block(block.header().prev_hash())?;
+        let prev_block = self
+            .chain
+            .get_block(block.header().prev_hash())?;
         let prev_block_chunks = prev_block.chunks();
         for (shard_index, chunk) in block
             .chunks()
@@ -24,9 +29,13 @@ impl Client {
             .enumerate()
             .filter(|(_, chunk)| chunk.is_new_chunk(block.header().height()))
         {
-            let chunk = self.chain.get_chunk_clone_from_header(chunk)?;
+            let chunk = self
+                .chain
+                .get_chunk_clone_from_header(chunk)?;
             // TODO(resharding) This doesn't work if shard layout changes.
-            let prev_chunk_header = prev_block_chunks.get(shard_index).unwrap();
+            let prev_chunk_header = prev_block_chunks
+                .get(shard_index)
+                .unwrap();
             if let Err(err) =
                 self.shadow_validate_chunk(prev_block.header(), prev_chunk_header, &chunk)
             {
@@ -51,7 +60,9 @@ impl Client {
         chunk: &ShardChunk,
     ) -> Result<(), Error> {
         let chunk_header = chunk.cloned_header();
-        let last_chunk = self.chain.get_chunk(&prev_chunk_header.chunk_hash())?;
+        let last_chunk = self
+            .chain
+            .get_chunk(&prev_chunk_header.chunk_hash())?;
 
         let transactions_validation_storage_config = RuntimeStorageConfig {
             state_root: chunk_header.prev_state_root(),
@@ -84,14 +95,17 @@ impl Client {
             validated_transactions.storage_proof,
         )?;
         if self.config.save_latest_witnesses {
-            self.chain.chain_store.save_latest_chunk_state_witness(&state_witness)?;
+            self.chain
+                .chain_store
+                .save_latest_chunk_state_witness(&state_witness)?;
         }
-        self.chain.shadow_validate_state_witness(
-            state_witness,
-            self.epoch_manager.as_ref(),
-            self.runtime_adapter.as_ref(),
-            None,
-        )?;
+        self.chain
+            .shadow_validate_state_witness(
+                state_witness,
+                self.epoch_manager.as_ref(),
+                self.runtime_adapter.as_ref(),
+                None,
+            )?;
         Ok(())
     }
 }

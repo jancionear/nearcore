@@ -137,7 +137,6 @@ pub(crate) enum ActionType {
     DataReceipt,
     Delegate,
     DeployGlobalContract,
-    UseGlobalContract,
 }
 
 impl ContractAccount {
@@ -192,7 +191,10 @@ impl ContractAccount {
 }
 
 impl ContractAccountIterator {
-    pub(crate) fn new(trie: Trie, filter: ContractAccountFilter) -> anyhow::Result<Self> {
+    pub(crate) fn new(
+        trie: Trie,
+        filter: ContractAccountFilter,
+    ) -> anyhow::Result<Self> {
         let mut trie_iter = trie.disk_iter()?;
         // TODO(#8376): Consider changing the interface to TrieKey to make this easier.
         // `TrieKey::ContractCode` requires a valid `AccountId`, we use "xx"
@@ -201,7 +203,9 @@ impl ContractAccountIterator {
         assert_eq!(suffix, "xx".as_bytes());
 
         // `visit_nodes_interval` wants nibbles stored in `Vec<u8>` as input
-        let nibbles_before: Vec<u8> = NibbleSlice::new(prefix).iter().collect();
+        let nibbles_before: Vec<u8> = NibbleSlice::new(prefix)
+            .iter()
+            .collect();
         let nibbles_after = {
             let mut tmp = nibbles_before.clone();
             *tmp.last_mut().unwrap() += 1;
@@ -218,26 +222,34 @@ impl ContractAccountIterator {
 
 /// Helper trait for blanket implementation, making the iterator composable.
 pub(crate) trait Summary {
-    fn summary(self, store: &Store, filter: &ContractAccountFilter) -> ContractAccountSummary;
+    fn summary(
+        self,
+        store: &Store,
+        filter: &ContractAccountFilter,
+    ) -> ContractAccountSummary;
 }
 
 impl<T: Iterator<Item = Result<ContractAccount>>> Summary for T {
     /// Eagerly evaluate everything selected by the filter, including fields
     /// that are not available in the streaming iterator.
-    fn summary(self, store: &Store, filter: &ContractAccountFilter) -> ContractAccountSummary {
+    fn summary(
+        self,
+        store: &Store,
+        filter: &ContractAccountFilter,
+    ) -> ContractAccountSummary {
         let mut errors = vec![];
         let mut contracts = BTreeMap::new();
 
         for result in self {
             match result {
-                Ok(mut contract) => {
+                | Ok(mut contract) => {
                     // initialize values, we want zero values in the output when nothing is found
                     contract.info.receipts_in = Some(0);
                     contract.info.receipts_out = Some(0);
                     contract.info.actions = Some(BTreeSet::new());
                     contracts.insert(contract.account_id, contract.info);
                 }
-                Err(e) => {
+                | Err(e) => {
                     // Print the error in stderr so that it is immediately
                     // visible in the terminal when something goes wrong but
                     // without spoiling stdout.
@@ -307,7 +319,9 @@ fn try_find_actions_spawned_by_receipt(
     // avoid the entry API because normal contains/get_mut seems simpler.
     if accounts.contains_key(receipt.receiver_id()) {
         // yes, this is a contract in our map (skip/select filtering has already been applied when constructing the map)
-        let entry = accounts.get_mut(receipt.receiver_id()).unwrap();
+        let entry = accounts
+            .get_mut(receipt.receiver_id())
+            .unwrap();
         if filter.receipts_in {
             *entry.receipts_in.get_or_insert(0) += 1;
         }
@@ -331,29 +345,28 @@ fn try_find_actions_spawned_by_receipt(
                         ContractAccountError::MissingOutgoingReceipt(*outgoing_receipt_id)
                     })?;
                     match outgoing_receipt.receipt() {
-                        ReceiptEnum::Action(action_receipt)
+                        | ReceiptEnum::Action(action_receipt)
                         | ReceiptEnum::PromiseYield(action_receipt) => {
                             for action in &action_receipt.actions {
                                 let action_type = match action {
-                                    Action::CreateAccount(_) => ActionType::CreateAccount,
-                                    Action::DeployContract(_) => ActionType::DeployContract,
-                                    Action::FunctionCall(_) => ActionType::FunctionCall,
-                                    Action::Transfer(_) => ActionType::Transfer,
+                                    | Action::CreateAccount(_) => ActionType::CreateAccount,
+                                    | Action::DeployContract(_) => ActionType::DeployContract,
+                                    | Action::FunctionCall(_) => ActionType::FunctionCall,
+                                    | Action::Transfer(_) => ActionType::Transfer,
                                     #[cfg(
                                         feature = "protocol_feature_nonrefundable_transfer_nep491"
                                     )]
-                                    Action::NonrefundableStorageTransfer(_) => {
+                                    | Action::NonrefundableStorageTransfer(_) => {
                                         ActionType::NonrefundableStorageTransfer
                                     }
-                                    Action::Stake(_) => ActionType::Stake,
-                                    Action::AddKey(_) => ActionType::AddKey,
-                                    Action::DeleteKey(_) => ActionType::DeleteKey,
-                                    Action::DeleteAccount(_) => ActionType::DeleteAccount,
-                                    Action::Delegate(_) => ActionType::Delegate,
-                                    Action::DeployGlobalContract(_) => {
+                                    | Action::Stake(_) => ActionType::Stake,
+                                    | Action::AddKey(_) => ActionType::AddKey,
+                                    | Action::DeleteKey(_) => ActionType::DeleteKey,
+                                    | Action::DeleteAccount(_) => ActionType::DeleteAccount,
+                                    | Action::Delegate(_) => ActionType::Delegate,
+                                    | Action::DeployGlobalContract(_) => {
                                         ActionType::DeployGlobalContract
                                     }
-                                    Action::UseGlobalContract(_) => ActionType::UseGlobalContract,
                                 };
                                 entry
                                     .actions
@@ -361,7 +374,7 @@ fn try_find_actions_spawned_by_receipt(
                                     .insert(action_type);
                             }
                         }
-                        ReceiptEnum::Data(_) | ReceiptEnum::PromiseResume(_) => {
+                        | ReceiptEnum::Data(_) | ReceiptEnum::PromiseResume(_) => {
                             entry
                                 .actions
                                 .get_or_insert_with(Default::default)
@@ -406,13 +419,19 @@ impl Iterator for ContractAccountIterator {
 }
 
 impl std::fmt::Display for ContractAccount {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+    ) -> std::fmt::Result {
         fmt_account_id_and_info(&self.account_id, &self.info, f)
     }
 }
 
 impl std::fmt::Display for ContractAccountSummary {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+    ) -> std::fmt::Result {
         for (account_id, info) in &self.contracts {
             fmt_account_id_and_info(account_id, info, f)?;
             writeln!(f)?;
@@ -460,7 +479,10 @@ fn fmt_account_id_and_info(
 }
 
 impl ContractAccountFilter {
-    pub(crate) fn write_header(&self, out: &mut impl std::io::Write) -> std::io::Result<()> {
+    pub(crate) fn write_header(
+        &self,
+        out: &mut impl std::io::Write,
+    ) -> std::io::Result<()> {
         write!(out, "{:<64}", "ACCOUNT_ID",)?;
         if self.code_size {
             write!(out, " {:>9}", "SIZE[B]")?;
@@ -477,7 +499,10 @@ impl ContractAccountFilter {
         writeln!(out)
     }
 
-    fn include_account(&self, account: &AccountId) -> bool {
+    fn include_account(
+        &self,
+        account: &AccountId,
+    ) -> bool {
         if let Some(include) = &self.select_accounts {
             include.contains(account)
         } else if let Some(exclude) = &self.skip_accounts {
@@ -528,14 +553,21 @@ mod tests {
         let trie = create_trie(initial);
 
         let filter = ContractAccountFilter { code_size: true, ..Default::default() };
-        let contract_accounts: Vec<_> =
-            ContractAccount::in_trie(trie, filter).expect("failed creating iterator").collect();
+        let contract_accounts: Vec<_> = ContractAccount::in_trie(trie, filter)
+            .expect("failed creating iterator")
+            .collect();
         assert_eq!(3, contract_accounts.len(), "wrong number of contracts returned by iterator");
 
         // expect reordering toe lexicographic order
-        let contract1 = contract_accounts[0].as_ref().expect("returned error instead of contract");
-        let contract2 = contract_accounts[1].as_ref().expect("returned error instead of contract");
-        let contract3 = contract_accounts[2].as_ref().expect("returned error instead of contract");
+        let contract1 = contract_accounts[0]
+            .as_ref()
+            .expect("returned error instead of contract");
+        let contract2 = contract_accounts[1]
+            .as_ref()
+            .expect("returned error instead of contract");
+        let contract3 = contract_accounts[2]
+            .as_ref()
+            .expect("returned error instead of contract");
         assert_eq!(contract1.account_id.as_str(), "alice.near");
         assert_eq!(contract2.account_id.as_str(), "alice.nearx");
         assert_eq!(contract3.account_id.as_str(), "caroline.near");
@@ -547,7 +579,10 @@ mod tests {
     /// Check basic summary output and make sure the output looks right.
     #[test]
     fn test_simple_summary() {
-        let trie_data = vec![contract_tuple("alice.near", 100), contract_tuple("bob.near", 200)];
+        let trie_data = vec![
+            contract_tuple("alice.near", 100),
+            contract_tuple("bob.near", 200),
+        ];
         let (store, trie) = create_store_and_trie([].into_iter(), &[], trie_data);
 
         let filter = full_filter();
@@ -580,12 +615,14 @@ mod tests {
         let fn_call_receipt = create_receipt_with_actions(
             "alice.near",
             "bob.near",
-            vec![Action::FunctionCall(Box::new(FunctionCallAction {
-                method_name: "foo".to_owned(),
-                args: vec![],
-                gas: 1000,
-                deposit: 0,
-            }))],
+            vec![Action::FunctionCall(Box::new(
+                FunctionCallAction {
+                    method_name: "foo".to_owned(),
+                    args: vec![],
+                    gas: 1000,
+                    deposit: 0,
+                },
+            ))],
         );
 
         // This is the receipt spawned, with the actions triggered by the
@@ -616,7 +653,10 @@ mod tests {
             store_tripple(DBCol::Receipts, &outgoing_receipt_id, &outgoing_receipt),
         ];
 
-        let trie_data = vec![contract_tuple("alice.near", 100), contract_tuple("bob.near", 200)];
+        let trie_data = vec![
+            contract_tuple("alice.near", 100),
+            contract_tuple("bob.near", 200),
+        ];
         let (store, trie) =
             create_store_and_trie(store_data.into_iter(), &store_data_rc, trie_data);
 
@@ -652,7 +692,9 @@ mod tests {
         let store = create_test_store();
         test_populate_store(&store, store_data);
         test_populate_store_rc(&store, store_data_rc);
-        let tries = TestTriesBuilder::new().with_store(store.clone()).build();
+        let tries = TestTriesBuilder::new()
+            .with_store(store.clone())
+            .build();
         let root =
             test_populate_trie(&tries, &Trie::EMPTY_ROOT, ShardUId::single_shard(), trie_data);
         let trie = tries.get_trie_for_shard(ShardUId::single_shard(), root);
@@ -660,7 +702,10 @@ mod tests {
     }
 
     /// Create a test contract key-value pair to insert in the test trie, with specified amount of bytes.
-    fn contract_tuple(account: &str, num_bytes: u8) -> (Vec<u8>, Option<Vec<u8>>) {
+    fn contract_tuple(
+        account: &str,
+        num_bytes: u8,
+    ) -> (Vec<u8>, Option<Vec<u8>>) {
         (
             TrieKey::ContractCode { account_id: account.parse().unwrap() }.to_vec(),
             Some(vec![num_bytes; num_bytes as usize]),
@@ -668,12 +713,18 @@ mod tests {
     }
 
     /// Create a test account key-value pair to insert in the test trie.
-    fn account_tuple(account: &str, num: u8) -> (Vec<u8>, Option<Vec<u8>>) {
+    fn account_tuple(
+        account: &str,
+        num: u8,
+    ) -> (Vec<u8>, Option<Vec<u8>>) {
         (TrieKey::Account { account_id: account.parse().unwrap() }.to_vec(), Some(vec![num, num]))
     }
 
     /// Create a test access key key-value pair to insert in the test trie.
-    fn access_key_tuple(account: &str, num: u8) -> (Vec<u8>, Option<Vec<u8>>) {
+    fn access_key_tuple(
+        account: &str,
+        num: u8,
+    ) -> (Vec<u8>, Option<Vec<u8>>) {
         (
             TrieKey::AccessKey {
                 account_id: account.parse().unwrap(),
@@ -725,7 +776,11 @@ mod tests {
     }
 
     /// Create a test receipt from sender to receiver with the given actions.
-    fn create_receipt_with_actions(sender: &str, receiver: &str, actions: Vec<Action>) -> Receipt {
+    fn create_receipt_with_actions(
+        sender: &str,
+        receiver: &str,
+        actions: Vec<Action>,
+    ) -> Receipt {
         let sender_id: AccountId = sender.parse().unwrap();
         let signer =
             InMemorySigner::from_seed(sender_id.clone(), near_crypto::KeyType::ED25519, "seed");

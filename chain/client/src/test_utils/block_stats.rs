@@ -30,7 +30,11 @@ impl BlockStats {
         }
     }
 
-    fn calculate_distance(&mut self, mut lhs: CryptoHash, mut rhs: CryptoHash) -> u64 {
+    fn calculate_distance(
+        &mut self,
+        mut lhs: CryptoHash,
+        mut rhs: CryptoHash,
+    ) -> u64 {
         // cspell:words dlhs drhs
         let mut dlhs = *self.hash2depth.get(&lhs).unwrap();
         let mut drhs = *self.hash2depth.get(&rhs).unwrap();
@@ -54,15 +58,27 @@ impl BlockStats {
         result
     }
 
-    pub(crate) fn add_block(&mut self, block: &Block) {
-        if self.hash2depth.contains_key(block.hash()) {
+    pub(crate) fn add_block(
+        &mut self,
+        block: &Block,
+    ) {
+        if self
+            .hash2depth
+            .contains_key(block.hash())
+        {
             return;
         }
-        let prev_height = self.hash2depth.get(block.header().prev_hash()).map(|v| *v).unwrap_or(0);
-        self.hash2depth.insert(*block.hash(), prev_height + 1);
+        let prev_height = self
+            .hash2depth
+            .get(block.header().prev_hash())
+            .map(|v| *v)
+            .unwrap_or(0);
+        self.hash2depth
+            .insert(*block.hash(), prev_height + 1);
         self.num_blocks += 1;
         self.max_chain_length = max(self.max_chain_length, prev_height + 1);
-        self.parent.insert(*block.hash(), *block.header().prev_hash());
+        self.parent
+            .insert(*block.hash(), *block.header().prev_hash());
 
         if let Some(last_hash2) = self.last_hash {
             self.max_divergence =
@@ -72,7 +88,10 @@ impl BlockStats {
         self.last_hash = Some(*block.hash());
     }
 
-    pub fn check_stats(&mut self, force: bool) {
+    pub fn check_stats(
+        &mut self,
+        force: bool,
+    ) {
         let now = self.clock.now();
         let diff = now - self.last_check;
         if !force && diff < Duration::seconds(60) {
@@ -86,7 +105,11 @@ impl BlockStats {
         );
     }
 
-    pub fn check_block_ratio(&mut self, min_ratio: Option<f64>, max_ratio: Option<f64>) {
+    pub fn check_block_ratio(
+        &mut self,
+        min_ratio: Option<f64>,
+        max_ratio: Option<f64>,
+    ) {
         let cur_ratio = (self.num_blocks as f64) / (max(1, self.max_chain_length) as f64);
         if let Some(min_ratio2) = min_ratio {
             if cur_ratio < min_ratio2 {

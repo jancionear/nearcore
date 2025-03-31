@@ -37,7 +37,10 @@ pub struct Wast {
 
 impl Wast {
     /// Construct a new instance of `Wast` with a given imports.
-    pub fn new(store: Store, import_object: ImportObject) -> Self {
+    pub fn new(
+        store: Store,
+        import_object: ImportObject,
+    ) -> Self {
         Self {
             current: None,
             store,
@@ -53,15 +56,24 @@ impl Wast {
     }
 
     /// A list of instantiation failures to allow.
-    pub fn allow_instantiation_failures(&mut self, failures: &[&str]) {
+    pub fn allow_instantiation_failures(
+        &mut self,
+        failures: &[&str],
+    ) {
         for &failure_str in failures.iter() {
-            self.allowed_instantiation_failures.insert(failure_str.to_string());
+            self.allowed_instantiation_failures
+                .insert(failure_str.to_string());
         }
     }
 
     /// A list of alternative messages to permit for a trap failure.
-    pub fn allow_trap_message(&mut self, expected: &str, allowed: &str) {
-        self.match_trap_messages.insert(expected.into(), allowed.into());
+    pub fn allow_trap_message(
+        &mut self,
+        expected: &str,
+        allowed: &str,
+    ) {
+        self.match_trap_messages
+            .insert(expected.into(), allowed.into());
     }
 
     /// Do not run any code in assert_trap or assert_exhaustion.
@@ -75,27 +87,36 @@ impl Wast {
         Self::new(store, import_object)
     }
 
-    fn get_instance(&self, instance_name: Option<&str>) -> Result<Instance> {
+    fn get_instance(
+        &self,
+        instance_name: Option<&str>,
+    ) -> Result<Instance> {
         match instance_name {
-            Some(name) => self
+            | Some(name) => self
                 .instances
                 .get(name)
                 .cloned()
                 .ok_or_else(|| anyhow!("failed to find instance named `{}`", name)),
-            None => self.current.clone().ok_or_else(|| anyhow!("no previous instance found")),
+            | None => self
+                .current
+                .clone()
+                .ok_or_else(|| anyhow!("no previous instance found")),
         }
     }
 
     /// Perform the action portion of a command.
-    fn perform_execute(&mut self, exec: wast::WastExecute<'_>) -> Result<Vec<Val>> {
+    fn perform_execute(
+        &mut self,
+        exec: wast::WastExecute<'_>,
+    ) -> Result<Vec<Val>> {
         match exec {
-            wast::WastExecute::Invoke(invoke) => self.perform_invoke(invoke),
-            wast::WastExecute::Module(mut module) => {
+            | wast::WastExecute::Invoke(invoke) => self.perform_invoke(invoke),
+            | wast::WastExecute::Module(mut module) => {
                 let binary = module.encode()?;
                 let result = self.instantiate(&binary);
                 result.map(|_| Vec::new())
             }
-            wast::WastExecute::Get { module, global } => {
+            | wast::WastExecute::Get { module, global } => {
                 let instance_name = module.map(|i| i.name());
                 let instance = self.get_instance(instance_name.as_deref())?;
                 let global = if let Some(Export::Global(global)) = instance.lookup(global) {
@@ -108,8 +129,15 @@ impl Wast {
         }
     }
 
-    fn perform_invoke(&mut self, exec: wast::WastInvoke<'_>) -> Result<Vec<Val>> {
-        let values = exec.args.iter().map(|a| self.runtime_value(a)).collect::<Result<Vec<_>>>()?;
+    fn perform_invoke(
+        &mut self,
+        exec: wast::WastInvoke<'_>,
+    ) -> Result<Vec<Val>> {
+        let values = exec
+            .args
+            .iter()
+            .map(|a| self.runtime_value(a))
+            .collect::<Result<Vec<_>>>()?;
         self.invoke(exec.module.map(|i| i.name()), exec.name, &values)
     }
 
@@ -138,10 +166,14 @@ impl Wast {
         Ok(())
     }
 
-    fn assert_trap(&self, result: Result<Vec<Val>>, expected: &str) -> Result<()> {
+    fn assert_trap(
+        &self,
+        result: Result<Vec<Val>>,
+        expected: &str,
+    ) -> Result<()> {
         let actual = match result {
-            Ok(values) => bail!("expected trap, got {:?}", values),
-            Err(t) => format!("{}", t),
+            | Ok(values) => bail!("expected trap, got {:?}", values),
+            | Err(t) => format!("{}", t),
         };
         if self.matches_message_assert_trap(expected, &actual) {
             return Ok(());
@@ -149,73 +181,77 @@ impl Wast {
         bail!("expected '{}', got '{}'", expected, actual)
     }
 
-    fn run_directive(&mut self, test: &Path, directive: wast::WastDirective) -> Result<()> {
+    fn run_directive(
+        &mut self,
+        test: &Path,
+        directive: wast::WastDirective,
+    ) -> Result<()> {
         use wast::WastDirective::*;
 
         match directive {
-            Module(mut module) => {
+            | Module(mut module) => {
                 let binary = module.encode()?;
                 self.module(module.id.map(|s| s.name()), &binary)?;
             }
-            Register { span: _, name, module } => {
+            | Register { span: _, name, module } => {
                 self.register(module.map(|s| s.name()), name)?;
             }
-            Invoke(i) => {
+            | Invoke(i) => {
                 self.perform_invoke(i)?;
             }
-            AssertReturn { span: _, exec, results } => {
+            | AssertReturn { span: _, exec, results } => {
                 let result = self.perform_execute(exec);
                 self.assert_return(result, &results)?;
             }
-            AssertTrap { span: _, exec, message } => {
+            | AssertTrap { span: _, exec, message } => {
                 if !self.disable_assert_trap_exhaustion {
                     let result = self.perform_execute(exec);
                     self.assert_trap(result, message)?;
                 }
             }
-            AssertExhaustion { span: _, call, message } => {
+            | AssertExhaustion { span: _, call, message } => {
                 if !self.disable_assert_trap_exhaustion {
                     let result = self.perform_invoke(call);
                     self.assert_trap(result, message)?;
                 }
             }
-            AssertInvalid { span: _, module, message } => {
+            | AssertInvalid { span: _, module, message } => {
                 let wasm = match module {
-                    wast::QuoteModule::Module(mut m) => m.encode()?,
-                    wast::QuoteModule::Quote(list) => self.parse_quote_module(test, &list)?,
+                    | wast::QuoteModule::Module(mut m) => m.encode()?,
+                    | wast::QuoteModule::Quote(list) => self.parse_quote_module(test, &list)?,
                 };
                 let err = match self.module(None, &wasm) {
-                    Ok(()) => bail!("expected module to fail to build"),
-                    Err(e) => e,
+                    | Ok(()) => bail!("expected module to fail to build"),
+                    | Err(e) => e,
                 };
                 let error_message = format!("{:?}", err);
                 if !Self::matches_message_assert_invalid(message, &error_message) {
                     bail!("assert_invalid: expected \"{}\", got \"{}\"", message, error_message)
                 }
             }
-            QuoteModule { .. } => {
+            | QuoteModule { .. } => {
                 // Do nothing
             }
-            AssertException { .. } => {
+            | AssertException { .. } => {
                 // Do nothing for now
             }
-            AssertMalformed { module, span: _, message: _ } => {
+            | AssertMalformed { module, span: _, message: _ } => {
                 let mut module = match module {
-                    wast::QuoteModule::Module(m) => m,
+                    | wast::QuoteModule::Module(m) => m,
                     // This is a `*.wat` parser test which we're not
                     // interested in.
-                    wast::QuoteModule::Quote(_) => return Ok(()),
+                    | wast::QuoteModule::Quote(_) => return Ok(()),
                 };
                 let bytes = module.encode()?;
                 if self.module(None, &bytes).is_ok() {
                     bail!("expected malformed module to fail to instantiate");
                 }
             }
-            AssertUnlinkable { span: _, mut module, message } => {
+            | AssertUnlinkable { span: _, mut module, message } => {
                 let bytes = module.encode()?;
                 let err = match self.module(None, &bytes) {
-                    Ok(()) => bail!("expected module to fail to link"),
-                    Err(e) => e,
+                    | Ok(()) => bail!("expected module to fail to link"),
+                    | Err(e) => e,
                 };
                 let error_message = format!("{:?}", err);
                 if !Self::matches_message_assert_unlinkable(message, &error_message) {
@@ -228,7 +264,11 @@ impl Wast {
     }
 
     /// Run a wast script from a byte buffer.
-    pub fn run_buffer(&mut self, test: &Path, wast: &[u8]) -> Result<()> {
+    pub fn run_buffer(
+        &mut self,
+        test: &Path,
+        wast: &[u8],
+    ) -> Result<()> {
         let wast = str::from_utf8(wast)?;
         let filename = test.to_str().unwrap();
         let adjust_wast = |mut err: wast::Error| {
@@ -268,12 +308,16 @@ impl Wast {
         Ok(())
     }
 
-    fn parse_quote_module(&self, test: &Path, source: &[&[u8]]) -> Result<Vec<u8>> {
+    fn parse_quote_module(
+        &self,
+        test: &Path,
+        source: &[&[u8]],
+    ) -> Result<Vec<u8>> {
         let mut ret = String::new();
         for src in source {
             match str::from_utf8(src) {
-                Ok(s) => ret.push_str(s),
-                Err(_) => bail!("malformed UTF-8 encoding"),
+                | Ok(s) => ret.push_str(s),
+                | Err(_) => bail!("malformed UTF-8 encoding"),
             }
             ret.push(' ');
         }
@@ -294,7 +338,10 @@ impl Wast {
     }
 
     /// Run a wast script from a file.
-    pub fn run_file(&mut self, path: &Path) -> Result<()> {
+    pub fn run_file(
+        &mut self,
+        path: &Path,
+    ) -> Result<()> {
         let bytes = std::fs::read(path)?;
         self.run_buffer(path, &bytes)
     }
@@ -303,16 +350,23 @@ impl Wast {
 // This is the implementation specific to the Runtime
 impl Wast {
     /// Define a module and register it.
-    fn module(&mut self, instance_name: Option<&str>, module: &[u8]) -> Result<()> {
+    fn module(
+        &mut self,
+        instance_name: Option<&str>,
+        module: &[u8],
+    ) -> Result<()> {
         let instance = match self.instantiate(module) {
-            Ok(i) => i,
-            Err(e) => {
+            | Ok(i) => i,
+            | Err(e) => {
                 // We set the current to None to allow running other
                 // spectests when `fail_fast` is `false`.
                 self.current = None;
                 let error_message = format!("{}", e);
                 self.current_is_allowed_failure = false;
-                for allowed_failure in self.allowed_instantiation_failures.iter() {
+                for allowed_failure in self
+                    .allowed_instantiation_failures
+                    .iter()
+                {
                     if error_message.contains(allowed_failure) {
                         self.current_is_allowed_failure = true;
                         break;
@@ -322,14 +376,18 @@ impl Wast {
             }
         };
         if let Some(name) = instance_name {
-            self.instances.insert(name.to_string(), instance.clone());
+            self.instances
+                .insert(name.to_string(), instance.clone());
         }
         self.current = Some(instance);
         self.current_is_allowed_failure = false;
         Ok(())
     }
 
-    fn instantiate(&self, module: &[u8]) -> Result<Instance> {
+    fn instantiate(
+        &self,
+        module: &[u8],
+    ) -> Result<Instance> {
         let module = Module::new(&self.store, module)?;
         let instance =
             Instance::new_with_config(&module, InstanceConfig::with_stack_limit(1000000), &self)?;
@@ -337,9 +395,14 @@ impl Wast {
     }
 
     /// Register an instance to make it available for performing actions.
-    fn register(&mut self, name: Option<&str>, as_name: &str) -> Result<()> {
+    fn register(
+        &mut self,
+        name: Option<&str>,
+        as_name: &str,
+    ) -> Result<()> {
         let instance = self.get_instance(name)?;
-        self.instances.insert(as_name.to_string(), instance);
+        self.instances
+            .insert(as_name.to_string(), instance);
         Ok(())
     }
 
@@ -351,45 +414,62 @@ impl Wast {
         args: &[Val],
     ) -> Result<Vec<Val>> {
         let instance = self.get_instance(instance_name.as_deref())?;
-        instance.handle().instance().as_ref().reset_stack_meter();
-        let func: Function = instance.lookup_function(field).expect("should find the function");
+        instance
+            .handle()
+            .instance()
+            .as_ref()
+            .reset_stack_meter();
+        let func: Function = instance
+            .lookup_function(field)
+            .expect("should find the function");
         match func.call(args) {
-            Ok(result) => Ok(result.into()),
-            Err(e) => Err(e.into()),
+            | Ok(result) => Ok(result.into()),
+            | Err(e) => Err(e.into()),
         }
     }
 
     /// Translate from a `script::Value` to a `Val`.
-    fn runtime_value(&mut self, v: &wast::Expression<'_>) -> Result<Val> {
+    fn runtime_value(
+        &mut self,
+        v: &wast::Expression<'_>,
+    ) -> Result<Val> {
         use wast::Instruction::*;
 
         if v.instrs.len() != 1 {
             bail!("too many instructions in {:?}", v);
         }
         Ok(match &v.instrs[0] {
-            I32Const(x) => Val::I32(*x),
-            I64Const(x) => Val::I64(*x),
-            F32Const(x) => Val::F32(f32::from_bits(x.bits)),
-            F64Const(x) => Val::F64(f64::from_bits(x.bits)),
-            V128Const(x) => Val::V128(u128::from_le_bytes(x.to_le_bytes())),
-            RefNull(wast::HeapType::Func) => Val::FuncRef(None),
-            RefNull(wast::HeapType::Extern) => Val::null(),
-            RefExtern(number) => {
-                let extern_ref =
-                    self.extern_refs.entry(*number).or_insert_with(|| ExternRef::new(*number));
+            | I32Const(x) => Val::I32(*x),
+            | I64Const(x) => Val::I64(*x),
+            | F32Const(x) => Val::F32(f32::from_bits(x.bits)),
+            | F64Const(x) => Val::F64(f64::from_bits(x.bits)),
+            | V128Const(x) => Val::V128(u128::from_le_bytes(x.to_le_bytes())),
+            | RefNull(wast::HeapType::Func) => Val::FuncRef(None),
+            | RefNull(wast::HeapType::Extern) => Val::null(),
+            | RefExtern(number) => {
+                let extern_ref = self
+                    .extern_refs
+                    .entry(*number)
+                    .or_insert_with(|| ExternRef::new(*number));
                 Val::ExternRef(extern_ref.clone())
             }
-            other => bail!("couldn't convert {:?} to a runtime value", other),
+            | other => bail!("couldn't convert {:?} to a runtime value", other),
         })
     }
 
     // Checks if the `assert_unlinkable` message matches the expected one
-    fn matches_message_assert_unlinkable(expected: &str, actual: &str) -> bool {
+    fn matches_message_assert_unlinkable(
+        expected: &str,
+        actual: &str,
+    ) -> bool {
         actual.contains(&expected)
     }
 
     // Checks if the `assert_invalid` message matches the expected one
-    fn matches_message_assert_invalid(expected: &str, actual: &str) -> bool {
+    fn matches_message_assert_invalid(
+        expected: &str,
+        actual: &str,
+    ) -> bool {
         actual.contains(expected)
             // Waiting on https://github.com/WebAssembly/bulk-memory-operations/pull/137
             // to propagate to WebAssembly/testsuite.
@@ -407,7 +487,11 @@ impl Wast {
     }
 
     // Checks if the `assert_trap` message matches the expected one
-    fn matches_message_assert_trap(&self, expected: &str, actual: &str) -> bool {
+    fn matches_message_assert_trap(
+        &self,
+        expected: &str,
+        actual: &str,
+    ) -> bool {
         actual.contains(expected)
             || self
                 .match_trap_messages
@@ -415,46 +499,54 @@ impl Wast {
                 .is_some_and(|alternative| actual.contains(alternative))
     }
 
-    fn val_matches(&self, actual: &Val, expected: &wast::AssertExpression) -> Result<bool> {
+    fn val_matches(
+        &self,
+        actual: &Val,
+        expected: &wast::AssertExpression,
+    ) -> Result<bool> {
         Ok(match (actual, expected) {
-            (Val::I32(a), wast::AssertExpression::I32(b)) => a == b,
-            (Val::I64(a), wast::AssertExpression::I64(b)) => a == b,
+            | (Val::I32(a), wast::AssertExpression::I32(b)) => a == b,
+            | (Val::I64(a), wast::AssertExpression::I64(b)) => a == b,
             // Note that these float comparisons are comparing bits, not float
             // values, so we're testing for bit-for-bit equivalence
-            (Val::F32(a), wast::AssertExpression::F32(b)) => f32_matches(*a, b),
-            (Val::F64(a), wast::AssertExpression::F64(b)) => f64_matches(*a, b),
-            (Val::V128(a), wast::AssertExpression::V128(b)) => v128_matches(*a, b),
-            (Val::FuncRef(None), wast::AssertExpression::RefNull(Some(wast::HeapType::Func))) => {
+            | (Val::F32(a), wast::AssertExpression::F32(b)) => f32_matches(*a, b),
+            | (Val::F64(a), wast::AssertExpression::F64(b)) => f64_matches(*a, b),
+            | (Val::V128(a), wast::AssertExpression::V128(b)) => v128_matches(*a, b),
+            | (Val::FuncRef(None), wast::AssertExpression::RefNull(Some(wast::HeapType::Func))) => {
                 true
             }
-            (Val::FuncRef(Some(_)), wast::AssertExpression::RefNull(_)) => false,
-            (Val::FuncRef(None), wast::AssertExpression::RefFunc(None)) => true,
-            (Val::FuncRef(None), wast::AssertExpression::RefFunc(Some(_))) => false,
-            (
+            | (Val::FuncRef(Some(_)), wast::AssertExpression::RefNull(_)) => false,
+            | (Val::FuncRef(None), wast::AssertExpression::RefFunc(None)) => true,
+            | (Val::FuncRef(None), wast::AssertExpression::RefFunc(Some(_))) => false,
+            | (
                 Val::ExternRef(extern_ref),
                 wast::AssertExpression::RefNull(Some(wast::HeapType::Extern)),
             ) if extern_ref.is_null() => true,
-            (Val::ExternRef(extern_ref), wast::AssertExpression::RefExtern(_))
+            | (Val::ExternRef(extern_ref), wast::AssertExpression::RefExtern(_))
                 if extern_ref.is_null() =>
             {
                 false
             }
 
-            (Val::ExternRef(_), wast::AssertExpression::RefNull(_)) => false,
-            (Val::ExternRef(extern_ref), wast::AssertExpression::RefExtern(num)) => {
+            | (Val::ExternRef(_), wast::AssertExpression::RefNull(_)) => false,
+            | (Val::ExternRef(extern_ref), wast::AssertExpression::RefExtern(num)) => {
                 if let Some(stored_extern_ref) = self.extern_refs.get(num) {
                     extern_ref == stored_extern_ref
                 } else {
                     false
                 }
             }
-            _ => bail!("don't know how to compare {:?} and {:?} yet", actual, expected),
+            | _ => bail!("don't know how to compare {:?} and {:?} yet", actual, expected),
         })
     }
 }
 
 impl NamedResolver for Wast {
-    fn resolve_by_name(&self, module: &str, field: &str) -> Option<Export> {
+    fn resolve_by_name(
+        &self,
+        module: &str,
+        field: &str,
+    ) -> Option<Export> {
         let imports = self.import_object.clone();
 
         if imports.contains_namespace(module) {
@@ -466,66 +558,94 @@ impl NamedResolver for Wast {
     }
 }
 
-fn extract_lane_as_i8(bytes: u128, lane: usize) -> i8 {
+fn extract_lane_as_i8(
+    bytes: u128,
+    lane: usize,
+) -> i8 {
     (bytes >> (lane * 8)) as i8
 }
 
-fn extract_lane_as_i16(bytes: u128, lane: usize) -> i16 {
+fn extract_lane_as_i16(
+    bytes: u128,
+    lane: usize,
+) -> i16 {
     (bytes >> (lane * 16)) as i16
 }
 
-fn extract_lane_as_i32(bytes: u128, lane: usize) -> i32 {
+fn extract_lane_as_i32(
+    bytes: u128,
+    lane: usize,
+) -> i32 {
     (bytes >> (lane * 32)) as i32
 }
 
-fn extract_lane_as_i64(bytes: u128, lane: usize) -> i64 {
+fn extract_lane_as_i64(
+    bytes: u128,
+    lane: usize,
+) -> i64 {
     (bytes >> (lane * 64)) as i64
 }
 
-fn f32_matches(actual: f32, expected: &wast::NanPattern<wast::Float32>) -> bool {
+fn f32_matches(
+    actual: f32,
+    expected: &wast::NanPattern<wast::Float32>,
+) -> bool {
     match expected {
-        wast::NanPattern::CanonicalNan => actual.is_canonical_nan(),
-        wast::NanPattern::ArithmeticNan => actual.is_arithmetic_nan(),
-        wast::NanPattern::Value(expected_value) => actual.to_bits() == expected_value.bits,
+        | wast::NanPattern::CanonicalNan => actual.is_canonical_nan(),
+        | wast::NanPattern::ArithmeticNan => actual.is_arithmetic_nan(),
+        | wast::NanPattern::Value(expected_value) => actual.to_bits() == expected_value.bits,
     }
 }
 
-fn f64_matches(actual: f64, expected: &wast::NanPattern<wast::Float64>) -> bool {
+fn f64_matches(
+    actual: f64,
+    expected: &wast::NanPattern<wast::Float64>,
+) -> bool {
     match expected {
-        wast::NanPattern::CanonicalNan => actual.is_canonical_nan(),
-        wast::NanPattern::ArithmeticNan => actual.is_arithmetic_nan(),
-        wast::NanPattern::Value(expected_value) => actual.to_bits() == expected_value.bits,
+        | wast::NanPattern::CanonicalNan => actual.is_canonical_nan(),
+        | wast::NanPattern::ArithmeticNan => actual.is_arithmetic_nan(),
+        | wast::NanPattern::Value(expected_value) => actual.to_bits() == expected_value.bits,
     }
 }
 
-fn v128_matches(actual: u128, expected: &wast::V128Pattern) -> bool {
+fn v128_matches(
+    actual: u128,
+    expected: &wast::V128Pattern,
+) -> bool {
     match expected {
-        wast::V128Pattern::I8x16(b) => {
-            b.iter().enumerate().all(|(i, b)| *b == extract_lane_as_i8(actual, i))
-        }
-        wast::V128Pattern::I16x8(b) => {
-            b.iter().enumerate().all(|(i, b)| *b == extract_lane_as_i16(actual, i))
-        }
-        wast::V128Pattern::I32x4(b) => {
-            b.iter().enumerate().all(|(i, b)| *b == extract_lane_as_i32(actual, i))
-        }
-        wast::V128Pattern::I64x2(b) => {
-            b.iter().enumerate().all(|(i, b)| *b == extract_lane_as_i64(actual, i))
-        }
-        wast::V128Pattern::F32x4(b) => b.iter().enumerate().all(|(i, b)| {
+        | wast::V128Pattern::I8x16(b) => b
+            .iter()
+            .enumerate()
+            .all(|(i, b)| *b == extract_lane_as_i8(actual, i)),
+        | wast::V128Pattern::I16x8(b) => b
+            .iter()
+            .enumerate()
+            .all(|(i, b)| *b == extract_lane_as_i16(actual, i)),
+        | wast::V128Pattern::I32x4(b) => b
+            .iter()
+            .enumerate()
+            .all(|(i, b)| *b == extract_lane_as_i32(actual, i)),
+        | wast::V128Pattern::I64x2(b) => b
+            .iter()
+            .enumerate()
+            .all(|(i, b)| *b == extract_lane_as_i64(actual, i)),
+        | wast::V128Pattern::F32x4(b) => b.iter().enumerate().all(|(i, b)| {
             let a = extract_lane_as_i32(actual, i) as u32;
             f32_matches(f32::from_bits(a), b)
         }),
-        wast::V128Pattern::F64x2(b) => b.iter().enumerate().all(|(i, b)| {
+        | wast::V128Pattern::F64x2(b) => b.iter().enumerate().all(|(i, b)| {
             let a = extract_lane_as_i64(actual, i) as u64;
             f64_matches(f64::from_bits(a), b)
         }),
     }
 }
 
-fn v128_format(actual: u128, expected: &wast::V128Pattern) -> wast::V128Pattern {
+fn v128_format(
+    actual: u128,
+    expected: &wast::V128Pattern,
+) -> wast::V128Pattern {
     match expected {
-        wast::V128Pattern::I8x16(_) => wast::V128Pattern::I8x16([
+        | wast::V128Pattern::I8x16(_) => wast::V128Pattern::I8x16([
             extract_lane_as_i8(actual, 0),
             extract_lane_as_i8(actual, 1),
             extract_lane_as_i8(actual, 2),
@@ -543,7 +663,7 @@ fn v128_format(actual: u128, expected: &wast::V128Pattern) -> wast::V128Pattern 
             extract_lane_as_i8(actual, 14),
             extract_lane_as_i8(actual, 15),
         ]),
-        wast::V128Pattern::I16x8(_) => wast::V128Pattern::I16x8([
+        | wast::V128Pattern::I16x8(_) => wast::V128Pattern::I16x8([
             extract_lane_as_i16(actual, 0),
             extract_lane_as_i16(actual, 1),
             extract_lane_as_i16(actual, 2),
@@ -553,23 +673,23 @@ fn v128_format(actual: u128, expected: &wast::V128Pattern) -> wast::V128Pattern 
             extract_lane_as_i16(actual, 6),
             extract_lane_as_i16(actual, 7),
         ]),
-        wast::V128Pattern::I32x4(_) => wast::V128Pattern::I32x4([
+        | wast::V128Pattern::I32x4(_) => wast::V128Pattern::I32x4([
             extract_lane_as_i32(actual, 0),
             extract_lane_as_i32(actual, 1),
             extract_lane_as_i32(actual, 2),
             extract_lane_as_i32(actual, 3),
         ]),
-        wast::V128Pattern::I64x2(_) => wast::V128Pattern::I64x2([
+        | wast::V128Pattern::I64x2(_) => wast::V128Pattern::I64x2([
             extract_lane_as_i64(actual, 0),
             extract_lane_as_i64(actual, 1),
         ]),
-        wast::V128Pattern::F32x4(_) => wast::V128Pattern::F32x4([
+        | wast::V128Pattern::F32x4(_) => wast::V128Pattern::F32x4([
             wast::NanPattern::Value(wast::Float32 { bits: extract_lane_as_i32(actual, 0) as _ }),
             wast::NanPattern::Value(wast::Float32 { bits: extract_lane_as_i32(actual, 1) as _ }),
             wast::NanPattern::Value(wast::Float32 { bits: extract_lane_as_i32(actual, 2) as _ }),
             wast::NanPattern::Value(wast::Float32 { bits: extract_lane_as_i32(actual, 3) as _ }),
         ]),
-        wast::V128Pattern::F64x2(_) => wast::V128Pattern::F64x2([
+        | wast::V128Pattern::F64x2(_) => wast::V128Pattern::F64x2([
             wast::NanPattern::Value(wast::Float64 { bits: extract_lane_as_i64(actual, 0) as _ }),
             wast::NanPattern::Value(wast::Float64 { bits: extract_lane_as_i64(actual, 1) as _ }),
         ]),

@@ -40,7 +40,12 @@ impl ExecutionToReceipts {
             .map_err(|e| crate::errors::ErrorKind::InternalError(e.to_string()))?;
         let mut transactions = HashMap::new();
         let mut receipts = HashMap::new();
-        for (shard_id, contained) in block.header.chunk_mask.iter().enumerate() {
+        for (shard_id, contained) in block
+            .header
+            .chunk_mask
+            .iter()
+            .enumerate()
+        {
             if *contained {
                 let chunk = view_client_addr
                     .send(
@@ -51,9 +56,18 @@ impl ExecutionToReceipts {
                     )
                     .await?
                     .map_err(|e| crate::errors::ErrorKind::InternalInvariantError(e.to_string()))?;
-                transactions.extend(chunk.transactions.into_iter().map(|t| (t.hash, t)));
-                receipts
-                    .extend(chunk.receipts.into_iter().map(|t| (t.receipt_id, t.predecessor_id)));
+                transactions.extend(
+                    chunk
+                        .transactions
+                        .into_iter()
+                        .map(|t| (t.hash, t)),
+                );
+                receipts.extend(
+                    chunk
+                        .receipts
+                        .into_iter()
+                        .map(|t| (t.receipt_id, t.predecessor_id)),
+                );
             }
         }
         let map = view_client_addr
@@ -98,7 +112,10 @@ impl ExecutionToReceipts {
 
     /// Returns list of related transactions for given NEAR transaction or
     /// receipt.
-    fn get_related(&self, exec_hash: CryptoHash) -> Vec<crate::models::RelatedTransaction> {
+    fn get_related(
+        &self,
+        exec_hash: CryptoHash,
+    ) -> Vec<crate::models::RelatedTransaction> {
         self.map
             .get(&exec_hash)
             .map(|hashes| {
@@ -131,38 +148,38 @@ fn convert_cause_to_transaction_id(
     use near_primitives::views::StateChangeCauseView;
 
     match cause {
-        StateChangeCauseView::TransactionProcessing { tx_hash } => {
+        | StateChangeCauseView::TransactionProcessing { tx_hash } => {
             Ok((TransactionIdentifier::transaction(tx_hash), Some(*tx_hash)))
         }
-        StateChangeCauseView::ActionReceiptProcessingStarted { receipt_hash }
+        | StateChangeCauseView::ActionReceiptProcessingStarted { receipt_hash }
         | StateChangeCauseView::ActionReceiptGasReward { receipt_hash }
         | StateChangeCauseView::ReceiptProcessing { receipt_hash }
         | StateChangeCauseView::PostponedReceipt { receipt_hash } => {
             Ok((TransactionIdentifier::receipt(receipt_hash), Some(*receipt_hash)))
         }
-        StateChangeCauseView::InitialState => {
+        | StateChangeCauseView::InitialState => {
             Ok((TransactionIdentifier::block_event("block", block_hash), None))
         }
-        StateChangeCauseView::ValidatorAccountsUpdate => {
+        | StateChangeCauseView::ValidatorAccountsUpdate => {
             Ok((TransactionIdentifier::block_event("block-validators-update", block_hash), None))
         }
-        StateChangeCauseView::UpdatedDelayedReceipts => {
+        | StateChangeCauseView::UpdatedDelayedReceipts => {
             Ok((TransactionIdentifier::block_event("block-delayed-receipts", block_hash), None))
         }
-        StateChangeCauseView::NotWritableToDisk => {
+        | StateChangeCauseView::NotWritableToDisk => {
             Err(crate::errors::ErrorKind::InternalInvariantError(
                 "State Change 'NotWritableToDisk' should never be observed".to_string(),
             ))
         }
-        StateChangeCauseView::Migration => {
+        | StateChangeCauseView::Migration => {
             Ok((TransactionIdentifier::block_event("migration", block_hash), None))
         }
-        StateChangeCauseView::ReshardingV2 => {
+        | StateChangeCauseView::ReshardingV2 => {
             Err(crate::errors::ErrorKind::InternalInvariantError(
                 "State Change 'ReshardingV2' should never be observed".to_string(),
             ))
         }
-        StateChangeCauseView::BandwidthSchedulerStateUpdate => {
+        | StateChangeCauseView::BandwidthSchedulerStateUpdate => {
             Err(crate::errors::ErrorKind::InternalInvariantError(
                 "State Change 'BandwidthSchedulerStateUpdate' should never be observed".to_string(),
             ))
@@ -177,34 +194,37 @@ async fn get_predecessor_id_from_receipt_or_transaction(
     receipts_in_block: &HashMap<CryptoHash, AccountId>,
 ) -> Option<AccountIdentifier> {
     let predecessor_id = match cause {
-        near_primitives::views::StateChangeCauseView::TransactionProcessing { tx_hash } => {
-            transactions_in_block.get(tx_hash)?.signer_id.clone()
+        | near_primitives::views::StateChangeCauseView::TransactionProcessing { tx_hash } => {
+            transactions_in_block
+                .get(tx_hash)?
+                .signer_id
+                .clone()
         }
-        near_primitives::views::StateChangeCauseView::ReceiptProcessing { receipt_hash } => {
+        | near_primitives::views::StateChangeCauseView::ReceiptProcessing { receipt_hash } => {
             match receipts_in_block.get(receipt_hash) {
-                Some(t) => t.clone(),
-                None => get_predecessor_id_from_receipt_hash(view_client, *receipt_hash).await?,
+                | Some(t) => t.clone(),
+                | None => get_predecessor_id_from_receipt_hash(view_client, *receipt_hash).await?,
             }
         }
-        near_primitives::views::StateChangeCauseView::PostponedReceipt { receipt_hash } => {
+        | near_primitives::views::StateChangeCauseView::PostponedReceipt { receipt_hash } => {
             match receipts_in_block.get(receipt_hash) {
-                Some(t) => t.clone(),
-                None => get_predecessor_id_from_receipt_hash(view_client, *receipt_hash).await?,
+                | Some(t) => t.clone(),
+                | None => get_predecessor_id_from_receipt_hash(view_client, *receipt_hash).await?,
             }
         }
-        near_primitives::views::StateChangeCauseView::ActionReceiptProcessingStarted {
+        | near_primitives::views::StateChangeCauseView::ActionReceiptProcessingStarted {
             receipt_hash,
         } => match receipts_in_block.get(receipt_hash) {
-            Some(t) => t.clone(),
-            None => get_predecessor_id_from_receipt_hash(view_client, *receipt_hash).await?,
+            | Some(t) => t.clone(),
+            | None => get_predecessor_id_from_receipt_hash(view_client, *receipt_hash).await?,
         },
-        near_primitives::views::StateChangeCauseView::ActionReceiptGasReward { receipt_hash } => {
+        | near_primitives::views::StateChangeCauseView::ActionReceiptGasReward { receipt_hash } => {
             match receipts_in_block.get(receipt_hash) {
-                Some(t) => t.clone(),
-                None => get_predecessor_id_from_receipt_hash(view_client, *receipt_hash).await?,
+                | Some(t) => t.clone(),
+                | None => get_predecessor_id_from_receipt_hash(view_client, *receipt_hash).await?,
             }
         }
-        _ => return None,
+        | _ => return None,
     };
     Some(crate::models::AccountIdentifier::from(predecessor_id))
 }
@@ -230,7 +250,10 @@ pub(crate) struct RosettaTransactions<'a> {
 }
 
 impl<'a> RosettaTransactions<'a> {
-    fn new(exec_to_rx: ExecutionToReceipts, block_hash: &'a CryptoHash) -> Self {
+    fn new(
+        exec_to_rx: ExecutionToReceipts,
+        block_hash: &'a CryptoHash,
+    ) -> Self {
         Self { exec_to_rx, block_hash, map: Default::default() }
     }
 
@@ -244,19 +267,24 @@ impl<'a> RosettaTransactions<'a> {
         cause: &near_primitives::views::StateChangeCauseView,
     ) -> crate::errors::Result<&mut crate::models::Transaction> {
         let (id, exec_hash) = convert_cause_to_transaction_id(self.block_hash, cause)?;
-        let tx = self.map.entry(id.hash).or_insert_with_key(|hash| {
-            let related_transactions = exec_hash
-                .map(|exec_hash| self.exec_to_rx.get_related(exec_hash))
-                .unwrap_or_default();
-            crate::models::Transaction {
-                transaction_identifier: crate::models::TransactionIdentifier { hash: hash.clone() },
-                operations: Vec::new(),
-                related_transactions,
-                metadata: crate::models::TransactionMetadata {
-                    type_: crate::models::TransactionType::Transaction,
-                },
-            }
-        });
+        let tx = self
+            .map
+            .entry(id.hash)
+            .or_insert_with_key(|hash| {
+                let related_transactions = exec_hash
+                    .map(|exec_hash| self.exec_to_rx.get_related(exec_hash))
+                    .unwrap_or_default();
+                crate::models::Transaction {
+                    transaction_identifier: crate::models::TransactionIdentifier {
+                        hash: hash.clone(),
+                    },
+                    operations: Vec::new(),
+                    related_transactions,
+                    metadata: crate::models::TransactionMetadata {
+                        type_: crate::models::TransactionType::Transaction,
+                    },
+                }
+            });
         Ok(tx)
     }
     /// Returns a Rosetta transaction object for given fungible token event.
@@ -269,7 +297,9 @@ impl<'a> RosettaTransactions<'a> {
         fungible_token_event: &FungibleTokenEvent,
     ) -> crate::errors::Result<&mut crate::models::Transaction> {
         let transaction_identifier = fungible_token_event.receipt_id;
-        let related_transactions = self.exec_to_rx.get_related(transaction_identifier);
+        let related_transactions = self
+            .exec_to_rx
+            .get_related(transaction_identifier);
         let tx = self
             .map
             .entry(crate::models::TransactionIdentifier::receipt(&transaction_identifier).hash)
@@ -304,31 +334,36 @@ pub(crate) async fn convert_block_changes_to_transactions(
         let transactions_in_block = &transactions.exec_to_rx.transactions;
         let receipts_in_block = &transactions.exec_to_rx.receipts;
         match account_change.value {
-            near_primitives::views::StateChangeValueView::AccountUpdate { account_id, account } => {
+            | near_primitives::views::StateChangeValueView::AccountUpdate {
+                account_id,
+                account,
+            } => {
                 // Calculate the total amount of deposit from transfer actions.
                 // This is needed to separate transfers into a separate operation
                 // to pass the rosetta cli check
                 let deposit = match &account_change.cause {
-                    near_primitives::views::StateChangeCauseView::TransactionProcessing {
+                    | near_primitives::views::StateChangeCauseView::TransactionProcessing {
                         tx_hash,
-                    } => transactions_in_block.get(tx_hash).and_then(|t| {
-                        let total_sum = t
-                            .actions
-                            .iter()
-                            .map(|action| match action {
-                                near_primitives::views::ActionView::Transfer { deposit } => {
-                                    *deposit
-                                }
-                                _ => 0,
-                            })
-                            .sum::<u128>();
-                        if total_sum == 0 {
-                            None
-                        } else {
-                            Some(total_sum)
-                        }
-                    }),
-                    _ => None,
+                    } => transactions_in_block
+                        .get(tx_hash)
+                        .and_then(|t| {
+                            let total_sum = t
+                                .actions
+                                .iter()
+                                .map(|action| match action {
+                                    | near_primitives::views::ActionView::Transfer { deposit } => {
+                                        *deposit
+                                    }
+                                    | _ => 0,
+                                })
+                                .sum::<u128>();
+                            if total_sum == 0 {
+                                None
+                            } else {
+                                Some(total_sum)
+                            }
+                        }),
+                    | _ => None,
                 };
                 let predecessor_id = get_predecessor_id_from_receipt_or_transaction(
                     view_client_addr,
@@ -340,7 +375,9 @@ pub(crate) async fn convert_block_changes_to_transactions(
                 let previous_account_state = accounts_previous_state.get(&account_id);
                 convert_account_update_to_operations(
                     runtime_config,
-                    &mut transactions.get_for_cause(&account_change.cause)?.operations,
+                    &mut transactions
+                        .get_for_cause(&account_change.cause)?
+                        .operations,
                     &account_id,
                     previous_account_state,
                     &account,
@@ -349,16 +386,18 @@ pub(crate) async fn convert_block_changes_to_transactions(
                 );
                 accounts_previous_state.insert(account_id, account);
             }
-            near_primitives::views::StateChangeValueView::AccountDeletion { account_id } => {
+            | near_primitives::views::StateChangeValueView::AccountDeletion { account_id } => {
                 let previous_account_state = accounts_previous_state.remove(&account_id);
                 convert_account_delete_to_operations(
                     runtime_config,
-                    &mut transactions.get_for_cause(&account_change.cause)?.operations,
+                    &mut transactions
+                        .get_for_cause(&account_change.cause)?
+                        .operations,
                     &account_id,
                     previous_account_state,
                 );
             }
-            unexpected_value => {
+            | unexpected_value => {
                 return Err(crate::errors::ErrorKind::InternalInvariantError(format!(
                     "queried AccountChanges, but received {:?}.",
                     unexpected_value
@@ -611,14 +650,18 @@ fn convert_fungible_token_balance_change_to_operations(
                 symbol: fungible_token_event.symbol.clone(),
                 decimals: fungible_token_event.decimals,
                 metadata: Some(crate::models::CurrencyMetadata {
-                    contract_address: fungible_token_event.contract_account_id.clone(),
+                    contract_address: fungible_token_event
+                        .contract_account_id
+                        .clone(),
                 }),
             },
         }),
         type_: crate::models::OperationType::Transfer,
         status: Some(crate::models::OperationStatusKind::Success),
         metadata: crate::models::OperationMetadata::from_contract_address(
-            fungible_token_event.contract_account_id.clone(),
+            fungible_token_event
+                .contract_account_id
+                .clone(),
         ),
     });
 }

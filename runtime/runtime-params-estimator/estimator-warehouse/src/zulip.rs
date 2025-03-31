@@ -39,7 +39,10 @@ impl ZulipEndpoint {
             user_list: None,
         })
     }
-    pub(crate) fn post(&self, report: &ZulipReport) -> anyhow::Result<()> {
+    pub(crate) fn post(
+        &self,
+        report: &ZulipReport,
+    ) -> anyhow::Result<()> {
         self.send_raw_message(&report.to_string(), "Bot reports")
     }
     fn form_url() -> anyhow::Result<String> {
@@ -49,9 +52,17 @@ impl ZulipEndpoint {
             .context("ZULIP_BOT_API_KEY environment variable not set")?;
         Ok(format!("https://{bot_email}:{api_key}@{ZULIP_SERVER}/api/v1/messages"))
     }
-    fn send_raw_message(&self, msg: &str, topic: &str) -> anyhow::Result<()> {
+    fn send_raw_message(
+        &self,
+        msg: &str,
+        topic: &str,
+    ) -> anyhow::Result<()> {
         let params = if let Some(user_list) = &self.user_list {
-            vec![("type", "private"), ("to", user_list), ("content", msg)]
+            vec![
+                ("type", "private"),
+                ("to", user_list),
+                ("content", msg),
+            ]
         } else {
             vec![
                 ("type", "stream"),
@@ -60,20 +71,30 @@ impl ZulipEndpoint {
                 ("content", msg),
             ]
         };
-        self.client.post(&self.full_endpoint_url).form(&params).send()?;
+        self.client
+            .post(&self.full_endpoint_url)
+            .form(&params)
+            .send()?;
         Ok(())
     }
 }
 
 impl ZulipReport {
-    pub(crate) fn new(before: String, after: String) -> Self {
+    pub(crate) fn new(
+        before: String,
+        after: String,
+    ) -> Self {
         Self { status: Status::Ok, before, after, changes: vec![], changes_uncertain: vec![] }
     }
-    pub(crate) fn add(&mut self, warning: Notice, status: Status) {
+    pub(crate) fn add(
+        &mut self,
+        warning: Notice,
+        status: Status,
+    ) {
         self.status = std::cmp::max(self.status, status);
         match warning {
-            Notice::RelativeChange(change) => self.changes.push(change),
-            Notice::UncertainChange(change) => self.changes_uncertain.push(change),
+            | Notice::RelativeChange(change) => self.changes.push(change),
+            | Notice::UncertainChange(change) => self.changes_uncertain.push(change),
         }
     }
 
@@ -83,7 +104,10 @@ impl ZulipReport {
 }
 
 impl std::fmt::Display for ZulipReport {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+    ) -> std::fmt::Result {
         writeln!(f, "## Report ")?;
         writeln!(f, "*Status: {:?}*", self.status)?;
         writeln!(f, "*Current commit: {}*", self.after)?;
@@ -123,10 +147,10 @@ impl std::fmt::Display for ZulipReport {
 
 fn format_gas(gas: f64) -> String {
     match gas {
-        n if n > 1e12 => format!("{:.2} Tgas", n / 1e12),
-        n if n > 1e9 => format!("{:.2} Ggas", n / 1e9),
-        n if n > 1e6 => format!("{:.2} Mgas", n / 1e6),
-        n => format!("{:.0} gas", n),
+        | n if n > 1e12 => format!("{:.2} Tgas", n / 1e12),
+        | n if n > 1e9 => format!("{:.2} Ggas", n / 1e9),
+        | n if n > 1e6 => format!("{:.2} Mgas", n / 1e6),
+        | n => format!("{:.0} gas", n),
     }
 }
 

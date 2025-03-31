@@ -64,7 +64,10 @@ impl Visitor for ChargedVsFree {
         Ok(())
     }
 
-    fn flush(&mut self, out: &mut dyn Write) -> anyhow::Result<()> {
+    fn flush(
+        &mut self,
+        out: &mut dyn Write,
+    ) -> anyhow::Result<()> {
         writeln!(
             out,
             "{:>8} free gets with total size of    {:>8}",

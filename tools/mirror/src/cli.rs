@@ -192,7 +192,7 @@ impl ShowKeysCmd {
         };
         let mut probably_extra_key = false;
         let keys = match self.subcmd {
-            ShowKeysSubCommand::FromSourceDB(c) => {
+            | ShowKeysSubCommand::FromSourceDB(c) => {
                 let keys = crate::key_util::keys_from_source_db(
                     &c.home,
                     &c.account_id,
@@ -206,7 +206,7 @@ impl ShowKeysCmd {
                 });
                 keys
             }
-            ShowKeysSubCommand::FromRPC(c) => {
+            | ShowKeysSubCommand::FromRPC(c) => {
                 let keys = run_async(async move {
                     crate::key_util::keys_from_rpc(
                         &c.rpc_url,
@@ -223,11 +223,16 @@ impl ShowKeysCmd {
                 });
                 keys
             }
-            ShowKeysSubCommand::FromPubKey(c) => {
-                vec![crate::key_util::map_pub_key(&c.public_key, secret.as_ref())?]
+            | ShowKeysSubCommand::FromPubKey(c) => {
+                vec![crate::key_util::map_pub_key(
+                    &c.public_key,
+                    secret.as_ref(),
+                )?]
             }
-            ShowKeysSubCommand::DefaultExtraKey(_c) => {
-                vec![crate::key_util::default_extra_key(secret.as_ref())]
+            | ShowKeysSubCommand::DefaultExtraKey(_c) => {
+                vec![crate::key_util::default_extra_key(
+                    secret.as_ref(),
+                )]
             }
         };
         for key in keys.iter() {
@@ -275,7 +280,9 @@ fn run_async<F: std::future::Future + 'static>(f: F) -> F::Output {
     system
         .block_on(async move {
             let _subscriber_guard = near_o11y::default_subscriber(
-                near_o11y::EnvFilterBuilder::from_env().finish().unwrap(),
+                near_o11y::EnvFilterBuilder::from_env()
+                    .finish()
+                    .unwrap(),
                 &near_o11y::Options::default(),
             )
             .global();
@@ -289,9 +296,9 @@ impl MirrorCommand {
         tracing::warn!(target: "mirror", "the mirror command is not stable, and may be removed or changed arbitrarily at any time");
 
         match self.subcmd {
-            SubCommand::Prepare(r) => r.run(),
-            SubCommand::Run(r) => r.run(),
-            SubCommand::ShowKeys(r) => r.run(),
+            | SubCommand::Prepare(r) => r.run(),
+            | SubCommand::Run(r) => r.run(),
+            | SubCommand::ShowKeys(r) => r.run(),
         }
     }
 }

@@ -79,13 +79,13 @@ async fn test_nonces() {
         stream.write(&handshake).await;
         if test.1 {
             match stream.read().await {
-                Ok(PeerMessage::Tier2Handshake { .. }) => {}
-                got => panic!("got = {got:?}, want Handshake"),
+                | Ok(PeerMessage::Tier2Handshake { .. }) => {}
+                | got => panic!("got = {got:?}, want Handshake"),
             }
         } else {
             match stream.read().await {
-                Err(err) if err.kind() == std::io::ErrorKind::UnexpectedEof => {}
-                got => panic!("got = {got:?}, want UnexpectedEof"),
+                | Err(err) if err.kind() == std::io::ErrorKind::UnexpectedEof => {}
+                | got => panic!("got = {got:?}, want UnexpectedEof"),
             }
         }
     }
@@ -95,8 +95,8 @@ async fn wait_for_edge(actor_handler: &mut ActorHandler) -> Edge {
     actor_handler
         .events
         .recv_until(|ev| match ev {
-            Event::PeerManager(peer_manager_actor::Event::EdgesAdded(ev)) => Some(ev[0].clone()),
-            _ => None,
+            | Event::PeerManager(peer_manager_actor::Event::EdgesAdded(ev)) => Some(ev[0].clone()),
+            | _ => None,
         })
         .await
 }
@@ -130,7 +130,8 @@ async fn test_nonce_refresh() {
     )
     .await;
 
-    pm2.connect_to(&pm.peer_info(), tcp::Tier::T2).await;
+    pm2.connect_to(&pm.peer_info(), tcp::Tier::T2)
+        .await;
 
     let edge = wait_for_edge(&mut pm2).await;
     let start_time = clock.now_utc();
@@ -155,16 +156,26 @@ async fn test_nonce_refresh() {
     // Check that the nonces were properly updates on both pm and pm2 states.
     let pm_peer_info = pm.peer_info().id;
     let pm2_nonce = pm2
-        .with_state(
-            |s| async move { s.graph.load().local_edges.get(&pm_peer_info).unwrap().nonce() },
-        )
+        .with_state(|s| async move {
+            s.graph
+                .load()
+                .local_edges
+                .get(&pm_peer_info)
+                .unwrap()
+                .nonce()
+        })
         .await;
 
     assert_eq!(Edge::nonce_to_utc(pm2_nonce).unwrap(), new_nonce_utc);
 
     let pm_nonce = pm
         .with_state(|s| async move {
-            s.graph.load().local_edges.get(&pm2.peer_info().id).unwrap().nonce()
+            s.graph
+                .load()
+                .local_edges
+                .get(&pm2.peer_info().id)
+                .unwrap()
+                .nonce()
         })
         .await;
 

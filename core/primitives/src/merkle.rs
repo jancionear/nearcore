@@ -37,7 +37,10 @@ pub enum Direction {
     Right,
 }
 
-pub fn combine_hash(hash1: &MerkleHash, hash2: &MerkleHash) -> MerkleHash {
+pub fn combine_hash(
+    hash1: &MerkleHash,
+    hash2: &MerkleHash,
+) -> MerkleHash {
     CryptoHash::hash_borsh((hash1, hash2))
 }
 
@@ -47,7 +50,10 @@ pub fn merklize<T: BorshSerialize>(arr: &[T]) -> (MerkleHash, Vec<MerklePath>) {
         return (MerkleHash::default(), vec![]);
     }
     let mut len = arr.len().next_power_of_two();
-    let mut hashes = arr.iter().map(CryptoHash::hash_borsh).collect::<Vec<_>>();
+    let mut hashes = arr
+        .iter()
+        .map(CryptoHash::hash_borsh)
+        .collect::<Vec<_>>();
 
     // degenerate case
     if len == 1 {
@@ -108,22 +114,33 @@ pub fn merklize<T: BorshSerialize>(arr: &[T]) -> (MerkleHash, Vec<MerklePath>) {
 }
 
 /// Verify merkle path for given item and corresponding path.
-pub fn verify_path<T: BorshSerialize>(root: MerkleHash, path: &MerklePath, item: T) -> bool {
+pub fn verify_path<T: BorshSerialize>(
+    root: MerkleHash,
+    path: &MerklePath,
+    item: T,
+) -> bool {
     verify_hash(root, path, CryptoHash::hash_borsh(item))
 }
 
-pub fn verify_hash(root: MerkleHash, path: &MerklePath, item_hash: MerkleHash) -> bool {
+pub fn verify_hash(
+    root: MerkleHash,
+    path: &MerklePath,
+    item_hash: MerkleHash,
+) -> bool {
     compute_root_from_path(path, item_hash) == root
 }
 
-pub fn compute_root_from_path(path: &MerklePath, item_hash: MerkleHash) -> MerkleHash {
+pub fn compute_root_from_path(
+    path: &MerklePath,
+    item_hash: MerkleHash,
+) -> MerkleHash {
     let mut res = item_hash;
     for item in path {
         match item.direction {
-            Direction::Left => {
+            | Direction::Left => {
                 res = combine_hash(&item.hash, &res);
             }
-            Direction::Right => {
+            | Direction::Right => {
                 res = combine_hash(&res, &item.hash);
             }
         }
@@ -183,7 +200,10 @@ impl PartialMerkleTree {
         }
     }
 
-    pub fn insert(&mut self, elem: MerkleHash) {
+    pub fn insert(
+        &mut self,
+        elem: MerkleHash,
+    ) {
         let mut s = self.size;
         let mut node = elem;
         while s % 2 == 1 {
@@ -205,7 +225,10 @@ impl PartialMerkleTree {
 
     /// Iterate over the path from the bottom to the top, calling `f` with the hash and the level.
     /// The level is 0 for the leaf and increases by 1 for each level in the actual tree.
-    pub fn iter_path_from_bottom(&self, mut f: impl FnMut(MerkleHash, u64)) {
+    pub fn iter_path_from_bottom(
+        &self,
+        mut f: impl FnMut(MerkleHash, u64),
+    ) {
         let mut level = 0;
         let mut index = self.size;
         for node in self.path.iter().rev() {
@@ -229,7 +252,10 @@ mod tests {
 
     use super::*;
 
-    fn test_with_len(n: u32, rng: &mut StdRng) {
+    fn test_with_len(
+        n: u32,
+        rng: &mut StdRng,
+    ) {
         let mut arr: Vec<u32> = vec![];
         for _ in 0..n {
             arr.push(rng.gen_range(0..1000));
@@ -292,7 +318,9 @@ mod tests {
             assert!(tree.is_well_formed());
 
             let mut tree_copy = tree.clone();
-            tree_copy.path.push(CryptoHash::hash_bytes(&[i]));
+            tree_copy
+                .path
+                .push(CryptoHash::hash_bytes(&[i]));
             assert!(!tree_copy.is_well_formed());
             tree_copy.path.pop();
             if !tree_copy.path.is_empty() {

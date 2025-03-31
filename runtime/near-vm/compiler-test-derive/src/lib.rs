@@ -13,8 +13,8 @@ macro_rules! parse_macro_input {
         $token_stream:ident as $T:ty
     ) => {
         match parse::<$T>($token_stream) {
-            Ok(data) => data,
-            Err(err) => {
+            | Ok(data) => data,
+            | Err(err) => {
                 return TokenStream::from(err.to_compile_error());
             }
         }
@@ -28,7 +28,10 @@ macro_rules! parse_macro_input {
 }
 
 #[proc_macro_attribute]
-pub fn compiler_test(attrs: TokenStream, input: TokenStream) -> TokenStream {
+pub fn compiler_test(
+    attrs: TokenStream,
+    input: TokenStream,
+) -> TokenStream {
     let path: Option<ExprPath> = parse::<ExprPath>(attrs).ok();
     let mut my_fn: ItemFn = parse_macro_input!(input as ItemFn);
     let fn_name = &my_fn.sig.ident;
@@ -63,7 +66,11 @@ pub fn compiler_test(attrs: TokenStream, input: TokenStream) -> TokenStream {
         let config_engine = ::quote::format_ident!("{}", engine_name);
         let test_name = ::quote::format_ident!("{}", engine_name.to_lowercase());
         let mut new_sig = func.sig.clone();
-        let attrs = func.attrs.clone().iter().fold(quote! {}, |acc, new| quote! {#acc #new});
+        let attrs = func
+            .attrs
+            .clone()
+            .iter()
+            .fold(quote! {}, |acc, new| quote! {#acc #new});
         new_sig.ident = test_name;
         new_sig.inputs = ::syn::punctuated::Punctuated::new();
         let f = quote! {
@@ -74,8 +81,15 @@ pub fn compiler_test(attrs: TokenStream, input: TokenStream) -> TokenStream {
                 #fn_name(crate::Config::new(crate::Engine::#config_engine, crate::Compiler::#config_compiler))
             }
         };
-        if should_ignore(&func.sig.ident.to_string().replace("r#", ""), compiler_name, engine_name)
-            && !cfg!(test)
+        if should_ignore(
+            &func
+                .sig
+                .ident
+                .to_string()
+                .replace("r#", ""),
+            compiler_name,
+            engine_name,
+        ) && !cfg!(test)
         {
             quote! {
                 #[ignore]

@@ -21,16 +21,27 @@ pub(crate) struct SingleShardStorageMutator {
 }
 
 impl SingleShardStorageMutator {
-    pub(crate) fn new(runtime: &NightshadeRuntime, state_root: StateRoot) -> anyhow::Result<Self> {
+    pub(crate) fn new(
+        runtime: &NightshadeRuntime,
+        state_root: StateRoot,
+    ) -> anyhow::Result<Self> {
         Ok(Self { updates: Vec::new(), state_root, shard_tries: runtime.get_tries() })
     }
 
-    fn set(&mut self, key: TrieKey, value: Vec<u8>) -> anyhow::Result<()> {
-        self.updates.push((key.to_vec(), Some(value)));
+    fn set(
+        &mut self,
+        key: TrieKey,
+        value: Vec<u8>,
+    ) -> anyhow::Result<()> {
+        self.updates
+            .push((key.to_vec(), Some(value)));
         Ok(())
     }
 
-    fn remove(&mut self, key: TrieKey) -> anyhow::Result<()> {
+    fn remove(
+        &mut self,
+        key: TrieKey,
+    ) -> anyhow::Result<()> {
         self.updates.push((key.to_vec(), None));
         Ok(())
     }
@@ -43,7 +54,10 @@ impl SingleShardStorageMutator {
         self.set(TrieKey::Account { account_id }, borsh::to_vec(&value)?)
     }
 
-    pub(crate) fn delete_account(&mut self, account_id: AccountId) -> anyhow::Result<()> {
+    pub(crate) fn delete_account(
+        &mut self,
+        account_id: AccountId,
+    ) -> anyhow::Result<()> {
         self.remove(TrieKey::Account { account_id })
     }
 
@@ -84,15 +98,25 @@ impl SingleShardStorageMutator {
         self.remove(TrieKey::ContractData { account_id, key: data_key.to_vec() })
     }
 
-    pub(crate) fn set_code(&mut self, account_id: AccountId, value: Vec<u8>) -> anyhow::Result<()> {
+    pub(crate) fn set_code(
+        &mut self,
+        account_id: AccountId,
+        value: Vec<u8>,
+    ) -> anyhow::Result<()> {
         self.set(TrieKey::ContractCode { account_id }, value)
     }
 
-    pub(crate) fn delete_code(&mut self, account_id: AccountId) -> anyhow::Result<()> {
+    pub(crate) fn delete_code(
+        &mut self,
+        account_id: AccountId,
+    ) -> anyhow::Result<()> {
         self.remove(TrieKey::ContractCode { account_id })
     }
 
-    pub(crate) fn set_postponed_receipt(&mut self, receipt: &Receipt) -> anyhow::Result<()> {
+    pub(crate) fn set_postponed_receipt(
+        &mut self,
+        receipt: &Receipt,
+    ) -> anyhow::Result<()> {
         self.set(
             TrieKey::PostponedReceipt {
                 receiver_id: receipt.receiver_id().clone(),
@@ -102,7 +126,10 @@ impl SingleShardStorageMutator {
         )
     }
 
-    pub(crate) fn delete_postponed_receipt(&mut self, receipt: &Receipt) -> anyhow::Result<()> {
+    pub(crate) fn delete_postponed_receipt(
+        &mut self,
+        receipt: &Receipt,
+    ) -> anyhow::Result<()> {
         self.remove(TrieKey::PostponedReceipt {
             receiver_id: receipt.receiver_id().clone(),
             receipt_id: *receipt.receipt_id(),
@@ -134,11 +161,17 @@ impl SingleShardStorageMutator {
         self.set(TrieKey::DelayedReceipt { index }, borsh::to_vec(receipt)?)
     }
 
-    pub(crate) fn delete_delayed_receipt(&mut self, index: u64) -> anyhow::Result<()> {
+    pub(crate) fn delete_delayed_receipt(
+        &mut self,
+        index: u64,
+    ) -> anyhow::Result<()> {
         self.remove(TrieKey::DelayedReceipt { index })
     }
 
-    pub(crate) fn should_commit(&self, batch_size: u64) -> bool {
+    pub(crate) fn should_commit(
+        &self,
+        batch_size: u64,
+    ) -> bool {
         self.updates.len() >= batch_size as usize
     }
 
@@ -164,11 +197,20 @@ impl SingleShardStorageMutator {
             num_trie_node_insertions = trie_changes.insertions().len(),
             num_trie_node_deletions = trie_changes.deletions().len()
         );
-        let state_root = self.shard_tries.apply_all(&trie_changes, *shard_uid, &mut update);
-        self.shard_tries.apply_memtrie_changes(&trie_changes, *shard_uid, fake_block_height);
+        let state_root = self
+            .shard_tries
+            .apply_all(&trie_changes, *shard_uid, &mut update);
+        self.shard_tries
+            .apply_memtrie_changes(&trie_changes, *shard_uid, fake_block_height);
         // We may not have loaded memtries (some commands don't need to), so check.
-        if let Some(memtries) = self.shard_tries.get_memtries(*shard_uid) {
-            memtries.write().unwrap().delete_until_height(fake_block_height - 1);
+        if let Some(mem_tries) = self
+            .shard_tries
+            .get_mem_tries(*shard_uid)
+        {
+            mem_tries
+                .write()
+                .unwrap()
+                .delete_until_height(fake_block_height - 1);
         }
         tracing::info!(?shard_uid, num_updates, "committing");
         update.store_update().set_ser(

@@ -51,7 +51,10 @@ async fn check_network_identifier(
         )));
     }
 
-    if identifier.sub_network_identifier.is_some() {
+    if identifier
+        .sub_network_identifier
+        .is_some()
+    {
         return Err(errors::ErrorKind::WrongNetwork("Unexpected sub_network_identifier".into()));
     }
 
@@ -131,7 +134,11 @@ async fn network_status(
         oldest_block_identifier,
         sync_status: if status.sync_info.syncing {
             Some(models::SyncStatus {
-                current_index: status.sync_info.latest_block_height.try_into().unwrap(),
+                current_index: status
+                    .sync_info
+                    .latest_block_height
+                    .try_into()
+                    .unwrap(),
                 target_index: None,
                 stage: None,
             })
@@ -176,7 +183,9 @@ async fn network_options(
                 })
                 .collect(),
             operation_types: models::OperationType::iter().collect(),
-            errors: errors::ErrorKind::iter().map(models::Error::from_error_kind).collect(),
+            errors: errors::ErrorKind::iter()
+                .map(models::Error::from_error_kind)
+                .collect(),
             historical_balance_lookup: true,
         },
     }))
@@ -245,7 +254,9 @@ async fn block_details(
         block: Some(models::Block {
             block_identifier,
             parent_block_identifier,
-            timestamp: (block.header.timestamp / 1_000_000).try_into().unwrap(),
+            timestamp: (block.header.timestamp / 1_000_000)
+                .try_into()
+                .unwrap(),
             transactions,
         }),
         other_transactions: None,
@@ -365,8 +376,8 @@ async fn account_balance(
     let account_id = account_identifier.address.into();
     let (block_hash, block_height, account_info) =
         match crate::utils::query_account(block_id, account_id, &view_client_addr).await {
-            Ok(account_info_response) => account_info_response,
-            Err(crate::errors::ErrorKind::NotFound(_)) => (
+            | Ok(account_info_response) => account_info_response,
+            | Err(crate::errors::ErrorKind::NotFound(_)) => (
                 block.header.hash,
                 block.header.height,
                 near_primitives::account::Account::new(
@@ -379,7 +390,7 @@ async fn account_balance(
                 )
                 .into(),
             ),
-            Err(err) => return Err(err.into()),
+            | Err(err) => return Err(err.into()),
         };
 
     let account_balances =
@@ -387,8 +398,8 @@ async fn account_balance(
 
     let balance = if let Some(sub_account) = account_identifier.sub_account {
         match sub_account.address {
-            crate::models::SubAccount::Locked => account_balances.locked,
-            crate::models::SubAccount::LiquidBalanceForStorage => {
+            | crate::models::SubAccount::Locked => account_balances.locked,
+            | crate::models::SubAccount::LiquidBalanceForStorage => {
                 account_balances.liquid_for_storage
             }
         }
@@ -418,15 +429,18 @@ async fn account_balance(
                     .metadata
                     .or_else(|| {
                         // retrieve contract address from global config if not provided in query
-                        config_currencies.as_ref().clone().and_then(|currencies| {
-                            currencies.iter().find_map(|c| {
-                                if c.symbol == currency.symbol {
-                                    c.metadata.clone()
-                                } else {
-                                    None
-                                }
+                        config_currencies
+                            .as_ref()
+                            .clone()
+                            .and_then(|currencies| {
+                                currencies.iter().find_map(|c| {
+                                    if c.symbol == currency.symbol {
+                                        c.metadata.clone()
+                                    } else {
+                                        None
+                                    }
+                                })
                             })
-                        })
                     })
                     .ok_or_else(|| {
                         errors::ErrorKind::NotFound(format!(
@@ -549,7 +563,10 @@ async fn construction_preprocess(
 
     Ok(Json(models::ConstructionPreprocessResponse {
         required_public_keys: vec![models::AccountIdentifier {
-            address: near_actions.sender_account_id.clone().into(),
+            address: near_actions
+                .sender_account_id
+                .clone()
+                .into(),
             sub_account: None,
             metadata: None,
         }],
@@ -580,19 +597,24 @@ async fn construction_metadata(
 
     check_network_identifier(&client_addr, network_identifier).await?;
 
-    let signer_public_access_key = public_keys.into_iter().next().ok_or_else(|| {
-        errors::ErrorKind::InvalidInput("exactly one public key is expected".to_string())
-    })?;
+    let signer_public_access_key = public_keys
+        .into_iter()
+        .next()
+        .ok_or_else(|| {
+            errors::ErrorKind::InvalidInput("exactly one public key is expected".to_string())
+        })?;
 
     let (block_hash, _block_height, access_key) = crate::utils::query_access_key(
         near_primitives::types::BlockReference::latest(),
         options.signer_account_id.into(),
-        (&signer_public_access_key).try_into().map_err(|err| {
-            errors::ErrorKind::InvalidInput(format!(
-                "public key could not be parsed due to: {:?}",
-                err
-            ))
-        })?,
+        (&signer_public_access_key)
+            .try_into()
+            .map_err(|err| {
+                errors::ErrorKind::InvalidInput(format!(
+                    "public key could not be parsed due to: {:?}",
+                    err
+                ))
+            })?,
         &view_client_addr,
     )
     .await?;
@@ -653,12 +675,14 @@ async fn construction_payloads(
         metadata;
     let unsigned_transaction = near_primitives::transaction::Transaction::V0(
         near_primitives::transaction::TransactionV0 {
-            block_hash: recent_block_hash.parse().map_err(|err| {
-                errors::ErrorKind::InvalidInput(format!(
-                    "block hash could not be parsed due to: {:?}",
-                    err
-                ))
-            })?,
+            block_hash: recent_block_hash
+                .parse()
+                .map_err(|err| {
+                    errors::ErrorKind::InvalidInput(format!(
+                        "block hash could not be parsed due to: {:?}",
+                        err
+                    ))
+                })?,
             signer_id: signer_account_id.clone(),
             public_key: signer_public_access_key.clone(),
             nonce: signer_public_access_key_nonce,
@@ -673,8 +697,15 @@ async fn construction_payloads(
         unsigned_transaction: unsigned_transaction.into(),
         payloads: vec![models::SigningPayload {
             account_identifier: signer_account_id.into(),
-            signature_type: Some(signer_public_access_key.key_type().into()),
-            hex_bytes: transaction_hash.as_ref().to_owned().into(),
+            signature_type: Some(
+                signer_public_access_key
+                    .key_type()
+                    .into(),
+            ),
+            hex_bytes: transaction_hash
+                .as_ref()
+                .to_owned()
+                .into(),
         }],
     }))
 }
@@ -813,17 +844,18 @@ async fn construction_submit(
         )
         .await?;
     match transaction_submission {
-        near_client::ProcessTxResponse::ValidTx | near_client::ProcessTxResponse::RequestRouted => {
+        | near_client::ProcessTxResponse::ValidTx
+        | near_client::ProcessTxResponse::RequestRouted => {
             Ok(Json(models::TransactionIdentifierResponse {
                 transaction_identifier: models::TransactionIdentifier::transaction(
                     &transaction_hash,
                 ),
             }))
         }
-        near_client::ProcessTxResponse::InvalidTx(error) => {
+        | near_client::ProcessTxResponse::InvalidTx(error) => {
             Err(errors::ErrorKind::InvalidInput(error.to_string()).into())
         }
-        _ => Err(errors::ErrorKind::InternalInvariantError(format!(
+        | _ => Err(errors::ErrorKind::InternalInvariantError(format!(
             "Transaction submission return unexpected result: {:?}",
             transaction_submission
         ))

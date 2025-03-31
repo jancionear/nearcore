@@ -86,8 +86,15 @@ pub struct GenesisBuilder {
 }
 
 impl GenesisBuilder {
-    pub fn from_config_and_store(home_dir: &Path, config: NearConfig, store: Store) -> Self {
-        let tmpdir = tempfile::Builder::new().prefix("storage").tempdir().unwrap();
+    pub fn from_config_and_store(
+        home_dir: &Path,
+        config: NearConfig,
+        store: Store,
+    ) -> Self {
+        let tmpdir = tempfile::Builder::new()
+            .prefix("storage")
+            .tempdir()
+            .unwrap();
         initialize_genesis_state(store.clone(), &config.genesis, Some(tmpdir.path()));
         let epoch_manager =
             EpochManager::new_arc_handle(store.clone(), &config.genesis.config, None);
@@ -120,12 +127,18 @@ impl GenesisBuilder {
         self
     }
 
-    pub fn add_additional_accounts(mut self, num: u64) -> Self {
+    pub fn add_additional_accounts(
+        mut self,
+        num: u64,
+    ) -> Self {
         self.additional_accounts_num = num;
         self
     }
 
-    pub fn add_additional_accounts_contract(mut self, contract_code: Vec<u8>) -> Self {
+    pub fn add_additional_accounts_contract(
+        mut self,
+        contract_code: Vec<u8>,
+    ) -> Self {
         self.additional_accounts_code_hash = hash(&contract_code);
         self.additional_accounts_code = Some(contract_code);
         self
@@ -141,7 +154,12 @@ impl GenesisBuilder {
             .into_iter()
             .enumerate()
             .map(|(shard_index, state_root)| {
-                (shard_layout.get_shard_id(shard_index).unwrap(), state_root)
+                (
+                    shard_layout
+                        .get_shard_id(shard_index)
+                        .unwrap(),
+                    state_root,
+                )
             })
             .collect();
         self.state_updates = self
@@ -156,10 +174,19 @@ impl GenesisBuilder {
                 )
             })
             .collect();
-        self.unflushed_records =
-            self.roots.keys().cloned().map(|shard_idx| (shard_idx, vec![])).collect();
+        self.unflushed_records = self
+            .roots
+            .keys()
+            .cloned()
+            .map(|shard_idx| (shard_idx, vec![]))
+            .collect();
 
-        let shard_ids: Vec<_> = self.genesis.config.shard_layout.shard_ids().collect();
+        let shard_ids: Vec<_> = self
+            .genesis
+            .config
+            .shard_layout
+            .shard_ids()
+            .collect();
         let total_accounts_num = self.additional_accounts_num * shard_ids.len() as u64;
         let bar = ProgressBar::new(total_accounts_num as _);
         bar.set_style(ProgressStyle::default_bar().template(
@@ -187,15 +214,29 @@ impl GenesisBuilder {
         Ok(self)
     }
 
-    fn flush_shard_records(&mut self, shard_id: ShardId) -> Result<()> {
-        let records = self.unflushed_records.insert(shard_id, vec![]).unwrap_or_default();
+    fn flush_shard_records(
+        &mut self,
+        shard_id: ShardId,
+    ) -> Result<()> {
+        let records = self
+            .unflushed_records
+            .insert(shard_id, vec![])
+            .unwrap_or_default();
         if records.is_empty() {
             return Ok(());
         }
-        let mut state_update =
-            self.state_updates.remove(&shard_id).expect("State updates are always available");
-        let protocol_config = self.runtime.get_protocol_config(&EpochId::default())?;
-        let storage_usage_config = protocol_config.runtime_config.fees.storage_usage_config.clone();
+        let mut state_update = self
+            .state_updates
+            .remove(&shard_id)
+            .expect("State updates are always available");
+        let protocol_config = self
+            .runtime
+            .get_protocol_config(&EpochId::default())?;
+        let storage_usage_config = protocol_config
+            .runtime_config
+            .fees
+            .storage_usage_config
+            .clone();
 
         // Compute storage usage and update accounts.
         for (account_id, storage_usage) in compute_storage_usage(&records, &storage_usage_config) {
@@ -207,7 +248,11 @@ impl GenesisBuilder {
         let tries = self.runtime.get_tries();
         state_update.commit(StateChangeCause::InitialState);
         let TrieUpdateResult { trie_changes, state_changes, .. } = state_update.finalize()?;
-        let genesis_shard_version = self.genesis.config.shard_layout.version();
+        let genesis_shard_version = self
+            .genesis
+            .config
+            .shard_layout
+            .version();
         let shard_uid = ShardUId::new(genesis_shard_version, shard_id);
         let mut store_update = tries.store_update();
         let root = tries.apply_all(&trie_changes, shard_uid, &mut store_update);
@@ -216,12 +261,18 @@ impl GenesisBuilder {
         store_update.commit()?;
 
         self.roots.insert(shard_id, root);
-        self.state_updates.insert(shard_id, tries.new_trie_update(shard_uid, root));
+        self.state_updates
+            .insert(shard_id, tries.new_trie_update(shard_uid, root));
         Ok(())
     }
 
     fn write_genesis_block(&mut self) -> Result<()> {
-        let shard_ids: Vec<_> = self.genesis.config.shard_layout.shard_ids().collect();
+        let shard_ids: Vec<_> = self
+            .genesis
+            .config
+            .shard_layout
+            .shard_ids()
+            .collect();
 
         let state_roots = self.roots.values().cloned().collect();
         let congestion_infos = get_genesis_congestion_infos(
@@ -240,7 +291,10 @@ impl GenesisBuilder {
         );
         let genesis = Block::genesis(
             self.genesis.config.protocol_version,
-            genesis_chunks.into_iter().map(|chunk| chunk.take_header()).collect(),
+            genesis_chunks
+                .into_iter()
+                .map(|chunk| chunk.take_header())
+                .collect(),
             Utc::from_unix_timestamp_nanos(to_timestamp(self.genesis.config.genesis_time) as i128)
                 .unwrap(),
             self.genesis.config.genesis_height,
@@ -258,7 +312,9 @@ impl GenesisBuilder {
             self.store.clone(),
             self.genesis.config.genesis_height,
             true,
-            self.genesis.config.transaction_validity_period,
+            self.genesis
+                .config
+                .transaction_validity_period,
         );
         let mut store_update = store.store_update();
 
@@ -276,8 +332,10 @@ impl GenesisBuilder {
         store_update.save_block(genesis.clone());
 
         let protocol_version = self.genesis.config.protocol_version;
-        for (chunk_header, &state_root) in
-            genesis.chunks().iter_deprecated().zip(self.roots.values())
+        for (chunk_header, &state_root) in genesis
+            .chunks()
+            .iter_deprecated()
+            .zip(self.roots.values())
         {
             let shard_layout = &self.genesis.config.shard_layout;
             let shard_id = chunk_header.shard_id();
@@ -298,14 +356,18 @@ impl GenesisBuilder {
                     self.genesis.config.gas_limit,
                     0,
                     congestion_info,
-                    chunk_header.bandwidth_requests().cloned(),
+                    chunk_header
+                        .bandwidth_requests()
+                        .cloned(),
                 ),
             );
         }
 
         let head = Tip::from_header(genesis.header());
         store_update.save_head(&head).unwrap();
-        store_update.save_final_head(&head).unwrap();
+        store_update
+            .save_final_head(&head)
+            .unwrap();
         store_update.commit().unwrap();
 
         Ok(())
@@ -322,20 +384,36 @@ impl GenesisBuilder {
             return Ok(None);
         }
         let prev_hash = genesis.header().prev_hash();
-        let trie = self.runtime.get_trie_for_shard(shard_id, prev_hash, state_root, true)?;
-        let protocol_config = self.runtime.get_protocol_config(genesis.header().epoch_id())?;
+        let trie = self
+            .runtime
+            .get_trie_for_shard(shard_id, prev_hash, state_root, true)?;
+        let protocol_config = self
+            .runtime
+            .get_protocol_config(genesis.header().epoch_id())?;
         let runtime_config = protocol_config.runtime_config;
         let congestion_info = bootstrap_congestion_info(&trie, &runtime_config, shard_id)?;
         Ok(Some(congestion_info))
     }
 
-    fn add_additional_account(&mut self, account_id: AccountId) -> Result<()> {
+    fn add_additional_account(
+        &mut self,
+        account_id: AccountId,
+    ) -> Result<()> {
         let testing_init_balance: Balance = 10u128.pow(30);
         let testing_init_stake: Balance = 0;
-        let shard_id = self.genesis.config.shard_layout.account_id_to_shard_id(&account_id);
-        let mut records = self.unflushed_records.remove(&shard_id).unwrap_or_default();
-        let mut state_update =
-            self.state_updates.remove(&shard_id).expect("State update should have been added");
+        let shard_id = self
+            .genesis
+            .config
+            .shard_layout
+            .account_id_to_shard_id(&account_id);
+        let mut records = self
+            .unflushed_records
+            .remove(&shard_id)
+            .unwrap_or_default();
+        let mut state_update = self
+            .state_updates
+            .remove(&shard_id)
+            .expect("State update should have been added");
 
         let signer = InMemorySigner::test_signer(&account_id);
         let account = Account::new(
@@ -372,8 +450,10 @@ impl GenesisBuilder {
         const CHUNK_SIZE: usize = 3000;
         let num_records_to_flush = records.len();
         let needs_flush = num_records_to_flush >= CHUNK_SIZE;
-        self.unflushed_records.insert(shard_id, records);
-        self.state_updates.insert(shard_id, state_update);
+        self.unflushed_records
+            .insert(shard_id, records);
+        self.state_updates
+            .insert(shard_id, state_update);
 
         if needs_flush {
             self.flush_shard_records(shard_id)?;

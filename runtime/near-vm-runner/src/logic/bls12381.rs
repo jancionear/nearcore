@@ -29,10 +29,14 @@ macro_rules! bls12381_impl {
             value_ptr: u64,
             register_id: u64,
         ) -> Result<u64> {
-            self.result_state.gas_counter.pay_base($bls12381_base)?;
+            self.result_state
+                .gas_counter
+                .pay_base($bls12381_base)?;
 
             let elements_count = value_len / $ITEM_SIZE;
-            self.result_state.gas_counter.pay_per($bls12381_element, elements_count as u64)?;
+            self.result_state
+                .gas_counter
+                .pay_per($bls12381_element, elements_count as u64)?;
 
             let data = get_memory_or_register!(self, value_ptr, value_len)?;
             let res_option = super::bls12381::$impl_fn_name(&data)?;
@@ -125,8 +129,8 @@ macro_rules! bls12381_fn {
                 debug_assert_eq!(point_data.len(), $BLS_P_SIZE);
 
                 let mut pk = match $parse_p(point_data) {
-                    Some(pk) => pk,
-                    None => return Ok(None),
+                    | Some(pk) => pk,
+                    | None => return Ok(None),
                 };
 
                 let sign = sign_data[0];
@@ -158,8 +162,8 @@ macro_rules! bls12381_fn {
                 debug_assert_eq!(scalar_data.len(), BLS_SCALAR_SIZE);
 
                 let pk = match $parse_p(point_data) {
-                    Some(pk) => pk,
-                    None => return Ok(None),
+                    | Some(pk) => pk,
+                    | None => return Ok(None),
                 };
 
                 if unsafe { blst::$blst_p_in_g(&pk) } != true {
@@ -209,8 +213,8 @@ macro_rules! bls12381_fn {
 
             for item_data in data.chunks_exact(ITEM_SIZE) {
                 let fp_point = match $read_fp_point(item_data) {
-                    Some(fp_point) => fp_point,
-                    None => return Ok(None),
+                    | Some(fp_point) => fp_point,
+                    | None => return Ok(None),
                 };
 
                 let mut g_point = blst::$blst_p::default();
@@ -394,7 +398,11 @@ fn read_fp2_point(item_data: &[u8]) -> Option<blst::blst_fp2> {
     Some(blst::blst_fp2 { fp: c_fp1 })
 }
 
-fn check_input_size(data: &[u8], item_size: usize, fn_name: &str) -> Result<()> {
+fn check_input_size(
+    data: &[u8],
+    item_size: usize,
+    fn_name: &str,
+) -> Result<()> {
     if data.len() % item_size != 0 {
         return Err(HostError::BLS12381InvalidInput {
             msg: format!(

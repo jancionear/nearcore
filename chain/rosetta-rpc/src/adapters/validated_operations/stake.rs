@@ -42,14 +42,20 @@ impl TryFrom<crate::models::Operation> for StakeOperation {
 
     fn try_from(operation: crate::models::Operation) -> Result<Self, Self::Error> {
         Self::validate_operation_type(operation.type_)?;
-        let amount = operation.amount.ok_or_else(required_fields_error)?;
+        let amount = operation
+            .amount
+            .ok_or_else(required_fields_error)?;
         let amount = if amount.value.is_positive() {
             amount.value.absolute_difference()
         } else {
             return Err(required_fields_error());
         };
-        let metadata = operation.metadata.ok_or_else(required_fields_error)?;
-        let public_key = metadata.public_key.ok_or_else(required_fields_error)?;
+        let metadata = operation
+            .metadata
+            .ok_or_else(required_fields_error)?;
+        let public_key = metadata
+            .public_key
+            .ok_or_else(required_fields_error)?;
 
         Ok(Self { account: operation.account, amount, public_key })
     }

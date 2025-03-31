@@ -46,7 +46,8 @@ macro_rules! handler_trace_span {
 /// Given 'abc::bcd::cde' returns 'cde'.
 /// Given 'abc' returns 'abc'.
 pub fn last_component_of_name(name: &str) -> &str {
-    name.rsplit_once("::").map_or(name, |(_, name)| name)
+    name.rsplit_once("::")
+        .map_or(name, |(_, name)| name)
 }
 
 /// For internal use by `handler_span!`.

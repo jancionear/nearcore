@@ -61,23 +61,29 @@ impl GasCost {
 
     /// Creates `GasCost` out of raw numeric value of gas. This is required mostly for
     /// compatibility with existing code, prefer using `measure` instead.
-    pub(crate) fn from_gas(raw: Ratio<u64>, metric: GasMetric) -> GasCost {
+    pub(crate) fn from_gas(
+        raw: Ratio<u64>,
+        metric: GasMetric,
+    ) -> GasCost {
         let mut result = GasCost::zero();
         match metric {
-            GasMetric::ICount => {
+            | GasMetric::ICount => {
                 result.qemu = Some(QemuMeasurement {
                     instructions: raw / GAS_IN_INSTR,
                     io_r_bytes: 0.into(),
                     io_w_bytes: 0.into(),
                 })
             }
-            GasMetric::Time => result.time_ns = Some(raw / GAS_IN_NS),
+            | GasMetric::Time => result.time_ns = Some(raw / GAS_IN_NS),
         }
         result
     }
 
     /// Like [`std::cmp::Ord::min`] but operates on heterogenous types ([`GasCost`] + [`Gas`]).
-    pub(crate) fn min_gas(mut self, gas: Gas) -> Self {
+    pub(crate) fn min_gas(
+        mut self,
+        gas: Gas,
+    ) -> Self {
         let Some(to_add) = gas.checked_sub(self.to_gas()) else {
             return self;
         };
@@ -103,7 +109,10 @@ impl GasCost {
             .map(|MeasurementUncertainty { reason, location }| format!("{reason}: {location}"))
     }
     #[track_caller]
-    pub(crate) fn set_uncertain(&mut self, reason: &'static str) {
+    pub(crate) fn set_uncertain(
+        &mut self,
+        reason: &'static str,
+    ) {
         self.uncertain = Some(MeasurementUncertainty { reason, location: Location::caller() });
     }
     /// Performs least squares using a separate variable for each component of the gas cost.
@@ -135,8 +144,8 @@ impl GasCost {
             eprintln!("]");
         }
         match least_squares_method_gas_cost_pos_neg(xs, ys, verbose) {
-            Ok(res) => res,
-            Err((mut pos, neg)) => {
+            | Ok(res) => res,
+            | Err((mut pos, neg)) => {
                 // On negative parameters, return positive part and mark as uncertain if necessary
                 if !tolerance.tolerates(&pos, &neg) {
                     pos.0.set_uncertain("NEG-LEAST-SQUARES");
@@ -150,7 +159,11 @@ impl GasCost {
     /// Subtracts two gas costs from each other without panicking on an arithmetic underflow.
     /// If the given tolerance is breached, the result will be marked as uncertain.
     #[track_caller]
-    pub(crate) fn saturating_sub(&self, rhs: &Self, tolerance: &NonNegativeTolerance) -> Self {
+    pub(crate) fn saturating_sub(
+        &self,
+        rhs: &Self,
+        tolerance: &NonNegativeTolerance,
+    ) -> Self {
         let mut pos = self.saturating_sub_no_uncertain_check(rhs);
         let neg = rhs.saturating_sub_no_uncertain_check(self);
         if !tolerance.tolerates(&pos, &neg) {
@@ -161,25 +174,31 @@ impl GasCost {
         pos
     }
 
-    fn saturating_sub_no_uncertain_check(&self, rhs: &Self) -> Self {
+    fn saturating_sub_no_uncertain_check(
+        &self,
+        rhs: &Self,
+    ) -> Self {
         let qemu = match (&self.qemu, &rhs.qemu) {
-            (Some(lhs), Some(rhs)) => Some(QemuMeasurement {
+            | (Some(lhs), Some(rhs)) => Some(QemuMeasurement {
                 instructions: saturating_sub(lhs.instructions, rhs.instructions),
                 io_r_bytes: saturating_sub(lhs.io_r_bytes, rhs.io_r_bytes),
                 io_w_bytes: saturating_sub(lhs.io_w_bytes, rhs.io_w_bytes),
             }),
-            (any_lhs, _any_rhs) => any_lhs.clone(),
+            | (any_lhs, _any_rhs) => any_lhs.clone(),
         };
         let time_ns = match (self.time_ns, rhs.time_ns) {
-            (Some(lhs), Some(rhs)) => Some(saturating_sub(lhs, rhs)),
-            (any_lhs, _any_rhs) => any_lhs,
+            | (Some(lhs), Some(rhs)) => Some(saturating_sub(lhs, rhs)),
+            | (any_lhs, _any_rhs) => any_lhs,
         };
         GasCost { time_ns, qemu, uncertain: None }
     }
 
     /// Does nothing if `GasCost` is already uncertain, otherise copies
     /// uncertain from other `GasCost`.
-    fn combine_uncertain(&mut self, rhs: &Self) {
+    fn combine_uncertain(
+        &mut self,
+        rhs: &Self,
+    ) {
         if !self.is_uncertain() {
             self.uncertain = rhs.uncertain;
         }
@@ -233,23 +252,35 @@ impl Default for LeastSquaresTolerance {
 impl LeastSquaresTolerance {
     /// Tolerate negative values in base cost up to a factor of total cost
     #[allow(dead_code)]
-    pub(crate) fn base_rel_nn_tolerance(mut self, rel_tolerance: f64) -> Self {
+    pub(crate) fn base_rel_nn_tolerance(
+        mut self,
+        rel_tolerance: f64,
+    ) -> Self {
         self.base_nn_tolerance = NonNegativeTolerance::RelativeTolerance(rel_tolerance);
         self
     }
     /// Tolerate negative values in base cost up to a factor of total cost
-    pub(crate) fn factor_rel_nn_tolerance(mut self, rel_tolerance: f64) -> Self {
+    pub(crate) fn factor_rel_nn_tolerance(
+        mut self,
+        rel_tolerance: f64,
+    ) -> Self {
         self.factor_nn_tolerance = NonNegativeTolerance::RelativeTolerance(rel_tolerance);
         self
     }
     /// Tolerate negative values in base cost up to a fixed gas value
-    pub(crate) fn base_abs_nn_tolerance(mut self, abs_tolerance: Gas) -> Self {
+    pub(crate) fn base_abs_nn_tolerance(
+        mut self,
+        abs_tolerance: Gas,
+    ) -> Self {
         self.base_nn_tolerance = NonNegativeTolerance::AbsoluteTolerance(abs_tolerance);
         self
     }
     /// Tolerate negative values in base cost up to a fixed gas value
     #[allow(dead_code)]
-    pub(crate) fn factor_abs_nn_tolerance(mut self, abs_tolerance: Gas) -> Self {
+    pub(crate) fn factor_abs_nn_tolerance(
+        mut self,
+        abs_tolerance: Gas,
+    ) -> Self {
         self.factor_nn_tolerance = NonNegativeTolerance::AbsoluteTolerance(abs_tolerance);
         self
     }
@@ -267,9 +298,16 @@ pub(crate) enum NonNegativeTolerance {
 }
 
 impl LeastSquaresTolerance {
-    fn tolerates(&self, pos: &(GasCost, GasCost), neg: &(GasCost, GasCost)) -> bool {
-        self.base_nn_tolerance.tolerates(&pos.0, &neg.0)
-            && self.factor_nn_tolerance.tolerates(&pos.1, &neg.1)
+    fn tolerates(
+        &self,
+        pos: &(GasCost, GasCost),
+        neg: &(GasCost, GasCost),
+    ) -> bool {
+        self.base_nn_tolerance
+            .tolerates(&pos.0, &neg.0)
+            && self
+                .factor_nn_tolerance
+                .tolerates(&pos.1, &neg.1)
     }
 }
 impl NonNegativeTolerance {
@@ -277,14 +315,21 @@ impl NonNegativeTolerance {
     pub(crate) const PER_MILLE: NonNegativeTolerance =
         NonNegativeTolerance::RelativeTolerance(0.001);
 
-    fn tolerates(&self, pos: &GasCost, neg: &GasCost) -> bool {
+    fn tolerates(
+        &self,
+        pos: &GasCost,
+        neg: &GasCost,
+    ) -> bool {
         match self {
-            NonNegativeTolerance::Strict => neg.to_gas() == 0,
-            NonNegativeTolerance::RelativeTolerance(rel_tolerance) => {
+            | NonNegativeTolerance::Strict => neg.to_gas() == 0,
+            | NonNegativeTolerance::RelativeTolerance(rel_tolerance) => {
                 pos.to_gas() > 0
-                    && Ratio::new(neg.to_gas(), pos.to_gas()).to_f64().unwrap() <= *rel_tolerance
+                    && Ratio::new(neg.to_gas(), pos.to_gas())
+                        .to_f64()
+                        .unwrap()
+                        <= *rel_tolerance
             }
-            NonNegativeTolerance::AbsoluteTolerance(gas_threshold) => {
+            | NonNegativeTolerance::AbsoluteTolerance(gas_threshold) => {
                 neg.to_gas() <= *gas_threshold
             }
         }
@@ -300,7 +345,9 @@ fn least_squares_method_gas_cost_pos_neg(
     ys: &[GasCost],
     verbose: bool,
 ) -> Result<(GasCost, GasCost), ((GasCost, GasCost), (GasCost, GasCost))> {
-    let uncertain = ys.iter().find_map(|cost| cost.uncertain);
+    let uncertain = ys
+        .iter()
+        .find_map(|cost| cost.uncertain);
 
     let mut pos_base = GasCost::zero();
     let mut pos_factor = GasCost::zero();
@@ -313,13 +360,18 @@ fn least_squares_method_gas_cost_pos_neg(
     if let Some(first) = ys.get(0) {
         if first.qemu.is_some() {
             assert!(
-                ys.iter().all(|y| y.qemu.is_some() || y.to_gas() == 0),
+                ys.iter()
+                    .all(|y| y.qemu.is_some() || y.to_gas() == 0),
                 "least square expects homogenous data"
             );
 
             let qemu_ys = ys
                 .iter()
-                .map(|y| y.qemu.clone().unwrap_or_else(|| QemuMeasurement::zero()))
+                .map(|y| {
+                    y.qemu
+                        .clone()
+                        .unwrap_or_else(|| QemuMeasurement::zero())
+                })
                 .collect::<Vec<_>>();
 
             let (pos, neg) = crate::least_squares::qemu_measurement_least_squares(xs, &qemu_ys);
@@ -330,11 +382,14 @@ fn least_squares_method_gas_cost_pos_neg(
         }
         if first.time_ns.is_some() {
             assert!(
-                ys.iter().all(|y| y.time_ns.is_some() || y.to_gas() == 0),
+                ys.iter()
+                    .all(|y| y.time_ns.is_some() || y.to_gas() == 0),
                 "least square expects homogenous data"
             );
-            let time_ys =
-                ys.iter().map(|y| y.time_ns.unwrap_or_else(|| 0.into())).collect::<Vec<_>>();
+            let time_ys = ys
+                .iter()
+                .map(|y| y.time_ns.unwrap_or_else(|| 0.into()))
+                .collect::<Vec<_>>();
             let (pos, neg) = crate::least_squares::time_measurement_least_squares(xs, &time_ys);
             pos_base.time_ns = Some(pos.0);
             pos_factor.time_ns = Some(pos.1);
@@ -363,12 +418,17 @@ impl GasClock {
         let mut result = GasCost::zero();
 
         match self.metric {
-            GasMetric::ICount => {
+            | GasMetric::ICount => {
                 let qemu = QemuMeasurement::end_count_instructions();
                 result.qemu = Some(qemu);
             }
-            GasMetric::Time => {
-                let ns: u64 = self.start.elapsed().as_nanos().try_into().unwrap();
+            | GasMetric::Time => {
+                let ns: u64 = self
+                    .start
+                    .elapsed()
+                    .as_nanos()
+                    .try_into()
+                    .unwrap();
                 result.time_ns = Some(ns.into());
             }
         }
@@ -378,7 +438,10 @@ impl GasClock {
 }
 
 impl fmt::Debug for GasCost {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
         if let Some(qemu) = &self.qemu {
             write!(
                 f,
@@ -403,24 +466,30 @@ impl fmt::Debug for GasCost {
 impl ops::Add for GasCost {
     type Output = GasCost;
 
-    fn add(mut self, rhs: GasCost) -> Self::Output {
+    fn add(
+        mut self,
+        rhs: GasCost,
+    ) -> Self::Output {
         self.combine_uncertain(&rhs);
         let qemu = match (self.qemu, rhs.qemu) {
-            (None, None) => None,
-            (Some(lhs), Some(rhs)) => Some(lhs + rhs),
-            (single_value, None) | (None, single_value) => single_value,
+            | (None, None) => None,
+            | (Some(lhs), Some(rhs)) => Some(lhs + rhs),
+            | (single_value, None) | (None, single_value) => single_value,
         };
         let time_ns = match (self.time_ns, rhs.time_ns) {
-            (None, None) => None,
-            (Some(lhs), Some(rhs)) => Some(lhs + rhs),
-            (single_value, None) | (None, single_value) => single_value,
+            | (None, None) => None,
+            | (Some(lhs), Some(rhs)) => Some(lhs + rhs),
+            | (single_value, None) | (None, single_value) => single_value,
         };
         GasCost { time_ns, qemu, uncertain: self.uncertain }
     }
 }
 
 impl ops::AddAssign for GasCost {
-    fn add_assign(&mut self, rhs: GasCost) {
+    fn add_assign(
+        &mut self,
+        rhs: GasCost,
+    ) {
         *self = self.clone() + rhs;
     }
 }
@@ -439,7 +508,10 @@ impl ops::Sub for GasCost {
     type Output = GasCost;
 
     #[track_caller]
-    fn sub(self, rhs: GasCost) -> Self::Output {
+    fn sub(
+        self,
+        rhs: GasCost,
+    ) -> Self::Output {
         self.saturating_sub(&rhs, &NonNegativeTolerance::Strict)
     }
 }
@@ -447,7 +519,10 @@ impl ops::Sub for GasCost {
 impl ops::Mul<u64> for GasCost {
     type Output = GasCost;
 
-    fn mul(mut self, rhs: u64) -> Self::Output {
+    fn mul(
+        mut self,
+        rhs: u64,
+    ) -> Self::Output {
         if let Some(qemu) = &mut self.qemu {
             qemu.instructions *= rhs;
             qemu.io_r_bytes *= rhs;
@@ -463,7 +538,10 @@ impl ops::Mul<u64> for GasCost {
 impl ops::Div<u64> for GasCost {
     type Output = GasCost;
 
-    fn div(mut self, rhs: u64) -> Self::Output {
+    fn div(
+        mut self,
+        rhs: u64,
+    ) -> Self::Output {
         if let Some(qemu) = &mut self.qemu {
             qemu.instructions /= rhs;
             qemu.io_r_bytes /= rhs;
@@ -476,7 +554,10 @@ impl ops::Div<u64> for GasCost {
     }
 }
 
-fn saturating_sub(a: Ratio<u64>, b: Ratio<u64>) -> Ratio<u64> {
+fn saturating_sub(
+    a: Ratio<u64>,
+    b: Ratio<u64>,
+) -> Ratio<u64> {
     if a < b {
         0.into()
     } else {
@@ -485,13 +566,19 @@ fn saturating_sub(a: Ratio<u64>, b: Ratio<u64>) -> Ratio<u64> {
 }
 
 impl PartialOrd for GasCost {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+    fn partial_cmp(
+        &self,
+        other: &Self,
+    ) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
 impl Ord for GasCost {
-    fn cmp(&self, other: &Self) -> Ordering {
+    fn cmp(
+        &self,
+        other: &Self,
+    ) -> Ordering {
         self.to_gas().cmp(&other.to_gas())
     }
 }
@@ -564,11 +651,21 @@ mod tests {
         }
     }
 
-    fn abs_tolerance(base: Gas, factor: Gas) -> LeastSquaresTolerance {
-        LeastSquaresTolerance::default().base_abs_nn_tolerance(base).factor_abs_nn_tolerance(factor)
+    fn abs_tolerance(
+        base: Gas,
+        factor: Gas,
+    ) -> LeastSquaresTolerance {
+        LeastSquaresTolerance::default()
+            .base_abs_nn_tolerance(base)
+            .factor_abs_nn_tolerance(factor)
     }
-    fn rel_tolerance(base: f64, factor: f64) -> LeastSquaresTolerance {
-        LeastSquaresTolerance::default().base_rel_nn_tolerance(base).factor_rel_nn_tolerance(factor)
+    fn rel_tolerance(
+        base: f64,
+        factor: f64,
+    ) -> LeastSquaresTolerance {
+        LeastSquaresTolerance::default()
+            .base_rel_nn_tolerance(base)
+            .factor_rel_nn_tolerance(factor)
     }
 
     #[test]
@@ -756,7 +853,9 @@ mod tests {
             &xs,
             &ys,
             abs_tolerance(
-                (IO_WRITE_BYTE_COST * 10).ceil().to_integer(),
+                (IO_WRITE_BYTE_COST * 10)
+                    .ceil()
+                    .to_integer(),
                 (GAS_IN_INSTR * 1).ceil().to_integer(),
             ),
             false,

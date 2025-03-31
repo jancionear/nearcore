@@ -34,8 +34,8 @@ fn derive_multi_sender_from_impl(input: proc_macro2::TokenStream) -> proc_macro2
     let ast: syn::DeriveInput = syn::parse2(input).unwrap();
     let struct_name = ast.ident.clone();
     let input = match ast.data {
-        syn::Data::Struct(input) => input,
-        _ => {
+        | syn::Data::Struct(input) => input,
+        | _ => {
             panic!("MultiSenderFrom can only be derived for structs");
         }
     };
@@ -52,13 +52,14 @@ fn derive_multi_sender_from_impl(input: proc_macro2::TokenStream) -> proc_macro2
             .unwrap_or_else(|| format!("#{}", i));
         cfg_attrs.push(extract_cfg_attributes(&field.attrs));
         match &field.ty {
-            syn::Type::Path(path) => {
+            | syn::Type::Path(path) => {
                 let last_segment = path.path.segments.last().unwrap();
                 let arguments = match last_segment.arguments.clone() {
-                    syn::PathArguments::AngleBracketed(arguments) => {
-                        arguments.args.into_iter().collect::<Vec<_>>()
-                    }
-                    _ => panic!("Field {} must be either a Sender or an AsyncSender", field_name),
+                    | syn::PathArguments::AngleBracketed(arguments) => arguments
+                        .args
+                        .into_iter()
+                        .collect::<Vec<_>>(),
+                    | _ => panic!("Field {} must be either a Sender or an AsyncSender", field_name),
                 };
                 if last_segment.ident == "Sender" {
                     type_bounds.push(quote!(near_async::messaging::CanSend<#(#arguments),*>));
@@ -73,7 +74,7 @@ fn derive_multi_sender_from_impl(input: proc_macro2::TokenStream) -> proc_macro2
                     names.push(name.clone());
                 }
             }
-            _ => panic!("Field {} must be either a Sender or an AsyncSender", field_name),
+            | _ => panic!("Field {} must be either a Sender or an AsyncSender", field_name),
         }
     }
 
@@ -108,26 +109,31 @@ fn derive_multi_send_impl(input: proc_macro2::TokenStream) -> proc_macro2::Token
     let ast: syn::DeriveInput = syn::parse2(input).unwrap();
     let struct_name = ast.ident.clone();
     let input = match ast.data {
-        syn::Data::Struct(input) => input,
-        _ => {
+        | syn::Data::Struct(input) => input,
+        | _ => {
             panic!("MultiSend can only be derived for structs");
         }
     };
 
     let mut tokens = Vec::new();
     for (i, field) in input.fields.into_iter().enumerate() {
-        let field_name = field.ident.as_ref().map(|ident| quote!(#ident)).unwrap_or_else(|| {
-            let index = syn::Index::from(i);
-            quote!(#index)
-        });
+        let field_name = field
+            .ident
+            .as_ref()
+            .map(|ident| quote!(#ident))
+            .unwrap_or_else(|| {
+                let index = syn::Index::from(i);
+                quote!(#index)
+            });
         let cfg_attrs = extract_cfg_attributes(&field.attrs);
         if let syn::Type::Path(path) = &field.ty {
             let last_segment = path.path.segments.last().unwrap();
             let arguments = match last_segment.arguments.clone() {
-                syn::PathArguments::AngleBracketed(arguments) => {
-                    arguments.args.into_iter().collect::<Vec<_>>()
-                }
-                _ => {
+                | syn::PathArguments::AngleBracketed(arguments) => arguments
+                    .args
+                    .into_iter()
+                    .collect::<Vec<_>>(),
+                | _ => {
                     continue;
                 }
             };
@@ -162,7 +168,11 @@ fn derive_multi_send_impl(input: proc_macro2::TokenStream) -> proc_macro2::Token
 }
 
 fn extract_cfg_attributes(attrs: &[syn::Attribute]) -> Vec<syn::Attribute> {
-    attrs.iter().filter(|attr| attr.path().is_ident("cfg")).cloned().collect()
+    attrs
+        .iter()
+        .filter(|attr| attr.path().is_ident("cfg"))
+        .cloned()
+        .collect()
 }
 
 /// Derives two enums, whose names are based on this struct by appending
@@ -190,8 +200,8 @@ fn derive_multi_send_message_impl(input: proc_macro2::TokenStream) -> proc_macro
     let message_enum_name = syn::Ident::new(&format!("{}Message", struct_name), Span::call_site());
     let input_enum_name = syn::Ident::new(&format!("{}Input", struct_name), Span::call_site());
     let input = match ast.data {
-        syn::Data::Struct(input) => input,
-        _ => {
+        | syn::Data::Struct(input) => input,
+        | _ => {
             panic!("MultiSendMessage can only be derived for structs");
         }
     };
@@ -202,19 +212,24 @@ fn derive_multi_send_message_impl(input: proc_macro2::TokenStream) -> proc_macro
     let mut discriminator_names = Vec::new();
     let mut input_extractors = Vec::new();
     for (i, field) in input.fields.into_iter().enumerate() {
-        let field_name = field.ident.as_ref().map(|ident| quote!(#ident)).unwrap_or_else(|| {
-            let index = syn::Index::from(i);
-            quote!(#index)
-        });
+        let field_name = field
+            .ident
+            .as_ref()
+            .map(|ident| quote!(#ident))
+            .unwrap_or_else(|| {
+                let index = syn::Index::from(i);
+                quote!(#index)
+            });
         field_names.push(field_name.clone());
         discriminator_names.push(syn::Ident::new(&format!("_{}", field_name), Span::call_site()));
         if let syn::Type::Path(path) = &field.ty {
             let last_segment = path.path.segments.last().unwrap();
             let arguments = match last_segment.arguments.clone() {
-                syn::PathArguments::AngleBracketed(arguments) => {
-                    arguments.args.into_iter().collect::<Vec<_>>()
-                }
-                _ => {
+                | syn::PathArguments::AngleBracketed(arguments) => arguments
+                    .args
+                    .into_iter()
+                    .collect::<Vec<_>>(),
+                | _ => {
                     continue;
                 }
             };
@@ -238,12 +253,18 @@ fn derive_multi_send_message_impl(input: proc_macro2::TokenStream) -> proc_macro
     let mut message_derives = proc_macro2::TokenStream::new();
     let mut input_derives = proc_macro2::TokenStream::new();
     for attr in ast.attrs {
-        if attr.path().is_ident("multi_send_message_derive") {
+        if attr
+            .path()
+            .is_ident("multi_send_message_derive")
+        {
             let Meta::List(metalist) = attr.meta else {
                 panic!("multi_send_message_derive must be a list");
             };
             message_derives = metalist.tokens;
-        } else if attr.path().is_ident("multi_send_input_derive") {
+        } else if attr
+            .path()
+            .is_ident("multi_send_input_derive")
+        {
             let Meta::List(metalist) = attr.meta else {
                 panic!("multi_send_input_derive must be a list");
             };

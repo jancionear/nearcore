@@ -74,7 +74,10 @@ where
 
     /// Get the element at `k` if it exists.
     #[inline(always)]
-    pub fn get(&self, k: K) -> Option<&V> {
+    pub fn get(
+        &self,
+        k: K,
+    ) -> Option<&V> {
         self.elems.get(k.index())
     }
 
@@ -116,8 +119,12 @@ where
     }
 
     /// Resize the map to have `n` entries by adding default entries as needed.
-    pub fn resize(&mut self, n: usize) {
-        self.elems.resize(n, self.default.clone());
+    pub fn resize(
+        &mut self,
+        n: usize,
+    ) {
+        self.elems
+            .resize(n, self.default.clone());
     }
 }
 
@@ -142,8 +149,13 @@ where
     type Output = V;
 
     #[inline(always)]
-    fn index(&self, k: K) -> &V {
-        self.elems.get(k.index()).unwrap_or(&self.default)
+    fn index(
+        &self,
+        k: K,
+    ) -> &V {
+        self.elems
+            .get(k.index())
+            .unwrap_or(&self.default)
     }
 }
 
@@ -158,8 +170,14 @@ where
 {
     type Output = <V as rkyv::Archive>::Archived;
 
-    fn index(&self, k: &K::Archived) -> &Self::Output {
-        &self.elems.get(k.index()).unwrap_or(&self.default)
+    fn index(
+        &self,
+        k: &K::Archived,
+    ) -> &Self::Output {
+        &self
+            .elems
+            .get(k.index())
+            .unwrap_or(&self.default)
     }
 }
 
@@ -172,10 +190,14 @@ where
     V: Clone,
 {
     #[inline(always)]
-    fn index_mut(&mut self, k: K) -> &mut V {
+    fn index_mut(
+        &mut self,
+        k: K,
+    ) -> &mut V {
         let i = k.index();
         if i >= self.elems.len() {
-            self.elems.resize(i + 1, self.default.clone());
+            self.elems
+                .resize(i + 1, self.default.clone());
         }
         &mut self.elems[i]
     }
@@ -186,12 +208,19 @@ where
     K: EntityRef,
     V: Clone + PartialEq,
 {
-    fn eq(&self, other: &Self) -> bool {
+    fn eq(
+        &self,
+        other: &Self,
+    ) -> bool {
         let min_size = min(self.elems.len(), other.elems.len());
         self.default == other.default
             && self.elems[..min_size] == other.elems[..min_size]
-            && self.elems[min_size..].iter().all(|e| *e == self.default)
-            && other.elems[min_size..].iter().all(|e| *e == other.default)
+            && self.elems[min_size..]
+                .iter()
+                .all(|e| *e == self.default)
+            && other.elems[min_size..]
+                .iter()
+                .all(|e| *e == other.default)
     }
 }
 

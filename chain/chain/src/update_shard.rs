@@ -92,14 +92,14 @@ pub fn process_shard_update(
     shard_context: ShardContext,
 ) -> Result<ShardUpdateResult, Error> {
     Ok(match shard_update_reason {
-        ShardUpdateReason::NewChunk(data) => ShardUpdateResult::NewChunk(apply_new_chunk(
+        | ShardUpdateReason::NewChunk(data) => ShardUpdateResult::NewChunk(apply_new_chunk(
             ApplyChunkReason::UpdateTrackedShard,
             parent_span,
             data,
             shard_context,
             runtime,
         )?),
-        ShardUpdateReason::OldChunk(data) => ShardUpdateResult::OldChunk(apply_old_chunk(
+        | ShardUpdateReason::OldChunk(data) => ShardUpdateResult::OldChunk(apply_old_chunk(
             ApplyChunkReason::UpdateTrackedShard,
             parent_span,
             data,
@@ -158,10 +158,10 @@ pub fn apply_new_chunk(
         &receipts,
         SignedValidPeriodTransactions::new(&transactions, &transaction_validity_check_results),
     ) {
-        Ok(apply_result) => {
+        | Ok(apply_result) => {
             Ok(NewChunkResult { gas_limit, shard_uid: shard_context.shard_uid, apply_result })
         }
-        Err(err) => Err(err),
+        | Err(err) => Err(err),
     }
 }
 
@@ -205,7 +205,9 @@ pub fn apply_old_chunk(
         &[],
         SignedValidPeriodTransactions::new(&[], &[]),
     ) {
-        Ok(apply_result) => Ok(OldChunkResult { shard_uid: shard_context.shard_uid, apply_result }),
-        Err(err) => Err(err),
+        | Ok(apply_result) => {
+            Ok(OldChunkResult { shard_uid: shard_context.shard_uid, apply_result })
+        }
+        | Err(err) => Err(err),
     }
 }

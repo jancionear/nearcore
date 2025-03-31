@@ -49,7 +49,9 @@ impl Store {
         &self,
         account_id: &AccountId,
     ) -> Result<Option<AnnounceAccount>, Error> {
-        self.0.get::<schema::AccountAnnouncements>(account_id).map_err(Error)
+        self.0
+            .get::<schema::AccountAnnouncements>(account_id)
+            .map_err(Error)
     }
 }
 

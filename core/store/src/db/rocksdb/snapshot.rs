@@ -82,9 +82,12 @@ impl Snapshot {
         config: &crate::StoreConfig,
         temp: Temperature,
     ) -> Result<Self, SnapshotError> {
-        let snapshot_path = match config.migration_snapshot.get_path(db_path) {
-            Some(snapshot_path) => snapshot_path,
-            None => return Ok(Self::none()),
+        let snapshot_path = match config
+            .migration_snapshot
+            .get_path(db_path)
+        {
+            | Some(snapshot_path) => snapshot_path,
+            | None => return Ok(Self::none()),
         };
 
         tracing::info!(target: "db", snapshot_path=%snapshot_path.display(),

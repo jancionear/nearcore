@@ -74,14 +74,19 @@ pub struct PeerAddr {
 }
 
 impl serde::Serialize for PeerAddr {
-    fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+    fn serialize<S: serde::Serializer>(
+        &self,
+        s: S,
+    ) -> Result<S::Ok, S::Error> {
         s.serialize_str(&format!("{}@{}", self.peer_id, self.addr))
     }
 }
 
 impl<'a> serde::Deserialize<'a> for PeerAddr {
     fn deserialize<D: serde::Deserializer<'a>>(d: D) -> Result<Self, D::Error> {
-        <String as serde::Deserialize>::deserialize(d)?.parse().map_err(serde::de::Error::custom)
+        <String as serde::Deserialize>::deserialize(d)?
+            .parse()
+            .map_err(serde::de::Error::custom)
     }
 }
 
@@ -103,8 +108,14 @@ impl std::str::FromStr for PeerAddr {
             return Err(Self::Err::Format(s.to_string()));
         }
         Ok(PeerAddr {
-            peer_id: PeerId::new(parts[0].parse().map_err(Self::Err::PeerId)?),
-            addr: parts[1].parse().map_err(Self::Err::SocketAddr)?,
+            peer_id: PeerId::new(
+                parts[0]
+                    .parse()
+                    .map_err(Self::Err::PeerId)?,
+            ),
+            addr: parts[1]
+                .parse()
+                .map_err(Self::Err::SocketAddr)?,
         })
     }
 }
@@ -180,13 +191,18 @@ impl VersionedAccountData {
     /// due to account_id mismatch. Then instead of panicking we could return an error
     /// and the caller (who constructs the arguments) would do an unwrap(). This would
     /// constitute a cleaner never-panicking interface.
-    pub fn sign(self, signer: &ValidatorSigner) -> anyhow::Result<SignedAccountData> {
+    pub fn sign(
+        self,
+        signer: &ValidatorSigner,
+    ) -> anyhow::Result<SignedAccountData> {
         assert_eq!(
             self.account_key,
             signer.public_key(),
             "AccountData.account_key doesn't match the signer's account_key"
         );
-        let payload = proto::AccountKeyPayload::from(&self).write_to_bytes().unwrap();
+        let payload = proto::AccountKeyPayload::from(&self)
+            .write_to_bytes()
+            .unwrap();
         if payload.len() > MAX_ACCOUNT_DATA_SIZE_BYTES {
             anyhow::bail!(
                 "payload size = {}, max is {}",
@@ -222,10 +238,16 @@ impl AccountKeySignedPayload {
     pub fn signature(&self) -> &near_crypto::Signature {
         &self.signature
     }
-    pub fn verify(&self, key: &PublicKey) -> Result<(), ()> {
-        match self.signature.verify(&self.payload, key) {
-            true => Ok(()),
-            false => Err(()),
+    pub fn verify(
+        &self,
+        key: &PublicKey,
+    ) -> Result<(), ()> {
+        match self
+            .signature
+            .verify(&self.payload, key)
+        {
+            | true => Ok(()),
+            | false => Err(()),
         }
     }
 }
@@ -266,13 +288,18 @@ impl OwnedAccount {
     /// Serializes OwnedAccount to proto and signs it using `signer`.
     /// Panics if OwnedAccount.account_key doesn't match signer.public_key(),
     /// as this would likely be a bug.
-    pub fn sign(self, signer: &ValidatorSigner) -> SignedOwnedAccount {
+    pub fn sign(
+        self,
+        signer: &ValidatorSigner,
+    ) -> SignedOwnedAccount {
         assert_eq!(
             self.account_key,
             signer.public_key(),
             "OwnedAccount.account_key doesn't match the signer's account_key"
         );
-        let payload = proto::AccountKeyPayload::from(&self).write_to_bytes().unwrap();
+        let payload = proto::AccountKeyPayload::from(&self)
+            .write_to_bytes()
+            .unwrap();
         let signature = signer.sign_bytes(&payload);
         SignedOwnedAccount {
             owned_account: self,
@@ -316,7 +343,10 @@ impl RoutingTableUpdate {
         Self { edges: Vec::new(), accounts }
     }
 
-    pub(crate) fn new(edges: Vec<Edge>, accounts: Vec<AnnounceAccount>) -> Self {
+    pub(crate) fn new(
+        edges: Vec<Edge>,
+        accounts: Vec<AnnounceAccount>,
+    ) -> Self {
         Self { edges, accounts }
     }
 }
@@ -451,7 +481,10 @@ pub enum PeerMessage {
 }
 
 impl fmt::Display for PeerMessage {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
         fmt::Display::fmt(self.msg_variant(), f)
     }
 }
@@ -477,10 +510,13 @@ pub enum ParsePeerMessageError {
 impl PeerMessage {
     /// Serializes a message in the given encoding.
     /// If the encoding is `Proto`, then also attaches current Span's context to the message.
-    pub(crate) fn serialize(&self, enc: Encoding) -> Vec<u8> {
+    pub(crate) fn serialize(
+        &self,
+        enc: Encoding,
+    ) -> Vec<u8> {
         match enc {
-            Encoding::Borsh => borsh::to_vec(&borsh_::PeerMessage::from(self)).unwrap(),
-            Encoding::Proto => {
+            | Encoding::Borsh => borsh::to_vec(&borsh_::PeerMessage::from(self)).unwrap(),
+            | Encoding::Proto => {
                 let mut msg = proto::PeerMessage::from(self);
                 let cx = Span::current().context();
                 msg.trace_context = inject_trace_context(&cx);
@@ -495,25 +531,29 @@ impl PeerMessage {
     ) -> Result<PeerMessage, ParsePeerMessageError> {
         let span = tracing::trace_span!(target: "network", "deserialize").entered();
         Ok(match enc {
-            Encoding::Borsh => (&borsh_::PeerMessage::try_from_slice(data)
+            | Encoding::Borsh => (&borsh_::PeerMessage::try_from_slice(data)
                 .map_err(ParsePeerMessageError::BorshDecode)?)
                 .try_into()
                 .map_err(ParsePeerMessageError::BorshConv)?,
-            Encoding::Proto => {
+            | Encoding::Proto => {
                 let proto_msg: proto::PeerMessage = proto::PeerMessage::parse_from_bytes(data)
                     .map_err(ParsePeerMessageError::ProtoDecode)?;
                 if let Ok(extracted_span_context) = extract_span_context(&proto_msg.trace_context) {
-                    span.clone().or_current().add_link(extracted_span_context);
+                    span.clone()
+                        .or_current()
+                        .add_link(extracted_span_context);
                 }
-                (&proto_msg).try_into().map_err(|err| ParsePeerMessageError::ProtoConv(err))?
+                (&proto_msg)
+                    .try_into()
+                    .map_err(|err| ParsePeerMessageError::ProtoConv(err))?
             }
         })
     }
 
     pub(crate) fn msg_variant(&self) -> &'static str {
         match self {
-            PeerMessage::Routed(routed_msg) => routed_msg.body_variant(),
-            _ => self.into(),
+            | PeerMessage::Routed(routed_msg) => routed_msg.body_variant(),
+            | _ => self.into(),
         }
     }
 }
@@ -573,10 +613,10 @@ impl RoutedMessageBody {
         match self {
             // These messages are important because they are critical for block and chunk production,
             // and lost messages cannot be requested again.
-            RoutedMessageBody::BlockApproval(_)
+            | RoutedMessageBody::BlockApproval(_)
             | RoutedMessageBody::VersionedPartialEncodedChunk(_) => IMPORTANT_MESSAGE_RESENT_COUNT,
             // Default value is sending just once.
-            _ => 1,
+            | _ => 1,
         }
     }
 
@@ -586,85 +626,99 @@ impl RoutedMessageBody {
     // we may be the block_producer.
     pub fn allow_sending_to_self(&self) -> bool {
         match self {
-            RoutedMessageBody::PartialEncodedStateWitness(_)
+            | RoutedMessageBody::PartialEncodedStateWitness(_)
             | RoutedMessageBody::PartialEncodedStateWitnessForward(_)
             | RoutedMessageBody::VersionedChunkEndorsement(_) => true,
-            _ => false,
+            | _ => false,
         }
     }
 }
 
 impl fmt::Debug for RoutedMessageBody {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
         match self {
-            RoutedMessageBody::BlockApproval(approval) => write!(
+            | RoutedMessageBody::BlockApproval(approval) => write!(
                 f,
                 "Approval({}, {}, {:?})",
                 approval.target_height, approval.account_id, approval.inner
             ),
-            RoutedMessageBody::ForwardTx(tx) => write!(f, "tx {}", tx.get_hash()),
-            RoutedMessageBody::TxStatusRequest(account_id, hash) => {
+            | RoutedMessageBody::ForwardTx(tx) => write!(f, "tx {}", tx.get_hash()),
+            | RoutedMessageBody::TxStatusRequest(account_id, hash) => {
                 write!(f, "TxStatusRequest({}, {})", account_id, hash)
             }
-            RoutedMessageBody::TxStatusResponse(response) => {
+            | RoutedMessageBody::TxStatusResponse(response) => {
                 write!(f, "TxStatusResponse({})", response.transaction.hash)
             }
-            RoutedMessageBody::_UnusedQueryRequest => write!(f, "QueryRequest"),
-            RoutedMessageBody::_UnusedQueryResponse => write!(f, "QueryResponse"),
-            RoutedMessageBody::_UnusedReceiptOutcomeRequest(_) => write!(f, "ReceiptRequest"),
-            RoutedMessageBody::_UnusedReceiptOutcomeResponse => write!(f, "ReceiptResponse"),
-            RoutedMessageBody::_UnusedStateRequestHeader => write!(f, "StateRequestHeader"),
-            RoutedMessageBody::_UnusedStateRequestPart => write!(f, "StateRequestPart"),
-            RoutedMessageBody::_UnusedStateResponse => write!(f, "StateResponse"),
-            RoutedMessageBody::PartialEncodedChunkRequest(request) => {
+            | RoutedMessageBody::_UnusedQueryRequest => write!(f, "QueryRequest"),
+            | RoutedMessageBody::_UnusedQueryResponse => write!(f, "QueryResponse"),
+            | RoutedMessageBody::_UnusedReceiptOutcomeRequest(_) => write!(f, "ReceiptRequest"),
+            | RoutedMessageBody::_UnusedReceiptOutcomeResponse => write!(f, "ReceiptResponse"),
+            | RoutedMessageBody::_UnusedStateRequestHeader => write!(f, "StateRequestHeader"),
+            | RoutedMessageBody::_UnusedStateRequestPart => write!(f, "StateRequestPart"),
+            | RoutedMessageBody::_UnusedStateResponse => write!(f, "StateResponse"),
+            | RoutedMessageBody::PartialEncodedChunkRequest(request) => {
                 write!(f, "PartialChunkRequest({:?}, {:?})", request.chunk_hash, request.part_ords)
             }
-            RoutedMessageBody::PartialEncodedChunkResponse(response) => write!(
+            | RoutedMessageBody::PartialEncodedChunkResponse(response) => write!(
                 f,
                 "PartialChunkResponse({:?}, {:?})",
                 response.chunk_hash,
-                response.parts.iter().map(|p| p.part_ord).collect::<Vec<_>>()
+                response
+                    .parts
+                    .iter()
+                    .map(|p| p.part_ord)
+                    .collect::<Vec<_>>()
             ),
-            RoutedMessageBody::_UnusedPartialEncodedChunk => write!(f, "PartialEncodedChunk"),
-            RoutedMessageBody::VersionedPartialEncodedChunk(_) => {
+            | RoutedMessageBody::_UnusedPartialEncodedChunk => write!(f, "PartialEncodedChunk"),
+            | RoutedMessageBody::VersionedPartialEncodedChunk(_) => {
                 write!(f, "VersionedPartialEncodedChunk(?)")
             }
-            RoutedMessageBody::PartialEncodedChunkForward(forward) => write!(
+            | RoutedMessageBody::PartialEncodedChunkForward(forward) => write!(
                 f,
                 "PartialChunkForward({:?}, {:?})",
                 forward.chunk_hash,
-                forward.parts.iter().map(|p| p.part_ord).collect::<Vec<_>>(),
+                forward
+                    .parts
+                    .iter()
+                    .map(|p| p.part_ord)
+                    .collect::<Vec<_>>(),
             ),
-            RoutedMessageBody::Ping(_) => write!(f, "Ping"),
-            RoutedMessageBody::Pong(_) => write!(f, "Pong"),
-            RoutedMessageBody::_UnusedVersionedStateResponse => write!(f, "VersionedStateResponse"),
-            RoutedMessageBody::_UnusedChunkStateWitness => write!(f, "ChunkStateWitness"),
-            RoutedMessageBody::_UnusedChunkEndorsement => write!(f, "ChunkEndorsement"),
-            RoutedMessageBody::ChunkStateWitnessAck(ack, ..) => {
-                f.debug_tuple("ChunkStateWitnessAck").field(&ack.chunk_hash).finish()
+            | RoutedMessageBody::Ping(_) => write!(f, "Ping"),
+            | RoutedMessageBody::Pong(_) => write!(f, "Pong"),
+            | RoutedMessageBody::_UnusedVersionedStateResponse => {
+                write!(f, "VersionedStateResponse")
             }
-            RoutedMessageBody::PartialEncodedStateWitness(_) => {
+            | RoutedMessageBody::_UnusedChunkStateWitness => write!(f, "ChunkStateWitness"),
+            | RoutedMessageBody::_UnusedChunkEndorsement => write!(f, "ChunkEndorsement"),
+            | RoutedMessageBody::ChunkStateWitnessAck(ack, ..) => f
+                .debug_tuple("ChunkStateWitnessAck")
+                .field(&ack.chunk_hash)
+                .finish(),
+            | RoutedMessageBody::PartialEncodedStateWitness(_) => {
                 write!(f, "PartialEncodedStateWitness")
             }
-            RoutedMessageBody::PartialEncodedStateWitnessForward(_) => {
+            | RoutedMessageBody::PartialEncodedStateWitnessForward(_) => {
                 write!(f, "PartialEncodedStateWitnessForward")
             }
-            RoutedMessageBody::VersionedChunkEndorsement(_) => {
+            | RoutedMessageBody::VersionedChunkEndorsement(_) => {
                 write!(f, "VersionedChunkEndorsement")
             }
-            RoutedMessageBody::_UnusedEpochSyncRequest => write!(f, "EpochSyncRequest"),
-            RoutedMessageBody::_UnusedEpochSyncResponse(_) => {
+            | RoutedMessageBody::_UnusedEpochSyncRequest => write!(f, "EpochSyncRequest"),
+            | RoutedMessageBody::_UnusedEpochSyncResponse(_) => {
                 write!(f, "EpochSyncResponse")
             }
-            RoutedMessageBody::StatePartRequest(_) => write!(f, "StatePartRequest"),
-            RoutedMessageBody::ChunkContractAccesses(accesses) => {
+            | RoutedMessageBody::StatePartRequest(_) => write!(f, "StatePartRequest"),
+            | RoutedMessageBody::ChunkContractAccesses(accesses) => {
                 write!(f, "ChunkContractAccesses(code_hashes={:?})", accesses.contracts())
             }
-            RoutedMessageBody::ContractCodeRequest(request) => {
+            | RoutedMessageBody::ContractCodeRequest(request) => {
                 write!(f, "ContractCodeRequest(code_hashes={:?})", request.contracts())
             }
-            RoutedMessageBody::ContractCodeResponse(_) => write!(f, "ContractCodeResponse",),
-            RoutedMessageBody::PartialEncodedContractDeploys(deploys) => {
+            | RoutedMessageBody::ContractCodeResponse(_) => write!(f, "ContractCodeResponse",),
+            | RoutedMessageBody::PartialEncodedContractDeploys(deploys) => {
                 write!(f, "PartialEncodedContractDeploys(part={:?}", deploys.part())
             }
         }
@@ -743,7 +797,8 @@ impl RoutedMessage {
     }
 
     pub fn verify(&self) -> bool {
-        self.signature.verify(self.hash().as_ref(), self.author.public_key())
+        self.signature
+            .verify(self.hash().as_ref(), self.author.public_key())
     }
 
     pub fn expect_response(&self) -> bool {
@@ -900,22 +955,22 @@ pub enum StateResponseInfo {
 impl StateResponseInfo {
     pub fn shard_id(&self) -> ShardId {
         match self {
-            Self::V1(info) => info.shard_id,
-            Self::V2(info) => info.shard_id,
+            | Self::V1(info) => info.shard_id,
+            | Self::V2(info) => info.shard_id,
         }
     }
 
     pub fn sync_hash(&self) -> CryptoHash {
         match self {
-            Self::V1(info) => info.sync_hash,
-            Self::V2(info) => info.sync_hash,
+            | Self::V1(info) => info.sync_hash,
+            | Self::V2(info) => info.sync_hash,
         }
     }
 
     pub fn take_state_response(self) -> ShardStateSyncResponse {
         match self {
-            Self::V1(info) => ShardStateSyncResponse::V1(info.state_response),
-            Self::V2(info) => info.state_response,
+            | Self::V1(info) => ShardStateSyncResponse::V1(info.state_response),
+            | Self::V2(info) => info.state_response,
         }
     }
 }

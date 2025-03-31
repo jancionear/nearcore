@@ -4,7 +4,10 @@ use std::path::PathBuf;
 
 /// Given a Testsuite and a path, process the path in case is a wast
 /// file.
-pub fn wast_processor(_out: &mut Testsuite, p: PathBuf) -> Option<Test> {
+pub fn wast_processor(
+    _out: &mut Testsuite,
+    p: PathBuf,
+) -> Option<Test> {
     let ext = p.extension()?;
     // Only look at wast files.
     if ext != "wast" {
@@ -12,7 +15,10 @@ pub fn wast_processor(_out: &mut Testsuite, p: PathBuf) -> Option<Test> {
     }
 
     // Ignore files starting with `.`, which could be editor temporary files
-    if p.file_stem()?.to_str()?.starts_with('.') {
+    if p.file_stem()?
+        .to_str()?
+        .starts_with('.')
+    {
         return None;
     }
 
@@ -26,7 +32,10 @@ pub fn wast_processor(_out: &mut Testsuite, p: PathBuf) -> Option<Test> {
 
 /// Given a Testsuite and a path, process the path in case is an Emscripten
 /// wasm file.
-pub fn emscripten_processor(_out: &mut Testsuite, p: PathBuf) -> Option<Test> {
+pub fn emscripten_processor(
+    _out: &mut Testsuite,
+    p: PathBuf,
+) -> Option<Test> {
     let ext = p.extension()?;
     // Only look at wast files.
     if ext != "wasm" {

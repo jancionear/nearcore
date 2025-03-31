@@ -39,19 +39,29 @@ struct ContractsTracker {
 }
 
 impl ContractsTracker {
-    fn get(&self, code_hash: CodeHash) -> Option<ContractCode> {
+    fn get(
+        &self,
+        code_hash: CodeHash,
+    ) -> Option<ContractCode> {
         self.uncommitted_deploys
             .get(&code_hash)
             .or_else(|| self.committed_deploys.get(&code_hash))
             .map(|contract| ContractCode::new(contract.code().to_vec(), Some(code_hash.into())))
     }
 
-    fn call(&mut self, code_hash: CodeHash) {
+    fn call(
+        &mut self,
+        code_hash: CodeHash,
+    ) {
         self.contract_calls.insert(code_hash);
     }
 
-    fn deploy(&mut self, code: ContractCode) {
-        self.uncommitted_deploys.insert((*code.hash()).into(), code);
+    fn deploy(
+        &mut self,
+        code: ContractCode,
+    ) {
+        self.uncommitted_deploys
+            .insert((*code.hash()).into(), code);
     }
 
     /// Rollback the uncommitted deployments.
@@ -63,7 +73,8 @@ impl ContractsTracker {
     fn commit_deploys(&mut self) {
         let deploys = std::mem::take(&mut self.uncommitted_deploys);
         for (code_hash, contract) in deploys.into_iter() {
-            self.committed_deploys.insert(code_hash, contract);
+            self.committed_deploys
+                .insert(code_hash, contract);
         }
     }
 
@@ -71,7 +82,10 @@ impl ContractsTracker {
     fn finalize(mut self) -> ContractUpdates {
         ContractUpdates {
             contract_accesses: std::mem::take(&mut self.contract_calls),
-            contract_deploys: self.committed_deploys.into_values().collect(),
+            contract_deploys: self
+                .committed_deploys
+                .into_values()
+                .collect(),
         }
     }
 }
@@ -100,7 +114,10 @@ impl ContractStorage {
     /// the function call for the returned contract may not be included in the currently applied chunk.
     /// Thus, the `record_call` method should also be called to indicate that the calling the contract
     /// is actually included in the chunk application.
-    pub fn get(&self, code_hash: CryptoHash) -> Option<ContractCode> {
+    pub fn get(
+        &self,
+        code_hash: CryptoHash,
+    ) -> Option<ContractCode> {
         {
             let guard = self.tracker.lock().expect("no panics");
             // The tracker may be finalized before the receipt preparation pipeline calls this function.
@@ -115,24 +132,32 @@ impl ContractStorage {
             }
         }
 
-        match self.storage.retrieve_raw_bytes(&code_hash) {
-            Ok(raw_code) => Some(ContractCode::new(raw_code.to_vec(), Some(code_hash))),
-            Err(StorageError::MissingTrieValue(context, _)) => {
+        match self
+            .storage
+            .retrieve_raw_bytes(&code_hash)
+        {
+            | Ok(raw_code) => Some(ContractCode::new(raw_code.to_vec(), Some(code_hash))),
+            | Err(StorageError::MissingTrieValue(context, _)) => {
                 metrics::STORAGE_MISSING_CONTRACTS_COUNT
                     .with_label_values(&[context.metrics_label()])
                     .inc();
                 None
             }
-            Err(_) => None,
+            | Err(_) => None,
         }
     }
 
     /// Records a call to a contract by code-hash.
     ///
     /// This is used to capture the contracts that are called when applying a chunk.
-    pub fn record_call(&self, code_hash: CryptoHash) {
+    pub fn record_call(
+        &self,
+        code_hash: CryptoHash,
+    ) {
         let mut guard = self.tracker.lock().expect("no panics");
-        let tracker = guard.as_mut().expect("must not be called after finalizing");
+        let tracker = guard
+            .as_mut()
+            .expect("must not be called after finalizing");
         tracker.call(code_hash.into());
     }
 
@@ -140,9 +165,14 @@ impl ContractStorage {
     ///
     /// Subsequent calls to `get` will return the code that was stored here. Calling `rollback_deploys` clears
     /// this uncommitted deploy and calling `commit_deploys` moves it to the committed list.
-    pub fn record_deploy(&self, code: ContractCode) {
+    pub fn record_deploy(
+        &self,
+        code: ContractCode,
+    ) {
         let mut guard = self.tracker.lock().expect("no panics");
-        let tracker = guard.as_mut().expect("must not be called after finalizing");
+        let tracker = guard
+            .as_mut()
+            .expect("must not be called after finalizing");
         tracker.deploy(code);
     }
 
@@ -152,7 +182,9 @@ impl ContractStorage {
     /// to the committed list and clears the uncommitted list.
     pub(crate) fn commit_deploys(&mut self) {
         let mut guard = self.tracker.lock().expect("no panics");
-        let tracker = guard.as_mut().expect("must not be called after finalizing");
+        let tracker = guard
+            .as_mut()
+            .expect("must not be called after finalizing");
         tracker.commit_deploys();
     }
 
@@ -162,7 +194,9 @@ impl ContractStorage {
     /// but does not modify the list of committed deployments.
     pub(crate) fn rollback_deploys(&mut self) {
         let mut guard = self.tracker.lock().expect("no panics");
-        let tracker = guard.as_mut().expect("must not be called after finalizing");
+        let tracker = guard
+            .as_mut()
+            .expect("must not be called after finalizing");
         tracker.rollback_deploys();
     }
 
@@ -176,7 +210,9 @@ impl ContractStorage {
     /// This can be optimized later by checking if the deployed contract already exists in the storage and excluding from the returned list.
     pub(crate) fn finalize(self) -> ContractUpdates {
         let mut guard = self.tracker.lock().expect("no panics");
-        let tracker = guard.take().expect("finalize must be called only once");
+        let tracker = guard
+            .take()
+            .expect("finalize must be called only once");
         tracker.finalize()
     }
 }
@@ -207,16 +243,23 @@ mod tests {
             Self { store: HashMap::new() }
         }
 
-        fn insert(&mut self, hash: CryptoHash, data: Arc<[u8]>) {
+        fn insert(
+            &mut self,
+            hash: CryptoHash,
+            data: Arc<[u8]>,
+        ) {
             self.store.insert(hash, data);
         }
     }
 
     impl TrieStorage for MockTrieStorage {
-        fn retrieve_raw_bytes(&self, hash: &CryptoHash) -> Result<Arc<[u8]>, StorageError> {
+        fn retrieve_raw_bytes(
+            &self,
+            hash: &CryptoHash,
+        ) -> Result<Arc<[u8]>, StorageError> {
             match self.store.get(hash) {
-                Some(data) => Ok(data.clone()),
-                None => {
+                | Some(data) => Ok(data.clone()),
+                | None => {
                     Err(StorageError::MissingTrieValue(MissingTrieValueContext::TrieStorage, *hash))
                 }
             }
@@ -226,7 +269,9 @@ mod tests {
     /// Tests a scenario with old (already existing in the storage) and new contracts and finalizing after rolling back some deploys and committing others.
     #[test]
     fn test_contract_storage_finalize_after_rollback_and_commit() {
-        let contracts = (0..4).map(|i| ContractCode::new(vec![i], None)).collect_vec();
+        let contracts = (0..4)
+            .map(|i| ContractCode::new(vec![i], None))
+            .collect_vec();
         let (old_contracts, new_contracts) = contracts.split_at(2);
 
         // Insert old contracts (already deployed contracts) into the storage.
@@ -275,7 +320,9 @@ mod tests {
     /// Tests a scenario with old (already existing in the storage) and new contracts and calling `get` after committing some deploys.
     #[test]
     fn test_contract_storage_get_after_new_deploys_and_commit() {
-        let contracts = (0..4).map(|i| ContractCode::new(vec![i], None)).collect_vec();
+        let contracts = (0..4)
+            .map(|i| ContractCode::new(vec![i], None))
+            .collect_vec();
         let (old_contracts, new_contracts) = contracts.split_at(2);
 
         // Insert old contracts (already deployed contracts) into the storage.
@@ -288,10 +335,18 @@ mod tests {
 
         // Only existing contracts should be returned by `get` before deploying the new ones.
         for contract in old_contracts.iter() {
-            assert_eq!(contract_storage.get(*contract.hash()).unwrap().hash(), contract.hash());
+            assert_eq!(
+                contract_storage
+                    .get(*contract.hash())
+                    .unwrap()
+                    .hash(),
+                contract.hash()
+            );
         }
         for contract in new_contracts.iter() {
-            assert!(contract_storage.get(*contract.hash()).is_none());
+            assert!(contract_storage
+                .get(*contract.hash())
+                .is_none());
         }
 
         contract_storage.record_deploy(new_contracts[0].clone_for_tests());
@@ -300,26 +355,52 @@ mod tests {
         // Make the same `get` calls before and after commit. Both should return the same results.
 
         for contract in old_contracts.iter() {
-            assert_eq!(contract_storage.get(*contract.hash()).unwrap().hash(), contract.hash());
+            assert_eq!(
+                contract_storage
+                    .get(*contract.hash())
+                    .unwrap()
+                    .hash(),
+                contract.hash()
+            );
         }
         for contract in new_contracts.iter() {
-            assert_eq!(contract_storage.get(*contract.hash()).unwrap().hash(), contract.hash());
+            assert_eq!(
+                contract_storage
+                    .get(*contract.hash())
+                    .unwrap()
+                    .hash(),
+                contract.hash()
+            );
         }
 
         contract_storage.commit_deploys();
 
         for contract in old_contracts.iter() {
-            assert_eq!(contract_storage.get(*contract.hash()).unwrap().hash(), contract.hash());
+            assert_eq!(
+                contract_storage
+                    .get(*contract.hash())
+                    .unwrap()
+                    .hash(),
+                contract.hash()
+            );
         }
         for contract in new_contracts.iter() {
-            assert_eq!(contract_storage.get(*contract.hash()).unwrap().hash(), contract.hash());
+            assert_eq!(
+                contract_storage
+                    .get(*contract.hash())
+                    .unwrap()
+                    .hash(),
+                contract.hash()
+            );
         }
     }
 
     /// Tests a scenario with old (already existing in the storage) and new contracts and calling `get` after rolling back some deploys.
     #[test]
     fn test_contract_storage_get_after_new_deploys_and_rollback() {
-        let contracts = (0..4).map(|i| ContractCode::new(vec![i], None)).collect_vec();
+        let contracts = (0..4)
+            .map(|i| ContractCode::new(vec![i], None))
+            .collect_vec();
         let (old_contracts, new_contracts) = contracts.split_at(2);
 
         // Insert old contracts (already deployed contracts) into the storage.
@@ -337,26 +418,48 @@ mod tests {
         // but those after rollback should return only the old contracts.
 
         for contract in old_contracts.iter() {
-            assert_eq!(contract_storage.get(*contract.hash()).unwrap().hash(), contract.hash());
+            assert_eq!(
+                contract_storage
+                    .get(*contract.hash())
+                    .unwrap()
+                    .hash(),
+                contract.hash()
+            );
         }
         for contract in new_contracts.iter() {
-            assert_eq!(contract_storage.get(*contract.hash()).unwrap().hash(), contract.hash());
+            assert_eq!(
+                contract_storage
+                    .get(*contract.hash())
+                    .unwrap()
+                    .hash(),
+                contract.hash()
+            );
         }
 
         contract_storage.rollback_deploys();
 
         for contract in old_contracts.iter() {
-            assert_eq!(contract_storage.get(*contract.hash()).unwrap().hash(), contract.hash());
+            assert_eq!(
+                contract_storage
+                    .get(*contract.hash())
+                    .unwrap()
+                    .hash(),
+                contract.hash()
+            );
         }
         for contract in new_contracts.iter() {
-            assert!(contract_storage.get(*contract.hash()).is_none());
+            assert!(contract_storage
+                .get(*contract.hash())
+                .is_none());
         }
     }
 
     /// Tests a scenario with existing and missing contracts, and calling `get` after finalizing the storage.
     #[test]
     fn test_contract_storage_get_after_finalize() {
-        let contracts = (0..4).map(|i| ContractCode::new(vec![i], None)).collect_vec();
+        let contracts = (0..4)
+            .map(|i| ContractCode::new(vec![i], None))
+            .collect_vec();
         let (existing_contracts, missing_contracts) = contracts.split_at(2);
 
         // Insert old contracts (already deployed contracts) into the storage.
@@ -371,10 +474,18 @@ mod tests {
         // Both should return the same results for existing and missing contracts.
 
         for contract in existing_contracts.iter() {
-            assert_eq!(contract_storage.get(*contract.hash()).unwrap().hash(), contract.hash());
+            assert_eq!(
+                contract_storage
+                    .get(*contract.hash())
+                    .unwrap()
+                    .hash(),
+                contract.hash()
+            );
         }
         for contract in missing_contracts.iter() {
-            assert!(contract_storage.get(*contract.hash()).is_none());
+            assert!(contract_storage
+                .get(*contract.hash())
+                .is_none());
         }
 
         let contract_storage_clone = contract_storage.clone();
@@ -382,12 +493,17 @@ mod tests {
 
         for contract in existing_contracts.iter() {
             assert_eq!(
-                contract_storage_clone.get(*contract.hash()).unwrap().hash(),
+                contract_storage_clone
+                    .get(*contract.hash())
+                    .unwrap()
+                    .hash(),
                 contract.hash()
             );
         }
         for contract in missing_contracts.iter() {
-            assert!(contract_storage_clone.get(*contract.hash()).is_none());
+            assert!(contract_storage_clone
+                .get(*contract.hash())
+                .is_none());
         }
     }
 }

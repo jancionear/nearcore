@@ -35,10 +35,16 @@ impl<T> BoundedQueue<T> {
         self.queue.pop_front()
     }
 
-    pub(crate) fn put(&mut self, key: T) -> Option<T> {
+    pub(crate) fn put(
+        &mut self,
+        key: T,
+    ) -> Option<T> {
         self.queue.push_back(key);
         if self.queue.len() > self.capacity {
-            Some(self.pop().expect("Queue cannot be empty"))
+            Some(
+                self.pop()
+                    .expect("Queue cannot be empty"),
+            )
         } else {
             None
         }
@@ -106,7 +112,10 @@ impl TrieCacheInner {
         let shard_id_int: u64 = shard_id.into();
         let shard_id_str = buffer.format(shard_id_int);
 
-        let metrics_labels: [&str; 2] = [&shard_id_str, if is_view { "1" } else { "0" }];
+        let metrics_labels: [&str; 2] = [
+            &shard_id_str,
+            if is_view { "1" } else { "0" },
+        ];
         let metrics = TrieCacheMetrics {
             shard_cache_too_large: metrics::SHARD_CACHE_TOO_LARGE
                 .with_label_values(&metrics_labels),
@@ -133,7 +142,10 @@ impl TrieCacheInner {
         }
     }
 
-    pub(crate) fn get(&mut self, key: &CryptoHash) -> Option<Arc<[u8]>> {
+    pub(crate) fn get(
+        &mut self,
+        key: &CryptoHash,
+    ) -> Option<Arc<[u8]>> {
         self.cache.get(key).cloned()
     }
 
@@ -143,65 +155,82 @@ impl TrieCacheInner {
         self.cache.clear();
     }
 
-    pub(crate) fn put(&mut self, key: CryptoHash, value: Arc<[u8]>) {
+    pub(crate) fn put(
+        &mut self,
+        key: CryptoHash,
+        value: Arc<[u8]>,
+    ) {
         while self.total_size > self.total_size_limit || self.cache.len() == self.cache.cap().get()
         {
             // First, try to evict value using the key from deletions queue.
             match self.deletions.pop() {
-                Some(key) => match self.cache.pop(&key) {
-                    Some(value) => {
+                | Some(key) => match self.cache.pop(&key) {
+                    | Some(value) => {
                         self.metrics.shard_cache_pop_hits.inc();
                         self.remove_value_of_size(value.len());
                         continue;
                     }
-                    None => {
-                        self.metrics.shard_cache_pop_misses.inc();
+                    | None => {
+                        self.metrics
+                            .shard_cache_pop_misses
+                            .inc();
                     }
                 },
-                None => {}
+                | None => {}
             }
 
             // Second, pop LRU value.
             self.metrics.shard_cache_pop_lru.inc();
-            let (_, value) =
-                self.cache.pop_lru().expect("Cannot fail because total size capacity is > 0");
+            let (_, value) = self
+                .cache
+                .pop_lru()
+                .expect("Cannot fail because total size capacity is > 0");
             self.remove_value_of_size(value.len());
         }
 
         // Add value to the cache.
         self.add_value_of_size(value.len());
         match self.cache.push(key, value) {
-            Some((evicted_key, evicted_value)) => {
+            | Some((evicted_key, evicted_value)) => {
                 log_assert!(key == evicted_key, "LRU cache with shard_id = {}, is_view = {} can't be full before inserting key {}", self.shard_id, self.is_view, key);
                 self.remove_value_of_size(evicted_value.len());
             }
-            None => {}
+            | None => {}
         };
     }
 
     // Adds key to the deletions queue if it is present in cache.
     // Returns key-value pair which are popped if deletions queue is full.
-    pub(crate) fn pop(&mut self, key: &CryptoHash) -> Option<(CryptoHash, Arc<[u8]>)> {
-        self.metrics.shard_cache_deletions_size.set(self.deletions.len() as i64);
+    pub(crate) fn pop(
+        &mut self,
+        key: &CryptoHash,
+    ) -> Option<(CryptoHash, Arc<[u8]>)> {
+        self.metrics
+            .shard_cache_deletions_size
+            .set(self.deletions.len() as i64);
         // Do nothing if key was removed before.
         if self.cache.contains(key) {
             // Put key to the queue of deletions and possibly remove another key we have to delete.
             match self.deletions.put(*key) {
-                Some(key_to_delete) => match self.cache.pop(&key_to_delete) {
-                    Some(evicted_value) => {
+                | Some(key_to_delete) => match self.cache.pop(&key_to_delete) {
+                    | Some(evicted_value) => {
                         self.metrics.shard_cache_pop_hits.inc();
                         self.remove_value_of_size(evicted_value.len());
                         Some((key_to_delete, evicted_value))
                     }
-                    None => {
-                        self.metrics.shard_cache_pop_misses.inc();
+                    | None => {
+                        self.metrics
+                            .shard_cache_pop_misses
+                            .inc();
                         None
                     }
                 },
-                None => None,
+                | None => None,
             }
         } else {
-            self.metrics.shard_cache_gc_pop_misses.inc();
+            self.metrics
+                .shard_cache_gc_pop_misses
+                .inc();
             None
         }
     }
@@ -212,12 +241,18 @@ impl TrieCacheInner {
     }
 
     /// Account consumed memory for a new entry in the cache.
-    pub(crate) fn add_value_of_size(&mut self, len: usize) {
+    pub(crate) fn add_value_of_size(
+        &mut self,
+        len: usize,
+    ) {
         self.total_size += Self::entry_size(len);
     }
 
     /// Remove consumed memory for an entry in the cache.
-    pub(crate) fn remove_value_of_size(&mut self, len: usize) {
+    pub(crate) fn remove_value_of_size(
+        &mut self,
+        len: usize,
+    ) {
         self.total_size -= Self::entry_size(len);
     }
 
@@ -236,7 +271,11 @@ impl TrieCacheInner {
 pub struct TrieCache(pub(crate) Arc<Mutex<TrieCacheInner>>);
 
 impl TrieCache {
-    pub fn new(config: &TrieConfig, shard_uid: ShardUId, is_view: bool) -> Self {
+    pub fn new(
+        config: &TrieConfig,
+        shard_uid: ShardUId,
+        is_view: bool,
+    ) -> Self {
         let cache_config =
             if is_view { &config.view_shard_cache_config } else { &config.shard_cache_config };
         let total_size_limit = cache_config
@@ -254,7 +293,10 @@ impl TrieCache {
         ))))
     }
 
-    pub fn get(&self, key: &CryptoHash) -> Option<Arc<[u8]>> {
+    pub fn get(
+        &self,
+        key: &CryptoHash,
+    ) -> Option<Arc<[u8]>> {
         self.lock().get(key)
     }
 
@@ -262,7 +304,10 @@ impl TrieCache {
         self.lock().clear()
     }
 
-    pub fn update_cache(&self, ops: Vec<(&CryptoHash, Option<&[u8]>)>) {
+    pub fn update_cache(
+        &self,
+        ops: Vec<(&CryptoHash, Option<&[u8]>)>,
+    ) {
         let mut guard = self.lock();
         for (hash, opt_value) in ops {
             if let Some(value) = opt_value {
@@ -270,7 +315,10 @@ impl TrieCache {
                     guard.put(*hash, value.into());
                 } else {
                     guard.pop(&hash);
-                    guard.metrics.shard_cache_too_large.inc();
+                    guard
+                        .metrics
+                        .shard_cache_too_large
+                        .inc();
                 }
             } else {
                 guard.pop(&hash);
@@ -289,7 +337,10 @@ pub trait TrieStorage: Send + Sync {
     /// # Errors
     ///
     /// [`StorageError`] if the storage fails internally or the hash is not present.
-    fn retrieve_raw_bytes(&self, hash: &CryptoHash) -> Result<Arc<[u8]>, StorageError>;
+    fn retrieve_raw_bytes(
+        &self,
+        hash: &CryptoHash,
+    ) -> Result<Arc<[u8]>, StorageError>;
 
     /// DEPRECATED.
     /// Returns `TrieCachingStorage` if `TrieStorage` is implemented by it.
@@ -312,9 +363,15 @@ pub struct TrieMemoryPartialStorage {
 }
 
 impl TrieStorage for TrieMemoryPartialStorage {
-    fn retrieve_raw_bytes(&self, hash: &CryptoHash) -> Result<Arc<[u8]>, StorageError> {
+    fn retrieve_raw_bytes(
+        &self,
+        hash: &CryptoHash,
+    ) -> Result<Arc<[u8]>, StorageError> {
         if let Some(value) = self.recorded_storage.get(hash).cloned() {
-            self.visited_nodes.write().expect("write visited_nodes").insert(*hash);
+            self.visited_nodes
+                .write()
+                .expect("write visited_nodes")
+                .insert(*hash);
             Ok(value)
         } else {
             metrics::TRIE_MEMORY_PARTIAL_STORAGE_MISSING_VALUES_COUNT.inc();
@@ -336,7 +393,10 @@ impl TrieMemoryPartialStorage {
     }
 
     pub fn partial_state(&self) -> PartialState {
-        let touched_nodes = self.visited_nodes.read().expect("read visited_nodes");
+        let touched_nodes = self
+            .visited_nodes
+            .read()
+            .expect("read visited_nodes");
         let mut nodes: Vec<_> =
             self.recorded_storage
                 .iter()
@@ -403,7 +463,10 @@ impl TrieCachingStorage {
         let mut buffer = itoa::Buffer::new();
         let shard_id = buffer.format(shard_uid.shard_id);
 
-        let metrics_labels: [&str; 2] = [&shard_id, if is_view { "1" } else { "0" }];
+        let metrics_labels: [&str; 2] = [
+            &shard_id,
+            if is_view { "1" } else { "0" },
+        ];
         let metrics = TrieCacheInnerMetrics {
             shard_cache_hits: metrics::SHARD_CACHE_HITS.with_label_values(&metrics_labels),
             shard_cache_misses: metrics::SHARD_CACHE_MISSES.with_label_values(&metrics_labels),
@@ -437,7 +500,9 @@ impl TrieCachingStorage {
             return self.read_from_db(hash);
         };
 
-        let prefetch_state = prefetcher.prefetching.get_or_set_fetching(*hash);
+        let prefetch_state = prefetcher
+            .prefetching
+            .get_or_set_fetching(*hash);
         // Drop lock only here to avoid race condition between shard cache
         // lookup and reserving prefetch slot.
         std::mem::drop(guard);
@@ -447,30 +512,37 @@ impl TrieCachingStorage {
             // `SlotReserved` for the main thread means, either we have not submitted a prefetch request for
             // this value, or maybe it is just still queued up. Either way, prefetching is not going to help
             // so the main thread should fetch data from DB on its own.
-            PrefetcherResult::SlotReserved => {
-                self.metrics.prefetch_not_requested.inc();
+            | PrefetcherResult::SlotReserved => {
+                self.metrics
+                    .prefetch_not_requested
+                    .inc();
                 self.read_from_db(hash)?
             }
             // `MemoryLimitReached` is not really relevant for the main thread,
             // we always have to go to DB even if we could not stage a new prefetch.
             // It only means we were not able to mark it as already being fetched, which in turn could lead to
             // a prefetcher trying to fetch the same value before we can put it in the shard cache.
-            PrefetcherResult::MemoryLimitReached => {
-                self.metrics.prefetch_memory_limit_reached.inc();
+            | PrefetcherResult::MemoryLimitReached => {
+                self.metrics
+                    .prefetch_memory_limit_reached
+                    .inc();
                 self.read_from_db(hash)?
             }
-            PrefetcherResult::Prefetched(value) => {
+            | PrefetcherResult::Prefetched(value) => {
                 near_o11y::io_trace!(count: "prefetch_hit");
                 self.metrics.prefetch_hits.inc();
                 value
             }
-            PrefetcherResult::Pending => {
+            | PrefetcherResult::Pending => {
                 near_o11y::io_trace!(count: "prefetch_pending");
                 self.metrics.prefetch_pending.inc();
                 std::thread::yield_now();
                 // If data is already being prefetched, wait for that instead of sending a new request.
-                match prefetcher.prefetching.blocking_get(*hash) {
-                    Some(value) => value,
+                match prefetcher
+                    .prefetching
+                    .blocking_get(*hash)
+                {
+                    | Some(value) => value,
                     // Only main thread (this one) removes values from staging area,
                     // therefore blocking read will usually not return empty unless there
                     // was a storage error. Or in the case of forks and parallel chunk
@@ -478,7 +550,7 @@ impl TrieCachingStorage {
                     // So first we need to check if the data was inserted to shard_cache
                     // by the main thread from another fork and only if that fails then
                     // fetch the data from the DB.
-                    None => {
+                    | None => {
                         if let Some(value) = self.shard_cache.get(hash) {
                             self.metrics.prefetch_conflict.inc();
                             value
@@ -495,11 +567,18 @@ impl TrieCachingStorage {
 }
 
 impl TrieStorage for TrieCachingStorage {
-    fn retrieve_raw_bytes(&self, hash: &CryptoHash) -> Result<Arc<[u8]>, StorageError> {
+    fn retrieve_raw_bytes(
+        &self,
+        hash: &CryptoHash,
+    ) -> Result<Arc<[u8]>, StorageError> {
         // Try to get value from shard cache containing most recently touched nodes.
         let mut guard = self.shard_cache.lock();
-        self.metrics.shard_cache_size.set(guard.len() as i64);
-        self.metrics.shard_cache_current_total_size.set(guard.current_total_size() as i64);
+        self.metrics
+            .shard_cache_size
+            .set(guard.len() as i64);
+        self.metrics
+            .shard_cache_current_total_size
+            .set(guard.current_total_size() as i64);
         if let Some(val) = guard.get(hash) {
             self.metrics.shard_cache_hits.inc();
             near_o11y::io_trace!(count: "shard_cache_hit");
@@ -509,8 +588,8 @@ impl TrieStorage for TrieCachingStorage {
         self.metrics.shard_cache_misses.inc();
         near_o11y::io_trace!(count: "shard_cache_miss");
         let val = match self.read_for_shard_cache_miss(guard, hash) {
-            Ok(val) => val,
-            Err(e) => {
+            | Ok(val) => val,
+            | Err(e) => {
                 // Only release after attempt to read the value. See comment on fn release.
                 if let Some(prefetcher) = &self.prefetch_api {
                     prefetcher.prefetching.release(hash);
@@ -545,7 +624,10 @@ impl TrieStorage for TrieCachingStorage {
 }
 
 impl TrieCachingStorage {
-    fn read_from_db(&self, hash: &CryptoHash) -> Result<Arc<[u8]>, StorageError> {
+    fn read_from_db(
+        &self,
+        hash: &CryptoHash,
+    ) -> Result<Arc<[u8]>, StorageError> {
         self.store.get(self.shard_uid, hash)
     }
 
@@ -564,13 +646,19 @@ pub struct TrieDBStorage {
 }
 
 impl TrieDBStorage {
-    pub fn new(store: TrieStoreAdapter, shard_uid: ShardUId) -> Self {
+    pub fn new(
+        store: TrieStoreAdapter,
+        shard_uid: ShardUId,
+    ) -> Self {
         Self { store, shard_uid }
     }
 }
 
 impl TrieStorage for TrieDBStorage {
-    fn retrieve_raw_bytes(&self, hash: &CryptoHash) -> Result<Arc<[u8]>, StorageError> {
+    fn retrieve_raw_bytes(
+        &self,
+        hash: &CryptoHash,
+    ) -> Result<Arc<[u8]>, StorageError> {
         self.store.get(self.shard_uid, hash)
     }
 }
@@ -616,7 +704,10 @@ mod trie_cache_tests {
     use near_primitives::shard_layout::{ShardUId, ShardVersion};
     use near_primitives::types::ShardId;
 
-    fn put_value(cache: &mut TrieCacheInner, value: &[u8]) {
+    fn put_value(
+        cache: &mut TrieCacheInner,
+        value: &[u8],
+    ) {
         cache.put(hash(value), value.into());
     }
 
@@ -696,10 +787,20 @@ mod trie_cache_tests {
         const S0_VIEW_SIZE: bytesize::ByteSize = bytesize::ByteSize(4);
 
         let s0 = ShardUId::single_shard();
-        store_config.trie_cache.default_max_bytes = DEFAULT_SIZE;
-        store_config.trie_cache.per_shard_max_bytes.insert(s0, S0_SIZE);
-        store_config.view_trie_cache.default_max_bytes = DEFAULT_VIEW_SIZE;
-        store_config.view_trie_cache.per_shard_max_bytes.insert(s0, S0_VIEW_SIZE);
+        store_config
+            .trie_cache
+            .default_max_bytes = DEFAULT_SIZE;
+        store_config
+            .trie_cache
+            .per_shard_max_bytes
+            .insert(s0, S0_SIZE);
+        store_config
+            .view_trie_cache
+            .default_max_bytes = DEFAULT_VIEW_SIZE;
+        store_config
+            .view_trie_cache
+            .per_shard_max_bytes
+            .insert(s0, S0_VIEW_SIZE);
         let trie_config = TrieConfig::from_store_config(&store_config);
 
         check_cache_size(&trie_config, 0, ShardId::new(1), false, DEFAULT_SIZE);

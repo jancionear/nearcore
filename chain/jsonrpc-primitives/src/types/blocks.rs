@@ -32,18 +32,18 @@ pub struct RpcBlockResponse {
 impl From<RpcBlockError> for crate::errors::RpcError {
     fn from(error: RpcBlockError) -> Self {
         let error_data = match &error {
-            RpcBlockError::UnknownBlock { error_message } => Some(Value::String(format!(
+            | RpcBlockError::UnknownBlock { error_message } => Some(Value::String(format!(
                 "DB Not Found Error: {} \n Cause: Unknown",
                 error_message
             ))),
-            RpcBlockError::NotSyncedYet | RpcBlockError::InternalError { .. } => {
+            | RpcBlockError::NotSyncedYet | RpcBlockError::InternalError { .. } => {
                 Some(Value::String(error.to_string()))
             }
         };
 
         let error_data_value = match serde_json::to_value(error) {
-            Ok(value) => value,
-            Err(err) => {
+            | Ok(value) => value,
+            | Err(err) => {
                 return Self::new_internal_error(
                     None,
                     format!("Failed to serialize RpcBlockError: {:?}", err),

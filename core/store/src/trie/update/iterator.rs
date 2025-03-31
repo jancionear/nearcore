@@ -16,18 +16,18 @@ impl<'a> Iterator for MergeIter<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         let res = match (self.left.peek(), self.right.peek()) {
-            (Some(&(ref left_key, _)), Some(&(ref right_key, _))) => left_key.cmp(right_key),
-            (Some(_), None) => std::cmp::Ordering::Less,
-            (None, Some(_)) => std::cmp::Ordering::Greater,
-            (None, None) => return None,
+            | (Some(&(ref left_key, _)), Some(&(ref right_key, _))) => left_key.cmp(right_key),
+            | (Some(_), None) => std::cmp::Ordering::Less,
+            | (None, Some(_)) => std::cmp::Ordering::Greater,
+            | (None, None) => return None,
         };
 
         // Check which elements comes first and only advance the corresponding iterator.
         // If two keys are equal, take the value from `right`.
         match res {
-            std::cmp::Ordering::Less => self.left.next(),
-            std::cmp::Ordering::Greater => self.right.next(),
-            std::cmp::Ordering::Equal => {
+            | std::cmp::Ordering::Less => self.left.next(),
+            | std::cmp::Ordering::Greater => self.right.next(),
+            | std::cmp::Ordering::Equal => {
                 self.left.next();
                 self.right.next()
             }
@@ -45,8 +45,8 @@ impl<'a> TrieUpdateIterator<'a> {
         lock: Option<&'a TrieWithReadLock<'_>>,
     ) -> Result<Self, StorageError> {
         let mut trie_iter = match lock {
-            Some(lock) => lock.iter()?,
-            None => TrieIterator::Disk(state_update.trie.disk_iter()?),
+            | Some(lock) => lock.iter()?,
+            | None => TrieIterator::Disk(state_update.trie.disk_iter()?),
         };
         trie_iter.seek_prefix(prefix)?;
 
@@ -58,8 +58,10 @@ impl<'a> TrieUpdateIterator<'a> {
         };
         let range = (Bound::Included(prefix), end_bound);
 
-        let committed_iter = state_update.committed.range::<[u8], _>(range).map(
-            |(raw_key, changes_with_trie_key)| {
+        let committed_iter = state_update
+            .committed
+            .range::<[u8], _>(range)
+            .map(|(raw_key, changes_with_trie_key)| {
                 let key = raw_key.as_slice();
                 let value = changes_with_trie_key
                     .changes
@@ -69,8 +71,7 @@ impl<'a> TrieUpdateIterator<'a> {
                     .data
                     .as_deref();
                 (key, value)
-            },
-        );
+            });
         let prospective_iter = state_update
             .prospective
             .range::<[u8], _>(range)
@@ -98,22 +99,22 @@ impl<'a> Iterator for TrieUpdateIterator<'a> {
         let iterators = self.0.as_mut()?;
         loop {
             let res = match (iterators.0.peek(), iterators.1.peek()) {
-                (Some(Err(_)), _) => {
+                | (Some(Err(_)), _) => {
                     let err = iterators.0.next().unwrap().unwrap_err();
                     self.0 = None;
                     return Some(Err(err));
                 }
 
-                (Some(Ok((left_key, _))), Some((right_key, _))) => {
+                | (Some(Ok((left_key, _))), Some((right_key, _))) => {
                     match left_key.as_slice().cmp(right_key) {
-                        std::cmp::Ordering::Less => Ordering::Trie,
-                        std::cmp::Ordering::Equal => Ordering::Both,
-                        std::cmp::Ordering::Greater => Ordering::Overlay,
+                        | std::cmp::Ordering::Less => Ordering::Trie,
+                        | std::cmp::Ordering::Equal => Ordering::Both,
+                        | std::cmp::Ordering::Greater => Ordering::Overlay,
                     }
                 }
-                (Some(_), None) => Ordering::Trie,
-                (None, Some(_)) => Ordering::Overlay,
-                (None, None) => {
+                | (Some(_), None) => Ordering::Trie,
+                | (None, Some(_)) => Ordering::Overlay,
+                | (None, None) => {
                     self.0 = None;
                     return None;
                 }
@@ -147,7 +148,11 @@ impl<'a> std::iter::FusedIterator for TrieUpdateIterator<'a> {}
 /// In other words, the smallest value larger than the `prefix` which does not
 /// start with the `prefix`.  If no such value exists, returns `None`.
 fn make_prefix_range_end_bound(prefix: &[u8]) -> Option<Vec<u8>> {
-    let ffs = prefix.iter().rev().take_while(|&&byte| byte == u8::MAX).count();
+    let ffs = prefix
+        .iter()
+        .rev()
+        .take_while(|&&byte| byte == u8::MAX)
+        .count();
     let next = &prefix[..(prefix.len() - ffs)];
     if next.is_empty() {
         // Prefix consisted of \xff bytes.  There is no key that follows it.
@@ -161,7 +166,10 @@ fn make_prefix_range_end_bound(prefix: &[u8]) -> Option<Vec<u8>> {
 
 #[test]
 fn test_make_prefix_range_end_bound() {
-    fn test(want: Option<&[u8]>, prefix: &[u8]) {
+    fn test(
+        want: Option<&[u8]>,
+        prefix: &[u8],
+    ) {
         assert_eq!(want, make_prefix_range_end_bound(prefix).as_deref());
     }
 

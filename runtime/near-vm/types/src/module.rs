@@ -54,8 +54,14 @@ pub struct ImportCounts {
 }
 
 impl ImportCounts {
-    fn make_local<R: EntityRef, I: EntityRef>(idx: I, imports: u32) -> Result<R, I> {
-        EntityRef::index(idx).checked_sub(imports as _).map(R::new).ok_or(idx)
+    fn make_local<R: EntityRef, I: EntityRef>(
+        idx: I,
+        imports: u32,
+    ) -> Result<R, I> {
+        EntityRef::index(idx)
+            .checked_sub(imports as _)
+            .map(R::new)
+            .ok_or(idx)
     }
 
     /// Convert the `FunctionIndex` to a `LocalFunctionIndex`.
@@ -67,42 +73,66 @@ impl ImportCounts {
     }
 
     /// Convert the `TableIndex` to a `LocalTableIndex`.
-    pub fn local_table_index(&self, idx: TableIndex) -> Result<LocalTableIndex, TableIndex> {
+    pub fn local_table_index(
+        &self,
+        idx: TableIndex,
+    ) -> Result<LocalTableIndex, TableIndex> {
         Self::make_local(idx, self.tables)
     }
 
     /// Convert the `MemoryIndex` to a `LocalMemoryIndex`.
-    pub fn local_memory_index(&self, idx: MemoryIndex) -> Result<LocalMemoryIndex, MemoryIndex> {
+    pub fn local_memory_index(
+        &self,
+        idx: MemoryIndex,
+    ) -> Result<LocalMemoryIndex, MemoryIndex> {
         Self::make_local(idx, self.memories)
     }
 
     /// Convert the `GlobalIndex` to a `LocalGlobalIndex`.
-    pub fn local_global_index(&self, idx: GlobalIndex) -> Result<LocalGlobalIndex, GlobalIndex> {
+    pub fn local_global_index(
+        &self,
+        idx: GlobalIndex,
+    ) -> Result<LocalGlobalIndex, GlobalIndex> {
         Self::make_local(idx, self.globals)
     }
 
-    fn make_index<R: EntityRef, I: EntityRef>(idx: I, imports: u32) -> R {
+    fn make_index<R: EntityRef, I: EntityRef>(
+        idx: I,
+        imports: u32,
+    ) -> R {
         let imports = imports as usize;
         R::new(idx.index() + imports)
     }
 
     /// Convert the `LocalFunctionIndex` to a `FunctionIndex`.
-    pub fn function_index(&self, idx: LocalFunctionIndex) -> FunctionIndex {
+    pub fn function_index(
+        &self,
+        idx: LocalFunctionIndex,
+    ) -> FunctionIndex {
         Self::make_index(idx, self.functions)
     }
 
     /// Convert the `LocalTableIndex` to a `TableIndex`.
-    pub fn table_index(&self, idx: LocalTableIndex) -> TableIndex {
+    pub fn table_index(
+        &self,
+        idx: LocalTableIndex,
+    ) -> TableIndex {
         Self::make_index(idx, self.tables)
     }
 
     /// Convert the `LocalMemoryIndex` to a `MemoryIndex`.
-    pub fn memory_index(&self, idx: LocalMemoryIndex) -> MemoryIndex {
+    pub fn memory_index(
+        &self,
+        idx: LocalMemoryIndex,
+    ) -> MemoryIndex {
         Self::make_index(idx, self.memories)
     }
 
     /// Convert the `LocalGlobalIndex` to a `GlobalIndex`.
-    pub fn global_index(&self, idx: LocalGlobalIndex) -> GlobalIndex {
+    pub fn global_index(
+        &self,
+        idx: LocalGlobalIndex,
+    ) -> GlobalIndex {
         Self::make_index(idx, self.globals)
     }
 }
@@ -176,7 +206,10 @@ pub struct ModuleInfo {
 
 // For test serialization correctness, everything except module id should be same
 impl PartialEq for ModuleInfo {
-    fn eq(&self, other: &Self) -> bool {
+    fn eq(
+        &self,
+        other: &Self,
+    ) -> bool {
         self.name == other.name
             && self.imports == other.imports
             && self.exports == other.exports
@@ -206,8 +239,13 @@ impl ModuleInfo {
     }
 
     /// Get the given passive element, if it exists.
-    pub fn get_passive_element(&self, index: ElemIndex) -> Option<&[FunctionIndex]> {
-        self.passive_elements.get(&index).map(|es| &**es)
+    pub fn get_passive_element(
+        &self,
+        index: ElemIndex,
+    ) -> Option<&[FunctionIndex]> {
+        self.passive_elements
+            .get(&index)
+            .map(|es| &**es)
     }
 
     /// Get the exported signatures of the module
@@ -215,95 +253,148 @@ impl ModuleInfo {
         self.exports
             .iter()
             .filter_map(|(_name, export_index)| match export_index {
-                ExportIndex::Function(i) => {
+                | ExportIndex::Function(i) => {
                     let signature = self.functions.get(*i).unwrap();
                     let func_type = self.signatures.get(*signature).unwrap();
                     Some(func_type.clone())
                 }
-                _ => None,
+                | _ => None,
             })
             .collect::<Vec<FunctionType>>()
     }
 
     /// Get the custom sections of the module given a `name`.
-    pub fn custom_sections<'a>(&'a self, name: &'a str) -> impl Iterator<Item = Arc<[u8]>> + 'a {
-        self.custom_sections.iter().filter_map(move |(section_name, section_index)| {
-            if name != section_name {
-                return None;
-            }
-            Some(self.custom_sections_data[*section_index].clone())
-        })
+    pub fn custom_sections<'a>(
+        &'a self,
+        name: &'a str,
+    ) -> impl Iterator<Item = Arc<[u8]>> + 'a {
+        self.custom_sections
+            .iter()
+            .filter_map(move |(section_name, section_index)| {
+                if name != section_name {
+                    return None;
+                }
+                Some(self.custom_sections_data[*section_index].clone())
+            })
     }
 
     /// Convert a `LocalFunctionIndex` into a `FunctionIndex`.
-    pub fn func_index(&self, local_func: LocalFunctionIndex) -> FunctionIndex {
-        self.import_counts.function_index(local_func)
+    pub fn func_index(
+        &self,
+        local_func: LocalFunctionIndex,
+    ) -> FunctionIndex {
+        self.import_counts
+            .function_index(local_func)
     }
 
     /// Convert a `FunctionIndex` into a `LocalFunctionIndex`. Returns None if the
     /// index is an imported function.
-    pub fn local_func_index(&self, func: FunctionIndex) -> Option<LocalFunctionIndex> {
-        self.import_counts.local_function_index(func).ok()
+    pub fn local_func_index(
+        &self,
+        func: FunctionIndex,
+    ) -> Option<LocalFunctionIndex> {
+        self.import_counts
+            .local_function_index(func)
+            .ok()
     }
 
     /// Test whether the given function index is for an imported function.
-    pub fn is_imported_function(&self, index: FunctionIndex) -> bool {
+    pub fn is_imported_function(
+        &self,
+        index: FunctionIndex,
+    ) -> bool {
         self.local_func_index(index).is_none()
     }
 
     /// Convert a `LocalTableIndex` into a `TableIndex`.
-    pub fn table_index(&self, local_table: LocalTableIndex) -> TableIndex {
-        self.import_counts.table_index(local_table)
+    pub fn table_index(
+        &self,
+        local_table: LocalTableIndex,
+    ) -> TableIndex {
+        self.import_counts
+            .table_index(local_table)
     }
 
     /// Convert a `TableIndex` into a `LocalTableIndex`. Returns None if the
     /// index is an imported table.
-    pub fn local_table_index(&self, table: TableIndex) -> Option<LocalTableIndex> {
-        self.import_counts.local_table_index(table).ok()
+    pub fn local_table_index(
+        &self,
+        table: TableIndex,
+    ) -> Option<LocalTableIndex> {
+        self.import_counts
+            .local_table_index(table)
+            .ok()
     }
 
     /// Test whether the given table index is for an imported table.
-    pub fn is_imported_table(&self, index: TableIndex) -> bool {
+    pub fn is_imported_table(
+        &self,
+        index: TableIndex,
+    ) -> bool {
         self.local_table_index(index).is_none()
     }
 
     /// Convert a `LocalMemoryIndex` into a `MemoryIndex`.
-    pub fn memory_index(&self, local_memory: LocalMemoryIndex) -> MemoryIndex {
-        self.import_counts.memory_index(local_memory)
+    pub fn memory_index(
+        &self,
+        local_memory: LocalMemoryIndex,
+    ) -> MemoryIndex {
+        self.import_counts
+            .memory_index(local_memory)
     }
 
     /// Convert a `MemoryIndex` into a `LocalMemoryIndex`. Returns None if the
     /// index is an imported memory.
-    pub fn local_memory_index(&self, memory: MemoryIndex) -> Option<LocalMemoryIndex> {
-        self.import_counts.local_memory_index(memory).ok()
+    pub fn local_memory_index(
+        &self,
+        memory: MemoryIndex,
+    ) -> Option<LocalMemoryIndex> {
+        self.import_counts
+            .local_memory_index(memory)
+            .ok()
     }
 
     /// Test whether the given memory index is for an imported memory.
-    pub fn is_imported_memory(&self, index: MemoryIndex) -> bool {
+    pub fn is_imported_memory(
+        &self,
+        index: MemoryIndex,
+    ) -> bool {
         self.local_memory_index(index).is_none()
     }
 
     /// Convert a `LocalGlobalIndex` into a `GlobalIndex`.
-    pub fn global_index(&self, local_global: LocalGlobalIndex) -> GlobalIndex {
-        self.import_counts.global_index(local_global)
+    pub fn global_index(
+        &self,
+        local_global: LocalGlobalIndex,
+    ) -> GlobalIndex {
+        self.import_counts
+            .global_index(local_global)
     }
 
     /// Convert a `GlobalIndex` into a `LocalGlobalIndex`. Returns None if the
     /// index is an imported global.
-    pub fn local_global_index(&self, global: GlobalIndex) -> Option<LocalGlobalIndex> {
-        self.import_counts.local_global_index(global).ok()
+    pub fn local_global_index(
+        &self,
+        global: GlobalIndex,
+    ) -> Option<LocalGlobalIndex> {
+        self.import_counts
+            .local_global_index(global)
+            .ok()
     }
 
     /// Test whether the given global index is for an imported global.
-    pub fn is_imported_global(&self, index: GlobalIndex) -> bool {
+    pub fn is_imported_global(
+        &self,
+        index: GlobalIndex,
+    ) -> bool {
         self.local_global_index(index).is_none()
     }
 
     /// Get the Module name
     pub fn name(&self) -> String {
         match self.name {
-            Some(ref name) => name.to_string(),
-            None => "<module>".to_string(),
+            | Some(ref name) => name.to_string(),
+            | None => "<module>".to_string(),
         }
     }
 
@@ -317,7 +408,10 @@ impl ModuleInfo {
 }
 
 impl fmt::Display for ModuleInfo {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
         write!(f, "{}", self.name())
     }
 }

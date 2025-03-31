@@ -21,8 +21,13 @@ fn test_nearvm_upgrade() {
     // Prepare TestEnv with a contract at the old protocol version.
     let mut env = {
         let epoch_length = 5;
-        let mut genesis =
-            Genesis::test(vec!["test0".parse().unwrap(), "test1".parse().unwrap()], 1);
+        let mut genesis = Genesis::test(
+            vec![
+                "test0".parse().unwrap(),
+                "test1".parse().unwrap(),
+            ],
+            1,
+        );
         genesis.config.epoch_length = epoch_length;
         genesis.config.protocol_version = old_protocol_version;
         let mut env = TestEnv::builder(&genesis.config)
@@ -47,12 +52,14 @@ fn test_nearvm_upgrade() {
         signer_id: "test0".parse().unwrap(),
         receiver_id: "test0".parse().unwrap(),
         public_key: signer.public_key(),
-        actions: vec![Action::FunctionCall(Box::new(FunctionCallAction {
-            method_name: "log_something".to_string(),
-            args: Vec::new(),
-            gas: 100_000_000_000_000,
-            deposit: 0,
-        }))],
+        actions: vec![Action::FunctionCall(Box::new(
+            FunctionCallAction {
+                method_name: "log_something".to_string(),
+                args: Vec::new(),
+                gas: 100_000_000_000_000,
+                deposit: 0,
+            },
+        ))],
 
         nonce: 0,
         block_hash: CryptoHash::default(),
@@ -96,12 +103,16 @@ fn test_nearvm_upgrade() {
     };
 
     assert!(
-        logs_at_old_version.iter().any(|l| l.contains(&"Wasmer2VM::run_method")),
+        logs_at_old_version
+            .iter()
+            .any(|l| l.contains(&"Wasmer2VM::run_method")),
         "{:#?}",
         logs_at_old_version
     );
     assert!(
-        logs_at_new_version.iter().any(|l| l.contains(&"NearVM::run_method")),
+        logs_at_new_version
+            .iter()
+            .any(|l| l.contains(&"NearVM::run_method")),
         "{:#?}",
         logs_at_new_version
     );

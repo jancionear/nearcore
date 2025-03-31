@@ -68,9 +68,9 @@ impl RpcFrom<AsyncSendError> for RpcError {
 impl RpcFrom<AsyncSendError> for ServerError {
     fn rpc_from(error: AsyncSendError) -> Self {
         match error {
-            AsyncSendError::Timeout => ServerError::Timeout,
-            AsyncSendError::Closed => ServerError::Closed,
-            AsyncSendError::Dropped => ServerError::Closed,
+            | AsyncSendError::Timeout => ServerError::Timeout,
+            | AsyncSendError::Closed => ServerError::Closed,
+            | AsyncSendError::Dropped => ServerError::Closed,
         }
     }
 }
@@ -142,10 +142,10 @@ mod params {
             func: impl FnOnce(U) -> Result<T, RpcParseError>,
         ) -> Self {
             Self(match self.0 {
-                Err(Value::Array(mut array)) if array.len() == 1 => {
+                | Err(Value::Array(mut array)) if array.len() == 1 => {
                     Ok(Params::parse(array[0].take()).and_then(func))
                 }
-                x => x,
+                | x => x,
             })
         }
 
@@ -160,12 +160,12 @@ mod params {
             func: impl FnOnce(U, V) -> Result<T, RpcParseError>,
         ) -> Self {
             Self(match self.0 {
-                Err(Value::Array(mut array)) if array.len() == 2 => {
+                | Err(Value::Array(mut array)) if array.len() == 2 => {
                     Ok(Params::parse(array[0].take())
                         .and_then(|u| Ok((u, Params::parse(array[1].take())?)))
                         .and_then(|(u, v)| func(u, v)))
                 }
-                x => x,
+                | x => x,
             })
         }
     }

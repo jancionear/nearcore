@@ -71,7 +71,10 @@ impl SnapshotHostInfo {
             return Err(SnapshotHostInfoVerificationError::TooManyShards(self.shards.len()));
         }
 
-        if !self.signature.verify(self.hash().as_ref(), self.peer_id.public_key()) {
+        if !self
+            .signature
+            .verify(self.hash().as_ref(), self.peer_id.public_key())
+        {
             return Err(SnapshotHostInfoVerificationError::InvalidSignature);
         }
 

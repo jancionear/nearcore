@@ -12,7 +12,10 @@ pub struct MigrationData {
 }
 
 impl Debug for MigrationData {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut Formatter<'_>,
+    ) -> fmt::Result {
         f.debug_struct("MigrationData").finish()
     }
 }

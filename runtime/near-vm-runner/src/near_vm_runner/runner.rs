@@ -42,9 +42,13 @@ fn get_entrypoint_index(
         return Err(FunctionCallError::MethodResolveError(MethodResolveError::MethodEmptyName));
     }
     if let Some(near_vm_types::ExportIndex::Function(index)) = artifact.export_field(method_name) {
-        let signature = artifact.function_signature(index).expect("index should produce signature");
-        let signature =
-            artifact.engine().lookup_signature(signature).expect("signature store invlidated?");
+        let signature = artifact
+            .function_signature(index)
+            .expect("index should produce signature");
+        let signature = artifact
+            .engine()
+            .lookup_signature(signature)
+            .expect("signature store invlidated?");
         if signature.params().is_empty() && signature.results().is_empty() {
             Ok(index)
         } else {
@@ -62,35 +66,41 @@ fn translate_runtime_error(
     // Errors produced by host function calls also become `RuntimeError`s that wrap a dynamic
     // instance of `VMLogicError` internally. See the implementation of `NearVmImports`.
     let error = match error.downcast::<crate::logic::VMLogicError>() {
-        Ok(vm_logic) => {
+        | Ok(vm_logic) => {
             return vm_logic.try_into();
         }
-        Err(original) => original,
+        | Err(original) => original,
     };
     let msg = error.message();
     let trap_code = error.to_trap().unwrap_or_else(|| {
         panic!("runtime error is not a trap: {}", msg);
     });
     Ok(match trap_code {
-        TrapCode::GasExceeded => FunctionCallError::HostError(logic.process_gas_limit()),
-        TrapCode::StackOverflow => FunctionCallError::WasmTrap(WasmTrap::StackOverflow),
-        TrapCode::HeapAccessOutOfBounds => FunctionCallError::WasmTrap(WasmTrap::MemoryOutOfBounds),
-        TrapCode::HeapMisaligned => FunctionCallError::WasmTrap(WasmTrap::MisalignedAtomicAccess),
-        TrapCode::TableAccessOutOfBounds => {
+        | TrapCode::GasExceeded => FunctionCallError::HostError(logic.process_gas_limit()),
+        | TrapCode::StackOverflow => FunctionCallError::WasmTrap(WasmTrap::StackOverflow),
+        | TrapCode::HeapAccessOutOfBounds => {
             FunctionCallError::WasmTrap(WasmTrap::MemoryOutOfBounds)
         }
-        TrapCode::OutOfBounds => FunctionCallError::WasmTrap(WasmTrap::MemoryOutOfBounds),
-        TrapCode::IndirectCallToNull => FunctionCallError::WasmTrap(WasmTrap::IndirectCallToNull),
-        TrapCode::BadSignature => {
+        | TrapCode::HeapMisaligned => FunctionCallError::WasmTrap(WasmTrap::MisalignedAtomicAccess),
+        | TrapCode::TableAccessOutOfBounds => {
+            FunctionCallError::WasmTrap(WasmTrap::MemoryOutOfBounds)
+        }
+        | TrapCode::OutOfBounds => FunctionCallError::WasmTrap(WasmTrap::MemoryOutOfBounds),
+        | TrapCode::IndirectCallToNull => FunctionCallError::WasmTrap(WasmTrap::IndirectCallToNull),
+        | TrapCode::BadSignature => {
             FunctionCallError::WasmTrap(WasmTrap::IncorrectCallIndirectSignature)
         }
-        TrapCode::IntegerOverflow => FunctionCallError::WasmTrap(WasmTrap::IllegalArithmetic),
-        TrapCode::IntegerDivisionByZero => FunctionCallError::WasmTrap(WasmTrap::IllegalArithmetic),
-        TrapCode::BadConversionToInteger => {
+        | TrapCode::IntegerOverflow => FunctionCallError::WasmTrap(WasmTrap::IllegalArithmetic),
+        | TrapCode::IntegerDivisionByZero => {
             FunctionCallError::WasmTrap(WasmTrap::IllegalArithmetic)
         }
-        TrapCode::UnreachableCodeReached => FunctionCallError::WasmTrap(WasmTrap::Unreachable),
-        TrapCode::UnalignedAtomic => FunctionCallError::WasmTrap(WasmTrap::MisalignedAtomicAccess),
+        | TrapCode::BadConversionToInteger => {
+            FunctionCallError::WasmTrap(WasmTrap::IllegalArithmetic)
+        }
+        | TrapCode::UnreachableCodeReached => FunctionCallError::WasmTrap(WasmTrap::Unreachable),
+        | TrapCode::UnalignedAtomic => {
+            FunctionCallError::WasmTrap(WasmTrap::MisalignedAtomicAccess)
+        }
     })
 }
 
@@ -100,7 +110,10 @@ pub(crate) struct NearVM {
 }
 
 impl NearVM {
-    pub(crate) fn new_for_target(config: Arc<Config>, target: near_vm_compiler::Target) -> Self {
+    pub(crate) fn new_for_target(
+        config: Arc<Config>,
+        target: near_vm_compiler::Target,
+    ) -> Self {
         // We only support singlepass compiler at the moment.
         assert_eq!(VM_CONFIG.compiler, NearVmCompiler::Singlepass);
         let mut compiler = Singlepass::new();
@@ -127,8 +140,11 @@ impl NearVM {
             })
             .clone();
 
-        let features =
-            crate::features::WasmFeatures::from(config.limit_config.contract_prepare_version);
+        let features = crate::features::WasmFeatures::from(
+            config
+                .limit_config
+                .contract_prepare_version,
+        );
         Self {
             config,
             engine: Universal::new(compiler)
@@ -192,16 +208,18 @@ impl NearVM {
         let record = CompiledContractInfo {
             wasm_bytes: code.code().len() as u64,
             compiled: match &executable_or_error {
-                Ok(executable) => {
+                | Ok(executable) => {
                     let code = executable
                         .serialize()
                         .map_err(|_e| CacheError::SerializationError { hash: key.0 })?;
                     CompiledContract::Code(code)
                 }
-                Err(err) => CompiledContract::CompileModuleError(err.clone()),
+                | Err(err) => CompiledContract::CompileModuleError(err.clone()),
             },
         };
-        cache.put(&key, record).map_err(CacheError::WriteError)?;
+        cache
+            .put(&key, record)
+            .map_err(CacheError::WriteError)?;
         Ok(executable_or_error)
     }
 
@@ -236,7 +254,9 @@ impl NearVM {
                 // outcome). And `cache`, being a database, can fail with an `io::Error`.
                 let _span =
                     tracing::debug_span!(target: "vm", "NearVM::fetch_from_cache").entered();
-                let cache_record = cache.get(&key).map_err(CacheError::ReadError)?;
+                let cache_record = cache
+                    .get(&key)
+                    .map_err(CacheError::ReadError)?;
                 let Some(compiled_contract_info) = cache_record else {
                     let Some(code) = contract.get_code() else {
                         return Err(VMRunnerError::ContractCodeNotPresent);
@@ -247,22 +267,21 @@ impl NearVM {
                     return Ok(to_any((
                         code.code().len() as u64,
                         match self.compile_and_cache(&code, cache)? {
-                            Ok(executable) => Ok(self
+                            | Ok(executable) => Ok(self
                                 .engine
                                 .load_universal_executable(&executable)
                                 .map(Arc::new)
                                 .map_err(|err| VMRunnerError::LoadingError(err.to_string()))?),
-                            Err(err) => Err(err),
+                            | Err(err) => Err(err),
                         },
                     )));
                 };
 
                 match &compiled_contract_info.compiled {
-                    CompiledContract::CompileModuleError(err) => Ok::<_, VMRunnerError>(to_any((
-                        compiled_contract_info.wasm_bytes,
-                        Err(err.clone()),
-                    ))),
-                    CompiledContract::Code(serialized_module) => {
+                    | CompiledContract::CompileModuleError(err) => Ok::<_, VMRunnerError>(to_any(
+                        (compiled_contract_info.wasm_bytes, Err(err.clone())),
+                    )),
+                    | CompiledContract::Code(serialized_module) => {
                         let _span =
                             tracing::debug_span!(target: "vm", "NearVM::load_from_fs_cache")
                                 .entered();
@@ -309,7 +328,7 @@ impl NearVM {
             return Ok(PreparedContract { config, gas_counter, result });
         }
         match artifact_result {
-            Ok(artifact) => {
+            | Ok(artifact) => {
                 let result = gas_counter.after_loading_executable(&config, wasm_bytes);
                 if let Err(e) = result {
                     let result = PreparationResult::OutcomeAbort(e);
@@ -317,7 +336,7 @@ impl NearVM {
                 }
                 closure(gas_counter, &artifact, self)
             }
-            Err(e) => {
+            | Err(e) => {
                 let e = FunctionCallError::CompilationError(e);
                 let result = PreparationResult::OutcomeAbort(e);
                 return Ok(PreparedContract { config, gas_counter, result });
@@ -346,7 +365,10 @@ impl NearVM {
             offset_of!(FastGasCounter, gas_limit),
             offset_of!(near_vm_types::FastGasCounter, gas_limit)
         );
-        let gas = import.vmlogic.gas_counter().fast_counter_raw_ptr();
+        let gas = import
+            .vmlogic
+            .gas_counter()
+            .fast_counter_raw_ptr();
         unsafe {
             let instance = {
                 let _span =
@@ -365,17 +387,21 @@ impl NearVM {
                     // expected layout. `gas` remains dereferenceable throughout this function
                     // by the virtue of it being contained within `import` which lives for the
                     // entirety of this function.
-                    InstanceConfig::with_stack_limit(self.config.limit_config.max_stack_height)
-                        .with_counter(gas.cast()),
+                    InstanceConfig::with_stack_limit(
+                        self.config
+                            .limit_config
+                            .max_stack_height,
+                    )
+                    .with_counter(gas.cast()),
                 );
                 let handle = match maybe_handle {
-                    Ok(handle) => handle,
-                    Err(err) => {
+                    | Ok(handle) => handle,
+                    | Err(err) => {
                         use near_vm_engine::InstantiationError::*;
                         let abort = match err {
-                            Start(err) => translate_runtime_error(err, import.vmlogic)?,
-                            Link(e) => FunctionCallError::LinkError { msg: e.to_string() },
-                            CpuFeature(e) => panic!(
+                            | Start(err) => translate_runtime_error(err, import.vmlogic)?,
+                            | Link(e) => FunctionCallError::LinkError { msg: e.to_string() },
+                            | CpuFeature(e) => panic!(
                                 "host doesn't support the CPU features needed to run contracts: {}",
                                 e
                             ),
@@ -385,8 +411,8 @@ impl NearVM {
                 };
                 // SAFETY: being called immediately after instantiation.
                 match handle.finish_instantiation() {
-                    Ok(handle) => handle,
-                    Err(trap) => {
+                    | Ok(handle) => handle,
+                    | Err(trap) => {
                         let abort = translate_runtime_error(
                             near_vm_engine::RuntimeError::from_trap(trap),
                             import.vmlogic,
@@ -405,8 +431,9 @@ impl NearVM {
                     .lookup_signature(function.signature)
                     .expect("extern type should refer to valid signature");
                 if signature.params().is_empty() && signature.results().is_empty() {
-                    let trampoline =
-                        function.call_trampoline.expect("externs always have a trampoline");
+                    let trampoline = function
+                        .call_trampoline
+                        .expect("externs always have a trampoline");
                     // SAFETY: we double-checked the signature, and all of the remaining arguments
                     // come from an exported function definition which must be valid since it comes
                     // from near_vm itself.
@@ -450,7 +477,9 @@ fn lazy_drop(what: Box<dyn Any + Send>) {
     const CHUNK_SIZE: usize = 8;
     static WAITLIST: OnceLock<Mutex<Vec<Box<dyn Any + Send>>>> = OnceLock::new();
     let waitlist = WAITLIST.get_or_init(|| Mutex::new(Vec::with_capacity(CHUNK_SIZE)));
-    let mut waitlist = waitlist.lock().unwrap_or_else(|e| e.into_inner());
+    let mut waitlist = waitlist
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
     if waitlist.capacity() > waitlist.len() {
         waitlist.push(Box::new(what));
     }
@@ -461,14 +490,24 @@ fn lazy_drop(what: Box<dyn Any + Send>) {
 }
 
 impl near_vm_vm::Tunables for &NearVM {
-    fn memory_style(&self, memory: &MemoryType) -> MemoryStyle {
+    fn memory_style(
+        &self,
+        memory: &MemoryType,
+    ) -> MemoryStyle {
         MemoryStyle::Static {
-            bound: memory.maximum.unwrap_or(Pages(self.config.limit_config.max_memory_pages)),
+            bound: memory.maximum.unwrap_or(Pages(
+                self.config
+                    .limit_config
+                    .max_memory_pages,
+            )),
             offset_guard_size: WASM_PAGE_SIZE as u64,
         }
     }
 
-    fn table_style(&self, _table: &near_vm_types::TableType) -> near_vm_vm::TableStyle {
+    fn table_style(
+        &self,
+        _table: &near_vm_types::TableType,
+    ) -> near_vm_vm::TableStyle {
         near_vm_vm::TableStyle::CallerChecksSignature
     }
 
@@ -517,7 +556,10 @@ impl near_vm_vm::Tunables for &NearVM {
         Ok(Arc::new(LinearTable::from_definition(&ty, &style, vm_definition_location)?))
     }
 
-    fn stack_init_gas_cost(&self, stack_size: u64) -> u64 {
+    fn stack_init_gas_cost(
+        &self,
+        stack_size: u64,
+    ) -> u64 {
         u64::from(self.config.regular_op_cost).saturating_mul((stack_size + 7) / 8)
     }
 
@@ -535,15 +577,18 @@ impl near_vm_vm::Tunables for &NearVM {
 struct MaxStackCfg;
 
 impl finite_wasm::max_stack::SizeConfig for MaxStackCfg {
-    fn size_of_value(&self, ty: finite_wasm::wasmparser::ValType) -> u8 {
+    fn size_of_value(
+        &self,
+        ty: finite_wasm::wasmparser::ValType,
+    ) -> u8 {
         use finite_wasm::wasmparser::ValType;
         match ty {
-            ValType::I32 => 4,
-            ValType::I64 => 8,
-            ValType::F32 => 4,
-            ValType::F64 => 8,
-            ValType::V128 => 16,
-            ValType::Ref(_) => 8,
+            | ValType::I32 => 4,
+            | ValType::I64 => 8,
+            | ValType::F32 => 4,
+            | ValType::F64 => 8,
+            | ValType::V128 => 16,
+            | ValType::Ref(_) => 8,
         }
     }
     fn size_of_function_activation(
@@ -613,13 +658,15 @@ impl crate::runner::VM for NearVM {
             method,
             |gas_counter, artifact, vm| {
                 let memory = NearVmMemory::new(
-                    vm.config.limit_config.initial_memory_pages,
+                    vm.config
+                        .limit_config
+                        .initial_memory_pages,
                     vm.config.limit_config.max_memory_pages,
                 )
                 .expect("Cannot create memory for a contract call");
                 let entrypoint = match get_entrypoint_index(&*artifact, method) {
-                    Ok(index) => index,
-                    Err(e) => {
+                    | Ok(index) => index,
+                    | Err(e) => {
                         let result = PreparationResult::OutcomeAbortButNopInOldProtocol(e);
                         return Ok(PreparedContract { config, gas_counter, result });
                     }
@@ -680,11 +727,11 @@ impl crate::PreparedContract for VMResult<PreparedContract> {
         let PreparedContract { config, gas_counter, result } = (*self)?;
         let result_state = ExecutionResultState::new(&context, gas_counter, config);
         let ReadyContract { mut memory, entrypoint, artifact, vm } = match result {
-            PreparationResult::Ready(r) => r,
-            PreparationResult::OutcomeAbortButNopInOldProtocol(e) => {
+            | PreparationResult::Ready(r) => r,
+            | PreparationResult::OutcomeAbortButNopInOldProtocol(e) => {
                 return Ok(VMOutcome::abort_but_nop_outcome_in_old_protocol(result_state, e));
             }
-            PreparationResult::OutcomeAbort(e) => {
+            | PreparationResult::OutcomeAbort(e) => {
                 return Ok(VMOutcome::abort(result_state, e));
             }
         };
@@ -693,8 +740,8 @@ impl crate::PreparedContract for VMResult<PreparedContract> {
         let mut logic = VMLogic::new(ext, context, fees_config, result_state, &mut memory);
         let import = build_imports(vmmemory, &mut logic, config, artifact.engine());
         let result = match vm.run_method(&artifact, import, entrypoint)? {
-            Ok(()) => Ok(VMOutcome::ok(logic.result_state)),
-            Err(err) => Ok(VMOutcome::abort(logic.result_state, err)),
+            | Ok(()) => Ok(VMOutcome::ok(logic.result_state)),
+            | Err(err) => Ok(VMOutcome::abort(logic.result_state, err)),
         };
         lazy_drop(Box::new(memory));
         result
@@ -746,7 +793,12 @@ macro_rules! return_ty {
     }
 
 impl<'e, 'l, 'lr> Resolver for NearVmImports<'e, 'l, 'lr> {
-    fn resolve(&self, _index: u32, module: &str, field: &str) -> Option<near_vm_vm::Export> {
+    fn resolve(
+        &self,
+        _index: u32,
+        module: &str,
+        field: &str,
+    ) -> Option<near_vm_vm::Export> {
         if module == "env" && field == "memory" {
             return Some(near_vm_vm::Export::Memory(self.memory.clone()));
         }

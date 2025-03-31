@@ -64,29 +64,44 @@ pub struct QemuCommandBuilder {
 
 impl QemuCommandBuilder {
     /// Start measurement immediately, without having to call `start_count_instructions` first.
-    pub fn started(mut self, yes: bool) -> Self {
+    pub fn started(
+        mut self,
+        yes: bool,
+    ) -> Self {
         self.started = yes;
         self
     }
     /// Print the counters on every close() syscall
-    pub fn print_on_every_close(mut self, yes: bool) -> Self {
+    pub fn print_on_every_close(
+        mut self,
+        yes: bool,
+    ) -> Self {
         self.on_every_close = yes;
         self
     }
     /// Instantiate different counters for each thread
-    pub fn count_per_thread(mut self, yes: bool) -> Self {
+    pub fn count_per_thread(
+        mut self,
+        yes: bool,
+    ) -> Self {
         self.count_per_thread = yes;
         self
     }
 
     /// Enable plugin log output to stderr
-    pub fn plugin_log(mut self, yes: bool) -> Self {
+    pub fn plugin_log(
+        mut self,
+        yes: bool,
+    ) -> Self {
         self.plugin_log = yes;
         self
     }
 
     /// Create the final command line
-    pub fn build(&self, inner_cmd: &str) -> anyhow::Result<Command> {
+    pub fn build(
+        &self,
+        inner_cmd: &str,
+    ) -> anyhow::Result<Command> {
         let mut cmd = Command::new(
             "/host/nearcore/runtime/runtime-params-estimator/emu-cost/counter_plugin/qemu-x86_64",
         );
@@ -120,7 +135,10 @@ impl QemuCommandBuilder {
 impl ops::Div<u64> for QemuMeasurement {
     type Output = QemuMeasurement;
 
-    fn div(mut self, rhs: u64) -> Self::Output {
+    fn div(
+        mut self,
+        rhs: u64,
+    ) -> Self::Output {
         self.instructions /= rhs;
         self.io_r_bytes /= rhs;
         self.io_w_bytes /= rhs;
@@ -131,7 +149,10 @@ impl ops::Div<u64> for QemuMeasurement {
 impl ops::Add for QemuMeasurement {
     type Output = QemuMeasurement;
 
-    fn add(mut self, rhs: QemuMeasurement) -> Self::Output {
+    fn add(
+        mut self,
+        rhs: QemuMeasurement,
+    ) -> Self::Output {
         self.instructions += rhs.instructions;
         self.io_r_bytes += rhs.io_r_bytes;
         self.io_w_bytes += rhs.io_w_bytes;
@@ -142,7 +163,10 @@ impl ops::Add for QemuMeasurement {
 impl ops::Mul<u64> for QemuMeasurement {
     type Output = QemuMeasurement;
 
-    fn mul(self, rhs: u64) -> Self::Output {
+    fn mul(
+        self,
+        rhs: u64,
+    ) -> Self::Output {
         QemuMeasurement {
             instructions: self.instructions * rhs,
             io_r_bytes: self.io_r_bytes * rhs,

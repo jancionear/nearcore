@@ -135,13 +135,25 @@ pub struct ResumeReshardingCmd {
     pub shard_id: ShardId,
 }
 
-fn print_delta(store: &FlatStoreAdapter, shard_uid: ShardUId, metadata: FlatStateDeltaMetadata) {
-    let changes = store.get_delta(shard_uid, metadata.block.hash).unwrap().unwrap();
+fn print_delta(
+    store: &FlatStoreAdapter,
+    shard_uid: ShardUId,
+    metadata: FlatStateDeltaMetadata,
+) {
+    let changes = store
+        .get_delta(shard_uid, metadata.block.hash)
+        .unwrap()
+        .unwrap();
     println!("{:?}", FlatStateDelta { metadata, changes });
 }
 
-fn print_deltas(store: &FlatStoreAdapter, shard_uid: ShardUId) {
-    let deltas_metadata = store.get_all_deltas_metadata(shard_uid).unwrap();
+fn print_deltas(
+    store: &FlatStoreAdapter,
+    shard_uid: ShardUId,
+) {
+    let deltas_metadata = store
+        .get_all_deltas_metadata(shard_uid)
+        .unwrap();
     let num_deltas = deltas_metadata.len();
     println!("Deltas: {}", num_deltas);
 
@@ -209,14 +221,14 @@ impl FlatStorageCommand {
             }
 
             match status {
-                FlatStorageStatus::Ready(ready_status) => {
+                | FlatStorageStatus::Ready(ready_status) => {
                     println!(
                         "Shard: {shard_uid:?} - flat storage @{:?} ({})",
                         ready_status.flat_head.height, ready_status.flat_head.hash,
                     );
                     print_deltas(&hot_store.flat_store(), shard_uid);
                 }
-                status => {
+                | status => {
                     println!("Shard: {shard_uid:?} - no flat storage: {status:?}");
                 }
             }
@@ -274,8 +286,8 @@ impl FlatStorageCommand {
             .get_flat_storage_status(shard_uid)
             .expect("failed to read flat storage status")
         {
-            FlatStorageStatus::Ready(ready_status) => ready_status.flat_head.hash,
-            status => {
+            | FlatStorageStatus::Ready(ready_status) => ready_status.flat_head.hash,
+            | status => {
                 panic!("Flat storage is not ready for shard {:?}: {status:?}", cmd.shard_id);
             }
         };
@@ -300,7 +312,9 @@ impl FlatStorageCommand {
         let tip = chain_store.final_head()?;
 
         let shard_uid = epoch_manager.shard_id_to_uid(cmd.shard_id, &tip.epoch_id)?;
-        hot_runtime.get_flat_storage_manager().create_flat_storage_for_shard(shard_uid)?;
+        hot_runtime
+            .get_flat_storage_manager()
+            .create_flat_storage_for_shard(shard_uid)?;
 
         let trie = hot_runtime.get_view_trie_for_shard(cmd.shard_id, &head_hash, *state_root)?;
 
@@ -386,8 +400,8 @@ impl FlatStorageCommand {
         let store = chain_store.store();
         let flat_store = store.flat_store();
         let flat_head = match flat_store.get_flat_storage_status(shard_uid) {
-            Ok(FlatStorageStatus::Ready(ready_status)) => ready_status.flat_head,
-            status => {
+            | Ok(FlatStorageStatus::Ready(ready_status)) => ready_status.flat_head,
+            | status => {
                 panic!("invalid flat storage status for shard {shard_uid:?}: {status:?}")
             }
         };
@@ -402,10 +416,15 @@ impl FlatStorageCommand {
             let epoch_id = header.epoch_id();
             let shard_layout = epoch_manager.get_shard_layout(&epoch_id)?;
             shard_uid = epoch_manager.shard_id_to_uid(shard_id, epoch_id)?;
-            let shard_index =
-                shard_layout.get_shard_index(shard_id).map_err(Into::<EpochError>::into)?;
+            let shard_index = shard_layout
+                .get_shard_index(shard_id)
+                .map_err(Into::<EpochError>::into)?;
 
-            let state_root = block.chunks().get(shard_index).unwrap().prev_state_root();
+            let state_root = block
+                .chunks()
+                .get(shard_index)
+                .unwrap()
+                .prev_state_root();
             let prev_hash = header.prev_hash();
             let prev_header = chain_store.get_block_header(&prev_hash)?;
             let prev_prev_hash = *prev_header.prev_hash();
@@ -427,7 +446,7 @@ impl FlatStorageCommand {
                         maybe_trie_key,
                     )?;
                 let maybe_trie_key = match maybe_account_id {
-                    Some(account_id) => {
+                    | Some(account_id) => {
                         let account_shard_id = shard_layout.account_id_to_shard_id(&account_id);
                         if shard_id == account_shard_id {
                             Some(maybe_trie_key)
@@ -435,7 +454,7 @@ impl FlatStorageCommand {
                             None
                         }
                     }
-                    None => {
+                    | None => {
                         assert!(maybe_trie_key.len() >= 8);
                         let (trie_key, shard_uid_raw) =
                             maybe_trie_key.split_at(maybe_trie_key.len() - 8);
@@ -453,8 +472,9 @@ impl FlatStorageCommand {
                     let prev_value_ref = trie
                         .get_optimized_ref(trie_key, near_store::KeyLookupMode::Trie)?
                         .map(|value_ref| value_ref.into_value_ref());
-                    let value_ref =
-                        flat_store.get(shard_uid, trie_key)?.map(|val| val.to_value_ref());
+                    let value_ref = flat_store
+                        .get(shard_uid, trie_key)?
+                        .map(|val| val.to_value_ref());
                     if prev_value_ref == value_ref {
                         // Value didn't change, skip it.
                         continue;
@@ -462,8 +482,8 @@ impl FlatStorageCommand {
 
                     // Inline value if needed and add it to delta.
                     let prev_value = match prev_value_ref {
-                        None => None,
-                        Some(value_ref) => {
+                        | None => None,
+                        | Some(value_ref) => {
                             if value_ref.len() <= FlatStateValue::INLINE_DISK_VALUE_THRESHOLD {
                                 let value = trie.retrieve_value(&value_ref.hash)?;
                                 Some(FlatStateValue::Inlined(value))
@@ -514,15 +534,17 @@ impl FlatStorageCommand {
         let shard_uid = ShardUId::new(cmd.version, cmd.shard_id);
         let flat_storage_manager = runtime.get_flat_storage_manager();
         flat_storage_manager.create_flat_storage_for_shard(shard_uid)?;
-        let flat_storage = flat_storage_manager.get_flat_storage_for_shard(shard_uid).unwrap();
+        let flat_storage = flat_storage_manager
+            .get_flat_storage_for_shard(shard_uid)
+            .unwrap();
 
         match cmd.mode {
-            MoveFlatHeadMode::Forward { new_flat_head_height } => {
+            | MoveFlatHeadMode::Forward { new_flat_head_height } => {
                 let header = chain_store.get_block_header_by_height(new_flat_head_height)?;
                 println!("Moving flat head for shard {shard_uid} forward to header: {header:?}");
                 flat_storage.update_flat_head(header.hash())?;
             }
-            MoveFlatHeadMode::Back { blocks } => {
+            | MoveFlatHeadMode::Back { blocks } => {
                 println!("Moving flat head for shard {shard_uid} back by {blocks} blocks");
                 self.move_flat_head_back(
                     epoch_manager.as_ref(),
@@ -550,17 +572,17 @@ impl FlatStorageCommand {
         );
 
         match &self.subcmd {
-            SubCommand::View(cmd) => self.view(cmd, home_dir, &near_config, opener),
-            SubCommand::SetStoreVersion(cmd) => self.set_store_version(cmd, opener),
-            SubCommand::Reset(cmd) => self.reset(cmd, home_dir, &near_config, opener),
-            SubCommand::Verify(cmd) => self.verify(cmd, home_dir, &near_config, opener),
-            SubCommand::ConstructTrieFromFlat(cmd) => {
+            | SubCommand::View(cmd) => self.view(cmd, home_dir, &near_config, opener),
+            | SubCommand::SetStoreVersion(cmd) => self.set_store_version(cmd, opener),
+            | SubCommand::Reset(cmd) => self.reset(cmd, home_dir, &near_config, opener),
+            | SubCommand::Verify(cmd) => self.verify(cmd, home_dir, &near_config, opener),
+            | SubCommand::ConstructTrieFromFlat(cmd) => {
                 self.construct_trie_from_flat(cmd, home_dir, &near_config, opener)
             }
-            SubCommand::MoveFlatHead(cmd) => {
+            | SubCommand::MoveFlatHead(cmd) => {
                 self.move_flat_head(cmd, home_dir, &near_config, opener)
             }
-            SubCommand::ResumeResharding(cmd) => {
+            | SubCommand::ResumeResharding(cmd) => {
                 resume_resharding(cmd, home_dir, &near_config, opener)
             }
         }

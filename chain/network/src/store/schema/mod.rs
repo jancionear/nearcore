@@ -18,11 +18,17 @@ mod tests;
 pub struct AccountIdFormat;
 impl Format for AccountIdFormat {
     type T = AccountId;
-    fn encode<W: io::Write>(a: &AccountId, w: &mut W) -> io::Result<()> {
+    fn encode<W: io::Write>(
+        a: &AccountId,
+        w: &mut W,
+    ) -> io::Result<()> {
         w.write_all(a.as_bytes())
     }
     fn decode(a: &[u8]) -> Result<AccountId, Error> {
-        std::str::from_utf8(a).map_err(invalid_data)?.parse().map_err(invalid_data)
+        std::str::from_utf8(a)
+            .map_err(invalid_data)?
+            .parse()
+            .map_err(invalid_data)
     }
 }
 
@@ -40,8 +46,12 @@ impl BorshRepr for ConnectionInfoRepr {
     fn to_repr(s: &primitives::ConnectionInfo) -> Self {
         Self {
             peer_info: s.peer_info.clone(),
-            time_established: s.time_established.unix_timestamp_nanos() as u64,
-            time_connected_until: s.time_connected_until.unix_timestamp_nanos() as u64,
+            time_established: s
+                .time_established
+                .unix_timestamp_nanos() as u64,
+            time_connected_until: s
+                .time_connected_until
+                .unix_timestamp_nanos() as u64,
         }
     }
 
@@ -114,7 +124,10 @@ pub trait Format {
     type T;
     /// Encode should write encoded <a> to <w>.
     /// Errors may come only from calling methods of <w>.
-    fn encode<W: io::Write>(a: &Self::T, w: &mut W) -> io::Result<()>;
+    fn encode<W: io::Write>(
+        a: &Self::T,
+        w: &mut W,
+    ) -> io::Result<()>;
     fn decode(a: &[u8]) -> io::Result<Self::T>;
 }
 
@@ -137,7 +150,10 @@ pub trait BorshRepr: BorshSerialize + BorshDeserialize {
 
 impl<R: BorshRepr> Format for R {
     type T = R::T;
-    fn encode<W: io::Write>(a: &Self::T, w: &mut W) -> io::Result<()> {
+    fn encode<W: io::Write>(
+        a: &Self::T,
+        w: &mut W,
+    ) -> io::Result<()> {
         R::to_repr(a).serialize(w)
     }
     fn decode(a: &[u8]) -> io::Result<Self::T> {
@@ -170,7 +186,9 @@ impl<R: BorshRepr> BorshRepr for Vec<R> {
         a.iter().map(R::to_repr).collect()
     }
     fn from_repr(a: Vec<R>) -> Result<Self::T, Error> {
-        a.into_iter().map(R::from_repr).collect()
+        a.into_iter()
+            .map(R::from_repr)
+            .collect()
     }
 }
 
@@ -178,11 +196,16 @@ impl<R: BorshRepr> BorshRepr for Vec<R> {
 pub struct U64LE;
 impl Format for U64LE {
     type T = u64;
-    fn encode<W: io::Write>(a: &u64, w: &mut W) -> io::Result<()> {
+    fn encode<W: io::Write>(
+        a: &u64,
+        w: &mut W,
+    ) -> io::Result<()> {
         w.write_all(&a.to_le_bytes())
     }
     fn decode(a: &[u8]) -> Result<u64, Error> {
-        a.try_into().map(u64::from_le_bytes).map_err(invalid_data)
+        a.try_into()
+            .map(u64::from_le_bytes)
+            .map_err(invalid_data)
     }
 }
 
@@ -213,7 +236,10 @@ impl Store {
         "Store::commit",
         skip_all
     )]
-    pub fn commit(&mut self, update: StoreUpdate) -> Result<(), Error> {
+    pub fn commit(
+        &mut self,
+        update: StoreUpdate,
+    ) -> Result<(), Error> {
         self.0.write(update.0)
     }
 
@@ -222,10 +248,12 @@ impl Store {
         k: &<C::Key as Format>::T,
     ) -> Result<Option<<C::Value as Format>::T>, Error> {
         debug_assert!(!C::COL.is_rc());
-        let v = self.0.get_raw_bytes(C::COL, to_vec::<C::Key>(k).as_ref())?;
+        let v = self
+            .0
+            .get_raw_bytes(C::COL, to_vec::<C::Key>(k).as_ref())?;
         Ok(match v {
-            Some(v) => Some(C::Value::decode(&v)?),
-            None => None,
+            | Some(v) => Some(C::Value::decode(&v)?),
+            | None => None,
         })
     }
 }
@@ -237,10 +265,19 @@ impl From<Arc<dyn near_store::db::Database>> for Store {
 }
 
 impl StoreUpdate {
-    pub fn set<C: Column>(&mut self, k: &<C::Key as Format>::T, v: &<C::Value as Format>::T) {
-        self.0.set(C::COL, to_vec::<C::Key>(k), to_vec::<C::Value>(v))
+    pub fn set<C: Column>(
+        &mut self,
+        k: &<C::Key as Format>::T,
+        v: &<C::Value as Format>::T,
+    ) {
+        self.0
+            .set(C::COL, to_vec::<C::Key>(k), to_vec::<C::Value>(v))
     }
-    pub fn _delete<C: Column>(&mut self, k: &<C::Key as Format>::T) {
-        self.0.delete(C::COL, to_vec::<C::Key>(k))
+    pub fn _delete<C: Column>(
+        &mut self,
+        k: &<C::Key as Format>::T,
+    ) {
+        self.0
+            .delete(C::COL, to_vec::<C::Key>(k))
     }
 }

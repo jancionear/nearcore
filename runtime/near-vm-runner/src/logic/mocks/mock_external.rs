@@ -117,35 +117,58 @@ impl MockedExternal {
         Self::with_code_and_hash(*code.hash(), code)
     }
 
-    pub fn with_code_and_hash(code_hash: CryptoHash, code: ContractCode) -> Self {
+    pub fn with_code_and_hash(
+        code_hash: CryptoHash,
+        code: ContractCode,
+    ) -> Self {
         Self { code_hash, code: Some(code.into()), ..Self::default() }
     }
 }
 
 impl External for MockedExternal {
-    fn storage_set(&mut self, key: &[u8], value: &[u8]) -> Result<()> {
-        self.fake_trie.insert(key.to_vec(), value.to_vec());
+    fn storage_set(
+        &mut self,
+        key: &[u8],
+        value: &[u8],
+    ) -> Result<()> {
+        self.fake_trie
+            .insert(key.to_vec(), value.to_vec());
         Ok(())
     }
 
-    fn storage_get(&self, key: &[u8], _mode: StorageGetMode) -> Result<Option<Box<dyn ValuePtr>>> {
+    fn storage_get(
+        &self,
+        key: &[u8],
+        _mode: StorageGetMode,
+    ) -> Result<Option<Box<dyn ValuePtr>>> {
         Ok(self
             .fake_trie
             .get(key)
             .map(|value| Box::new(MockedValuePtr { value: value.clone() }) as Box<_>))
     }
 
-    fn storage_remove(&mut self, key: &[u8]) -> Result<()> {
+    fn storage_remove(
+        &mut self,
+        key: &[u8],
+    ) -> Result<()> {
         self.fake_trie.remove(key);
         Ok(())
     }
 
-    fn storage_remove_subtree(&mut self, prefix: &[u8]) -> Result<()> {
-        self.fake_trie.retain(|key, _| !key.starts_with(prefix));
+    fn storage_remove_subtree(
+        &mut self,
+        prefix: &[u8],
+    ) -> Result<()> {
+        self.fake_trie
+            .retain(|key, _| !key.starts_with(prefix));
         Ok(())
     }
 
-    fn storage_has_key(&mut self, key: &[u8], _mode: StorageGetMode) -> Result<bool> {
+    fn storage_has_key(
+        &mut self,
+        key: &[u8],
+        _mode: StorageGetMode,
+    ) -> Result<bool> {
         Ok(self.fake_trie.contains_key(key))
     }
 
@@ -165,7 +188,10 @@ impl External for MockedExternal {
         0
     }
 
-    fn validator_stake(&self, account_id: &AccountId) -> Result<Option<Balance>> {
+    fn validator_stake(
+        &self,
+        account_id: &AccountId,
+    ) -> Result<Option<Balance>> {
         Ok(self.validators.get(account_id).cloned())
     }
 
@@ -179,7 +205,8 @@ impl External for MockedExternal {
         receiver_id: AccountId,
     ) -> Result<ReceiptIndex, crate::logic::VMLogicError> {
         let index = self.action_log.len();
-        self.action_log.push(MockAction::CreateReceipt { receipt_indices, receiver_id });
+        self.action_log
+            .push(MockAction::CreateReceipt { receipt_indices, receiver_id });
         Ok(index as u64)
     }
 
@@ -189,7 +216,8 @@ impl External for MockedExternal {
     ) -> Result<(ReceiptIndex, CryptoHash), crate::logic::VMLogicError> {
         let index = self.action_log.len();
         let data_id = self.generate_data_id();
-        self.action_log.push(MockAction::YieldCreate { data_id, receiver_id });
+        self.action_log
+            .push(MockAction::YieldCreate { data_id, receiver_id });
         Ok((index as u64, data_id))
     }
 
@@ -198,7 +226,8 @@ impl External for MockedExternal {
         data_id: CryptoHash,
         data: Vec<u8>,
     ) -> Result<bool, crate::logic::VMLogicError> {
-        self.action_log.push(MockAction::YieldResume { data_id, data });
+        self.action_log
+            .push(MockAction::YieldResume { data_id, data });
         for action in &self.action_log {
             let MockAction::YieldCreate { data_id: did, .. } = action else {
                 continue;
@@ -217,7 +246,8 @@ impl External for MockedExternal {
         &mut self,
         receipt_index: ReceiptIndex,
     ) -> Result<(), crate::logic::VMLogicError> {
-        self.action_log.push(MockAction::CreateAccount { receipt_index });
+        self.action_log
+            .push(MockAction::CreateAccount { receipt_index });
         Ok(())
     }
 
@@ -226,7 +256,8 @@ impl External for MockedExternal {
         receipt_index: ReceiptIndex,
         code: Vec<u8>,
     ) -> Result<(), crate::logic::VMLogicError> {
-        self.action_log.push(MockAction::DeployContract { receipt_index, code });
+        self.action_log
+            .push(MockAction::DeployContract { receipt_index, code });
         Ok(())
     }
 
@@ -239,14 +270,15 @@ impl External for MockedExternal {
         prepaid_gas: Gas,
         gas_weight: GasWeight,
     ) -> Result<(), crate::logic::VMLogicError> {
-        self.action_log.push(MockAction::FunctionCallWeight {
-            receipt_index,
-            method_name,
-            args,
-            attached_deposit,
-            prepaid_gas,
-            gas_weight,
-        });
+        self.action_log
+            .push(MockAction::FunctionCallWeight {
+                receipt_index,
+                method_name,
+                args,
+                attached_deposit,
+                prepaid_gas,
+                gas_weight,
+            });
         Ok(())
     }
 
@@ -255,7 +287,8 @@ impl External for MockedExternal {
         receipt_index: ReceiptIndex,
         deposit: Balance,
     ) -> Result<(), crate::logic::VMLogicError> {
-        self.action_log.push(MockAction::Transfer { receipt_index, deposit });
+        self.action_log
+            .push(MockAction::Transfer { receipt_index, deposit });
         Ok(())
     }
 
@@ -265,7 +298,8 @@ impl External for MockedExternal {
         stake: Balance,
         public_key: near_crypto::PublicKey,
     ) {
-        self.action_log.push(MockAction::Stake { receipt_index, stake, public_key });
+        self.action_log
+            .push(MockAction::Stake { receipt_index, stake, public_key });
     }
 
     fn append_action_add_key_with_full_access(
@@ -274,7 +308,8 @@ impl External for MockedExternal {
         public_key: near_crypto::PublicKey,
         nonce: near_primitives_core::types::Nonce,
     ) {
-        self.action_log.push(MockAction::AddKeyWithFullAccess { receipt_index, public_key, nonce });
+        self.action_log
+            .push(MockAction::AddKeyWithFullAccess { receipt_index, public_key, nonce });
     }
 
     fn append_action_add_key_with_function_call(
@@ -286,14 +321,15 @@ impl External for MockedExternal {
         receiver_id: AccountId,
         method_names: Vec<Vec<u8>>,
     ) -> Result<(), crate::logic::VMLogicError> {
-        self.action_log.push(MockAction::AddKeyWithFunctionCall {
-            receipt_index,
-            public_key,
-            nonce,
-            allowance,
-            receiver_id,
-            method_names,
-        });
+        self.action_log
+            .push(MockAction::AddKeyWithFunctionCall {
+                receipt_index,
+                public_key,
+                nonce,
+                allowance,
+                receiver_id,
+                method_names,
+            });
         Ok(())
     }
 
@@ -302,7 +338,8 @@ impl External for MockedExternal {
         receipt_index: ReceiptIndex,
         public_key: near_crypto::PublicKey,
     ) {
-        self.action_log.push(MockAction::DeleteKey { receipt_index, public_key });
+        self.action_log
+            .push(MockAction::DeleteKey { receipt_index, public_key });
     }
 
     fn append_action_delete_account(
@@ -310,14 +347,18 @@ impl External for MockedExternal {
         receipt_index: ReceiptIndex,
         beneficiary_id: AccountId,
     ) -> Result<(), crate::logic::VMLogicError> {
-        self.action_log.push(MockAction::DeleteAccount { receipt_index, beneficiary_id });
+        self.action_log
+            .push(MockAction::DeleteAccount { receipt_index, beneficiary_id });
         Ok(())
     }
 
-    fn get_receipt_receiver(&self, receipt_index: ReceiptIndex) -> &AccountId {
+    fn get_receipt_receiver(
+        &self,
+        receipt_index: ReceiptIndex,
+    ) -> &AccountId {
         match &self.action_log[receipt_index as usize] {
-            MockAction::CreateReceipt { receiver_id, .. } => receiver_id,
-            _ => panic!("not a valid receipt index!"),
+            | MockAction::CreateReceipt { receiver_id, .. } => receiver_id,
+            | _ => panic!("not a valid receipt index!"),
         }
     }
 }

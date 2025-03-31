@@ -9,8 +9,6 @@ RUMP_UP=$5
 USER=$6
 CONTEXT=$7
 
-# cspell:words pkill locustfiles nohup venv
-
 # Stop previous experiment
 pkill -9 locust || true
 nearup stop

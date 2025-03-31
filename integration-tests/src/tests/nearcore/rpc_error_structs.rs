@@ -441,8 +441,8 @@ fn ultra_slow_test_query_rpc_account_view_unknown_block_must_return_error() {
             .await;
 
         let error = match query_response {
-            Ok(result) => panic!("expected error but received Ok: {:?}", result.kind),
-            Err(err) => serde_json::to_value(err).unwrap(),
+            | Ok(result) => panic!("expected error but received Ok: {:?}", result.kind),
+            | Err(err) => serde_json::to_value(err).unwrap(),
         };
 
         assert_eq!(error["cause"]["name"], serde_json::json!("UNKNOWN_BLOCK"),);

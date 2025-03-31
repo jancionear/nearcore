@@ -19,130 +19,130 @@ impl ShardChunkHeaderInner {
     #[inline]
     pub fn prev_state_root(&self) -> &StateRoot {
         match self {
-            Self::V1(inner) => &inner.prev_state_root,
-            Self::V2(inner) => &inner.prev_state_root,
-            Self::V3(inner) => &inner.prev_state_root,
-            Self::V4(inner) => &inner.prev_state_root,
+            | Self::V1(inner) => &inner.prev_state_root,
+            | Self::V2(inner) => &inner.prev_state_root,
+            | Self::V3(inner) => &inner.prev_state_root,
+            | Self::V4(inner) => &inner.prev_state_root,
         }
     }
 
     #[inline]
     pub fn prev_block_hash(&self) -> &CryptoHash {
         match self {
-            Self::V1(inner) => &inner.prev_block_hash,
-            Self::V2(inner) => &inner.prev_block_hash,
-            Self::V3(inner) => &inner.prev_block_hash,
-            Self::V4(inner) => &inner.prev_block_hash,
+            | Self::V1(inner) => &inner.prev_block_hash,
+            | Self::V2(inner) => &inner.prev_block_hash,
+            | Self::V3(inner) => &inner.prev_block_hash,
+            | Self::V4(inner) => &inner.prev_block_hash,
         }
     }
 
     #[inline]
     pub fn gas_limit(&self) -> Gas {
         match self {
-            Self::V1(inner) => inner.gas_limit,
-            Self::V2(inner) => inner.gas_limit,
-            Self::V3(inner) => inner.gas_limit,
-            Self::V4(inner) => inner.gas_limit,
+            | Self::V1(inner) => inner.gas_limit,
+            | Self::V2(inner) => inner.gas_limit,
+            | Self::V3(inner) => inner.gas_limit,
+            | Self::V4(inner) => inner.gas_limit,
         }
     }
 
     #[inline]
     pub fn prev_gas_used(&self) -> Gas {
         match self {
-            Self::V1(inner) => inner.prev_gas_used,
-            Self::V2(inner) => inner.prev_gas_used,
-            Self::V3(inner) => inner.prev_gas_used,
-            Self::V4(inner) => inner.prev_gas_used,
+            | Self::V1(inner) => inner.prev_gas_used,
+            | Self::V2(inner) => inner.prev_gas_used,
+            | Self::V3(inner) => inner.prev_gas_used,
+            | Self::V4(inner) => inner.prev_gas_used,
         }
     }
 
     #[inline]
     pub fn prev_validator_proposals(&self) -> ValidatorStakeIter {
         match self {
-            Self::V1(inner) => ValidatorStakeIter::v1(&inner.prev_validator_proposals),
-            Self::V2(inner) => ValidatorStakeIter::new(&inner.prev_validator_proposals),
-            Self::V3(inner) => ValidatorStakeIter::new(&inner.prev_validator_proposals),
-            Self::V4(inner) => ValidatorStakeIter::new(&inner.prev_validator_proposals),
+            | Self::V1(inner) => ValidatorStakeIter::v1(&inner.prev_validator_proposals),
+            | Self::V2(inner) => ValidatorStakeIter::new(&inner.prev_validator_proposals),
+            | Self::V3(inner) => ValidatorStakeIter::new(&inner.prev_validator_proposals),
+            | Self::V4(inner) => ValidatorStakeIter::new(&inner.prev_validator_proposals),
         }
     }
 
     #[inline]
     pub fn height_created(&self) -> BlockHeight {
         match self {
-            Self::V1(inner) => inner.height_created,
-            Self::V2(inner) => inner.height_created,
-            Self::V3(inner) => inner.height_created,
-            Self::V4(inner) => inner.height_created,
+            | Self::V1(inner) => inner.height_created,
+            | Self::V2(inner) => inner.height_created,
+            | Self::V3(inner) => inner.height_created,
+            | Self::V4(inner) => inner.height_created,
         }
     }
 
     #[inline]
     pub fn shard_id(&self) -> ShardId {
         match self {
-            Self::V1(inner) => inner.shard_id,
-            Self::V2(inner) => inner.shard_id,
-            Self::V3(inner) => inner.shard_id,
-            Self::V4(inner) => inner.shard_id,
+            | Self::V1(inner) => inner.shard_id,
+            | Self::V2(inner) => inner.shard_id,
+            | Self::V3(inner) => inner.shard_id,
+            | Self::V4(inner) => inner.shard_id,
         }
     }
 
     #[inline]
     pub fn prev_outcome_root(&self) -> &CryptoHash {
         match self {
-            Self::V1(inner) => &inner.prev_outcome_root,
-            Self::V2(inner) => &inner.prev_outcome_root,
-            Self::V3(inner) => &inner.prev_outcome_root,
-            Self::V4(inner) => &inner.prev_outcome_root,
+            | Self::V1(inner) => &inner.prev_outcome_root,
+            | Self::V2(inner) => &inner.prev_outcome_root,
+            | Self::V3(inner) => &inner.prev_outcome_root,
+            | Self::V4(inner) => &inner.prev_outcome_root,
         }
     }
 
     #[inline]
     pub fn encoded_merkle_root(&self) -> &CryptoHash {
         match self {
-            Self::V1(inner) => &inner.encoded_merkle_root,
-            Self::V2(inner) => &inner.encoded_merkle_root,
-            Self::V3(inner) => &inner.encoded_merkle_root,
-            Self::V4(inner) => &inner.encoded_merkle_root,
+            | Self::V1(inner) => &inner.encoded_merkle_root,
+            | Self::V2(inner) => &inner.encoded_merkle_root,
+            | Self::V3(inner) => &inner.encoded_merkle_root,
+            | Self::V4(inner) => &inner.encoded_merkle_root,
         }
     }
 
     #[inline]
     pub fn encoded_length(&self) -> u64 {
         match self {
-            Self::V1(inner) => inner.encoded_length,
-            Self::V2(inner) => inner.encoded_length,
-            Self::V3(inner) => inner.encoded_length,
-            Self::V4(inner) => inner.encoded_length,
+            | Self::V1(inner) => inner.encoded_length,
+            | Self::V2(inner) => inner.encoded_length,
+            | Self::V3(inner) => inner.encoded_length,
+            | Self::V4(inner) => inner.encoded_length,
         }
     }
 
     #[inline]
     pub fn prev_balance_burnt(&self) -> Balance {
         match self {
-            Self::V1(inner) => inner.prev_balance_burnt,
-            Self::V2(inner) => inner.prev_balance_burnt,
-            Self::V3(inner) => inner.prev_balance_burnt,
-            Self::V4(inner) => inner.prev_balance_burnt,
+            | Self::V1(inner) => inner.prev_balance_burnt,
+            | Self::V2(inner) => inner.prev_balance_burnt,
+            | Self::V3(inner) => inner.prev_balance_burnt,
+            | Self::V4(inner) => inner.prev_balance_burnt,
         }
     }
 
     #[inline]
     pub fn prev_outgoing_receipts_root(&self) -> &CryptoHash {
         match self {
-            Self::V1(inner) => &inner.prev_outgoing_receipts_root,
-            Self::V2(inner) => &inner.prev_outgoing_receipts_root,
-            Self::V3(inner) => &inner.prev_outgoing_receipts_root,
-            Self::V4(inner) => &inner.prev_outgoing_receipts_root,
+            | Self::V1(inner) => &inner.prev_outgoing_receipts_root,
+            | Self::V2(inner) => &inner.prev_outgoing_receipts_root,
+            | Self::V3(inner) => &inner.prev_outgoing_receipts_root,
+            | Self::V4(inner) => &inner.prev_outgoing_receipts_root,
         }
     }
 
     #[inline]
     pub fn tx_root(&self) -> &CryptoHash {
         match self {
-            Self::V1(inner) => &inner.tx_root,
-            Self::V2(inner) => &inner.tx_root,
-            Self::V3(inner) => &inner.tx_root,
-            Self::V4(inner) => &inner.tx_root,
+            | Self::V1(inner) => &inner.tx_root,
+            | Self::V2(inner) => &inner.tx_root,
+            | Self::V3(inner) => &inner.tx_root,
+            | Self::V4(inner) => &inner.tx_root,
         }
     }
 
@@ -150,18 +150,18 @@ impl ShardChunkHeaderInner {
     #[inline]
     pub fn congestion_info(&self) -> Option<CongestionInfo> {
         match self {
-            Self::V1(_) => None,
-            Self::V2(_) => None,
-            Self::V3(v3) => Some(v3.congestion_info),
-            Self::V4(v4) => Some(v4.congestion_info),
+            | Self::V1(_) => None,
+            | Self::V2(_) => None,
+            | Self::V3(v3) => Some(v3.congestion_info),
+            | Self::V4(v4) => Some(v4.congestion_info),
         }
     }
 
     #[inline]
     pub fn bandwidth_requests(&self) -> Option<&BandwidthRequests> {
         match self {
-            Self::V1(_) | Self::V2(_) | Self::V3(_) => None,
-            Self::V4(inner) => Some(&inner.bandwidth_requests),
+            | Self::V1(_) | Self::V2(_) | Self::V3(_) => None,
+            | Self::V4(inner) => Some(&inner.bandwidth_requests),
         }
     }
 
@@ -169,10 +169,10 @@ impl ShardChunkHeaderInner {
     #[inline]
     pub(crate) fn version_number(&self) -> u64 {
         match self {
-            Self::V1(_) => 1,
-            Self::V2(_) => 2,
-            Self::V3(_) => 3,
-            Self::V4(_) => 4,
+            | Self::V1(_) => 1,
+            | Self::V2(_) => 2,
+            | Self::V3(_) => 3,
+            | Self::V4(_) => 4,
         }
     }
 }

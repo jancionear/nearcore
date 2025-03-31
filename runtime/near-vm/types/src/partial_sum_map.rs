@@ -36,10 +36,18 @@ impl<K: Clone + Ord + num_traits::Unsigned + num_traits::CheckedAdd, V> PartialS
     /// Push `count` number of `value`s.
     ///
     /// `O(1)` amortized.
-    pub fn push(&mut self, count: K, value: V) -> Result<(), Error> {
+    pub fn push(
+        &mut self,
+        count: K,
+        value: V,
+    ) -> Result<(), Error> {
         if count != K::zero() {
-            self.size = self.size.checked_add(&count).ok_or(Error::Overflow)?;
-            self.keys.push(self.size.clone() - K::one());
+            self.size = self
+                .size
+                .checked_add(&count)
+                .ok_or(Error::Overflow)?;
+            self.keys
+                .push(self.size.clone() - K::one());
             self.values.push(value);
         }
         Ok(())
@@ -66,7 +74,10 @@ impl<K: Clone + Ord + num_traits::Unsigned + num_traits::CheckedAdd, V> PartialS
     /// Find the value by the index.
     ///
     /// This is a `O(n log n)` operation.
-    pub fn find(&self, index: K) -> Option<&V> {
+    pub fn find(
+        &self,
+        index: K,
+    ) -> Option<&V> {
         match self.keys.binary_search(&index) {
             // If this index would be inserted at the end of the list, then the
             // index is out of bounds and we return a None.
@@ -76,7 +87,7 @@ impl<K: Clone + Ord + num_traits::Unsigned + num_traits::CheckedAdd, V> PartialS
             // greater than `idx`, which is still the type of `idx` according
             // to our "compressed" representation. In both cases we access the
             // list at index `i`.
-            Ok(i) | Err(i) => self.values.get(i),
+            | Ok(i) | Err(i) => self.values.get(i),
         }
     }
 }
@@ -90,9 +101,12 @@ pub enum Error {
 
 impl std::error::Error for Error {}
 impl std::fmt::Display for Error {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+    ) -> std::fmt::Result {
         f.write_str(match self {
-            Self::Overflow => "partial sum overflow",
+            | Self::Overflow => "partial sum overflow",
         })
     }
 }

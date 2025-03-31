@@ -1,8 +1,8 @@
-use super::metrics::MEMTRIE_ARENA_ACTIVE_ALLOCS_COUNT;
+use super::metrics::MEM_TRIE_ARENA_ACTIVE_ALLOCS_COUNT;
 use super::single_thread::STArenaMemory;
 use super::{ArenaMemory, ArenaPos, ArenaSliceMut};
 use crate::trie::mem::arena::metrics::{
-    MEMTRIE_ARENA_ACTIVE_ALLOCS_BYTES, MEMTRIE_ARENA_MEMORY_USAGE_BYTES,
+    MEM_TRIE_ARENA_ACTIVE_ALLOCS_BYTES, MEM_TRIE_ARENA_MEMORY_USAGE_BYTES,
 };
 use crate::trie::mem::arena::ArenaMemoryMut;
 use crate::trie::mem::flexible_data::encoding::BorshFixedSize;
@@ -82,11 +82,11 @@ impl Allocator {
             next_alloc_pos: ArenaPos::invalid(),
             active_allocs_bytes: 0,
             active_allocs_count: 0,
-            active_allocs_bytes_gauge: MEMTRIE_ARENA_ACTIVE_ALLOCS_BYTES
+            active_allocs_bytes_gauge: MEM_TRIE_ARENA_ACTIVE_ALLOCS_BYTES
                 .with_label_values(&[&name]),
-            active_allocs_count_gauge: MEMTRIE_ARENA_ACTIVE_ALLOCS_COUNT
+            active_allocs_count_gauge: MEM_TRIE_ARENA_ACTIVE_ALLOCS_COUNT
                 .with_label_values(&[&name]),
-            memory_usage_gauge: MEMTRIE_ARENA_MEMORY_USAGE_BYTES.with_label_values(&[&name]),
+            memory_usage_gauge: MEM_TRIE_ARENA_MEMORY_USAGE_BYTES.with_label_values(&[&name]),
         }
     }
 
@@ -98,18 +98,29 @@ impl Allocator {
         let mut allocator = Self::new(name);
         allocator.active_allocs_bytes = active_allocs_bytes;
         allocator.active_allocs_count = active_allocs_count;
-        allocator.active_allocs_bytes_gauge.set(active_allocs_bytes as i64);
-        allocator.active_allocs_count_gauge.set(active_allocs_count as i64);
+        allocator
+            .active_allocs_bytes_gauge
+            .set(active_allocs_bytes as i64);
+        allocator
+            .active_allocs_count_gauge
+            .set(active_allocs_count as i64);
         allocator
     }
 
-    pub fn update_memory_usage_gauge(&self, memory: &STArenaMemory) {
-        self.memory_usage_gauge.set(memory.chunks.len() as i64 * CHUNK_SIZE as i64);
+    pub fn update_memory_usage_gauge(
+        &self,
+        memory: &STArenaMemory,
+    ) {
+        self.memory_usage_gauge
+            .set(memory.chunks.len() as i64 * CHUNK_SIZE as i64);
     }
 
     /// Adds a new chunk to the arena, and updates the next_alloc_pos to the beginning of
     /// the new chunk.
-    fn new_chunk(&mut self, memory: &mut STArenaMemory) {
+    fn new_chunk(
+        &mut self,
+        memory: &mut STArenaMemory,
+    ) {
         memory.chunks.push(vec![0; CHUNK_SIZE]);
         self.next_alloc_pos =
             ArenaPos { chunk: u32::try_from(memory.chunks.len() - 1).unwrap(), pos: 0 };
@@ -125,8 +136,10 @@ impl Allocator {
         assert!(size <= MAX_ALLOC_SIZE, "Cannot allocate {} bytes", size);
         self.active_allocs_bytes += size;
         self.active_allocs_count += 1;
-        self.active_allocs_bytes_gauge.set(self.active_allocs_bytes as i64);
-        self.active_allocs_count_gauge.set(self.active_allocs_count as i64);
+        self.active_allocs_bytes_gauge
+            .set(self.active_allocs_bytes as i64);
+        self.active_allocs_count_gauge
+            .set(self.active_allocs_count as i64);
         let size_class = allocation_class(size);
         let allocation_size = allocation_size(size_class);
         if self.freelists[size_class].is_invalid() {
@@ -137,7 +150,9 @@ impl Allocator {
                 self.new_chunk(memory);
             }
             let ptr = self.next_alloc_pos;
-            self.next_alloc_pos = self.next_alloc_pos.offset_by(allocation_size);
+            self.next_alloc_pos = self
+                .next_alloc_pos
+                .offset_by(allocation_size);
             memory.slice_mut(ptr, size)
         } else {
             let pos = self.freelists[size_class];
@@ -148,11 +163,18 @@ impl Allocator {
 
     /// Deallocates the given slice from the arena; the slice's `pos` and `len`
     /// must be the same as an allocation that was returned earlier.
-    pub fn deallocate(&mut self, memory: &mut STArenaMemory, pos: ArenaPos, len: usize) {
+    pub fn deallocate(
+        &mut self,
+        memory: &mut STArenaMemory,
+        pos: ArenaPos,
+        len: usize,
+    ) {
         self.active_allocs_bytes -= len;
         self.active_allocs_count -= 1;
-        self.active_allocs_bytes_gauge.set(self.active_allocs_bytes as i64);
-        self.active_allocs_count_gauge.set(self.active_allocs_count as i64);
+        self.active_allocs_bytes_gauge
+            .set(self.active_allocs_bytes as i64);
+        self.active_allocs_count_gauge
+            .set(self.active_allocs_count as i64);
         let size_class = allocation_class(len);
         memory
             .slice_mut(pos, ArenaPos::SERIALIZED_SIZE)
@@ -198,7 +220,12 @@ mod test {
             slices.sort_by_key(|(pos, _)| *pos);
             // Check that the allocated intervals don't overlap.
             for i in 1..slices.len() {
-                assert!(slices[i - 1].0.offset_by(slices[i - 1].1) <= slices[i].0);
+                assert!(
+                    slices[i - 1]
+                        .0
+                        .offset_by(slices[i - 1].1)
+                        <= slices[i].0
+                );
             }
             // Check that each allocated interval is valid.
             for (pos, len) in &slices {

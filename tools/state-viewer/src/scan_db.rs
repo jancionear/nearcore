@@ -48,8 +48,9 @@ pub(crate) fn scan_db_column(
 ) {
     let db_col: DBCol = find_db_col(col);
     tracing::info!(target: "scan", ?db_col);
-    for item in
-        store.iter_range(db_col, lower_bound, upper_bound).take(max_keys.unwrap_or(usize::MAX))
+    for item in store
+        .iter_range(db_col, lower_bound, upper_bound)
+        .take(max_keys.unwrap_or(usize::MAX))
     {
         let (key, value) = item.unwrap();
         let (key_ser, value_ser) =
@@ -70,52 +71,52 @@ fn format_key_and_value<'a>(
     store: &'a Store,
 ) -> (Box<dyn Debug + 'a>, Box<dyn Debug + 'a>) {
     match db_col {
-        DBCol::Block => (
+        | DBCol::Block => (
             Box::new(CryptoHash::try_from(key).unwrap()),
             Box::new(Block::try_from_slice(value).unwrap()),
         ),
-        DBCol::BlockHeader => (
+        | DBCol::BlockHeader => (
             Box::new(CryptoHash::try_from(key).unwrap()),
             Box::new(BlockHeader::try_from_slice(value).unwrap()),
         ),
-        DBCol::BlockHeight => (
+        | DBCol::BlockHeight => (
             Box::new(BlockHeight::try_from_slice(key).unwrap()),
             Box::new(CryptoHash::try_from(value).unwrap()),
         ),
-        DBCol::BlockInfo => (
+        | DBCol::BlockInfo => (
             Box::new(CryptoHash::try_from(key).unwrap()),
             Box::new(BlockInfo::try_from_slice(value).unwrap()),
         ),
-        DBCol::BlockMisc => (
+        | DBCol::BlockMisc => (
             Box::new(String::from_utf8_lossy(key).to_string()),
             format_block_misc_value(key, value),
         ),
-        DBCol::BlockRefCount => (
+        | DBCol::BlockRefCount => (
             Box::new(CryptoHash::try_from(key).unwrap()),
             Box::new(u64::try_from_slice(value).unwrap()),
         ),
-        DBCol::BlocksToCatchup => (
+        | DBCol::BlocksToCatchup => (
             Box::new(CryptoHash::try_from(key).unwrap()),
             Box::new(Vec::<CryptoHash>::try_from_slice(value).unwrap()),
         ),
-        DBCol::ChunkExtra => (
+        | DBCol::ChunkExtra => (
             Box::new(get_block_shard_uid_rev(key).unwrap()),
             Box::new(ChunkExtra::try_from_slice(value).unwrap()),
         ),
-        DBCol::ChunkHashesByHeight => (
+        | DBCol::ChunkHashesByHeight => (
             // TODO: Fix
             Box::new(BlockHeight::try_from_slice(key).unwrap()),
             Box::new(CryptoHash::try_from(value).unwrap()),
         ),
-        DBCol::Chunks => (
+        | DBCol::Chunks => (
             Box::new(ChunkHash::try_from_slice(key).unwrap()),
             Box::new(ShardChunk::try_from_slice(value).unwrap()),
         ),
-        DBCol::DbVersion => (
+        | DBCol::DbVersion => (
             Box::new(String::from_utf8_lossy(key).to_string()),
             Box::new(String::from_utf8_lossy(value).to_string()),
         ),
-        DBCol::EpochInfo => {
+        | DBCol::EpochInfo => {
             if key != AGGREGATOR_KEY {
                 (
                     Box::new(EpochId::try_from_slice(key).unwrap()),
@@ -128,47 +129,47 @@ fn format_key_and_value<'a>(
                 )
             }
         }
-        DBCol::EpochStart => (
+        | DBCol::EpochStart => (
             // TODO: Fix
             Box::new(EpochId::try_from_slice(key).unwrap()),
             Box::new(BlockHeight::try_from_slice(value).unwrap()),
         ),
-        DBCol::FlatState => {
+        | DBCol::FlatState => {
             let (shard_uid, key) = decode_flat_state_db_key(key).unwrap();
             (Box::new((shard_uid, key)), Box::new(FlatStateValue::try_from_slice(value).unwrap()))
         }
-        DBCol::FlatStateChanges => (
+        | DBCol::FlatStateChanges => (
             // TODO: Format keys as nibbles.
             Box::new(KeyForFlatStateDelta::try_from_slice(key).unwrap()),
             Box::new(FlatStateChanges::try_from_slice(value).unwrap()),
         ),
-        DBCol::FlatStateDeltaMetadata => (
+        | DBCol::FlatStateDeltaMetadata => (
             // TODO: Format keys as nibbles.
             Box::new(KeyForFlatStateDelta::try_from_slice(key).unwrap()),
             Box::new(FlatStateDeltaMetadata::try_from_slice(value).unwrap()),
         ),
-        DBCol::FlatStorageStatus => (
+        | DBCol::FlatStorageStatus => (
             // TODO: Format keys as nibbles.
             Box::new(ShardUId::try_from_slice(key).unwrap()),
             Box::new(near_store::flat::FlatStorageStatus::try_from_slice(value).unwrap()),
         ),
-        DBCol::HeaderHashesByHeight => (
+        | DBCol::HeaderHashesByHeight => (
             Box::new(BlockHeight::try_from_slice(key).unwrap()),
             Box::new(HashSet::<CryptoHash>::try_from_slice(value).unwrap()),
         ),
-        DBCol::IncomingReceipts => (
+        | DBCol::IncomingReceipts => (
             Box::new(get_block_shard_id_rev(key).unwrap()),
             Box::new(Vec::<ReceiptProof>::try_from_slice(value).unwrap()),
         ),
-        DBCol::OutgoingReceipts => (
+        | DBCol::OutgoingReceipts => (
             Box::new(get_block_shard_id_rev(key).unwrap()),
             Box::new(Vec::<Receipt>::try_from_slice(value).unwrap()),
         ),
-        DBCol::OutcomeIds => (
+        | DBCol::OutcomeIds => (
             Box::new(get_block_shard_id_rev(key).unwrap()),
             Box::new(Vec::<CryptoHash>::try_from_slice(value).unwrap()),
         ),
-        DBCol::Receipts => {
+        | DBCol::Receipts => {
             // Handle refcounting by querying the value.
             let value = store.get(db_col, key).unwrap().unwrap();
             (
@@ -176,7 +177,7 @@ fn format_key_and_value<'a>(
                 Box::new(Receipt::try_from_slice(&value).unwrap()),
             )
         }
-        DBCol::State => {
+        | DBCol::State => {
             // This logic is exactly the same as KeyForFlatStateDelta.
             let s: ShardUId = ShardUId::try_from(&key[..8]).unwrap();
             let h: CryptoHash = CryptoHash::try_from_slice(&key[8..]).unwrap();
@@ -189,24 +190,24 @@ fn format_key_and_value<'a>(
             };
             (Box::new((s, h)), Box::new(res))
         }
-        DBCol::StateDlInfos => (
+        | DBCol::StateDlInfos => (
             Box::new(CryptoHash::try_from(key).unwrap()),
             Box::new(StateSyncInfo::try_from_slice(value).unwrap()),
         ),
-        DBCol::StateHeaders => (
+        | DBCol::StateHeaders => (
             Box::new(StateHeaderKey::try_from_slice(key).unwrap()),
             Box::new(ShardStateSyncResponseHeader::try_from_slice(value).unwrap()),
         ),
-        DBCol::StateParts => (
+        | DBCol::StateParts => (
             Box::new(StatePartKey::try_from_slice(key).unwrap()),
             // TODO: Print the trie containing in the state part.
             Box::new(value),
         ),
-        DBCol::TransactionResultForBlock => (
+        | DBCol::TransactionResultForBlock => (
             Box::new(get_outcome_id_block_hash_rev(key).unwrap()),
             Box::new(ExecutionOutcomeWithProof::try_from_slice(value).unwrap()),
         ),
-        DBCol::Transactions => {
+        | DBCol::Transactions => {
             // Handle refcounting by querying the value.
             let value = store.get(db_col, key).unwrap().unwrap();
             (
@@ -214,15 +215,18 @@ fn format_key_and_value<'a>(
                 Box::new(SignedTransaction::try_from_slice(&value).unwrap()),
             )
         }
-        DBCol::TrieChanges => (
+        | DBCol::TrieChanges => (
             Box::new(get_block_shard_uid_rev(key).unwrap()),
             Box::new(TrieChanges::try_from_slice(value).unwrap()),
         ),
-        _ => (Box::new(key), Box::new(value)),
+        | _ => (Box::new(key), Box::new(value)),
     }
 }
 
-fn format_block_misc_value<'a>(key: &'a [u8], value: &'a [u8]) -> Box<dyn Debug + 'a> {
+fn format_block_misc_value<'a>(
+    key: &'a [u8],
+    value: &'a [u8],
+) -> Box<dyn Debug + 'a> {
     if key == near_store::HEAD_KEY
         || key == near_store::HEADER_HEAD_KEY
         || key == near_store::FINAL_HEAD_KEY

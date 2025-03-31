@@ -29,7 +29,10 @@ pub(super) fn promise_create(
     )
 }
 
-pub(super) fn promise_batch_create(logic: &mut TestVMLogic, account_id: &str) -> Result<u64> {
+pub(super) fn promise_batch_create(
+    logic: &mut TestVMLogic,
+    account_id: &str,
+) -> Result<u64> {
     let account_id = logic.internal_mem_write(account_id.as_bytes());
     logic.promise_batch_create(account_id.len, account_id.ptr)
 }

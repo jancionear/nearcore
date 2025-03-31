@@ -52,14 +52,20 @@ pub struct PingCommand {
     prometheus_addr: String,
 }
 
-fn display_stats(stats: &mut [(crate::PeerIdentifier, crate::PingStats)], peer_id: &PeerId) {
+fn display_stats(
+    stats: &mut [(crate::PeerIdentifier, crate::PingStats)],
+    peer_id: &PeerId,
+) {
     let mut acc_width = "account".len();
     for (peer, _) in stats.iter() {
         acc_width = std::cmp::max(acc_width, format!("{}", peer).len());
     }
     // the ones that never responded should end up at the top with this sorting, which is a
     // little weird, but we can fix it later.
-    stats.sort_by(|(_, left), (_, right)| left.average_latency.cmp(&right.average_latency));
+    stats.sort_by(|(_, left), (_, right)| {
+        left.average_latency
+            .cmp(&right.average_latency)
+    });
     println!(
         "{:<acc_width$} | {:<10} | {:<10} | {:<17} | {:<17} | {:<17}",
         "account",
@@ -75,7 +81,10 @@ fn display_stats(stats: &mut [(crate::PeerIdentifier, crate::PingStats)], peer_i
         }
         let min_latency: Duration = stats.min_latency.try_into().unwrap();
         let max_latency: Duration = stats.max_latency.try_into().unwrap();
-        let average_latency: Duration = stats.average_latency.try_into().unwrap();
+        let average_latency: Duration = stats
+            .average_latency
+            .try_into()
+            .unwrap();
         println!(
             "{:<acc_width$} | {:<10} | {:<10} | {:<17?} | {:<17?} | {:<17?}{}",
             peer,
@@ -127,10 +136,10 @@ fn parse_account_filter<P: AsRef<Path>>(filename: P) -> std::io::Result<HashSet<
             continue;
         }
         match AccountId::from_str(acc) {
-            Ok(a) => {
+            | Ok(a) => {
                 filter.insert(a);
             }
-            Err(e) => {
+            | Err(e) => {
                 tracing::warn!(target: "ping", "Could not parse account {} on line {}: {:?}", &line, line_num, e);
             }
         }
@@ -157,15 +166,15 @@ impl PingCommand {
 
         let genesis_hash = if let Some(h) = &self.genesis_hash {
             match CryptoHash::from_str(&h) {
-                Ok(h) => h,
-                Err(e) => {
+                | Ok(h) => h,
+                | Err(e) => {
                     anyhow::bail!("Could not parse --genesis-hash {}: {:?}", &h, e)
                 }
             }
         } else {
             match chain_info {
-                Some(chain_info) => chain_info.genesis_hash,
-                None => anyhow::bail!(
+                | Some(chain_info) => chain_info.genesis_hash,
+                | None => anyhow::bail!(
                     "--genesis-hash not given, and genesis hash for --chain-id {} not known",
                     &self.chain_id
                 ),
@@ -173,8 +182,8 @@ impl PingCommand {
         };
 
         let peer = match PeerInfo::from_str(&self.peer) {
-            Ok(p) => p,
-            Err(e) => anyhow::bail!("Could not parse --peer {}: {:?}", &self.peer, e),
+            | Ok(p) => p,
+            | Err(e) => anyhow::bail!("Could not parse --peer {}: {:?}", &self.peer, e),
         };
         if peer.addr.is_none() {
             anyhow::bail!("--peer should be in the form [public key]@[socket addr]");

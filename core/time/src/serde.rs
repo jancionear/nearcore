@@ -4,7 +4,10 @@ pub mod serde_duration_as_std {
     use serde::Deserialize;
     use serde::Serialize;
 
-    pub fn serialize<S>(dur: &Duration, s: S) -> Result<S::Ok, S::Error>
+    pub fn serialize<S>(
+        dur: &Duration,
+        s: S,
+    ) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
@@ -19,7 +22,9 @@ pub mod serde_duration_as_std {
         D: serde::Deserializer<'de>,
     {
         let std: std::time::Duration = Deserialize::deserialize(d)?;
-        Ok(std.try_into().map_err(|_| serde::de::Error::custom("Duration conversion failed"))?)
+        Ok(std
+            .try_into()
+            .map_err(|_| serde::de::Error::custom("Duration conversion failed"))?)
     }
 }
 
@@ -29,18 +34,21 @@ pub mod serde_opt_duration_as_std {
     use serde::Deserialize;
     use serde::Serialize;
 
-    pub fn serialize<S>(dur: &Option<Duration>, s: S) -> Result<S::Ok, S::Error>
+    pub fn serialize<S>(
+        dur: &Option<Duration>,
+        s: S,
+    ) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
         match dur {
-            Some(dur) => {
+            | Some(dur) => {
                 let std: std::time::Duration = (*dur)
                     .try_into()
                     .map_err(|_| serde::ser::Error::custom("Duration conversion failed"))?;
                 std.serialize(s)
             }
-            None => s.serialize_none(),
+            | None => s.serialize_none(),
         }
     }
 
@@ -51,7 +59,8 @@ pub mod serde_opt_duration_as_std {
         let std: Option<std::time::Duration> = Deserialize::deserialize(d)?;
         Ok(std
             .map(|std| {
-                std.try_into().map_err(|_| serde::de::Error::custom("Duration conversion failed"))
+                std.try_into()
+                    .map_err(|_| serde::de::Error::custom("Duration conversion failed"))
             })
             .transpose()?)
     }
@@ -62,11 +71,16 @@ pub mod serde_utc_as_iso {
     use serde::{Deserialize, Serialize};
     use time::format_description::well_known::Iso8601;
 
-    pub fn serialize<S>(utc: &Utc, s: S) -> Result<S::Ok, S::Error>
+    pub fn serialize<S>(
+        utc: &Utc,
+        s: S,
+    ) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
-        utc.format(&Iso8601::DEFAULT).map_err(<S::Error as serde::ser::Error>::custom)?.serialize(s)
+        utc.format(&Iso8601::DEFAULT)
+            .map_err(<S::Error as serde::ser::Error>::custom)?
+            .serialize(s)
     }
 
     pub fn deserialize<'de, D>(d: D) -> Result<Utc, D::Error>
@@ -83,16 +97,19 @@ pub mod serde_opt_utc_as_iso {
     use serde::{Deserialize, Serialize};
     use time::format_description::well_known::Iso8601;
 
-    pub fn serialize<S>(utc: &Option<Utc>, s: S) -> Result<S::Ok, S::Error>
+    pub fn serialize<S>(
+        utc: &Option<Utc>,
+        s: S,
+    ) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
         match utc {
-            Some(utc) => utc
+            | Some(utc) => utc
                 .format(&Iso8601::DEFAULT)
                 .map_err(<S::Error as serde::ser::Error>::custom)?
                 .serialize(s),
-            None => s.serialize_none(),
+            | None => s.serialize_none(),
         }
     }
 

@@ -24,10 +24,10 @@ impl RpcFrom<AsyncSendError> for RpcMaintenanceWindowsError {
 impl RpcFrom<GetMaintenanceWindowsError> for RpcMaintenanceWindowsError {
     fn rpc_from(error: GetMaintenanceWindowsError) -> Self {
         match error {
-            GetMaintenanceWindowsError::IOError(error_message) => {
+            | GetMaintenanceWindowsError::IOError(error_message) => {
                 Self::InternalError { error_message }
             }
-            GetMaintenanceWindowsError::Unreachable(ref error_message) => {
+            | GetMaintenanceWindowsError::Unreachable(ref error_message) => {
                 tracing::warn!(target: "jsonrpc", "Unreachable error occurred: {}", error_message);
                 Self::InternalError { error_message: error.to_string() }
             }

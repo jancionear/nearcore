@@ -30,30 +30,41 @@ impl LoadMemTrieCommand {
         home: &Path,
         genesis_validation: GenesisValidationMode,
     ) -> anyhow::Result<()> {
-        let env_filter = EnvFilterBuilder::from_env().verbose(Some("memtrie")).finish()?;
+        let env_filter = EnvFilterBuilder::from_env()
+            .verbose(Some("memtrie"))
+            .finish()?;
         let _subscriber = default_subscriber(env_filter, &Default::default()).global();
         let mut near_config = nearcore::config::load_config(&home, genesis_validation)
             .unwrap_or_else(|e| panic!("Error loading config: {:#}", e));
-        near_config.config.store.load_memtries_for_tracked_shards = true;
+        near_config
+            .config
+            .store
+            .load_mem_tries_for_tracked_shards = true;
 
         let rocksdb = Arc::new(open_rocksdb(home, near_store::Mode::ReadOnly)?);
         let store = near_store::NodeStorage::new(rocksdb).get_hot_store();
         let genesis_config = &near_config.genesis.config;
         // Note: this is not necessarily correct; it's just an estimate of the shard layout,
         // so that users of this tool doesn't have to specify the full shard UID.
-        let head =
-            store.get_ser::<Tip>(DBCol::BlockMisc, HEAD_KEY).unwrap().unwrap().last_block_hash;
+        let head = store
+            .get_ser::<Tip>(DBCol::BlockMisc, HEAD_KEY)
+            .unwrap()
+            .unwrap()
+            .last_block_hash;
         let block_header = store
             .get_ser::<BlockHeader>(DBCol::BlockHeader, &borsh::to_vec(&head).unwrap())?
             .ok_or_else(|| anyhow::anyhow!("Block header not found"))?;
         let epoch_manager =
             EpochManager::new_arc_handle(store.clone(), &genesis_config, Some(home));
 
-        let all_shard_uids: Vec<ShardUId> =
-            epoch_manager.get_shard_layout(block_header.epoch_id()).unwrap().shard_uids().collect();
+        let all_shard_uids: Vec<ShardUId> = epoch_manager
+            .get_shard_layout(block_header.epoch_id())
+            .unwrap()
+            .shard_uids()
+            .collect();
         let selected_shard_uids: Vec<ShardUId> = match &self.shard_id {
-            None => all_shard_uids,
-            Some(shard_ids) => all_shard_uids
+            | None => all_shard_uids,
+            | Some(shard_ids) => all_shard_uids
                 .iter()
                 .filter(|uid| shard_ids.contains(&uid.shard_id()))
                 .map(|uid| *uid)
@@ -65,11 +76,13 @@ impl LoadMemTrieCommand {
 
         println!("Loading memtries for shards {:?}...", selected_shard_uids);
         let start_time = std::time::Instant::now();
-        runtime.get_tries().load_memtries_for_enabled_shards(
-            &selected_shard_uids,
-            &[].into(),
-            !self.no_parallel,
-        )?;
+        runtime
+            .get_tries()
+            .load_mem_tries_for_enabled_shards(
+                &selected_shard_uids,
+                &[].into(),
+                !self.no_parallel,
+            )?;
         println!(
             "Finished loading memtries, took {:?}, press Ctrl-C to exit.",
             start_time.elapsed()

@@ -6,7 +6,11 @@ use clap::{Arg, Command};
 use near_crypto::{InMemorySigner, KeyType, SecretKey};
 use nearcore::get_default_home;
 
-fn generate_key_to_file(account_id: &str, key: SecretKey, path: &PathBuf) -> std::io::Result<()> {
+fn generate_key_to_file(
+    account_id: &str,
+    key: SecretKey,
+    path: &PathBuf,
+) -> std::io::Result<()> {
     let signer = InMemorySigner::from_secret_key(account_id.parse().unwrap(), key);
     signer.write_to_file(path.as_path())
 }
@@ -49,19 +53,25 @@ fn main() {
         .subcommand(Command::new("validator-key").about("Generate staking key."))
         .get_matches();
 
-    let home_dir = matches.get_one::<PathBuf>("home").unwrap();
+    let home_dir = matches
+        .get_one::<PathBuf>("home")
+        .unwrap();
     fs::create_dir_all(home_dir).expect("Failed to create directory");
     let account_id = matches.get_one::<String>("account-id");
     let generate_config = matches.get_flag("generate-config");
 
     match matches.subcommand() {
-        Some(("signer-keys", args)) => {
+        | Some(("signer-keys", args)) => {
             let num_keys = args
                 .get_one::<String>("num-keys")
-                .map(|x| x.parse().expect("Failed to parse number keys."))
+                .map(|x| {
+                    x.parse()
+                        .expect("Failed to parse number keys.")
+                })
                 .unwrap_or(3usize);
-            let keys: Vec<SecretKey> =
-                (0..num_keys).map(|_| SecretKey::from_random(KeyType::ED25519)).collect();
+            let keys: Vec<SecretKey> = (0..num_keys)
+                .map(|_| SecretKey::from_random(KeyType::ED25519))
+                .collect();
             let mut pks = vec![];
             for (i, key) in keys.into_iter().enumerate() {
                 println!("Key#{}", i);
@@ -81,11 +91,14 @@ fn main() {
 
                 pks.push(key.public_key());
             }
-            let pks: Vec<_> = pks.into_iter().map(|pk| pk.to_string()).collect();
+            let pks: Vec<_> = pks
+                .into_iter()
+                .map(|pk| pk.to_string())
+                .collect();
             println!("List of public keys:");
             println!("{}", pks.join(","));
         }
-        Some(("validator-key", _)) => {
+        | Some(("validator-key", _)) => {
             let key = SecretKey::from_random(KeyType::ED25519);
             println!("PK: {}", key.public_key());
             if generate_config {
@@ -99,7 +112,7 @@ fn main() {
                 }
             }
         }
-        Some(("node-key", _args)) => {
+        | Some(("node-key", _args)) => {
             let key = SecretKey::from_random(KeyType::ED25519);
             println!("PK: {}", key.public_key());
             if generate_config {
@@ -111,6 +124,6 @@ fn main() {
                 }
             }
         }
-        _ => unreachable!(),
+        | _ => unreachable!(),
     }
 }

@@ -49,13 +49,19 @@ impl Store {
     /// Checks whether two stores are identical. A store is considered
     /// equal to another store if both have the same engine. The
     /// tunables are excluded from the logic.
-    pub fn same(a: &Self, b: &Self) -> bool {
+    pub fn same(
+        a: &Self,
+        b: &Self,
+    ) -> bool {
         a.engine.id() == b.engine.id()
     }
 }
 
 impl PartialEq for Store {
-    fn eq(&self, other: &Self) -> bool {
+    fn eq(
+        &self,
+        other: &Self,
+    ) -> bool {
         Self::same(self, other)
     }
 }
@@ -105,7 +111,10 @@ impl Default for Store {
 }
 
 impl fmt::Debug for Store {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter,
+    ) -> fmt::Result {
         f.debug_struct("Store").finish()
     }
 }
@@ -113,5 +122,8 @@ impl fmt::Debug for Store {
 /// A trait represinting any object that lives in the `Store`.
 pub trait StoreObject {
     /// Return true if the object `Store` is the same as the provided `Store`.
-    fn comes_from_same_store(&self, store: &Store) -> bool;
+    fn comes_from_same_store(
+        &self,
+        store: &Store,
+    ) -> bool;
 }

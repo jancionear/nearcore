@@ -60,9 +60,9 @@ pub enum BlockStatus {
 impl BlockStatus {
     pub fn is_new_head(&self) -> bool {
         match self {
-            BlockStatus::Next => true,
-            BlockStatus::Fork => false,
-            BlockStatus::Reorg(_) => true,
+            | BlockStatus::Next => true,
+            | BlockStatus::Fork => false,
+            | BlockStatus::Reorg(_) => true,
         }
     }
 }
@@ -122,7 +122,7 @@ impl ApplyChunkResult {
         num_outcomes = outcomes.len()
     ))]
     pub fn compute_outcomes_proof(
-        outcomes: &[ExecutionOutcomeWithId],
+        outcomes: &[ExecutionOutcomeWithId]
     ) -> (MerkleHash, Vec<MerklePath>) {
         let mut result = Vec::with_capacity(outcomes.len());
         for outcome_with_id in outcomes.iter() {
@@ -150,7 +150,10 @@ impl BlockEconomicsConfig {
     /// been overwritten at specific protocol versions. Chains with a genesis
     /// version higher than those changes are not overwritten and will instead
     /// respect the value defined in genesis.
-    pub fn min_gas_price(&self, protocol_version: ProtocolVersion) -> Balance {
+    pub fn min_gas_price(
+        &self,
+        protocol_version: ProtocolVersion,
+    ) -> Balance {
         if self.genesis_protocol_version < MIN_PROTOCOL_VERSION_NEP_92 {
             if protocol_version >= MIN_PROTOCOL_VERSION_NEP_92_FIX {
                 MIN_GAS_PRICE_NEP_92_FIX
@@ -170,7 +173,10 @@ impl BlockEconomicsConfig {
         }
     }
 
-    pub fn max_gas_price(&self, protocol_version: ProtocolVersion) -> Balance {
+    pub fn max_gas_price(
+        &self,
+        protocol_version: ProtocolVersion,
+    ) -> Balance {
         if checked_feature!("stable", CapMaxGasPrice, protocol_version) {
             std::cmp::min(
                 self.genesis_max_gas_price,
@@ -181,7 +187,10 @@ impl BlockEconomicsConfig {
         }
     }
 
-    pub fn gas_price_adjustment_rate(&self, _protocol_version: ProtocolVersion) -> Rational32 {
+    pub fn gas_price_adjustment_rate(
+        &self,
+        _protocol_version: ProtocolVersion,
+    ) -> Rational32 {
         self.gas_price_adjustment_rate
     }
 }
@@ -275,7 +284,10 @@ pub struct RuntimeStorageConfig {
 }
 
 impl RuntimeStorageConfig {
-    pub fn new(state_root: StateRoot, use_flat_storage: bool) -> Self {
+    pub fn new(
+        state_root: StateRoot,
+        use_flat_storage: bool,
+    ) -> Self {
         Self {
             state_root,
             use_flat_storage,
@@ -458,10 +470,16 @@ pub trait RuntimeAdapter: Send + Sync {
 
     /// Returns true if the shard layout will change in the next epoch
     /// Current epoch is the epoch of the block after `parent_hash`
-    fn will_shard_layout_change_next_epoch(&self, parent_hash: &CryptoHash) -> Result<bool, Error>;
+    fn will_shard_layout_change_next_epoch(
+        &self,
+        parent_hash: &CryptoHash,
+    ) -> Result<bool, Error>;
 
     /// Get the block height for which garbage collection should not go over
-    fn get_gc_stop_height(&self, block_hash: &CryptoHash) -> BlockHeight;
+    fn get_gc_stop_height(
+        &self,
+        block_hash: &CryptoHash,
+    ) -> BlockHeight;
 
     /// Apply transactions and receipts to given state root and return store update
     /// and new state root.
@@ -502,7 +520,12 @@ pub trait RuntimeAdapter: Send + Sync {
 
     /// Validate state part that expected to be given state root with provided data.
     /// Returns false if the resulting part doesn't match the expected one.
-    fn validate_state_part(&self, state_root: &StateRoot, part_id: PartId, data: &[u8]) -> bool;
+    fn validate_state_part(
+        &self,
+        state_root: &StateRoot,
+        part_id: PartId,
+        data: &[u8],
+    ) -> bool;
 
     /// Should be executed after accepting all the parts to set up a new state.
     fn apply_state_part(
@@ -532,10 +555,15 @@ pub trait RuntimeAdapter: Send + Sync {
         state_root: &StateRoot,
     ) -> bool;
 
-    fn get_protocol_config(&self, epoch_id: &EpochId) -> Result<ProtocolConfig, Error>;
+    fn get_protocol_config(
+        &self,
+        epoch_id: &EpochId,
+    ) -> Result<ProtocolConfig, Error>;
 
-    fn get_runtime_config(&self, protocol_version: ProtocolVersion)
-        -> Result<RuntimeConfig, Error>;
+    fn get_runtime_config(
+        &self,
+        protocol_version: ProtocolVersion,
+    ) -> Result<RuntimeConfig, Error>;
 
     fn compiled_contract_cache(&self) -> &dyn ContractRuntimeCache;
 
@@ -584,7 +612,10 @@ mod tests {
         let genesis_bps: Vec<ValidatorStake> = Vec::new();
         let genesis = Block::genesis(
             PROTOCOL_VERSION,
-            genesis_chunks.into_iter().map(|chunk| chunk.take_header()).collect(),
+            genesis_chunks
+                .into_iter()
+                .map(|chunk| chunk.take_header())
+                .collect(),
             Utc::now_utc(),
             0,
             100,
@@ -593,13 +624,18 @@ mod tests {
         );
         let signer = Arc::new(create_test_signer("other"));
         let b1 = TestBlockBuilder::new(Clock::real(), &genesis, signer.clone()).build();
-        assert!(b1.header().verify_block_producer(&signer.public_key()));
+        assert!(b1
+            .header()
+            .verify_block_producer(&signer.public_key()));
         let other_signer = create_test_signer("other2");
-        let approvals =
-            vec![Some(Box::new(Approval::new(*b1.hash(), 1, 2, &other_signer).signature))];
-        let b2 =
-            TestBlockBuilder::new(Clock::real(), &b1, signer.clone()).approvals(approvals).build();
-        b2.header().verify_block_producer(&signer.public_key());
+        let approvals = vec![Some(Box::new(
+            Approval::new(*b1.hash(), 1, 2, &other_signer).signature,
+        ))];
+        let b2 = TestBlockBuilder::new(Clock::real(), &b1, signer.clone())
+            .approvals(approvals)
+            .build();
+        b2.header()
+            .verify_block_producer(&signer.public_key());
     }
 
     #[test]
@@ -632,7 +668,10 @@ mod tests {
         };
         let outcomes = vec![outcome1, outcome2];
         let (outcome_root, paths) = ApplyChunkResult::compute_outcomes_proof(&outcomes);
-        for (outcome_with_id, path) in outcomes.into_iter().zip(paths.into_iter()) {
+        for (outcome_with_id, path) in outcomes
+            .into_iter()
+            .zip(paths.into_iter())
+        {
             assert!(verify_path(outcome_root, &path, &outcome_with_id.to_hashes()));
         }
     }

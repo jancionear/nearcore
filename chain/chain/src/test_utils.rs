@@ -39,11 +39,17 @@ pub fn get_chain(clock: Clock) -> Chain {
     get_chain_with_epoch_length_and_num_shards(clock, 10, 1)
 }
 
-pub fn get_chain_with_num_shards(clock: Clock, num_shards: NumShards) -> Chain {
+pub fn get_chain_with_num_shards(
+    clock: Clock,
+    num_shards: NumShards,
+) -> Chain {
     get_chain_with_epoch_length_and_num_shards(clock, 10, num_shards)
 }
 
-pub fn get_chain_with_epoch_length(clock: Clock, epoch_length: NumBlocks) -> Chain {
+pub fn get_chain_with_epoch_length(
+    clock: Clock,
+    epoch_length: NumBlocks,
+) -> Chain {
     get_chain_with_epoch_length_and_num_shards(clock, epoch_length, 1)
 }
 
@@ -86,18 +92,27 @@ pub fn get_chain_with_epoch_length_and_num_shards(
 /// Wait for all blocks that started processing to be ready for postprocessing
 /// Returns true if there are new blocks that are ready
 pub fn wait_for_all_blocks_in_processing(chain: &Chain) -> bool {
-    chain.blocks_in_processing.wait_for_all_blocks()
+    chain
+        .blocks_in_processing
+        .wait_for_all_blocks()
 }
 
-pub fn is_block_in_processing(chain: &Chain, block_hash: &CryptoHash) -> bool {
-    chain.blocks_in_processing.contains(block_hash)
+pub fn is_block_in_processing(
+    chain: &Chain,
+    block_hash: &CryptoHash,
+) -> bool {
+    chain
+        .blocks_in_processing
+        .contains(block_hash)
 }
 
 pub fn wait_for_block_in_processing(
     chain: &Chain,
     hash: &CryptoHash,
 ) -> Result<(), BlockNotInPoolError> {
-    chain.blocks_in_processing.wait_for_block(hash)
+    chain
+        .blocks_in_processing
+        .wait_for_block(hash)
 }
 
 /// Unlike Chain::start_process_block_async, this function blocks until the processing of this block
@@ -121,7 +136,7 @@ pub fn process_block_sync(
 
 // TODO(#8190) Improve this testing API.
 pub fn setup(
-    clock: Clock,
+    clock: Clock
 ) -> (Chain, Arc<EpochManagerHandle>, Arc<NightshadeRuntime>, Arc<ValidatorSigner>) {
     setup_with_tx_validity_period(clock, 100, 1000)
 }
@@ -139,7 +154,9 @@ pub fn setup_with_tx_validity_period(
         vec![1; 1],
     );
     genesis.config.epoch_length = epoch_length;
-    genesis.config.transaction_validity_period = tx_validity_period;
+    genesis
+        .config
+        .transaction_validity_period = tx_validity_period;
     genesis.config.gas_limit = 1_000_000;
     genesis.config.min_gas_price = 100;
     genesis.config.max_gas_price = 1_000_000_000;
@@ -178,7 +195,11 @@ pub fn format_hash(hash: CryptoHash) -> String {
 }
 
 /// Displays chain from given store.
-pub fn display_chain(me: &Option<AccountId>, chain: &mut Chain, tail: bool) {
+pub fn display_chain(
+    me: &Option<AccountId>,
+    chain: &mut Chain,
+    tail: bool,
+) {
     let epoch_manager = chain.epoch_manager.clone();
     let chain_store = chain.mut_chain_store();
     let head = chain_store.head().unwrap();
@@ -190,7 +211,11 @@ pub fn display_chain(me: &Option<AccountId>, chain: &mut Chain, tail: bool) {
         head.last_block_hash
     );
     let mut headers = vec![];
-    for (key, _) in chain_store.store().iter(DBCol::BlockHeader).map(Result::unwrap) {
+    for (key, _) in chain_store
+        .store()
+        .iter(DBCol::BlockHeader)
+        .map(Result::unwrap)
+    {
         let header = chain_store
             .get_block_header(&CryptoHash::try_from(key.as_ref()).unwrap())
             .unwrap()
@@ -211,11 +236,19 @@ pub fn display_chain(me: &Option<AccountId>, chain: &mut Chain, tail: bool) {
             // Genesis block.
             debug!("{: >3} {}", header.height(), format_hash(*header.hash()));
         } else {
-            let parent_header = chain_store.get_block_header(header.prev_hash()).unwrap().clone();
-            let maybe_block = chain_store.get_block(header.hash()).ok();
-            let epoch_id = epoch_manager.get_epoch_id_from_prev_block(header.prev_hash()).unwrap();
-            let block_producer =
-                epoch_manager.get_block_producer(&epoch_id, header.height()).unwrap();
+            let parent_header = chain_store
+                .get_block_header(header.prev_hash())
+                .unwrap()
+                .clone();
+            let maybe_block = chain_store
+                .get_block(header.hash())
+                .ok();
+            let epoch_id = epoch_manager
+                .get_epoch_id_from_prev_block(header.prev_hash())
+                .unwrap();
+            let block_producer = epoch_manager
+                .get_block_producer(&epoch_id, header.height())
+                .unwrap();
             debug!(
                 "{: >3} {} | {: >10} | parent: {: >3} {} | {}",
                 header.height(),
@@ -258,7 +291,11 @@ pub fn display_chain(me: &Option<AccountId>, chain: &mut Chain, tail: bool) {
                             format_hash(chunk_header.chunk_hash().0),
                             chunk_header.shard_id(),
                             chunk_producer,
-                            partial_chunk.parts().iter().map(|x| x.part_ord).collect::<Vec<_>>(),
+                            partial_chunk
+                                .parts()
+                                .iter()
+                                .map(|x| x.part_ord)
+                                .collect::<Vec<_>>(),
                             partial_chunk
                                 .prev_outgoing_receipts()
                                 .iter()

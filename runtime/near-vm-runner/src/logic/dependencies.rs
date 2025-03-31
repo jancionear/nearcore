@@ -24,7 +24,12 @@ impl MemSlice {
 
     #[inline]
     pub fn end<T: TryFrom<u64>>(&self) -> Result<T, ()> {
-        T::try_from(self.ptr.checked_add(self.len).ok_or(())?).map_err(|_| ())
+        T::try_from(
+            self.ptr
+                .checked_add(self.len)
+                .ok_or(())?,
+        )
+        .map_err(|_| ())
     }
 
     #[inline]
@@ -43,13 +48,19 @@ pub trait MemoryLike {
     /// You often don’t need to use this method since other methods will perform
     /// the check, however it may be necessary to prevent potential denial of
     /// service attacks.  See [`Self::read_memory`] for description.
-    fn fits_memory(&self, slice: MemSlice) -> Result<(), ()>;
+    fn fits_memory(
+        &self,
+        slice: MemSlice,
+    ) -> Result<(), ()>;
 
     /// Returns view of the content of the given memory interval.
     ///
     /// Not all implementations support borrowing the memory directly.  In those
     /// cases, the data is copied into a vector.
-    fn view_memory(&self, slice: MemSlice) -> Result<Cow<[u8]>, ()>;
+    fn view_memory(
+        &self,
+        slice: MemSlice,
+    ) -> Result<Cow<[u8]>, ()>;
 
     /// Reads the content of the given memory interval.
     ///
@@ -86,13 +97,21 @@ pub trait MemoryLike {
     ///     Ok(vec)
     /// }
     /// ```
-    fn read_memory(&self, offset: u64, buffer: &mut [u8]) -> Result<(), ()>;
+    fn read_memory(
+        &self,
+        offset: u64,
+        buffer: &mut [u8],
+    ) -> Result<(), ()>;
 
     /// Writes the buffer into the smart contract memory.
     ///
     /// Returns error if the memory interval isn’t completely inside the smart
     /// contract memory.
-    fn write_memory(&mut self, offset: u64, buffer: &[u8]) -> Result<(), ()>;
+    fn write_memory(
+        &mut self,
+        offset: u64,
+        buffer: &[u8],
+    ) -> Result<(), ()>;
 }
 
 pub type Result<T, E = VMLogicError> = ::std::result::Result<T, E>;
@@ -125,10 +144,17 @@ pub struct TrieNodesCount {
 
 impl TrieNodesCount {
     /// Used to determine the number of trie nodes charged during some operation.
-    pub fn checked_sub(self, other: &Self) -> Option<Self> {
+    pub fn checked_sub(
+        self,
+        other: &Self,
+    ) -> Option<Self> {
         Some(Self {
-            db_reads: self.db_reads.checked_sub(other.db_reads)?,
-            mem_reads: self.mem_reads.checked_sub(other.mem_reads)?,
+            db_reads: self
+                .db_reads
+                .checked_sub(other.db_reads)?,
+            mem_reads: self
+                .mem_reads
+                .checked_sub(other.mem_reads)?,
         })
     }
 }
@@ -148,7 +174,11 @@ pub trait External {
     /// // Should return an old value if the key exists
     /// assert_eq!(external.storage_set(b"key42", b"new_value"), Ok(()));
     /// ```
-    fn storage_set(&mut self, key: &[u8], value: &[u8]) -> Result<()>;
+    fn storage_set(
+        &mut self,
+        key: &[u8],
+        value: &[u8],
+    ) -> Result<()>;
 
     /// Read `key` from the storage trie associated with the current account.
     ///
@@ -199,7 +229,10 @@ pub trait External {
     /// // Returns Ok if there was no value
     /// assert_eq!(external.storage_remove(b"no_value_key"), Ok(()));
     /// ```
-    fn storage_remove(&mut self, key: &[u8]) -> Result<()>;
+    fn storage_remove(
+        &mut self,
+        key: &[u8],
+    ) -> Result<()>;
 
     /// Note: The method is currently unused and untested.
     ///
@@ -226,7 +259,10 @@ pub trait External {
     /// assert!(!external.storage_has_key(b"key1", StorageGetMode::Trie).unwrap());
     /// assert!(!external.storage_has_key(b"key2", StorageGetMode::Trie).unwrap());
     /// ```
-    fn storage_remove_subtree(&mut self, prefix: &[u8]) -> Result<()>;
+    fn storage_remove_subtree(
+        &mut self,
+        prefix: &[u8],
+    ) -> Result<()>;
 
     /// Check whether the `key` is present in the storage trie associated with the current account.
     ///
@@ -253,7 +289,11 @@ pub trait External {
     /// // Returns None if there was no value
     /// assert_eq!(external.storage_has_key(b"no_value_key", StorageGetMode::Trie), Ok(false));
     /// ```
-    fn storage_has_key(&mut self, key: &[u8], mode: StorageGetMode) -> Result<bool>;
+    fn storage_has_key(
+        &mut self,
+        key: &[u8],
+        mode: StorageGetMode,
+    ) -> Result<bool>;
 
     fn generate_data_id(&mut self) -> CryptoHash;
 
@@ -265,7 +305,10 @@ pub trait External {
 
     /// Returns the validator stake for given account in the current epoch.
     /// If the account is not a validator, returns `None`.
-    fn validator_stake(&self, account_id: &AccountId) -> Result<Option<Balance>>;
+    fn validator_stake(
+        &self,
+        account_id: &AccountId,
+    ) -> Result<Option<Balance>>;
 
     /// Returns total stake of validators in the current epoch.
     fn validator_total_stake(&self) -> Result<Balance>;
@@ -466,7 +509,11 @@ pub trait External {
     /// # Panics
     ///
     /// Panics if the `receipt_index` does not refer to a known receipt.
-    fn append_action_delete_key(&mut self, receipt_index: ReceiptIndex, public_key: PublicKey);
+    fn append_action_delete_key(
+        &mut self,
+        receipt_index: ReceiptIndex,
+        public_key: PublicKey,
+    );
 
     /// Attach the [`DeleteAccountAction`] action to an existing receipt
     ///
@@ -487,5 +534,8 @@ pub trait External {
     /// # Panic
     ///
     /// Panics if `ReceiptIndex` is invalid.
-    fn get_receipt_receiver(&self, receipt_index: ReceiptIndex) -> &AccountId;
+    fn get_receipt_receiver(
+        &self,
+        receipt_index: ReceiptIndex,
+    ) -> &AccountId;
 }

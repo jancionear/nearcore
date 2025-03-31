@@ -101,7 +101,9 @@ pub fn make_outgoing_receipts_proofs(
     let mut result = vec![];
     for (proof_shard_index, proof) in proofs.into_iter().enumerate() {
         let proof_shard_id = shard_layout.get_shard_id(proof_shard_index)?;
-        let receipts = receipts_by_shard.remove(&proof_shard_id).unwrap_or_else(Vec::new);
+        let receipts = receipts_by_shard
+            .remove(&proof_shard_id)
+            .unwrap_or_else(Vec::new);
         let shard_proof =
             ShardProof { from_shard_id: shard_id, to_shard_id: proof_shard_id, proof };
         result.push(ReceiptProof(receipts, shard_proof));
@@ -141,10 +143,10 @@ pub fn make_partial_encoded_chunk_from_owned_parts_and_needed_receipts<'a>(
     // Make sure the receipts are in a deterministic order.
     prev_outgoing_receipts.sort();
     match header.clone() {
-        ShardChunkHeader::V1(header) => {
+        | ShardChunkHeader::V1(header) => {
             PartialEncodedChunk::V1(PartialEncodedChunkV1 { header, parts, prev_outgoing_receipts })
         }
-        header => {
+        | header => {
             PartialEncodedChunk::V2(PartialEncodedChunkV2 { header, parts, prev_outgoing_receipts })
         }
     }
@@ -186,7 +188,9 @@ pub fn decode_encoded_chunk(
         let partial_chunk = create_partial_chunk(
             encoded_chunk,
             merkle_paths,
-            shard_chunk.prev_outgoing_receipts().to_vec(),
+            shard_chunk
+                .prev_outgoing_receipts()
+                .to_vec(),
             me,
             epoch_manager,
             shard_tracker,
@@ -233,7 +237,9 @@ fn create_partial_chunk(
     Ok(make_partial_encoded_chunk_from_owned_parts_and_needed_receipts(
         &partial_chunk.header,
         partial_chunk.parts.iter(),
-        partial_chunk.prev_outgoing_receipts.iter(),
+        partial_chunk
+            .prev_outgoing_receipts
+            .iter(),
         me,
         epoch_manager,
         shard_tracker,
@@ -245,9 +251,18 @@ pub fn persist_chunk(
     shard_chunk: Option<ShardChunk>,
     store: &mut ChainStore,
 ) -> Result<(), Error> {
-    let need_persist_partial_chunk = store.get_partial_chunk(&partial_chunk.chunk_hash()).is_err();
+    let need_persist_partial_chunk = store
+        .get_partial_chunk(&partial_chunk.chunk_hash())
+        .is_err();
     let need_persist_shard_chunk = shard_chunk.is_some()
-        && store.get_chunk(&shard_chunk.as_ref().unwrap().chunk_hash()).is_err();
+        && store
+            .get_chunk(
+                &shard_chunk
+                    .as_ref()
+                    .unwrap()
+                    .chunk_hash(),
+            )
+            .is_err();
     let mut update = store.store_update();
     if need_persist_partial_chunk {
         update.save_partial_chunk(partial_chunk);

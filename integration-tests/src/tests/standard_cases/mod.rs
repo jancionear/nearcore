@@ -53,10 +53,16 @@ fn add_access_key(
 ) -> FinalExecutionOutcomeView {
     let root = node_user.get_state_root();
     let account_id = &node.account_id().unwrap();
-    let transaction_result =
-        node_user.add_key(account_id.clone(), signer2.public_key(), access_key.clone()).unwrap();
+    let transaction_result = node_user
+        .add_key(account_id.clone(), signer2.public_key(), access_key.clone())
+        .unwrap();
     assert_eq!(transaction_result.status, FinalExecutionStatus::SuccessValue(Vec::new()));
-    assert_eq!(transaction_result.receipts_outcome.len(), 1);
+    assert_eq!(
+        transaction_result
+            .receipts_outcome
+            .len(),
+        1
+    );
     let new_root = node_user.get_state_root();
     assert_ne!(root, new_root);
     transaction_result
@@ -73,7 +79,11 @@ pub fn test_smart_contract_simple(node: impl Node) {
         FinalExecutionStatus::SuccessValue(10i32.to_le_bytes().to_vec())
     );
     // Refund receipt may not be ready yet
-    assert!([1, 2].contains(&transaction_result.receipts_outcome.len()));
+    assert!([1, 2].contains(
+        &transaction_result
+            .receipts_outcome
+            .len()
+    ));
     let new_root = node_user.get_state_root();
     assert_ne!(root, new_root);
 }
@@ -102,7 +112,12 @@ pub fn test_smart_contract_panic(node: impl Node) {
             .into()
         )
     );
-    assert_eq!(transaction_result.receipts_outcome.len(), 2);
+    assert_eq!(
+        transaction_result
+            .receipts_outcome
+            .len(),
+        2
+    );
 }
 
 pub fn test_smart_contract_self_call(node: impl Node) {
@@ -117,7 +132,11 @@ pub fn test_smart_contract_self_call(node: impl Node) {
         FinalExecutionStatus::SuccessValue(10i32.to_le_bytes().to_vec())
     );
     // Refund receipt may not be ready yet
-    assert!([1, 2].contains(&transaction_result.receipts_outcome.len()));
+    assert!([1, 2].contains(
+        &transaction_result
+            .receipts_outcome
+            .len()
+    ));
     let new_root = node_user.get_state_root();
     assert_ne!(root, new_root);
 }
@@ -142,7 +161,11 @@ pub fn test_smart_contract_bad_method_name(node: impl Node) {
         )
     );
     // Refund receipt may not be ready yet
-    assert!([1, 2].contains(&transaction_result.receipts_outcome.len()));
+    assert!([1, 2].contains(
+        &transaction_result
+            .receipts_outcome
+            .len()
+    ));
     let new_root = node_user.get_state_root();
     assert_ne!(root, new_root);
 }
@@ -167,7 +190,11 @@ pub fn test_smart_contract_empty_method_name_with_no_tokens(node: impl Node) {
         )
     );
     // Refund receipt may not be ready yet
-    assert!([1, 2].contains(&transaction_result.receipts_outcome.len()));
+    assert!([1, 2].contains(
+        &transaction_result
+            .receipts_outcome
+            .len()
+    ));
     let new_root = node_user.get_state_root();
     assert_ne!(root, new_root);
 }
@@ -191,7 +218,12 @@ pub fn test_smart_contract_empty_method_name_with_tokens(node: impl Node) {
             .into()
         )
     );
-    assert_eq!(transaction_result.receipts_outcome.len(), 3);
+    assert_eq!(
+        transaction_result
+            .receipts_outcome
+            .len(),
+        3
+    );
     let new_root = node_user.get_state_root();
     assert_ne!(root, new_root);
 }
@@ -205,7 +237,9 @@ pub fn test_smart_contract_with_args(node: impl Node) {
             account_id.clone(),
             bob_account(),
             "sum_with_input",
-            (2u64..4).flat_map(|x| x.to_le_bytes().to_vec()).collect(),
+            (2u64..4)
+                .flat_map(|x| x.to_le_bytes().to_vec())
+                .collect(),
             10u64.pow(14),
             0,
         )
@@ -215,7 +249,11 @@ pub fn test_smart_contract_with_args(node: impl Node) {
         FinalExecutionStatus::SuccessValue(5u64.to_le_bytes().to_vec())
     );
     // Refund receipt may not be ready yet
-    assert!([1, 2].contains(&transaction_result.receipts_outcome.len()));
+    assert!([1, 2].contains(
+        &transaction_result
+            .receipts_outcome
+            .len()
+    ));
     let new_root = node_user.get_state_root();
     assert_ne!(root, new_root);
 }
@@ -228,10 +266,20 @@ pub fn test_async_call_with_logs(node: impl Node) {
         .function_call(account_id.clone(), bob_account(), "log_something", vec![], 10u64.pow(14), 0)
         .unwrap();
     assert_eq!(transaction_result.status, FinalExecutionStatus::SuccessValue(Vec::new()));
-    assert_eq!(transaction_result.receipts_outcome.len(), 2);
+    assert_eq!(
+        transaction_result
+            .receipts_outcome
+            .len(),
+        2
+    );
     let new_root = node_user.get_state_root();
     assert_ne!(root, new_root);
-    assert_eq!(transaction_result.receipts_outcome[0].outcome.logs[0], "hello".to_string());
+    assert_eq!(
+        transaction_result.receipts_outcome[0]
+            .outcome
+            .logs[0],
+        "hello".to_string()
+    );
 }
 
 pub fn test_nonce_update_when_deploying_contract(node: impl Node) {
@@ -239,11 +287,22 @@ pub fn test_nonce_update_when_deploying_contract(node: impl Node) {
     let wasm_binary = b"test_binary";
     let node_user = node.user();
     let root = node_user.get_state_root();
-    let transaction_result =
-        node_user.deploy_contract(account_id.clone(), wasm_binary.to_vec()).unwrap();
+    let transaction_result = node_user
+        .deploy_contract(account_id.clone(), wasm_binary.to_vec())
+        .unwrap();
     assert_eq!(transaction_result.status, FinalExecutionStatus::SuccessValue(Vec::new()));
-    assert_eq!(transaction_result.receipts_outcome.len(), 1);
-    assert_eq!(node_user.get_access_key_nonce_for_signer(account_id).unwrap(), 1);
+    assert_eq!(
+        transaction_result
+            .receipts_outcome
+            .len(),
+        1
+    );
+    assert_eq!(
+        node_user
+            .get_access_key_nonce_for_signer(account_id)
+            .unwrap(),
+        1
+    );
     let new_root = node_user.get_state_root();
     assert_ne!(root, new_root);
 }
@@ -251,8 +310,15 @@ pub fn test_nonce_update_when_deploying_contract(node: impl Node) {
 pub fn test_nonce_updated_when_tx_failed(node: impl Node) {
     let account_id = &node.account_id().unwrap();
     let node_user = node.user();
-    node_user.send_money(account_id.clone(), bob_account(), TESTING_INIT_BALANCE + 1).unwrap_err();
-    assert_eq!(node_user.get_access_key_nonce_for_signer(account_id).unwrap(), 0);
+    node_user
+        .send_money(account_id.clone(), bob_account(), TESTING_INIT_BALANCE + 1)
+        .unwrap_err();
+    assert_eq!(
+        node_user
+            .get_access_key_nonce_for_signer(account_id)
+            .unwrap(),
+        0
+    );
 }
 
 pub fn test_upload_contract(node: impl Node) {
@@ -269,7 +335,11 @@ pub fn test_upload_contract(node: impl Node) {
         .unwrap();
     assert_eq!(transaction_result.status, FinalExecutionStatus::SuccessValue(Vec::new()));
     // Refund receipt may not be ready yet
-    assert!([1, 2].contains(&transaction_result.receipts_outcome.len()));
+    assert!([1, 2].contains(
+        &transaction_result
+            .receipts_outcome
+            .len()
+    ));
 
     node_user.view_contract_code(&eve_dot_alice_account()).expect_err(
         "RpcError { code: -32000, message: \"Server error\", data: Some(String(\"contract code of account eve.alice.near does not exist while viewing\")) }");
@@ -277,16 +347,26 @@ pub fn test_upload_contract(node: impl Node) {
     let new_root = node_user.get_state_root();
     assert_ne!(root, new_root);
     let wasm_binary = b"test_binary";
-    let transaction_result =
-        node_user.deploy_contract(eve_dot_alice_account(), wasm_binary.to_vec()).unwrap();
+    let transaction_result = node_user
+        .deploy_contract(eve_dot_alice_account(), wasm_binary.to_vec())
+        .unwrap();
     assert_eq!(transaction_result.status, FinalExecutionStatus::SuccessValue(Vec::new()));
-    assert_eq!(transaction_result.receipts_outcome.len(), 1);
+    assert_eq!(
+        transaction_result
+            .receipts_outcome
+            .len(),
+        1
+    );
     let new_root = node_user.get_state_root();
     assert_ne!(root, new_root);
-    let account = node_user.view_account(&eve_dot_alice_account()).unwrap();
+    let account = node_user
+        .view_account(&eve_dot_alice_account())
+        .unwrap();
     assert_eq!(account.code_hash, hash(wasm_binary));
 
-    let code = node_user.view_contract_code(&eve_dot_alice_account()).unwrap();
+    let code = node_user
+        .view_contract_code(&eve_dot_alice_account())
+        .unwrap();
     assert_eq!(code.code, wasm_binary.to_vec());
 }
 
@@ -295,13 +375,21 @@ pub fn test_redeploy_contract(node: impl Node) {
     let node_user = node.user();
     let root = node_user.get_state_root();
     let test_binary = b"test_binary";
-    let transaction_result =
-        node_user.deploy_contract(account_id.clone(), test_binary.to_vec()).unwrap();
+    let transaction_result = node_user
+        .deploy_contract(account_id.clone(), test_binary.to_vec())
+        .unwrap();
     assert_eq!(transaction_result.status, FinalExecutionStatus::SuccessValue(Vec::new()));
-    assert_eq!(transaction_result.receipts_outcome.len(), 1);
+    assert_eq!(
+        transaction_result
+            .receipts_outcome
+            .len(),
+        1
+    );
     let new_root = node_user.get_state_root();
     assert_ne!(root, new_root);
-    let account = node_user.view_account(account_id).unwrap();
+    let account = node_user
+        .view_account(account_id)
+        .unwrap();
     assert_eq!(account.code_hash, hash(test_binary));
 }
 
@@ -312,16 +400,28 @@ pub fn test_send_money(node: impl Node) {
     let money_used = 10000;
     let fee_helper = fee_helper(&node);
     let transfer_cost = fee_helper.transfer_cost();
-    let transaction_result =
-        node_user.send_money(account_id.clone(), bob_account(), money_used).unwrap();
+    let transaction_result = node_user
+        .send_money(account_id.clone(), bob_account(), money_used)
+        .unwrap();
     assert_eq!(transaction_result.status, FinalExecutionStatus::SuccessValue(Vec::new()));
     // Refund receipt may not be ready yet
-    assert!([1, 2].contains(&transaction_result.receipts_outcome.len()));
+    assert!([1, 2].contains(
+        &transaction_result
+            .receipts_outcome
+            .len()
+    ));
     let new_root = node_user.get_state_root();
     assert_ne!(root, new_root);
-    assert_eq!(node_user.get_access_key_nonce_for_signer(account_id).unwrap(), 1);
+    assert_eq!(
+        node_user
+            .get_access_key_nonce_for_signer(account_id)
+            .unwrap(),
+        1
+    );
 
-    let AccountView { amount, locked, .. } = node_user.view_account(account_id).unwrap();
+    let AccountView { amount, locked, .. } = node_user
+        .view_account(account_id)
+        .unwrap();
     assert_eq!(
         (amount, locked),
         (
@@ -329,14 +429,19 @@ pub fn test_send_money(node: impl Node) {
             TESTING_INIT_STAKE
         )
     );
-    let AccountView { amount, locked, .. } = node_user.view_account(&bob_account()).unwrap();
+    let AccountView { amount, locked, .. } = node_user
+        .view_account(&bob_account())
+        .unwrap();
     assert_eq!(
         (amount, locked),
         (TESTING_INIT_BALANCE + money_used - TESTING_INIT_STAKE, TESTING_INIT_STAKE,)
     );
 }
 
-pub fn transfer_tokens_to_implicit_account(node: impl Node, public_key: PublicKey) {
+pub fn transfer_tokens_to_implicit_account(
+    node: impl Node,
+    public_key: PublicKey,
+) {
     let account_id = &node.account_id().unwrap();
     let node_user = node.user();
     let root = node_user.get_state_root();
@@ -344,25 +449,38 @@ pub fn transfer_tokens_to_implicit_account(node: impl Node, public_key: PublicKe
     let fee_helper = fee_helper(&node);
 
     let receiver_id = match public_key.key_type() {
-        KeyType::ED25519 => derive_near_implicit_account_id(public_key.unwrap_as_ed25519()),
-        KeyType::SECP256K1 => derive_eth_implicit_account_id(public_key.unwrap_as_secp256k1()),
+        | KeyType::ED25519 => derive_near_implicit_account_id(public_key.unwrap_as_ed25519()),
+        | KeyType::SECP256K1 => derive_eth_implicit_account_id(public_key.unwrap_as_secp256k1()),
     };
 
     let transfer_cost = match receiver_id.get_account_type() {
-        AccountType::NearImplicitAccount => fee_helper.create_account_transfer_full_key_cost(),
-        AccountType::EthImplicitAccount => fee_helper.create_account_transfer_cost(),
-        AccountType::NamedAccount => std::panic!("must be implicit"),
+        | AccountType::NearImplicitAccount => fee_helper.create_account_transfer_full_key_cost(),
+        | AccountType::EthImplicitAccount => fee_helper.create_account_transfer_cost(),
+        | AccountType::NamedAccount => std::panic!("must be implicit"),
     };
 
-    let transaction_result =
-        node_user.send_money(account_id.clone(), receiver_id.clone(), tokens_used).unwrap();
+    let transaction_result = node_user
+        .send_money(account_id.clone(), receiver_id.clone(), tokens_used)
+        .unwrap();
     assert_eq!(transaction_result.status, FinalExecutionStatus::SuccessValue(Vec::new()));
-    assert_eq!(transaction_result.receipts_outcome.len(), 2);
+    assert_eq!(
+        transaction_result
+            .receipts_outcome
+            .len(),
+        2
+    );
     let new_root = node_user.get_state_root();
     assert_ne!(root, new_root);
-    assert_eq!(node_user.get_access_key_nonce_for_signer(account_id).unwrap(), 1);
+    assert_eq!(
+        node_user
+            .get_access_key_nonce_for_signer(account_id)
+            .unwrap(),
+        1
+    );
 
-    let AccountView { amount, locked, .. } = node_user.view_account(account_id).unwrap();
+    let AccountView { amount, locked, .. } = node_user
+        .view_account(account_id)
+        .unwrap();
     assert_eq!(
         (amount, locked),
         (
@@ -371,31 +489,46 @@ pub fn transfer_tokens_to_implicit_account(node: impl Node, public_key: PublicKe
         )
     );
 
-    let AccountView { amount, locked, .. } = node_user.view_account(&receiver_id).unwrap();
+    let AccountView { amount, locked, .. } = node_user
+        .view_account(&receiver_id)
+        .unwrap();
     assert_eq!((amount, locked), (tokens_used, 0));
 
     let view_access_key = node_user.get_access_key(&receiver_id, &public_key);
     match receiver_id.get_account_type() {
-        AccountType::NearImplicitAccount => {
+        | AccountType::NearImplicitAccount => {
             assert_eq!(view_access_key.unwrap(), AccessKey::full_access().into());
         }
-        AccountType::EthImplicitAccount => {
+        | AccountType::EthImplicitAccount => {
             // A transfer to ETH-implicit address does not create access key.
             assert!(view_access_key.is_err());
         }
-        AccountType::NamedAccount => std::panic!("must be implicit"),
+        | AccountType::NamedAccount => std::panic!("must be implicit"),
     }
 
-    let transaction_result =
-        node_user.send_money(account_id.clone(), receiver_id.clone(), tokens_used).unwrap();
+    let transaction_result = node_user
+        .send_money(account_id.clone(), receiver_id.clone(), tokens_used)
+        .unwrap();
 
     assert_eq!(transaction_result.status, FinalExecutionStatus::SuccessValue(Vec::new()));
-    assert_eq!(transaction_result.receipts_outcome.len(), 2);
+    assert_eq!(
+        transaction_result
+            .receipts_outcome
+            .len(),
+        2
+    );
     let new_root = node_user.get_state_root();
     assert_ne!(root, new_root);
-    assert_eq!(node_user.get_access_key_nonce_for_signer(account_id).unwrap(), 2);
+    assert_eq!(
+        node_user
+            .get_access_key_nonce_for_signer(account_id)
+            .unwrap(),
+        2
+    );
 
-    let AccountView { amount, locked, .. } = node_user.view_account(account_id).unwrap();
+    let AccountView { amount, locked, .. } = node_user
+        .view_account(account_id)
+        .unwrap();
     assert_eq!(
         (amount, locked),
         (
@@ -404,11 +537,16 @@ pub fn transfer_tokens_to_implicit_account(node: impl Node, public_key: PublicKe
         )
     );
 
-    let AccountView { amount, locked, .. } = node_user.view_account(&receiver_id).unwrap();
+    let AccountView { amount, locked, .. } = node_user
+        .view_account(&receiver_id)
+        .unwrap();
     assert_eq!((amount, locked), (tokens_used * 2, 0));
 }
 
-pub fn trying_to_create_implicit_account(node: impl Node, public_key: PublicKey) {
+pub fn trying_to_create_implicit_account(
+    node: impl Node,
+    public_key: PublicKey,
+) {
     let account_id = &node.account_id().unwrap();
     let node_user = node.user();
     let root = node_user.get_state_root();
@@ -416,29 +554,35 @@ pub fn trying_to_create_implicit_account(node: impl Node, public_key: PublicKey)
     let fee_helper = fee_helper(&node);
 
     let receiver_id = match public_key.key_type() {
-        KeyType::ED25519 => derive_near_implicit_account_id(public_key.unwrap_as_ed25519()),
-        KeyType::SECP256K1 => derive_eth_implicit_account_id(public_key.unwrap_as_secp256k1()),
+        | KeyType::ED25519 => derive_near_implicit_account_id(public_key.unwrap_as_ed25519()),
+        | KeyType::SECP256K1 => derive_eth_implicit_account_id(public_key.unwrap_as_secp256k1()),
     };
 
     let transaction_result = node_user
         .create_account(account_id.clone(), receiver_id.clone(), public_key, tokens_used)
         .unwrap();
 
-    let create_account_fee = fee_helper.cfg().fee(ActionCosts::create_account).send_fee(false);
-    let add_access_key_fee = fee_helper.cfg().fee(ActionCosts::add_full_access_key).send_fee(false);
+    let create_account_fee = fee_helper
+        .cfg()
+        .fee(ActionCosts::create_account)
+        .send_fee(false);
+    let add_access_key_fee = fee_helper
+        .cfg()
+        .fee(ActionCosts::add_full_access_key)
+        .send_fee(false);
 
     let cost = match receiver_id.get_account_type() {
-        AccountType::NearImplicitAccount => {
+        | AccountType::NearImplicitAccount => {
             fee_helper.create_account_transfer_full_key_cost_fail_on_create_account()
                 + fee_helper.gas_to_balance(create_account_fee + add_access_key_fee)
         }
-        AccountType::EthImplicitAccount => {
+        | AccountType::EthImplicitAccount => {
             // This test uses `node_user.create_account` method that is normally used for NamedAccounts and should fail here.
             fee_helper.create_account_transfer_full_key_cost_fail_on_create_account()
                 // We add this fee analogously to the NEAR-implicit match arm above (without `add_access_key_fee`).
                 + fee_helper.gas_to_balance(create_account_fee)
         }
-        AccountType::NamedAccount => std::panic!("must be implicit"),
+        | AccountType::NamedAccount => std::panic!("must be implicit"),
     };
 
     assert_eq!(
@@ -453,12 +597,24 @@ pub fn trying_to_create_implicit_account(node: impl Node, public_key: PublicKey)
             .into()
         )
     );
-    assert_eq!(transaction_result.receipts_outcome.len(), 3);
+    assert_eq!(
+        transaction_result
+            .receipts_outcome
+            .len(),
+        3
+    );
     let new_root = node_user.get_state_root();
     assert_ne!(root, new_root);
-    assert_eq!(node_user.get_access_key_nonce_for_signer(account_id).unwrap(), 1);
+    assert_eq!(
+        node_user
+            .get_access_key_nonce_for_signer(account_id)
+            .unwrap(),
+        1
+    );
 
-    let result1 = node_user.view_account(account_id).unwrap();
+    let result1 = node_user
+        .view_account(account_id)
+        .unwrap();
     assert_eq!(
         (result1.amount, result1.locked),
         (TESTING_INIT_BALANCE - TESTING_INIT_STAKE - cost, TESTING_INIT_STAKE)
@@ -471,7 +627,9 @@ pub fn trying_to_create_implicit_account(node: impl Node, public_key: PublicKey)
 pub fn test_smart_contract_reward(node: impl Node) {
     let node_user = node.user();
     let root = node_user.get_state_root();
-    let bob = node_user.view_account(&bob_account()).unwrap();
+    let bob = node_user
+        .view_account(&bob_account())
+        .unwrap();
     assert_eq!(bob.amount, TESTING_INIT_BALANCE - TESTING_INIT_STAKE);
     let transaction_result = node_user
         .function_call(alice_account(), bob_account(), "run_test", vec![], 10u64.pow(14), 0)
@@ -480,13 +638,22 @@ pub fn test_smart_contract_reward(node: impl Node) {
         transaction_result.status,
         FinalExecutionStatus::SuccessValue(10i32.to_le_bytes().to_vec())
     );
-    assert_eq!(transaction_result.receipts_outcome.len(), 2);
+    assert_eq!(
+        transaction_result
+            .receipts_outcome
+            .len(),
+        2
+    );
     let new_root = node_user.get_state_root();
     assert_ne!(root, new_root);
 
     let fee_helper = fee_helper(&node);
-    let bob = node_user.view_account(&bob_account()).unwrap();
-    let gas_burnt_for_function_call = transaction_result.receipts_outcome[0].outcome.gas_burnt
+    let bob = node_user
+        .view_account(&bob_account())
+        .unwrap();
+    let gas_burnt_for_function_call = transaction_result.receipts_outcome[0]
+        .outcome
+        .gas_burnt
         - fee_helper.function_call_exec_gas(b"run_test".len() as u64);
     let reward = fee_helper.gas_burnt_to_reward(gas_burnt_for_function_call);
     assert_eq!(bob.amount, TESTING_INIT_BALANCE - TESTING_INIT_STAKE + reward);
@@ -496,15 +663,26 @@ pub fn test_send_money_over_balance(node: impl Node) {
     let account_id = &node.account_id().unwrap();
     let node_user = node.user();
     let money_used = TESTING_INIT_BALANCE + 1;
-    node_user.send_money(account_id.clone(), bob_account(), money_used).unwrap_err();
-    let result1 = node_user.view_account(account_id).unwrap();
+    node_user
+        .send_money(account_id.clone(), bob_account(), money_used)
+        .unwrap_err();
+    let result1 = node_user
+        .view_account(account_id)
+        .unwrap();
     assert_eq!(
         (result1.amount, result1.locked),
         (TESTING_INIT_BALANCE - TESTING_INIT_STAKE, TESTING_INIT_STAKE)
     );
-    assert_eq!(node_user.get_access_key_nonce_for_signer(account_id).unwrap(), 0);
+    assert_eq!(
+        node_user
+            .get_access_key_nonce_for_signer(account_id)
+            .unwrap(),
+        0
+    );
 
-    let result2 = node_user.view_account(&bob_account()).unwrap();
+    let result2 = node_user
+        .view_account(&bob_account())
+        .unwrap();
     assert_eq!(
         (result2.amount, result2.locked),
         (TESTING_INIT_BALANCE - TESTING_INIT_STAKE, TESTING_INIT_STAKE)
@@ -519,8 +697,9 @@ pub fn test_refund_on_send_money_to_non_existent_account(node: impl Node) {
     // Successful atomic transfer has the same cost as failed atomic transfer.
     let fee_helper = fee_helper(&node);
     let transfer_cost = fee_helper.transfer_cost();
-    let transaction_result =
-        node_user.send_money(account_id.clone(), eve_dot_alice_account(), money_used).unwrap();
+    let transaction_result = node_user
+        .send_money(account_id.clone(), eve_dot_alice_account(), money_used)
+        .unwrap();
     assert_eq!(
         transaction_result.status,
         FinalExecutionStatus::Failure(
@@ -531,15 +710,27 @@ pub fn test_refund_on_send_money_to_non_existent_account(node: impl Node) {
             .into()
         )
     );
-    assert_eq!(transaction_result.receipts_outcome.len(), 3);
+    assert_eq!(
+        transaction_result
+            .receipts_outcome
+            .len(),
+        3
+    );
     let new_root = node_user.get_state_root();
     assert_ne!(root, new_root);
-    let result1 = node_user.view_account(account_id).unwrap();
+    let result1 = node_user
+        .view_account(account_id)
+        .unwrap();
     assert_eq!(
         (result1.amount, result1.locked),
         (TESTING_INIT_BALANCE - TESTING_INIT_STAKE - transfer_cost, TESTING_INIT_STAKE)
     );
-    assert_eq!(node_user.get_access_key_nonce_for_signer(account_id).unwrap(), 1);
+    assert_eq!(
+        node_user
+            .get_access_key_nonce_for_signer(account_id)
+            .unwrap(),
+        1
+    );
     let result2 = node_user.view_account(&eve_dot_alice_account());
     assert!(result2.is_err());
 }
@@ -563,12 +754,23 @@ pub fn test_create_account(node: impl Node) {
 
     assert_eq!(transaction_result.status, FinalExecutionStatus::SuccessValue(Vec::new()));
     // Refund receipt may not be ready yet
-    assert!([1, 2].contains(&transaction_result.receipts_outcome.len()));
+    assert!([1, 2].contains(
+        &transaction_result
+            .receipts_outcome
+            .len()
+    ));
     let new_root = node_user.get_state_root();
     assert_ne!(root, new_root);
-    assert_eq!(node_user.get_access_key_nonce_for_signer(account_id).unwrap(), 1);
+    assert_eq!(
+        node_user
+            .get_access_key_nonce_for_signer(account_id)
+            .unwrap(),
+        1
+    );
 
-    let result1 = node_user.view_account(account_id).unwrap();
+    let result1 = node_user
+        .view_account(account_id)
+        .unwrap();
     assert_eq!(
         (result1.amount, result1.locked),
         (
@@ -577,7 +779,9 @@ pub fn test_create_account(node: impl Node) {
         )
     );
 
-    let result2 = node_user.view_account(&eve_dot_alice_account()).unwrap();
+    let result2 = node_user
+        .view_account(&eve_dot_alice_account())
+        .unwrap();
     assert_eq!((result2.amount, result2.locked), (money_used, 0));
 }
 
@@ -597,17 +801,30 @@ pub fn test_create_account_again(node: impl Node) {
 
     assert_eq!(transaction_result.status, FinalExecutionStatus::SuccessValue(Vec::new()));
     // Refund receipt may not be ready yet
-    assert!([1, 2].contains(&transaction_result.receipts_outcome.len()));
+    assert!([1, 2].contains(
+        &transaction_result
+            .receipts_outcome
+            .len()
+    ));
     let fee_helper = fee_helper(&node);
     let create_account_cost = fee_helper.create_account_transfer_full_key_cost();
 
-    let result1 = node_user.view_account(account_id).unwrap();
+    let result1 = node_user
+        .view_account(account_id)
+        .unwrap();
     let new_expected_balance =
         TESTING_INIT_BALANCE - money_used - TESTING_INIT_STAKE - create_account_cost;
     assert_eq!((result1.amount, result1.locked), (new_expected_balance, TESTING_INIT_STAKE));
-    assert_eq!(node_user.get_access_key_nonce_for_signer(account_id).unwrap(), 1);
+    assert_eq!(
+        node_user
+            .get_access_key_nonce_for_signer(account_id)
+            .unwrap(),
+        1
+    );
 
-    let result2 = node_user.view_account(&eve_dot_alice_account()).unwrap();
+    let result2 = node_user
+        .view_account(&eve_dot_alice_account())
+        .unwrap();
     assert_eq!((result2.amount, result2.locked), (money_used, 0));
 
     let transaction_result = node_user
@@ -629,16 +846,28 @@ pub fn test_create_account_again(node: impl Node) {
             .into()
         )
     );
-    assert_eq!(transaction_result.receipts_outcome.len(), 3);
+    assert_eq!(
+        transaction_result
+            .receipts_outcome
+            .len(),
+        3
+    );
     let new_root = node_user.get_state_root();
     assert_ne!(root, new_root);
-    assert_eq!(node_user.get_access_key_nonce_for_signer(account_id).unwrap(), 2);
+    assert_eq!(
+        node_user
+            .get_access_key_nonce_for_signer(account_id)
+            .unwrap(),
+        2
+    );
 
     // Additional cost for trying to create an account with repeated name. Will fail after
     // the first action.
     let additional_cost = fee_helper.create_account_transfer_full_key_cost_fail_on_create_account();
 
-    let result1 = node_user.view_account(account_id).unwrap();
+    let result1 = node_user
+        .view_account(account_id)
+        .unwrap();
     assert_eq!(
         (result1.amount, result1.locked),
         (new_expected_balance - additional_cost, TESTING_INIT_STAKE)
@@ -676,18 +905,32 @@ pub fn test_create_account_failure_already_exists(node: impl Node) {
             .into()
         )
     );
-    assert_eq!(transaction_result.receipts_outcome.len(), 3);
+    assert_eq!(
+        transaction_result
+            .receipts_outcome
+            .len(),
+        3
+    );
     let new_root = node_user.get_state_root();
     assert_ne!(root, new_root);
-    assert_eq!(node_user.get_access_key_nonce_for_signer(account_id).unwrap(), 1);
+    assert_eq!(
+        node_user
+            .get_access_key_nonce_for_signer(account_id)
+            .unwrap(),
+        1
+    );
 
-    let result1 = node_user.view_account(account_id).unwrap();
+    let result1 = node_user
+        .view_account(account_id)
+        .unwrap();
     assert_eq!(
         (result1.amount, result1.locked),
         (TESTING_INIT_BALANCE - TESTING_INIT_STAKE - create_account_cost, TESTING_INIT_STAKE)
     );
 
-    let result2 = node_user.view_account(&bob_account()).unwrap();
+    let result2 = node_user
+        .view_account(&bob_account())
+        .unwrap();
     assert_eq!(
         (result2.amount, result2.locked),
         (TESTING_INIT_BALANCE - TESTING_INIT_STAKE, TESTING_INIT_STAKE)
@@ -720,14 +963,21 @@ pub fn test_swap_key(node: impl Node) {
         )
         .unwrap();
     assert_eq!(transaction_result.status, FinalExecutionStatus::SuccessValue(Vec::new()));
-    assert_eq!(transaction_result.receipts_outcome.len(), 1);
+    assert_eq!(
+        transaction_result
+            .receipts_outcome
+            .len(),
+        1
+    );
     let new_root1 = node_user.get_state_root();
     assert_ne!(new_root, new_root1);
 
     assert!(node_user
         .get_access_key(&eve_dot_alice_account(), &node.signer().public_key())
         .is_err());
-    assert!(node_user.get_access_key(&eve_dot_alice_account(), &signer2.public_key()).is_ok());
+    assert!(node_user
+        .get_access_key(&eve_dot_alice_account(), &signer2.public_key())
+        .is_ok());
 }
 
 pub fn test_add_key(node: impl Node) {
@@ -737,8 +987,12 @@ pub fn test_add_key(node: impl Node) {
 
     add_access_key(&node, node_user.as_ref(), &AccessKey::full_access(), &signer2);
 
-    assert!(node_user.get_access_key(account_id, &node.signer().public_key()).is_ok());
-    assert!(node_user.get_access_key(account_id, &signer2.public_key()).is_ok());
+    assert!(node_user
+        .get_access_key(account_id, &node.signer().public_key())
+        .is_ok());
+    assert!(node_user
+        .get_access_key(account_id, &signer2.public_key())
+        .is_ok());
 }
 
 pub fn test_add_existing_key(node: impl Node) {
@@ -761,11 +1015,18 @@ pub fn test_add_existing_key(node: impl Node) {
             .into()
         )
     );
-    assert_eq!(transaction_result.receipts_outcome.len(), 1);
+    assert_eq!(
+        transaction_result
+            .receipts_outcome
+            .len(),
+        1
+    );
     let new_root = node_user.get_state_root();
     assert_ne!(root, new_root);
 
-    assert!(node_user.get_access_key(account_id, &node.signer().public_key()).is_ok());
+    assert!(node_user
+        .get_access_key(account_id, &node.signer().public_key())
+        .is_ok());
 }
 
 pub fn test_delete_key(node: impl Node) {
@@ -774,19 +1035,33 @@ pub fn test_delete_key(node: impl Node) {
     let node_user = node.user();
     add_access_key(&node, node_user.as_ref(), &AccessKey::full_access(), &signer2);
 
-    assert!(node_user.get_access_key(account_id, &node.signer().public_key()).is_ok());
-    assert!(node_user.get_access_key(account_id, &signer2.public_key()).is_ok());
+    assert!(node_user
+        .get_access_key(account_id, &node.signer().public_key())
+        .is_ok());
+    assert!(node_user
+        .get_access_key(account_id, &signer2.public_key())
+        .is_ok());
 
     let root = node_user.get_state_root();
-    let transaction_result =
-        node_user.delete_key(account_id.clone(), node.signer().public_key()).unwrap();
+    let transaction_result = node_user
+        .delete_key(account_id.clone(), node.signer().public_key())
+        .unwrap();
     assert_eq!(transaction_result.status, FinalExecutionStatus::SuccessValue(Vec::new()));
-    assert_eq!(transaction_result.receipts_outcome.len(), 1);
+    assert_eq!(
+        transaction_result
+            .receipts_outcome
+            .len(),
+        1
+    );
     let new_root = node_user.get_state_root();
     assert_ne!(new_root, root);
 
-    assert!(node_user.get_access_key(account_id, &node.signer().public_key()).is_err());
-    assert!(node_user.get_access_key(account_id, &signer2.public_key()).is_ok());
+    assert!(node_user
+        .get_access_key(account_id, &node.signer().public_key())
+        .is_err());
+    assert!(node_user
+        .get_access_key(account_id, &signer2.public_key())
+        .is_ok());
 }
 
 pub fn test_delete_key_not_owned(node: impl Node) {
@@ -794,12 +1069,17 @@ pub fn test_delete_key_not_owned(node: impl Node) {
     let signer2 = InMemorySigner::from_random("test".parse().unwrap(), KeyType::ED25519);
     let node_user = node.user();
 
-    assert!(node_user.get_access_key(account_id, &node.signer().public_key()).is_ok());
-    assert!(node_user.get_access_key(account_id, &signer2.public_key).is_err());
+    assert!(node_user
+        .get_access_key(account_id, &node.signer().public_key())
+        .is_ok());
+    assert!(node_user
+        .get_access_key(account_id, &signer2.public_key)
+        .is_err());
 
     let root = node_user.get_state_root();
-    let transaction_result =
-        node_user.delete_key(account_id.clone(), signer2.public_key.clone()).unwrap();
+    let transaction_result = node_user
+        .delete_key(account_id.clone(), signer2.public_key.clone())
+        .unwrap();
     assert_eq!(
         transaction_result.status,
         FinalExecutionStatus::Failure(
@@ -813,12 +1093,21 @@ pub fn test_delete_key_not_owned(node: impl Node) {
             .into()
         )
     );
-    assert_eq!(transaction_result.receipts_outcome.len(), 1);
+    assert_eq!(
+        transaction_result
+            .receipts_outcome
+            .len(),
+        1
+    );
     let new_root = node_user.get_state_root();
     assert_ne!(new_root, root);
 
-    assert!(node_user.get_access_key(account_id, &node.signer().public_key()).is_ok());
-    assert!(node_user.get_access_key(account_id, &signer2.public_key).is_err());
+    assert!(node_user
+        .get_access_key(account_id, &node.signer().public_key())
+        .is_ok());
+    assert!(node_user
+        .get_access_key(account_id, &signer2.public_key)
+        .is_err());
 }
 
 pub fn test_delete_key_last(node: impl Node) {
@@ -826,15 +1115,22 @@ pub fn test_delete_key_last(node: impl Node) {
     let node_user = node.user();
     let root = node_user.get_state_root();
 
-    assert!(node_user.get_access_key(account_id, &node.signer().public_key()).is_ok());
+    assert!(node_user
+        .get_access_key(account_id, &node.signer().public_key())
+        .is_ok());
     let transaction_result = node_user.delete_key(account_id.clone(), node.signer().public_key());
 
     match transaction_result {
-        Ok(transaction_result) => {
+        | Ok(transaction_result) => {
             assert_eq!(transaction_result.status, FinalExecutionStatus::SuccessValue(Vec::new()));
-            assert_eq!(transaction_result.receipts_outcome.len(), 1);
+            assert_eq!(
+                transaction_result
+                    .receipts_outcome
+                    .len(),
+                1
+            );
         }
-        Err(err) => {
+        | Err(err) => {
             // TODO(#6724): This is a wrong error, the transaction actually
             // succeeds. We get an error here when we retry the tx and the second
             // time around it fails. Normally, retries are handled by nonces, but we
@@ -856,7 +1152,9 @@ pub fn test_delete_key_last(node: impl Node) {
     let new_root = node_user.get_state_root();
     assert_ne!(new_root, root);
 
-    assert!(node_user.get_access_key(account_id, &node.signer().public_key()).is_err());
+    assert!(node_user
+        .get_access_key(account_id, &node.signer().public_key())
+        .is_err());
 }
 
 #[track_caller]
@@ -888,9 +1186,13 @@ pub fn test_add_access_key_function_call(node: impl Node) {
     let signer2 = InMemorySigner::from_random("test".parse().unwrap(), KeyType::ED25519).into();
     let result = add_access_key(&node, node_user.as_ref(), &access_key, &signer2);
 
-    assert!(node_user.get_access_key(account_id, &node.signer().public_key()).is_ok());
+    assert!(node_user
+        .get_access_key(account_id, &node.signer().public_key())
+        .is_ok());
 
-    let view_access_key = node_user.get_access_key(account_id, &signer2.public_key()).unwrap();
+    let view_access_key = node_user
+        .get_access_key(account_id, &signer2.public_key())
+        .unwrap();
     assert_access_key(&access_key, view_access_key, &result, node_user.as_ref());
 }
 
@@ -908,19 +1210,33 @@ pub fn test_delete_access_key(node: impl Node) {
     let signer2 = InMemorySigner::from_random("test".parse().unwrap(), KeyType::ED25519).into();
     add_access_key(&node, node_user.as_ref(), &access_key, &signer2);
 
-    assert!(node_user.get_access_key(account_id, &node.signer().public_key()).is_ok());
-    assert!(node_user.get_access_key(account_id, &signer2.public_key()).is_ok());
+    assert!(node_user
+        .get_access_key(account_id, &node.signer().public_key())
+        .is_ok());
+    assert!(node_user
+        .get_access_key(account_id, &signer2.public_key())
+        .is_ok());
 
     let root = node_user.get_state_root();
-    let transaction_result =
-        node_user.delete_key(account_id.clone(), signer2.public_key()).unwrap();
+    let transaction_result = node_user
+        .delete_key(account_id.clone(), signer2.public_key())
+        .unwrap();
     assert_eq!(transaction_result.status, FinalExecutionStatus::SuccessValue(Vec::new()));
-    assert_eq!(transaction_result.receipts_outcome.len(), 1);
+    assert_eq!(
+        transaction_result
+            .receipts_outcome
+            .len(),
+        1
+    );
     let new_root = node_user.get_state_root();
     assert_ne!(new_root, root);
 
-    assert!(node_user.get_access_key(account_id, &node.signer().public_key()).is_ok());
-    assert!(node_user.get_access_key(account_id, &signer2.public_key()).is_err());
+    assert!(node_user
+        .get_access_key(account_id, &node.signer().public_key())
+        .is_ok());
+    assert!(node_user
+        .get_access_key(account_id, &signer2.public_key())
+        .is_err());
 }
 
 pub fn test_add_access_key_with_allowance(node: impl Node) {
@@ -935,17 +1251,25 @@ pub fn test_add_access_key_with_allowance(node: impl Node) {
     };
     let node_user = node.user();
     let signer2 = InMemorySigner::from_random("test".parse().unwrap(), KeyType::ED25519).into();
-    let account = node_user.view_account(account_id).unwrap();
+    let account = node_user
+        .view_account(account_id)
+        .unwrap();
     let initial_balance = account.amount;
     let fee_helper = fee_helper(&node);
     let add_access_key_cost = fee_helper.add_key_cost(0);
     let result = add_access_key(&node, node_user.as_ref(), &access_key, &signer2);
 
-    let account = node_user.view_account(account_id).unwrap();
+    let account = node_user
+        .view_account(account_id)
+        .unwrap();
     assert_eq!(account.amount, initial_balance - add_access_key_cost);
 
-    assert!(node_user.get_access_key(account_id, &node.signer().public_key()).is_ok());
-    let view_access_key = node_user.get_access_key(account_id, &signer2.public_key()).unwrap();
+    assert!(node_user
+        .get_access_key(account_id, &node.signer().public_key())
+        .is_ok());
+    let view_access_key = node_user
+        .get_access_key(account_id, &signer2.public_key())
+        .unwrap();
     assert_access_key(&access_key, view_access_key, &result, node_user.as_ref());
 }
 
@@ -961,29 +1285,47 @@ pub fn test_delete_access_key_with_allowance(node: impl Node) {
     };
     let node_user = node.user();
     let signer2 = InMemorySigner::from_random("test".parse().unwrap(), KeyType::ED25519).into();
-    let account = node_user.view_account(account_id).unwrap();
+    let account = node_user
+        .view_account(account_id)
+        .unwrap();
     let initial_balance = account.amount;
     let fee_helper = fee_helper(&node);
     let add_access_key_cost = fee_helper.add_key_cost(0);
     add_access_key(&node, node_user.as_ref(), &access_key, &signer2);
 
-    assert!(node_user.get_access_key(account_id, &node.signer().public_key()).is_ok());
-    assert!(node_user.get_access_key(account_id, &signer2.public_key()).is_ok());
+    assert!(node_user
+        .get_access_key(account_id, &node.signer().public_key())
+        .is_ok());
+    assert!(node_user
+        .get_access_key(account_id, &signer2.public_key())
+        .is_ok());
 
     let root = node_user.get_state_root();
     let delete_access_key_cost = fee_helper.delete_key_cost();
-    let transaction_result =
-        node_user.delete_key(account_id.clone(), signer2.public_key()).unwrap();
+    let transaction_result = node_user
+        .delete_key(account_id.clone(), signer2.public_key())
+        .unwrap();
     assert_eq!(transaction_result.status, FinalExecutionStatus::SuccessValue(Vec::new()));
-    assert_eq!(transaction_result.receipts_outcome.len(), 1);
+    assert_eq!(
+        transaction_result
+            .receipts_outcome
+            .len(),
+        1
+    );
     let new_root = node_user.get_state_root();
     assert_ne!(new_root, root);
 
-    let account = node_user.view_account(account_id).unwrap();
+    let account = node_user
+        .view_account(account_id)
+        .unwrap();
     assert_eq!(account.amount, initial_balance - add_access_key_cost - delete_access_key_cost);
 
-    assert!(node_user.get_access_key(account_id, &node.signer().public_key()).is_ok());
-    assert!(node_user.get_access_key(account_id, &signer2.public_key()).is_err());
+    assert!(node_user
+        .get_access_key(account_id, &node.signer().public_key())
+        .is_ok());
+    assert!(node_user
+        .get_access_key(account_id, &signer2.public_key())
+        .is_err());
 }
 
 pub fn test_access_key_smart_contract(node: impl Node) {
@@ -1017,15 +1359,24 @@ pub fn test_access_key_smart_contract(node: impl Node) {
         FinalExecutionStatus::SuccessValue(10i32.to_le_bytes().to_vec())
     );
     let gas_refund = fee_helper.gas_to_balance(
-        prepaid_gas + exec_gas - transaction_result.receipts_outcome[0].outcome.gas_burnt,
+        prepaid_gas + exec_gas
+            - transaction_result.receipts_outcome[0]
+                .outcome
+                .gas_burnt,
     );
 
     // Refund receipt may not be ready yet
-    assert!([1, 2].contains(&transaction_result.receipts_outcome.len()));
+    assert!([1, 2].contains(
+        &transaction_result
+            .receipts_outcome
+            .len()
+    ));
     let new_root = node_user.get_state_root();
     assert_ne!(root, new_root);
 
-    let view_access_key = node_user.get_access_key(account_id, &signer2.public_key()).unwrap();
+    let view_access_key = node_user
+        .get_access_key(account_id, &signer2.public_key())
+        .unwrap();
     assert_eq!(
         view_access_key,
         AccessKey {
@@ -1104,8 +1455,9 @@ pub fn test_access_key_reject_non_function_call(node: impl Node) {
     add_access_key(&node, node_user.as_ref(), &access_key, &signer2);
     node_user.set_signer(Arc::new(signer2));
 
-    let transaction_result =
-        node_user.delete_key(account_id.clone(), node.signer().public_key()).unwrap_err();
+    let transaction_result = node_user
+        .delete_key(account_id.clone(), node.signer().public_key())
+        .unwrap_err();
     assert_eq!(transaction_result, CommitError::OutcomeNotFound);
 }
 
@@ -1120,12 +1472,19 @@ pub fn test_increase_stake(node: impl Node) {
         .stake(account_id.clone(), node.block_signer().public_key(), amount_staked)
         .unwrap();
     assert_eq!(transaction_result.status, FinalExecutionStatus::SuccessValue(Vec::new()));
-    assert_eq!(transaction_result.receipts_outcome.len(), 1);
+    assert_eq!(
+        transaction_result
+            .receipts_outcome
+            .len(),
+        1
+    );
     let node_user = node.user();
     let new_root = node_user.get_state_root();
     assert_ne!(root, new_root);
 
-    let account = node_user.view_account(account_id).unwrap();
+    let account = node_user
+        .view_account(account_id)
+        .unwrap();
     assert_eq!(account.amount, TESTING_INIT_BALANCE - TESTING_INIT_STAKE - 1 - stake_cost);
     assert_eq!(account.locked, amount_staked)
 }
@@ -1141,11 +1500,18 @@ pub fn test_decrease_stake(node: impl Node) {
     let fee_helper = fee_helper(&node);
     let stake_cost = fee_helper.stake_cost();
     assert_eq!(transaction_result.status, FinalExecutionStatus::SuccessValue(Vec::new()));
-    assert_eq!(transaction_result.receipts_outcome.len(), 1);
+    assert_eq!(
+        transaction_result
+            .receipts_outcome
+            .len(),
+        1
+    );
     let new_root = node_user.get_state_root();
     assert_ne!(root, new_root);
 
-    let account = node_user.view_account(account_id).unwrap();
+    let account = node_user
+        .view_account(account_id)
+        .unwrap();
     assert_eq!(account.amount, TESTING_INIT_BALANCE - TESTING_INIT_STAKE - stake_cost);
     assert_eq!(account.locked, TESTING_INIT_STAKE);
 }
@@ -1161,9 +1527,15 @@ pub fn test_unstake_while_not_staked(node: impl Node) {
         )
         .unwrap();
     assert_eq!(transaction_result.status, FinalExecutionStatus::SuccessValue(Vec::new()));
-    assert_eq!(transaction_result.receipts_outcome.len(), 2);
-    let transaction_result =
-        node_user.stake(eve_dot_alice_account(), node.block_signer().public_key(), 0).unwrap();
+    assert_eq!(
+        transaction_result
+            .receipts_outcome
+            .len(),
+        2
+    );
+    let transaction_result = node_user
+        .stake(eve_dot_alice_account(), node.block_signer().public_key(), 0)
+        .unwrap();
     assert_eq!(
         transaction_result.status,
         FinalExecutionStatus::Failure(
@@ -1174,7 +1546,12 @@ pub fn test_unstake_while_not_staked(node: impl Node) {
             .into()
         )
     );
-    assert_eq!(transaction_result.receipts_outcome.len(), 1);
+    assert_eq!(
+        transaction_result
+            .receipts_outcome
+            .len(),
+        1
+    );
 }
 
 /// Account must have enough balance to cover storage of the account.
@@ -1183,7 +1560,9 @@ pub fn test_fail_not_enough_balance_for_storage(node: impl Node) {
     let account_id = bob_account();
     let signer = Arc::new(InMemorySigner::test_signer(&account_id));
     node_user.set_signer(signer);
-    node_user.send_money(account_id, alice_account(), 10).unwrap_err();
+    node_user
+        .send_money(account_id, alice_account(), 10)
+        .unwrap_err();
 }
 
 pub fn test_delete_account_ok(node: impl Node) {
@@ -1195,10 +1574,14 @@ pub fn test_delete_account_ok(node: impl Node) {
         node.signer().public_key(),
         money_used,
     );
-    let transaction_result =
-        node_user.delete_account(eve_dot_alice_account(), eve_dot_alice_account()).unwrap();
+    let transaction_result = node_user
+        .delete_account(eve_dot_alice_account(), eve_dot_alice_account())
+        .unwrap();
     assert_eq!(transaction_result.status, FinalExecutionStatus::SuccessValue(Vec::new()));
-    assert!(node.user().view_account(&eve_dot_alice_account()).is_err());
+    assert!(node
+        .user()
+        .view_account(&eve_dot_alice_account())
+        .is_err());
 }
 
 pub fn test_creating_invalid_subaccount_fail(node: impl Node) {
@@ -1236,12 +1619,16 @@ pub fn test_delete_account_fail(node: impl Node) {
         node.signer().public_key(),
         money_used,
     );
-    let initial_amount = node_user.view_account(&node.account_id().unwrap()).unwrap().amount;
+    let initial_amount = node_user
+        .view_account(&node.account_id().unwrap())
+        .unwrap()
+        .amount;
     let fee_helper = fee_helper(&node);
     let delete_account_cost = fee_helper.prepaid_delete_account_cost();
 
-    let transaction_result =
-        node_user.delete_account(alice_account(), eve_dot_alice_account()).unwrap();
+    let transaction_result = node_user
+        .delete_account(alice_account(), eve_dot_alice_account())
+        .unwrap();
     assert_eq!(
         transaction_result.status,
         FinalExecutionStatus::Failure(
@@ -1255,18 +1642,30 @@ pub fn test_delete_account_fail(node: impl Node) {
             .into()
         )
     );
-    assert_eq!(transaction_result.receipts_outcome.len(), 2);
-    assert!(node.user().view_account(&bob_account()).is_ok());
     assert_eq!(
-        node.user().view_account(&node.account_id().unwrap()).unwrap().amount,
+        transaction_result
+            .receipts_outcome
+            .len(),
+        2
+    );
+    assert!(node
+        .user()
+        .view_account(&bob_account())
+        .is_ok());
+    assert_eq!(
+        node.user()
+            .view_account(&node.account_id().unwrap())
+            .unwrap()
+            .amount,
         initial_amount - delete_account_cost
     );
 }
 
 pub fn test_delete_account_no_account(node: impl Node) {
     let node_user = node.user();
-    let transaction_result =
-        node_user.delete_account(alice_account(), eve_dot_alice_account()).unwrap();
+    let transaction_result = node_user
+        .delete_account(alice_account(), eve_dot_alice_account())
+        .unwrap();
     assert_eq!(
         transaction_result.status,
         FinalExecutionStatus::Failure(
@@ -1277,7 +1676,12 @@ pub fn test_delete_account_no_account(node: impl Node) {
             .into()
         )
     );
-    assert_eq!(transaction_result.receipts_outcome.len(), 2);
+    assert_eq!(
+        transaction_result
+            .receipts_outcome
+            .len(),
+        2
+    );
 }
 
 pub fn test_delete_account_while_staking(node: impl Node) {
@@ -1300,9 +1704,15 @@ pub fn test_delete_account_while_staking(node: impl Node) {
         )
         .unwrap();
     assert_eq!(transaction_result.status, FinalExecutionStatus::SuccessValue(Vec::new()));
-    assert_eq!(transaction_result.receipts_outcome.len(), 1);
-    let transaction_result =
-        node_user.delete_account(eve_dot_alice_account(), eve_dot_alice_account()).unwrap();
+    assert_eq!(
+        transaction_result
+            .receipts_outcome
+            .len(),
+        1
+    );
+    let transaction_result = node_user
+        .delete_account(eve_dot_alice_account(), eve_dot_alice_account())
+        .unwrap();
     assert_eq!(
         transaction_result.status,
         FinalExecutionStatus::Failure(
@@ -1313,8 +1723,16 @@ pub fn test_delete_account_while_staking(node: impl Node) {
             .into()
         )
     );
-    assert_eq!(transaction_result.receipts_outcome.len(), 1);
-    assert!(node.user().view_account(&eve_dot_alice_account()).is_ok());
+    assert_eq!(
+        transaction_result
+            .receipts_outcome
+            .len(),
+        1
+    );
+    assert!(node
+        .user()
+        .view_account(&eve_dot_alice_account())
+        .is_ok());
 }
 
 pub fn test_smart_contract_free(node: impl Node) {
@@ -1327,10 +1745,22 @@ pub fn test_smart_contract_free(node: impl Node) {
         transaction_result.status,
         FinalExecutionStatus::SuccessValue(10i32.to_le_bytes().to_vec())
     );
-    assert_eq!(transaction_result.receipts_outcome.len(), 1);
+    assert_eq!(
+        transaction_result
+            .receipts_outcome
+            .len(),
+        1
+    );
 
-    let total_gas_burnt = transaction_result.transaction_outcome.outcome.gas_burnt
-        + transaction_result.receipts_outcome.iter().map(|t| t.outcome.gas_burnt).sum::<u64>();
+    let total_gas_burnt = transaction_result
+        .transaction_outcome
+        .outcome
+        .gas_burnt
+        + transaction_result
+            .receipts_outcome
+            .iter()
+            .map(|t| t.outcome.gas_burnt)
+            .sum::<u64>();
     assert_eq!(total_gas_burnt, 0);
 
     let new_root = node_user.get_state_root();
@@ -1343,20 +1773,28 @@ fn get_trie_nodes_count(
     runtime_config: &RuntimeConfig,
 ) -> TrieNodesCount {
     let mut count = TrieNodesCount { db_reads: 0, mem_reads: 0 };
-    for cost in metadata.gas_profile.clone().unwrap_or_default().iter() {
+    for cost in metadata
+        .gas_profile
+        .clone()
+        .unwrap_or_default()
+        .iter()
+    {
         match cost.cost.as_str() {
-            "TOUCHING_TRIE_NODE" => {
+            | "TOUCHING_TRIE_NODE" => {
                 count.db_reads += cost.gas_used
-                    / runtime_config.wasm_config.ext_costs.gas_cost(ExtCosts::touching_trie_node);
+                    / runtime_config
+                        .wasm_config
+                        .ext_costs
+                        .gas_cost(ExtCosts::touching_trie_node);
             }
-            "READ_CACHED_TRIE_NODE" => {
+            | "READ_CACHED_TRIE_NODE" => {
                 count.mem_reads += cost.gas_used
                     / runtime_config
                         .wasm_config
                         .ext_costs
                         .gas_cost(ExtCosts::read_cached_trie_node);
             }
-            _ => {}
+            | _ => {}
         };
     }
     count
@@ -1383,18 +1821,31 @@ pub fn test_contract_write_key_value_cost(node: impl Node) {
             )
             .unwrap();
         assert_matches!(transaction_result.status, FinalExecutionStatus::SuccessValue(_));
-        assert_eq!(transaction_result.receipts_outcome.len(), 2);
+        assert_eq!(
+            transaction_result
+                .receipts_outcome
+                .len(),
+            2
+        );
 
         let trie_nodes_count = get_trie_nodes_count(
-            &transaction_result.receipts_outcome[0].outcome.metadata,
+            &transaction_result.receipts_outcome[0]
+                .outcome
+                .metadata,
             &RuntimeConfig::test(),
         );
         assert_eq!(trie_nodes_count, results[i]);
     }
 }
 
-fn make_write_key_value_action(key: Vec<u64>, value: Vec<u64>) -> Action {
-    let args: Vec<u64> = key.into_iter().chain(value.into_iter()).collect();
+fn make_write_key_value_action(
+    key: Vec<u64>,
+    value: Vec<u64>,
+) -> Action {
+    let args: Vec<u64> = key
+        .into_iter()
+        .chain(value.into_iter())
+        .collect();
     FunctionCallAction {
         method_name: "write_key_value".to_string(),
         args: test_utils::encode(&args),
@@ -1404,7 +1855,11 @@ fn make_write_key_value_action(key: Vec<u64>, value: Vec<u64>) -> Action {
     .into()
 }
 
-fn make_receipt(node: &impl Node, actions: Vec<Action>, receiver_id: AccountId) -> Receipt {
+fn make_receipt(
+    node: &impl Node,
+    actions: Vec<Action>,
+    receiver_id: AccountId,
+) -> Receipt {
     let receipt_enum = ReceiptEnum::Action(ActionReceipt {
         signer_id: alice_account(),
         signer_public_key: node.signer().as_ref().public_key(),
@@ -1433,17 +1888,23 @@ fn check_trie_nodes_count(
 ) {
     let node_user = node.user();
     let mut node_touches: Vec<_> = vec![];
-    let receipt_hashes: Vec<CryptoHash> =
-        receipts.iter().map(|receipt| *receipt.receipt_id()).collect();
+    let receipt_hashes: Vec<CryptoHash> = receipts
+        .iter()
+        .map(|receipt| *receipt.receipt_id())
+        .collect();
 
     for i in 0..2 {
-        node_user.add_receipts(receipts.clone(), use_flat_storage).unwrap();
+        node_user
+            .add_receipts(receipts.clone(), use_flat_storage)
+            .unwrap();
 
         if i == 1 {
             node_touches = receipt_hashes
                 .iter()
                 .map(|receipt_hash| {
-                    let result = node_user.get_transaction_result(receipt_hash).unwrap();
+                    let result = node_user
+                        .get_transaction_result(receipt_hash)
+                        .unwrap();
                     get_trie_nodes_count(&result.metadata, runtime_config)
                 })
                 .collect();
@@ -1465,12 +1926,18 @@ fn check_trie_nodes_count(
 /// 1st receipt should count 6 db reads.
 /// 2nd and 3rd receipts should count 2 db and 4 memory reads, because for them first 4 nodes were already put into the
 /// accounting cache.
-pub fn test_accounting_cache_common_parent(node: impl Node, runtime_config: RuntimeConfig) {
+pub fn test_accounting_cache_common_parent(
+    node: impl Node,
+    runtime_config: RuntimeConfig,
+) {
     let receipts: Vec<Receipt> = (0..3)
         .map(|i| {
             make_receipt(
                 &node,
-                vec![make_write_key_value_action(vec![i], vec![10u64 + i])],
+                vec![make_write_key_value_action(
+                    vec![i],
+                    vec![10u64 + i],
+                )],
                 bob_account(),
             )
         })
@@ -1491,12 +1958,18 @@ pub fn test_accounting_cache_common_parent(node: impl Node, runtime_config: Runt
 ///
 /// 1st receipt should count 5 db reads.
 /// 2nd receipt should count 2 db and 4 memory reads.
-pub fn test_accounting_cache_branch_value(node: impl Node, runtime_config: RuntimeConfig) {
+pub fn test_accounting_cache_branch_value(
+    node: impl Node,
+    runtime_config: RuntimeConfig,
+) {
     let receipts: Vec<Receipt> = (0..2)
         .map(|i| {
             make_receipt(
                 &node,
-                vec![make_write_key_value_action(vec![1; i + 1], vec![10u64 + i as u64])],
+                vec![make_write_key_value_action(
+                    vec![1; i + 1],
+                    vec![10u64 + i as u64],
+                )],
                 bob_account(),
             )
         })
@@ -1525,15 +1998,32 @@ pub fn test_accounting_cache_branch_value(node: impl Node, runtime_config: Runti
 /// - 1st receipt enables accounting cache mode but doesn't disable it
 /// - 2nd receipt triggers insertion of `Value 2` into the accounting cache
 /// - 3rd receipt reads it from the accounting cache, so it incorrectly charges user for 1 db and 5 memory reads.
-pub fn test_accounting_cache_mode(node: impl Node, runtime_config: RuntimeConfig) {
+pub fn test_accounting_cache_mode(
+    node: impl Node,
+    runtime_config: RuntimeConfig,
+) {
     let receipts: Vec<Receipt> = vec![
-        make_receipt(&node, vec![make_write_key_value_action(vec![1], vec![1])], bob_account()),
+        make_receipt(
+            &node,
+            vec![make_write_key_value_action(
+                vec![1],
+                vec![1],
+            )],
+            bob_account(),
+        ),
         make_receipt(
             &node,
             vec![DeployContractAction { code: test_utils::encode(&[2]) }.into()],
             alice_account(),
         ),
-        make_receipt(&node, vec![make_write_key_value_action(vec![2], vec![2])], bob_account()),
+        make_receipt(
+            &node,
+            vec![make_write_key_value_action(
+                vec![2],
+                vec![2],
+            )],
+            bob_account(),
+        ),
     ];
 
     let results = vec![
@@ -1551,7 +2041,10 @@ pub fn test_accounting_cache_mode(node: impl Node, runtime_config: RuntimeConfig
 /// With flat storage, neither DB nor memory reads should be counted, as we skip Trie
 /// node reads and don't charge for Value read due to the same bug. For write we go
 /// to Trie and count 3 DB node reads and 1 mem read for Value.
-pub fn test_storage_read_write_costs(node: impl Node, runtime_config: RuntimeConfig) {
+pub fn test_storage_read_write_costs(
+    node: impl Node,
+    runtime_config: RuntimeConfig,
+) {
     let receipts: Vec<Receipt> = vec![
         make_receipt(
             &node,
@@ -1564,7 +2057,14 @@ pub fn test_storage_read_write_costs(node: impl Node, runtime_config: RuntimeCon
             .into()],
             bob_account(),
         ),
-        make_receipt(&node, vec![make_write_key_value_action(vec![1], vec![20])], bob_account()),
+        make_receipt(
+            &node,
+            vec![make_write_key_value_action(
+                vec![1],
+                vec![20],
+            )],
+            bob_account(),
+        ),
     ];
 
     let results = vec![

@@ -30,7 +30,11 @@ impl From<&VersionedAccountData> for proto::AccountKeyPayload {
             payload_type: Some(ProtoPT::AccountData(proto::AccountData {
                 peer_id: MF::some((&x.peer_id).into()),
                 account_key: MF::some((&x.account_key).into()),
-                proxies: x.proxies.iter().map(Into::into).collect(),
+                proxies: x
+                    .proxies
+                    .iter()
+                    .map(Into::into)
+                    .collect(),
                 version: x.version,
                 timestamp: MF::some(utc_to_proto(&x.timestamp)),
                 ..Default::default()
@@ -43,9 +47,13 @@ impl From<&VersionedAccountData> for proto::AccountKeyPayload {
 impl TryFrom<&proto::AccountKeyPayload> for VersionedAccountData {
     type Error = ParseAccountDataError;
     fn try_from(x: &proto::AccountKeyPayload) -> Result<Self, Self::Error> {
-        let x = match x.payload_type.as_ref().ok_or(Self::Error::BadPayloadType)? {
-            ProtoPT::AccountData(a) => a,
-            _ => return Err(Self::Error::BadPayloadType),
+        let x = match x
+            .payload_type
+            .as_ref()
+            .ok_or(Self::Error::BadPayloadType)?
+        {
+            | ProtoPT::AccountData(a) => a,
+            | _ => return Err(Self::Error::BadPayloadType),
         };
         Ok(Self {
             data: AccountData {
@@ -88,7 +96,9 @@ impl TryFrom<&proto::AccountKeySignedPayload> for SignedAccountData {
         let account_data =
             proto::AccountKeyPayload::parse_from_bytes(&x.payload).map_err(Self::Error::Decode)?;
         Ok(Self {
-            account_data: (&account_data).try_into().map_err(Self::Error::AccountData)?,
+            account_data: (&account_data)
+                .try_into()
+                .map_err(Self::Error::AccountData)?,
             payload: AccountKeySignedPayload {
                 payload: x.payload.clone(),
                 signature: try_from_required(&x.signature).map_err(Self::Error::Signature)?,
@@ -128,9 +138,13 @@ impl From<&OwnedAccount> for proto::AccountKeyPayload {
 impl TryFrom<&proto::AccountKeyPayload> for OwnedAccount {
     type Error = ParseOwnedAccountError;
     fn try_from(x: &proto::AccountKeyPayload) -> Result<Self, Self::Error> {
-        let x = match x.payload_type.as_ref().ok_or(Self::Error::BadPayloadType)? {
-            ProtoPT::OwnedAccount(a) => a,
-            _ => return Err(Self::Error::BadPayloadType),
+        let x = match x
+            .payload_type
+            .as_ref()
+            .ok_or(Self::Error::BadPayloadType)?
+        {
+            | ProtoPT::OwnedAccount(a) => a,
+            | _ => return Err(Self::Error::BadPayloadType),
         };
         Ok(Self {
             account_key: try_from_required(&x.account_key).map_err(Self::Error::AccountKey)?,
@@ -169,7 +183,9 @@ impl TryFrom<&proto::AccountKeySignedPayload> for SignedOwnedAccount {
         let owned_account =
             proto::AccountKeyPayload::parse_from_bytes(&x.payload).map_err(Self::Error::Decode)?;
         Ok(Self {
-            owned_account: (&owned_account).try_into().map_err(Self::Error::OwnedAccount)?,
+            owned_account: (&owned_account)
+                .try_into()
+                .map_err(Self::Error::OwnedAccount)?,
             payload: AccountKeySignedPayload {
                 payload: x.payload.clone(),
                 signature: try_from_required(&x.signature).map_err(Self::Error::Signature)?,

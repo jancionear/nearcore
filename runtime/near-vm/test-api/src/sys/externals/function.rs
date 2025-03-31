@@ -44,7 +44,10 @@ pub struct Function {
 
 impl near_vm_types::WasmValueType for Function {
     /// Write the value.
-    unsafe fn write_value_to(&self, p: *mut i128) {
+    unsafe fn write_value_to(
+        &self,
+        p: *mut i128,
+    ) {
         let func_ref =
             Val::into_vm_funcref(&Val::FuncRef(Some(self.clone())), &self.store).unwrap();
         std::ptr::write(p as *mut VMFuncRef, func_ref);
@@ -53,15 +56,18 @@ impl near_vm_types::WasmValueType for Function {
     /// Read the value.
     // TODO(reftypes): this entire function should be cleaned up, `dyn Any` should
     // ideally be removed
-    unsafe fn read_value_from(store: &dyn std::any::Any, p: *const i128) -> Self {
+    unsafe fn read_value_from(
+        store: &dyn std::any::Any,
+        p: *const i128,
+    ) -> Self {
         let func_ref = std::ptr::read(p as *const VMFuncRef);
         let store = store.downcast_ref::<Store>().expect("Store expected in `Function::read_value_from`. If you see this error message it likely means you're using a function ref in a place we don't yet support it -- sorry about the inconvenience.");
         match Val::from_vm_funcref(func_ref, store) {
-            Val::FuncRef(Some(fr)) => fr,
+            | Val::FuncRef(Some(fr)) => fr,
             // these bottom two cases indicate bugs in `near_vm-types` or elsewhere.
             // They should never be triggered, so we just panic.
-            Val::FuncRef(None) => panic!("Null funcref found in `Function::read_value_from`!"),
-            other => panic!("Invalid value in `Function::read_value_from`: {:?}", other),
+            | Val::FuncRef(None) => panic!("Null funcref found in `Function::read_value_from`!"),
+            | other => panic!("Invalid value in `Function::read_value_from`: {:?}", other),
         }
     }
 }
@@ -74,7 +80,10 @@ impl Function {
     /// # Safety
     ///
     /// Must ensure that the returned Function does not outlive the containing instance.
-    pub unsafe fn from_vm_funcref(store: &Store, func_ref: VMFuncRef) -> Option<Self> {
+    pub unsafe fn from_vm_funcref(
+        store: &Store,
+        func_ref: VMFuncRef,
+    ) -> Option<Self> {
         if func_ref.is_null() {
             return None;
         }
@@ -122,7 +131,9 @@ where
     });
     let host_env_clone_fn = |ptr: *mut c_void| -> *mut c_void {
         let env_ref: &Env = unsafe {
-            ptr.cast::<Env>().as_ref().expect("`ptr` to the environment is null when cloning it")
+            ptr.cast::<Env>()
+                .as_ref()
+                .expect("`ptr` to the environment is null when cloning it")
         };
         Box::into_raw(Box::new(env_ref.clone())) as _
     };
@@ -182,7 +193,11 @@ impl Function {
     /// });
     /// ```
     #[allow(clippy::cast_ptr_alignment)]
-    pub fn new<FT, F>(store: &Store, ty: FT, func: F) -> Self
+    pub fn new<FT, F>(
+        store: &Store,
+        ty: FT,
+        func: F,
+    ) -> Self
     where
         FT: Into<FunctionType>,
         F: Fn(&[Val]) -> Result<Vec<Val>, RuntimeError> + 'static + Send + Sync,
@@ -239,7 +254,12 @@ impl Function {
     /// });
     /// ```
     #[allow(clippy::cast_ptr_alignment)]
-    pub fn new_with_env<FT, F, Env>(store: &Store, ty: FT, env: Env, func: F) -> Self
+    pub fn new_with_env<FT, F, Env>(
+        store: &Store,
+        ty: FT,
+        env: Env,
+        func: F,
+    ) -> Self
     where
         FT: Into<FunctionType>,
         F: Fn(&Env, &[Val]) -> Result<Vec<Val>, RuntimeError> + 'static + Send + Sync,
@@ -304,7 +324,10 @@ impl Function {
     ///
     /// let f = Function::new_native(&store, sum);
     /// ```
-    pub fn new_native<F, Args, Rets, Env>(store: &Store, func: F) -> Self
+    pub fn new_native<F, Args, Rets, Env>(
+        store: &Store,
+        func: F,
+    ) -> Self
     where
         F: HostFunction<Args, Rets, WithoutEnv, Env>,
         Args: WasmTypeList,
@@ -317,7 +340,9 @@ impl Function {
         let function = inner::Function::<Args, Rets>::new(func);
         let address = function.address() as *const VMFunctionBody;
         let vmctx = VMFunctionEnvironment { host_env: std::ptr::null_mut() as *mut _ };
-        let signature = store.engine().register_signature(function.ty());
+        let signature = store
+            .engine()
+            .register_signature(function.ty());
 
         Self {
             store: store.clone(),
@@ -361,7 +386,11 @@ impl Function {
     ///
     /// let f = Function::new_native_with_env(&store, env, sum_and_multiply);
     /// ```
-    pub fn new_native_with_env<F, Args, Rets, Env>(store: &Store, env: Env, func: F) -> Self
+    pub fn new_native_with_env<F, Args, Rets, Env>(
+        store: &Store,
+        env: Env,
+        func: F,
+    ) -> Self
     where
         F: HostFunction<Args, Rets, WithEnv, Env>,
         Args: WasmTypeList,
@@ -378,7 +407,9 @@ impl Function {
             build_export_function_metadata::<Env>(env, Env::init_with_instance);
 
         let vmctx = VMFunctionEnvironment { host_env };
-        let signature = store.engine().register_signature(function.ty());
+        let signature = store
+            .engine()
+            .register_signature(function.ty());
         Self {
             store: store.clone(),
             exported: ExportFunction {
@@ -431,7 +462,11 @@ impl Function {
         results: &mut [Val],
     ) -> Result<(), RuntimeError> {
         let format_types_for_error_message = |items: &[Val]| {
-            items.iter().map(|param| param.ty().to_string()).collect::<Vec<String>>().join(", ")
+            items
+                .iter()
+                .map(|param| param.ty().to_string())
+                .collect::<Vec<String>>()
+                .join(", ")
         };
         let signature = self.ty();
         if signature.params().len() != params.len() {
@@ -453,7 +488,11 @@ impl Function {
 
         // Store the argument values into `values_vec`.
         let param_tys = signature.params().iter();
-        for ((arg, slot), ty) in params.iter().zip(&mut values_vec).zip(param_tys) {
+        for ((arg, slot), ty) in params
+            .iter()
+            .zip(&mut values_vec)
+            .zip(param_tys)
+        {
             if arg.ty() != *ty {
                 let param_types = format_types_for_error_message(params);
                 return Err(RuntimeError::new(format!(
@@ -558,9 +597,16 @@ impl Function {
     ///
     /// assert_eq!(sum.call(&[Value::I32(1), Value::I32(2)]).unwrap().to_vec(), vec![Value::I32(3)]);
     /// ```
-    pub fn call(&self, params: &[Val]) -> Result<Box<[Val]>, RuntimeError> {
+    pub fn call(
+        &self,
+        params: &[Val],
+    ) -> Result<Box<[Val]>, RuntimeError> {
         // If it's a function defined in the Wasm, it will always have a call_trampoline
-        if let Some(trampoline) = self.exported.vm_function.call_trampoline {
+        if let Some(trampoline) = self
+            .exported
+            .vm_function
+            .call_trampoline
+        {
             let mut results = vec![Val::null(); self.result_arity()];
             self.call_wasm(trampoline, params, &mut results)?;
             return Ok(results.into_boxed_slice());
@@ -568,12 +614,15 @@ impl Function {
 
         // If it's a function defined in the host
         match self.exported.vm_function.kind {
-            VMFunctionKind::Dynamic => unsafe {
+            | VMFunctionKind::Dynamic => unsafe {
                 type VMContextWithEnv = VMDynamicFunctionContext<DynamicFunction<std::ffi::c_void>>;
                 let ctx = self.exported.vm_function.vmctx.host_env as *mut VMContextWithEnv;
-                Ok((*ctx).ctx.call(&params)?.into_boxed_slice())
+                Ok((*ctx)
+                    .ctx
+                    .call(&params)?
+                    .into_boxed_slice())
             },
-            VMFunctionKind::Static => {
+            | VMFunctionKind::Static => {
                 unimplemented!(
                     "Native function definitions can't be directly called from the host yet"
                 );
@@ -581,7 +630,10 @@ impl Function {
         }
     }
 
-    pub(crate) fn from_vm_export(store: &Store, near_vm_export: ExportFunction) -> Self {
+    pub(crate) fn from_vm_export(
+        store: &Store,
+        near_vm_export: ExportFunction,
+    ) -> Self {
         Self { store: store.clone(), exported: near_vm_export }
     }
 
@@ -727,21 +779,33 @@ impl<'a> Exportable<'a> for Function {
 impl Clone for Function {
     fn clone(&self) -> Self {
         let mut exported = self.exported.clone();
-        exported.vm_function.upgrade_instance_ref().unwrap();
+        exported
+            .vm_function
+            .upgrade_instance_ref()
+            .unwrap();
 
         Self { store: self.store.clone(), exported }
     }
 }
 
 impl fmt::Debug for Function {
-    fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        formatter.debug_struct("Function").field("ty", &self.ty()).finish()
+    fn fmt(
+        &self,
+        formatter: &mut fmt::Formatter,
+    ) -> fmt::Result {
+        formatter
+            .debug_struct("Function")
+            .field("ty", &self.ty())
+            .finish()
     }
 }
 
 /// This trait is one that all dynamic functions must fulfill.
 pub(crate) trait VMDynamicFunction: Send + Sync {
-    fn call(&self, args: &[Val]) -> Result<Vec<Val>, RuntimeError>;
+    fn call(
+        &self,
+        args: &[Val],
+    ) -> Result<Vec<Val>, RuntimeError>;
     fn function_type(&self) -> &FunctionType;
     fn store(&self) -> &Store;
 }
@@ -772,7 +836,10 @@ impl<Env> VMDynamicFunction for DynamicFunction<Env>
 where
     Env: Sized + 'static + Send + Sync,
 {
-    fn call(&self, args: &[Val]) -> Result<Vec<Val>, RuntimeError> {
+    fn call(
+        &self,
+        args: &[Val],
+    ) -> Result<Vec<Val>, RuntimeError> {
         (*self.func)(&*self.env, &args)
     }
     fn function_type(&self) -> &FunctionType {
@@ -786,7 +853,10 @@ where
 trait VMDynamicFunctionCall<T: VMDynamicFunction> {
     fn from_context(ctx: T) -> Self;
     fn address_ptr() -> *const VMFunctionBody;
-    unsafe fn func_wrapper(&self, values_vec: *mut i128);
+    unsafe fn func_wrapper(
+        &self,
+        values_vec: *mut i128,
+    );
 }
 
 impl<T: VMDynamicFunction> VMDynamicFunctionCall<T> for VMDynamicFunctionContext<T> {
@@ -818,7 +888,10 @@ impl<T: VMDynamicFunction> VMDynamicFunctionCall<T> for VMDynamicFunctionContext
 
             // We need to dynamically check that the returns
             // match the expected types, as well as expected length.
-            let return_types = returns.iter().map(|ret| ret.ty()).collect::<Vec<_>>();
+            let return_types = returns
+                .iter()
+                .map(|ret| ret.ty())
+                .collect::<Vec<_>>();
             if return_types != func_ty.results() {
                 return Err(RuntimeError::new(format!(
                     "Dynamic function returned wrong signature. Expected {:?} but got {:?}",
@@ -835,9 +908,9 @@ impl<T: VMDynamicFunction> VMDynamicFunctionCall<T> for VMDynamicFunctionContext
              // incrementing and decrementing. However the logic as-is is correct.
 
         match result {
-            Ok(Ok(())) => {}
-            Ok(Err(trap)) => raise_user_trap(Box::new(trap)),
-            Err(panic) => resume_panic(panic),
+            | Ok(Ok(())) => {}
+            | Ok(Err(trap)) => raise_user_trap(Box::new(trap)),
+            | Err(panic) => resume_panic(panic),
         }
     }
 }
@@ -1085,7 +1158,10 @@ mod inner {
                 struct E;
 
                 impl fmt::Display for E {
-                    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+                    fn fmt(
+                        &self,
+                        formatter: &mut fmt::Formatter<'_>,
+                    ) -> fmt::Result {
                         write!(formatter, "E")
                     }
                 }
@@ -1463,7 +1539,12 @@ mod inner {
             assert_eq!((1i32, 2i64).into_array(), [1, 2]);
             assert_eq!(
                 (1i32, 2i32, 3.1f32, 4.2f64).into_array(),
-                [1, 2, (3.1f32).to_bits().into(), (4.2f64).to_bits().into()]
+                [
+                    1,
+                    2,
+                    (3.1f32).to_bits().into(),
+                    (4.2f64).to_bits().into()
+                ]
             );
         }
 
@@ -1502,7 +1583,12 @@ mod inner {
 
             assert_eq!(
                 <(i32, i64, f32, f64)>::wasm_types(),
-                [Type::I32, Type::I64, Type::F32, Type::F64]
+                [
+                    Type::I32,
+                    Type::I64,
+                    Type::F32,
+                    Type::F64
+                ]
             );
         }
     }
@@ -1521,13 +1607,22 @@ mod inner {
         fn func_i32__i32(a: i32) -> i32 {
             a * 2
         }
-        fn func_i32_i32__i32(a: i32, b: i32) -> i32 {
+        fn func_i32_i32__i32(
+            a: i32,
+            b: i32,
+        ) -> i32 {
             a + b
         }
-        fn func_i32_i32__i32_i32(a: i32, b: i32) -> (i32, i32) {
+        fn func_i32_i32__i32_i32(
+            a: i32,
+            b: i32,
+        ) -> (i32, i32) {
             (a, b)
         }
-        fn func_f32_i32__i32_f32(a: f32, b: i32) -> (i32, f32) {
+        fn func_f32_i32__i32_f32(
+            a: f32,
+            b: i32,
+        ) -> (i32, f32) {
             (b, a)
         }
 

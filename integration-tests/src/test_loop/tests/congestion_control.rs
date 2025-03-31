@@ -51,7 +51,9 @@ fn test_congestion_control_simple() {
     do_call_contract(&mut test_loop, &node_datas, &rpc_id, &contract_id, &accounts);
 
     // Make sure the chain progresses for several epochs.
-    let client_handle = node_datas[0].client_sender.actor_handle();
+    let client_handle = node_datas[0]
+        .client_sender
+        .actor_handle();
     test_loop.run_until(
         |test_loop_data: &mut TestLoopData| height_condition(test_loop_data, &client_handle, 10050),
         Duration::seconds(100),
@@ -64,7 +66,11 @@ fn test_congestion_control_simple() {
 }
 
 fn setup(accounts: &Vec<AccountId>) -> (TestLoopEnv, AccountId) {
-    let clients = accounts.iter().take(NUM_CLIENTS).cloned().collect_vec();
+    let clients = accounts
+        .iter()
+        .take(NUM_CLIENTS)
+        .cloned()
+        .collect_vec();
 
     // split the clients into producers, validators, and rpc nodes
     let tmp = clients.clone();
@@ -73,8 +79,14 @@ fn setup(accounts: &Vec<AccountId>) -> (TestLoopEnv, AccountId) {
     let (rpcs, tmp) = tmp.split_at(NUM_RPC);
     assert!(tmp.is_empty());
 
-    let producers = producers.iter().map(|account| account.as_str()).collect_vec();
-    let validators = validators.iter().map(|account| account.as_str()).collect_vec();
+    let producers = producers
+        .iter()
+        .map(|account| account.as_str())
+        .collect_vec();
+    let validators = validators
+        .iter()
+        .map(|account| account.as_str())
+        .collect_vec();
     let [rpc_id] = rpcs else { panic!("Expected exactly one rpc node") };
 
     let epoch_length = 10;
@@ -89,7 +101,11 @@ fn setup(accounts: &Vec<AccountId>) -> (TestLoopEnv, AccountId) {
             validators_spec,
             accounts: &accounts,
         },
-        |genesis_builder| genesis_builder.genesis_height(10000).transaction_validity_period(1000),
+        |genesis_builder| {
+            genesis_builder
+                .genesis_height(10000)
+                .transaction_validity_period(1000)
+        },
         |epoch_config_builder| {
             epoch_config_builder.shuffle_shard_assignment_for_chunk_producers(true)
         },
@@ -154,5 +170,12 @@ fn height_condition(
     client_handle: &TestLoopDataHandle<ClientActorInner>,
     target_height: BlockHeight,
 ) -> bool {
-    test_loop_data.get(&client_handle).client.chain.head().unwrap().height > target_height
+    test_loop_data
+        .get(&client_handle)
+        .client
+        .chain
+        .head()
+        .unwrap()
+        .height
+        > target_height
 }

@@ -31,7 +31,11 @@ pub struct BalancedProducer {
 }
 
 impl Producer for BalancedProducer {
-    fn init(&mut self, _shards: &[ShardId]) {}
+    fn init(
+        &mut self,
+        _shards: &[ShardId],
+    ) {
+    }
 
     fn produce_transactions(
         &mut self,
@@ -70,7 +74,10 @@ impl Producer for BalancedProducer {
 }
 
 impl BalancedProducer {
-    pub fn with_sizes_and_fan_out(receipt_sizes: Vec<u64>, fan_out: usize) -> Self {
+    pub fn with_sizes_and_fan_out(
+        receipt_sizes: Vec<u64>,
+        fan_out: usize,
+    ) -> Self {
         let attached_gas = 300 * TGAS;
         let execution_gas = 100 * TGAS;
         let conversion_gas = 5 * TGAS;
@@ -127,7 +134,11 @@ impl BalancedProducer {
         }
     }
 
-    fn produce_first_receipt(&self, receiver: ShardId, tx: &mut TransactionBuilder) -> ReceiptId {
+    fn produce_first_receipt(
+        &self,
+        receiver: ShardId,
+        tx: &mut TransactionBuilder,
+    ) -> ReceiptId {
         let first_receiver = if self.depth == 1 { receiver } else { tx.sender_shard() };
 
         let receipt = self.receipt(first_receiver, 1);
@@ -149,7 +160,11 @@ impl BalancedProducer {
         next_receipt
     }
 
-    fn receipt(&self, receiver: ShardId, depth: usize) -> ReceiptDefinition {
+    fn receipt(
+        &self,
+        receiver: ShardId,
+        depth: usize,
+    ) -> ReceiptDefinition {
         ReceiptDefinition {
             receiver,
             size: self.receipt_sizes[depth - 1],

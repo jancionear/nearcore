@@ -102,7 +102,10 @@ fn slow_test_bandwidth_scheduler_four_shards_random_receipts_missing_chunks() {
     assert!(summary.max_outgoing <= summary.max_shard_bandwidth);
 }
 
-fn run_bandwidth_scheduler_test(scenario: TestScenario, tx_concurrency: usize) -> TestSummary {
+fn run_bandwidth_scheduler_test(
+    scenario: TestScenario,
+    tx_concurrency: usize,
+) -> TestSummary {
     init_test_logger();
     let active_links = scenario.get_active_links();
     let mut rng = ChaCha20Rng::seed_from_u64(0);
@@ -111,19 +114,26 @@ fn run_bandwidth_scheduler_test(scenario: TestScenario, tx_concurrency: usize) -
     let workload_blocks = 50;
 
     // Boundary accounts between shards
-    let boundary_accounts: Vec<AccountId> =
-        (1..scenario.num_shards).map(|i| format!("shard{}", i).parse().unwrap()).collect();
+    let boundary_accounts: Vec<AccountId> = (1..scenario.num_shards)
+        .map(|i| format!("shard{}", i).parse().unwrap())
+        .collect();
     let shard_layout = ShardLayout::multi_shard_custom(boundary_accounts.clone(), 0);
 
     // Accounts that will be sending receipts to each other. One per shard.
     let workload_accounts: Vec<AccountId> = (0..scenario.num_shards)
-        .map(|i| format!("shard{}_workload_sender", i).parse().unwrap())
+        .map(|i| {
+            format!("shard{}_workload_sender", i)
+                .parse()
+                .unwrap()
+        })
         .collect();
     let shard_accounts: BTreeMap<ShardIndex, AccountId> = workload_accounts
         .iter()
         .map(|account| {
             let shard_id = shard_layout.account_id_to_shard_id(account);
-            let shard_index = shard_layout.get_shard_index(shard_id).unwrap();
+            let shard_index = shard_layout
+                .get_shard_index(shard_id)
+                .unwrap();
             (shard_index, account.clone())
         })
         .collect();
@@ -162,7 +172,11 @@ fn run_bandwidth_scheduler_test(scenario: TestScenario, tx_concurrency: usize) -
             validators_spec,
             accounts: &all_accounts,
         },
-        |genesis_builder| genesis_builder.genesis_height(10000).transaction_validity_period(1000),
+        |genesis_builder| {
+            genesis_builder
+                .genesis_height(10000)
+                .transaction_validity_period(1000)
+        },
         |epoch_config_builder| epoch_config_builder,
     );
 
@@ -183,7 +197,9 @@ fn run_bandwidth_scheduler_test(scenario: TestScenario, tx_concurrency: usize) -
         scenario.link_generators,
     );
 
-    let client_handle = node_datas[0].client_sender.actor_handle();
+    let client_handle = node_datas[0]
+        .client_sender
+        .actor_handle();
     let client_sender = node_datas[0].client_sender.clone();
     let future_spawner = test_loop.future_spawner();
 
@@ -219,7 +235,10 @@ fn run_bandwidth_scheduler_test(scenario: TestScenario, tx_concurrency: usize) -
 
     tracing::info!(target: "scheduler_test", "Total transactions completed: {}", workload_generator.txs_done());
 
-    let client = &test_loop.data.get(&client_handle).client;
+    let client = &test_loop
+        .data
+        .get(&client_handle)
+        .client;
     let bandwidth_stats =
         analyze_workload_blocks(first_height.unwrap(), last_height.unwrap(), client);
 
@@ -251,13 +270,27 @@ fn analyze_workload_blocks(
         );
     }
 
-    let mut block = chain.get_block(&tip.last_block_hash).unwrap();
-    let mut prev_block = chain.get_block(&block.header().prev_hash()).unwrap();
+    let mut block = chain
+        .get_block(&tip.last_block_hash)
+        .unwrap();
+    let mut prev_block = chain
+        .get_block(&block.header().prev_hash())
+        .unwrap();
 
-    let epoch_id = epoch_manager.get_epoch_id(block.hash()).unwrap();
-    let num_shards = epoch_manager.get_shard_layout(&epoch_id).unwrap().num_shards();
-    let protocol_version = epoch_manager.get_epoch_protocol_version(&epoch_id).unwrap();
-    let runtime_config = client.runtime_adapter.get_runtime_config(protocol_version).unwrap();
+    let epoch_id = epoch_manager
+        .get_epoch_id(block.hash())
+        .unwrap();
+    let num_shards = epoch_manager
+        .get_shard_layout(&epoch_id)
+        .unwrap()
+        .num_shards();
+    let protocol_version = epoch_manager
+        .get_epoch_protocol_version(&epoch_id)
+        .unwrap();
+    let runtime_config = client
+        .runtime_adapter
+        .get_runtime_config(protocol_version)
+        .unwrap();
     let scheduler_params =
         BandwidthSchedulerParams::new(num_shards.try_into().unwrap(), &runtime_config);
     let mut bandwidth_stats =
@@ -270,7 +303,11 @@ fn analyze_workload_blocks(
         }
         let cur_shard_layout = client
             .epoch_manager
-            .get_shard_layout(&epoch_manager.get_epoch_id(&block.hash()).unwrap())
+            .get_shard_layout(
+                &epoch_manager
+                    .get_epoch_id(&block.hash())
+                    .unwrap(),
+            )
             .unwrap();
 
         // Go over all new chunks in a block
@@ -279,14 +316,19 @@ fn analyze_workload_blocks(
                 continue;
             };
             let shard_id = new_chunk.shard_id();
-            let shard_index = cur_shard_layout.get_shard_index(shard_id).unwrap();
+            let shard_index = cur_shard_layout
+                .get_shard_index(shard_id)
+                .unwrap();
             let shard_uid = ShardUId::new(cur_shard_layout.version(), shard_id);
             let prev_shard_index = epoch_manager
                 .get_prev_shard_id_from_prev_hash(block.header().prev_hash(), shard_id)
                 .unwrap()
                 .2;
-            let prev_height_included =
-                prev_block.chunks().get(prev_shard_index).unwrap().height_included();
+            let prev_height_included = prev_block
+                .chunks()
+                .get(prev_shard_index)
+                .unwrap()
+                .height_included();
 
             // pre-state trie
             let store = client.chain.chain_store().store();
@@ -317,23 +359,33 @@ fn analyze_workload_blocks(
                 .unwrap();
 
             // Fetch outgoing receipts generated by this chunk
-            let outgoing_receipts =
-                chain.chain_store.get_outgoing_receipts(&block.hash(), shard_id).unwrap();
+            let outgoing_receipts = chain
+                .chain_store
+                .get_outgoing_receipts(&block.hash(), shard_id)
+                .unwrap();
 
             // Record size of incoming receipts in chunk stats
             for receipt_proof_response in incoming_receipts_proofs {
                 for receipt_proof in receipt_proof_response.1.iter() {
                     for receipt in &receipt_proof.0 {
-                        cur_chunk_stats.total_incoming_receipts_size +=
-                            ByteSize::b(borsh::object_length(receipt).unwrap().try_into().unwrap());
+                        cur_chunk_stats.total_incoming_receipts_size += ByteSize::b(
+                            borsh::object_length(receipt)
+                                .unwrap()
+                                .try_into()
+                                .unwrap(),
+                        );
                     }
                 }
             }
 
             // Record size of outgoing receipts in chunk stats
             for receipt in outgoing_receipts.iter() {
-                let receipt_size =
-                    ByteSize::b(borsh::object_length(receipt).unwrap().try_into().unwrap());
+                let receipt_size = ByteSize::b(
+                    borsh::object_length(receipt)
+                        .unwrap()
+                        .try_into()
+                        .unwrap(),
+                );
 
                 cur_chunk_stats.total_outgoing_receipts_size += receipt_size;
 
@@ -355,7 +407,9 @@ fn analyze_workload_blocks(
             // Look into the outgoing buffers
             let mut outgoing_buffers = ShardsOutgoingReceiptBuffer::load(&trie).unwrap();
             for target_shard_id in outgoing_buffers.shards() {
-                let target_shard_index = cur_shard_layout.get_shard_index(target_shard_id).unwrap();
+                let target_shard_index = cur_shard_layout
+                    .get_shard_index(target_shard_id)
+                    .unwrap();
 
                 // Read sizes of receipts stored in the outgoing buffer to the target shard
                 let buffered_receipt_sizes: Vec<ByteSize> = outgoing_buffers
@@ -363,11 +417,15 @@ fn analyze_workload_blocks(
                     .iter(&trie, false)
                     .map(|res| res.unwrap())
                     .map(|receipt| match receipt {
-                        ReceiptOrStateStoredReceipt::Receipt(_) => {
+                        | ReceiptOrStateStoredReceipt::Receipt(_) => {
                             panic!("Old receipts shouldn't occur")
                         }
-                        ReceiptOrStateStoredReceipt::StateStoredReceipt(state_stored_receipt) => {
-                            ByteSize::b(state_stored_receipt.metadata().congestion_size)
+                        | ReceiptOrStateStoredReceipt::StateStoredReceipt(state_stored_receipt) => {
+                            ByteSize::b(
+                                state_stored_receipt
+                                    .metadata()
+                                    .congestion_size,
+                            )
                         }
                     })
                     .collect();
@@ -379,8 +437,11 @@ fn analyze_workload_blocks(
                     .size_of_buffered_receipts_to_shard
                     .insert(target_shard_index, total_size);
 
-                let first_five_sizes: Vec<ByteSize> =
-                    buffered_receipt_sizes.iter().copied().take(5).collect();
+                let first_five_sizes: Vec<ByteSize> = buffered_receipt_sizes
+                    .iter()
+                    .copied()
+                    .take(5)
+                    .collect();
                 if !first_five_sizes.is_empty() {
                     cur_chunk_stats
                         .first_five_buffered_sizes
@@ -425,7 +486,9 @@ fn analyze_workload_blocks(
                 // Verify that the bandwidth request is generated correctly
                 let expected_bandwidth_request = BandwidthRequest::make_from_receipt_sizes(
                     target_shard_id.try_into().unwrap(),
-                    receipt_group_sizes.iter().map(|size| Ok::<u64, Infallible>(*size)),
+                    receipt_group_sizes
+                        .iter()
+                        .map(|size| Ok::<u64, Infallible>(*size)),
                     &scheduler_params,
                 )
                 .unwrap();
@@ -439,7 +502,9 @@ fn analyze_workload_blocks(
         }
 
         block = prev_block;
-        prev_block = chain.get_block(block.header().prev_hash()).unwrap();
+        prev_block = chain
+            .get_block(block.header().prev_hash())
+            .unwrap();
     }
 
     bandwidth_stats
@@ -455,7 +520,10 @@ fn assert_groups_match_receipts(
     let mut group_sizes_iter = group_sizes.iter();
     for receipt_size in receipt_sizes.iter().map(|s| s.as_u64()) {
         if cur_group_remaining_size == 0 {
-            cur_group_remaining_size = group_sizes_iter.next().copied().unwrap();
+            cur_group_remaining_size = group_sizes_iter
+                .next()
+                .copied()
+                .unwrap();
         }
         if cur_group_remaining_size > group_config.size_upper_bound.as_u64() {
             assert_eq!(cur_group_remaining_size, receipt_size);
@@ -504,12 +572,14 @@ impl WorkloadGenerator {
         // Create a WorkloadSender for each pair of (account, access_key)
         for (account, signers) in account_signers {
             for signer in signers {
-                generator.workload_senders.push(WorkloadSender::new(
-                    account.clone(),
-                    signer.into(),
-                    generator.shard_accounts.clone(),
-                    link_generators.clone(),
-                ));
+                generator
+                    .workload_senders
+                    .push(WorkloadSender::new(
+                        account.clone(),
+                        signer.into(),
+                        generator.shard_accounts.clone(),
+                        link_generators.clone(),
+                    ));
             }
         }
         tracing::info!(target: "scheduler_test", "Workload senders: {}", generator.workload_senders.len());
@@ -518,7 +588,11 @@ impl WorkloadGenerator {
     }
 
     /// Deploy the test contract on all workload accounts
-    fn deploy_contracts(&mut self, test_loop: &mut TestLoopV2, node_datas: &[TestData]) {
+    fn deploy_contracts(
+        &mut self,
+        test_loop: &mut TestLoopV2,
+        node_datas: &[TestData],
+    ) {
         tracing::info!(target: "scheduler_test", "Deploying contracts...");
         let (last_block_hash, nonce) = get_last_block_and_nonce(test_loop, node_datas);
         let deploy_contracts_txs: Vec<SignedTransaction> = self
@@ -568,14 +642,22 @@ impl WorkloadGenerator {
             .take(concurrency - self.shard_accounts.len())
             .enumerate()
         {
-            let signer_seed: AccountId = format!("{}_key{}", account, i).parse().unwrap();
+            let signer_seed: AccountId = format!("{}_key{}", account, i)
+                .parse()
+                .unwrap();
             let new_signer = create_user_test_signer(&signer_seed);
-            signers_to_add.entry(account.clone()).or_insert_with(Vec::new).push(new_signer);
+            signers_to_add
+                .entry(account.clone())
+                .or_insert_with(Vec::new)
+                .push(new_signer);
         }
 
         // Use the available access keys to add new access keys
         // Repeat until all access keys are added
-        while !signers_to_add.iter().all(|(_, to_add)| to_add.is_empty()) {
+        while !signers_to_add
+            .iter()
+            .all(|(_, to_add)| to_add.is_empty())
+        {
             let mut add_key_txs: Vec<SignedTransaction> = Vec::new();
             let mut new_signers = Vec::new();
 
@@ -609,7 +691,10 @@ impl WorkloadGenerator {
 
             tracing::info!(target: "scheduler_test", "Added {} access keys", new_signers.len());
             for (account, new_signer) in new_signers {
-                available_signers.entry(account).or_insert_with(Vec::new).push(new_signer);
+                available_signers
+                    .entry(account)
+                    .or_insert_with(Vec::new)
+                    .push(new_signer);
             }
         }
 
@@ -628,7 +713,10 @@ impl WorkloadGenerator {
     }
 
     pub fn txs_done(&self) -> u64 {
-        self.workload_senders.iter().map(|s| s.txs_done).sum()
+        self.workload_senders
+            .iter()
+            .map(|s| s.txs_done)
+            .sum()
     }
 }
 
@@ -675,16 +763,16 @@ impl WorkloadSender {
         rng: &mut ChaCha20Rng,
     ) {
         match self.tx_runner {
-            Some(ref mut tx_runner) => {
+            | Some(ref mut tx_runner) => {
                 match tx_runner.poll_assert_success(client_sender, client, future_spawner) {
-                    Poll::Pending => {}
-                    Poll::Ready(_) => {
+                    | Poll::Pending => {}
+                    | Poll::Ready(_) => {
                         self.txs_done += 1;
                         self.start_new_transaction(client_sender, client, future_spawner, rng)
                     }
                 }
             }
-            None => self.start_new_transaction(client_sender, client, future_spawner, rng),
+            | None => self.start_new_transaction(client_sender, client, future_spawner, rng),
         }
     }
 
@@ -710,7 +798,10 @@ impl WorkloadSender {
             return;
         }
         let (receiver_index, link_generator) = my_link_senders.choose_mut(rng).unwrap();
-        let receiver_account = self.shard_accounts.get(receiver_index).unwrap();
+        let receiver_account = self
+            .shard_accounts
+            .get(receiver_index)
+            .unwrap();
 
         let target_receipt_size = link_generator.generate_receipt_size(rng);
         let (last_block_hash, nonce) = get_last_block_and_nonce_from_client(client);
@@ -757,18 +848,22 @@ fn make_send_receipt_transaction(
             gas_price: 0,
             output_data_receivers: vec![],
             input_data_ids: vec![],
-            actions: vec![Action::FunctionCall(Box::new(FunctionCallAction {
-                method_name: method_name.clone(),
-                args: Vec::new(),
-                gas: 0,
-                deposit: 0,
-            }))],
+            actions: vec![Action::FunctionCall(Box::new(
+                FunctionCallAction {
+                    method_name: method_name.clone(),
+                    args: Vec::new(),
+                    gas: 0,
+                    deposit: 0,
+                },
+            ))],
         }),
     }))
     .unwrap();
 
     // Choose the size of the arguments so that the total receipt size is `target_receipt_size`.
-    let args_size = target_receipt_size.as_u64().saturating_sub(base_receipt_size as u64);
+    let args_size = target_receipt_size
+        .as_u64()
+        .saturating_sub(base_receipt_size as u64);
 
     SignedTransaction::call(
         nonce,
@@ -811,6 +906,13 @@ fn get_last_block_and_nonce(
     test_loop: &TestLoopV2,
     node_datas: &[TestData],
 ) -> (CryptoHash, Nonce) {
-    let client = &test_loop.data.get(&node_datas[0].client_sender.actor_handle()).client;
+    let client = &test_loop
+        .data
+        .get(
+            &node_datas[0]
+                .client_sender
+                .actor_handle(),
+        )
+        .client;
     get_last_block_and_nonce_from_client(client)
 }

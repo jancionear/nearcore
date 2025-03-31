@@ -39,29 +39,53 @@ mod tests {
     #[test]
     fn test_migration_data() {
         assert_eq!(
-            hash(serde_json::to_string(&mainnet_storage_usage_delta()).unwrap().as_bytes())
-                .to_string(),
+            hash(
+                serde_json::to_string(&mainnet_storage_usage_delta())
+                    .unwrap()
+                    .as_bytes()
+            )
+            .to_string(),
             "2fEgaLFBBJZqgLQEvHPsck4NS3sFzsgyKaMDqTw5HVvQ"
         );
         let mainnet_migration_data = load_migration_data(near_primitives::chains::MAINNET);
-        assert_eq!(mainnet_migration_data.storage_usage_delta.len(), 3112);
+        assert_eq!(
+            mainnet_migration_data
+                .storage_usage_delta
+                .len(),
+            3112
+        );
         let testnet_migration_data = load_migration_data(near_primitives::chains::TESTNET);
-        assert_eq!(testnet_migration_data.storage_usage_delta.len(), 0);
+        assert_eq!(
+            testnet_migration_data
+                .storage_usage_delta
+                .len(),
+            0
+        );
     }
 
     #[test]
     fn test_restored_receipts_data() {
         assert_eq!(
-            hash(serde_json::to_string(&mainnet_restored_receipts()).unwrap().as_bytes())
-                .to_string(),
+            hash(
+                serde_json::to_string(&mainnet_restored_receipts())
+                    .unwrap()
+                    .as_bytes()
+            )
+            .to_string(),
             "48ZMJukN7RzvyJSW9MJ5XmyQkQFfjy2ZxPRaDMMHqUcT"
         );
         let mainnet_migration_data = load_migration_data(near_primitives::chains::MAINNET);
         assert_eq!(
-            mainnet_migration_data.restored_receipts.get(&ShardId::new(0)).unwrap().len(),
+            mainnet_migration_data
+                .restored_receipts
+                .get(&ShardId::new(0))
+                .unwrap()
+                .len(),
             383
         );
         let testnet_migration_data = load_migration_data(near_primitives::chains::TESTNET);
-        assert!(testnet_migration_data.restored_receipts.is_empty());
+        assert!(testnet_migration_data
+            .restored_receipts
+            .is_empty());
     }
 }

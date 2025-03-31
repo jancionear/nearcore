@@ -82,7 +82,10 @@ pub fn gather() -> Vec<prometheus::proto::MetricFamily> {
 
 /// Attempts to crate an `IntCounter`, returning `Err` if the registry does not accept the counter
 /// (potentially due to naming conflict).
-pub fn try_create_int_counter(name: &str, help: &str) -> Result<IntCounter> {
+pub fn try_create_int_counter(
+    name: &str,
+    help: &str,
+) -> Result<IntCounter> {
     check_metric_near_prefix(name)?;
     let opts = Opts::new(name, help);
     let counter = IntCounter::with_opts(opts)?;
@@ -106,7 +109,10 @@ pub fn try_create_int_counter_vec(
 
 /// Attempts to crate an `Counter`, returning `Err` if the registry does not accept the counter
 /// (potentially due to naming conflict).
-pub fn try_create_counter(name: &str, help: &str) -> Result<Counter> {
+pub fn try_create_counter(
+    name: &str,
+    help: &str,
+) -> Result<Counter> {
     check_metric_near_prefix(name)?;
     let opts = Opts::new(name, help);
     let counter = Counter::with_opts(opts)?;
@@ -116,7 +122,11 @@ pub fn try_create_counter(name: &str, help: &str) -> Result<Counter> {
 
 /// Attempts to crate an `Counter`, returning `Err` if the registry does not accept the counter
 /// (potentially due to naming conflict).
-pub fn try_create_counter_vec(name: &str, help: &str, labels: &[&str]) -> Result<CounterVec> {
+pub fn try_create_counter_vec(
+    name: &str,
+    help: &str,
+    labels: &[&str],
+) -> Result<CounterVec> {
     check_metric_near_prefix(name)?;
     let opts = Opts::new(name, help);
     let counter = CounterVec::new(opts, labels)?;
@@ -126,7 +136,10 @@ pub fn try_create_counter_vec(name: &str, help: &str, labels: &[&str]) -> Result
 
 /// Attempts to crate an `IntGauge`, returning `Err` if the registry does not accept the gauge
 /// (potentially due to naming conflict).
-pub fn try_create_int_gauge(name: &str, help: &str) -> Result<IntGauge> {
+pub fn try_create_int_gauge(
+    name: &str,
+    help: &str,
+) -> Result<IntGauge> {
     check_metric_near_prefix(name)?;
     let opts = Opts::new(name, help);
     let gauge = IntGauge::with_opts(opts)?;
@@ -136,7 +149,11 @@ pub fn try_create_int_gauge(name: &str, help: &str) -> Result<IntGauge> {
 
 /// Attempts to crate an `IntGaugeVec`, returning `Err` if the registry does not accept the gauge
 /// (potentially due to naming conflict).
-pub fn try_create_int_gauge_vec(name: &str, help: &str, labels: &[&str]) -> Result<IntGaugeVec> {
+pub fn try_create_int_gauge_vec(
+    name: &str,
+    help: &str,
+    labels: &[&str],
+) -> Result<IntGaugeVec> {
     check_metric_near_prefix(name)?;
     let opts = Opts::new(name, help);
     let gauge = IntGaugeVec::new(opts, labels)?;
@@ -146,7 +163,10 @@ pub fn try_create_int_gauge_vec(name: &str, help: &str, labels: &[&str]) -> Resu
 
 /// Attempts to crate an `Gauge`, returning `Err` if the registry does not accept the gauge
 /// (potentially due to naming conflict).
-pub fn try_create_gauge(name: &str, help: &str) -> Result<Gauge> {
+pub fn try_create_gauge(
+    name: &str,
+    help: &str,
+) -> Result<Gauge> {
     check_metric_near_prefix(name)?;
     let opts = Opts::new(name, help);
     let gauge = Gauge::with_opts(opts)?;
@@ -156,7 +176,11 @@ pub fn try_create_gauge(name: &str, help: &str) -> Result<Gauge> {
 
 /// Attempts to crate an `GaugeVec`, returning `Err` if the registry does not accept the gauge
 /// (potentially due to naming conflict).
-pub fn try_create_gauge_vec(name: &str, help: &str, labels: &[&str]) -> Result<GaugeVec> {
+pub fn try_create_gauge_vec(
+    name: &str,
+    help: &str,
+    labels: &[&str],
+) -> Result<GaugeVec> {
     check_metric_near_prefix(name)?;
     let opts = Opts::new(name, help);
     let gauge = GaugeVec::new(opts, labels)?;
@@ -166,7 +190,10 @@ pub fn try_create_gauge_vec(name: &str, help: &str, labels: &[&str]) -> Result<G
 
 /// Attempts to crate a `Histogram`, returning `Err` if the registry does not accept the counter
 /// (potentially due to naming conflict).
-pub fn try_create_histogram(name: &str, help: &str) -> Result<Histogram> {
+pub fn try_create_histogram(
+    name: &str,
+    help: &str,
+) -> Result<Histogram> {
     check_metric_near_prefix(name)?;
     let opts = HistogramOpts::new(name, help);
     let histogram = Histogram::with_opts(opts)?;

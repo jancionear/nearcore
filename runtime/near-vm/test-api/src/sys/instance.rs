@@ -55,9 +55,9 @@ pub enum InstantiationError {
 impl From<near_vm_engine::InstantiationError> for InstantiationError {
     fn from(other: near_vm_engine::InstantiationError) -> Self {
         match other {
-            near_vm_engine::InstantiationError::Link(e) => Self::Link(e),
-            near_vm_engine::InstantiationError::Start(e) => Self::Start(e),
-            near_vm_engine::InstantiationError::CpuFeature(e) => Self::CpuFeature(e),
+            | near_vm_engine::InstantiationError::Link(e) => Self::Link(e),
+            | near_vm_engine::InstantiationError::Start(e) => Self::Start(e),
+            | near_vm_engine::InstantiationError::CpuFeature(e) => Self::CpuFeature(e),
         }
     }
 }
@@ -130,13 +130,23 @@ impl Instance {
     }
 
     /// Lookup an exported entity by its name.
-    pub fn lookup(&self, field: &str) -> Option<Export> {
-        let vmextern = self.handle.lock().unwrap().lookup(field)?;
+    pub fn lookup(
+        &self,
+        field: &str,
+    ) -> Option<Export> {
+        let vmextern = self
+            .handle
+            .lock()
+            .unwrap()
+            .lookup(field)?;
         Some(vmextern.into())
     }
 
     /// Lookup an exported function by its name.
-    pub fn lookup_function(&self, field: &str) -> Option<super::externals::Function> {
+    pub fn lookup_function(
+        &self,
+        field: &str,
+    ) -> Option<super::externals::Function> {
         if let Export::Function(f) = self.lookup(field)? {
             Some(super::externals::Function::from_vm_export(self.module.store(), f))
         } else {
@@ -154,13 +164,13 @@ impl Instance {
         Rets: WasmTypeList,
     {
         match self.lookup(name) {
-            Some(Export::Function(f)) => {
+            | Some(Export::Function(f)) => {
                 super::externals::Function::from_vm_export(self.module.store(), f)
                     .native()
                     .map_err(|_| ExportError::IncompatibleType)
             }
-            Some(_) => Err(ExportError::IncompatibleType),
-            None => Err(ExportError::Missing("not found".into())),
+            | Some(_) => Err(ExportError::IncompatibleType),
+            | None => Err(ExportError::Missing("not found".into())),
         }
     }
 

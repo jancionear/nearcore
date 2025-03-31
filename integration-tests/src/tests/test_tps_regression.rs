@@ -29,19 +29,42 @@ fn send_transaction(
     nonces[money_sender] += 1;
     let nonce = nonces[money_sender];
 
-    let sender_acc = nodes[money_sender].read().unwrap().account_id().unwrap();
-    let receiver_acc = nodes[money_receiver].read().unwrap().account_id().unwrap();
-    if let Some(block_hash) = nodes[tx_receiver].read().unwrap().user().get_best_block_hash() {
+    let sender_acc = nodes[money_sender]
+        .read()
+        .unwrap()
+        .account_id()
+        .unwrap();
+    let receiver_acc = nodes[money_receiver]
+        .read()
+        .unwrap()
+        .account_id()
+        .unwrap();
+    if let Some(block_hash) = nodes[tx_receiver]
+        .read()
+        .unwrap()
+        .user()
+        .get_best_block_hash()
+    {
         let transaction = SignedTransaction::send_money(
             nonce,
             sender_acc,
             receiver_acc,
-            &*nodes[money_sender].read().unwrap().signer(),
+            &*nodes[money_sender]
+                .read()
+                .unwrap()
+                .signer(),
             1,
             block_hash,
         );
-        nodes[tx_receiver].read().unwrap().add_transaction(transaction).unwrap();
-        submitted_transactions.write().unwrap().push(1);
+        nodes[tx_receiver]
+            .read()
+            .unwrap()
+            .add_transaction(transaction)
+            .unwrap();
+        submitted_transactions
+            .write()
+            .unwrap()
+            .push(1);
     }
 }
 
@@ -60,8 +83,10 @@ fn run_multiple_nodes(
 ) {
     let nodes = create_nodes(num_nodes, test_prefix);
 
-    let nodes: Vec<Arc<RwLock<dyn Node>>> =
-        nodes.into_iter().map(|cfg| <dyn Node>::new_sharable(cfg)).collect();
+    let nodes: Vec<Arc<RwLock<dyn Node>>> = nodes
+        .into_iter()
+        .map(|cfg| <dyn Node>::new_sharable(cfg))
+        .collect();
     for i in 0..num_nodes {
         nodes[i].write().unwrap().start();
     }
@@ -107,10 +132,20 @@ fn run_multiple_nodes(
             while Instant::now() < timeout {
                 // Get random node.
                 let node = &nodes[sample_queryable_node(&nodes)];
-                if let Some(new_ind) = node.read().unwrap().user().get_best_height() {
+                if let Some(new_ind) = node
+                    .read()
+                    .unwrap()
+                    .user()
+                    .get_best_height()
+                {
                     if new_ind > prev_ind {
                         let blocks = ((prev_ind + 1)..=new_ind)
-                            .filter_map(|idx| node.read().unwrap().user().get_block_by_height(idx))
+                            .filter_map(|idx| {
+                                node.read()
+                                    .unwrap()
+                                    .user()
+                                    .get_block_by_height(idx)
+                            })
                             .collect::<Vec<_>>();
                         for b in &blocks {
                             let tx_num = b.chunks.iter().fold(0, |acc, chunk| {
@@ -126,7 +161,10 @@ fn run_multiple_nodes(
                                     acc
                                 }
                             });
-                            observed_transactions.write().unwrap().push(tx_num as u64);
+                            observed_transactions
+                                .write()
+                                .unwrap()
+                                .push(tx_num as u64);
                         }
                         prev_ind = new_ind;
                     }
@@ -138,8 +176,16 @@ fn run_multiple_nodes(
     transaction_handler.join().unwrap();
     observer_handler.join().unwrap();
 
-    let submitted_txn_num = submitted_transactions.read().unwrap().iter().sum::<u64>();
-    let observed_txn_num = observed_transactions.read().unwrap().iter().sum::<u64>();
+    let submitted_txn_num = submitted_transactions
+        .read()
+        .unwrap()
+        .iter()
+        .sum::<u64>();
+    let observed_txn_num = observed_transactions
+        .read()
+        .unwrap()
+        .iter()
+        .sum::<u64>();
 
     let _ = stdout().write(format!("Submitted transactions: {:?}; ", submitted_txn_num).as_bytes());
     let _ = stdout().write(format!("Observed transactions: {:?}", observed_txn_num).as_bytes());

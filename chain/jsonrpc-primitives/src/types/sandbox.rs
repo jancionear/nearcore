@@ -19,8 +19,8 @@ pub enum RpcSandboxPatchStateError {
 impl From<RpcSandboxPatchStateError> for crate::errors::RpcError {
     fn from(error: RpcSandboxPatchStateError) -> Self {
         let error_data = match serde_json::to_value(error) {
-            Ok(value) => value,
-            Err(err) => {
+            | Ok(value) => value,
+            | Err(err) => {
                 return Self::new_internal_error(
                     None,
                     format!("Failed to serialize RpcSandboxPatchStateError: {:?}", err),
@@ -49,8 +49,8 @@ pub enum RpcSandboxFastForwardError {
 impl From<RpcSandboxFastForwardError> for crate::errors::RpcError {
     fn from(error: RpcSandboxFastForwardError) -> Self {
         let error_data = match serde_json::to_value(error) {
-            Ok(value) => value,
-            Err(err) => {
+            | Ok(value) => value,
+            | Err(err) => {
                 return Self::new_internal_error(
                     None,
                     format!("Failed to serialize RpcSandboxFastForwardError: {:?}", err),

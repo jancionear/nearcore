@@ -49,29 +49,39 @@ struct Inner {
     peer_reachable_at: HashMap<PeerId, time::Instant>,
 }
 
-fn has(set: &im::HashMap<EdgeKey, Edge>, edge: &Edge) -> bool {
-    set.get(&edge.key()).is_some_and(|x| x.nonce() >= edge.nonce())
+fn has(
+    set: &im::HashMap<EdgeKey, Edge>,
+    edge: &Edge,
+) -> bool {
+    set.get(&edge.key())
+        .is_some_and(|x| x.nonce() >= edge.nonce())
 }
 
 impl Inner {
     /// Adds an edge without validating the signatures. O(1).
     /// Returns true, iff <edge> was newer than an already known version of this edge.
-    fn update_edge(&mut self, edge: Edge) -> bool {
+    fn update_edge(
+        &mut self,
+        edge: Edge,
+    ) -> bool {
         if has(&self.edges, &edge) {
             return false;
         }
         let key = edge.key();
         // Add the edge.
         match edge.edge_type() {
-            EdgeState::Active => self.graph.add_edge(&key.0, &key.1),
-            EdgeState::Removed => self.graph.remove_edge(&key.0, &key.1),
+            | EdgeState::Active => self.graph.add_edge(&key.0, &key.1),
+            | EdgeState::Removed => self.graph.remove_edge(&key.0, &key.1),
         }
         self.edges.insert(key.clone(), edge);
         true
     }
 
     /// Removes an edge by key. O(1).
-    fn remove_edge(&mut self, key: &EdgeKey) {
+    fn remove_edge(
+        &mut self,
+        key: &EdgeKey,
+    ) {
         if self.edges.remove(key).is_some() {
             self.graph.remove_edge(&key.0, &key.1);
         }
@@ -79,7 +89,10 @@ impl Inner {
 
     /// Removes all edges adjacent to the peers from the set.
     /// It is used to prune unreachable connected components from the in mem graph.
-    fn remove_adjacent_edges(&mut self, peers: &HashSet<PeerId>) -> Vec<Edge> {
+    fn remove_adjacent_edges(
+        &mut self,
+        peers: &HashSet<PeerId>,
+    ) -> Vec<Edge> {
         let mut edges = vec![];
         for e in self.edges.clone().values() {
             if peers.contains(&e.key().0) || peers.contains(&e.key().1) {
@@ -90,7 +103,10 @@ impl Inner {
         edges
     }
 
-    fn prune_old_edges(&mut self, prune_edges_older_than: time::Utc) {
+    fn prune_old_edges(
+        &mut self,
+        prune_edges_older_than: time::Utc,
+    ) {
         for e in self.edges.clone().values() {
             if e.is_edge_older_than(prune_edges_older_than) {
                 self.remove_edge(e.key());
@@ -100,7 +116,10 @@ impl Inner {
 
     /// Prunes peers unreachable since <unreachable_since> (and their adjacent edges)
     /// from the in-mem graph.
-    fn prune_unreachable_peers(&mut self, unreachable_since: time::Instant) {
+    fn prune_unreachable_peers(
+        &mut self,
+        unreachable_since: time::Instant,
+    ) {
         // Select peers to prune.
         let mut peers = HashSet::new();
         for k in self.edges.keys() {
@@ -138,7 +157,11 @@ impl Inner {
     ///   verified so far (and returns them), but drops all the remaining ones. This way the
     ///   wasted work (verification of invalid edges) is constant, no matter how large the input
     ///   size is.
-    fn add_edges(&mut self, clock: &time::Clock, mut edges: Vec<Edge>) -> (Vec<Edge>, bool) {
+    fn add_edges(
+        &mut self,
+        clock: &time::Clock,
+        mut edges: Vec<Edge>,
+    ) -> (Vec<Edge>, bool) {
         metrics::EDGE_UPDATES.inc_by(edges.len() as u64);
         // Start with deduplicating the edges.
         // TODO(gprusak): sending duplicate edges should be considered a malicious behavior
@@ -200,19 +223,24 @@ impl Inner {
             self.prune_old_edges(clock.now_utc() - prune_edges_after);
         }
 
-        let (next_hops, distances) = self.graph.calculate_next_hops_and_distance(unreliable_peers);
+        let (next_hops, distances) = self
+            .graph
+            .calculate_next_hops_and_distance(unreliable_peers);
         let next_hops = Arc::new(next_hops);
         let distances = Arc::new(distances);
 
         // Update peer_reachable_at.
         let now = clock.now();
-        self.peer_reachable_at.insert(self.config.node_id.clone(), now);
+        self.peer_reachable_at
+            .insert(self.config.node_id.clone(), now);
         for peer in next_hops.keys() {
-            self.peer_reachable_at.insert(peer.clone(), now);
+            self.peer_reachable_at
+                .insert(peer.clone(), now);
         }
-        if let Some(unreachable_since) =
-            now.checked_sub_signed(self.config.prune_unreachable_peers_after)
-        {
+        if let Some(unreachable_since) = now.checked_sub_signed(
+            self.config
+                .prune_unreachable_peers_after,
+        ) {
             self.prune_unreachable_peers(unreachable_since);
         }
         let mut local_edges = HashMap::new();
@@ -258,8 +286,12 @@ impl Graph {
         self.snapshot.load_full()
     }
 
-    pub fn set_unreliable_peers(&self, unreliable_peers: HashSet<PeerId>) {
-        self.unreliable_peers.store(Arc::new(unreliable_peers));
+    pub fn set_unreliable_peers(
+        &self,
+        unreliable_peers: HashSet<PeerId>,
+    ) {
+        self.unreliable_peers
+            .store(Arc::new(unreliable_peers));
     }
 
     /// Verifies, then adds edges to the graph, then recomputes the routing table.
@@ -308,7 +340,8 @@ impl Graph {
                 }
                 let snapshot = inner.update(&clock, &this.unreliable_peers.load());
                 let snapshot = Arc::new(snapshot);
-                this.routing_table.update(snapshot.next_hops.clone(), snapshot.distances.clone());
+                this.routing_table
+                    .update(snapshot.next_hops.clone(), snapshot.distances.clone());
                 this.snapshot.store(snapshot);
                 (new_edges, oks)
             })

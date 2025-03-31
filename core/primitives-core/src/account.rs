@@ -35,10 +35,10 @@ impl TryFrom<u8> for AccountVersion {
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         match value {
-            1 => Ok(AccountVersion::V1),
+            | 1 => Ok(AccountVersion::V1),
             #[cfg(feature = "protocol_feature_nonrefundable_transfer_nep491")]
-            2 => Ok(AccountVersion::V2),
-            _ => Err(()),
+            | 2 => Ok(AccountVersion::V2),
+            | _ => Err(()),
         }
     }
 }
@@ -151,32 +151,50 @@ impl Account {
     }
 
     #[inline]
-    pub fn set_amount(&mut self, amount: Balance) {
+    pub fn set_amount(
+        &mut self,
+        amount: Balance,
+    ) {
         self.amount = amount;
     }
 
     #[inline]
     #[cfg(feature = "protocol_feature_nonrefundable_transfer_nep491")]
-    pub fn set_permanent_storage_bytes(&mut self, permanent_storage_bytes: StorageUsage) {
+    pub fn set_permanent_storage_bytes(
+        &mut self,
+        permanent_storage_bytes: StorageUsage,
+    ) {
         self.permanent_storage_bytes = permanent_storage_bytes;
     }
 
     #[inline]
-    pub fn set_locked(&mut self, locked: Balance) {
+    pub fn set_locked(
+        &mut self,
+        locked: Balance,
+    ) {
         self.locked = locked;
     }
 
     #[inline]
-    pub fn set_code_hash(&mut self, code_hash: CryptoHash) {
+    pub fn set_code_hash(
+        &mut self,
+        code_hash: CryptoHash,
+    ) {
         self.code_hash = code_hash;
     }
 
     #[inline]
-    pub fn set_storage_usage(&mut self, storage_usage: StorageUsage) {
+    pub fn set_storage_usage(
+        &mut self,
+        storage_usage: StorageUsage,
+    ) {
         self.storage_usage = storage_usage;
     }
 
-    pub fn set_version(&mut self, version: AccountVersion) {
+    pub fn set_version(
+        &mut self,
+        version: AccountVersion,
+    ) {
         self.version = version;
     }
 }
@@ -237,11 +255,11 @@ impl<'de> serde::Deserialize<'de> for Account {
         let account_data = AccountData::deserialize(deserializer)?;
 
         match account_data.permanent_storage_bytes {
-            Some(permanent_storage_bytes) => {
+            | Some(permanent_storage_bytes) => {
                 // Given that the `permanent_storage_bytes` field has been serialized, the `version` field must has been serialized too.
                 let version = match account_data.version {
-                    Some(version) => version,
-                    None => {
+                    | Some(version) => version,
+                    | None => {
                         return Err(serde::de::Error::custom("missing `version` field"));
                     }
                 };
@@ -262,7 +280,7 @@ impl<'de> serde::Deserialize<'de> for Account {
                     version,
                 })
             }
-            None => Ok(Account {
+            | None => Ok(Account {
                 amount: account_data.amount,
                 locked: account_data.locked,
                 code_hash: account_data.code_hash,
@@ -336,7 +354,10 @@ impl BorshDeserialize for Account {
 }
 
 impl BorshSerialize for Account {
-    fn serialize<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
+    fn serialize<W: io::Write>(
+        &self,
+        writer: &mut W,
+    ) -> io::Result<()> {
         let legacy_account = LegacyAccount {
             amount: self.amount(),
             locked: self.locked(),
@@ -355,13 +376,13 @@ impl BorshSerialize for Account {
                 // It might be tempting to lazily convert old V1 to V2
                 // while serializing. But that would break the borsh assumptions
                 // of unique binary representation.
-                AccountVersion::V1 => {
+                | AccountVersion::V1 => {
                     if self.permanent_storage_bytes > 0 {
                         panic!("Trying to serialize V1 account with permanent_storage_bytes");
                     }
                     legacy_account.serialize(writer)
                 }
-                AccountVersion::V2 => {
+                | AccountVersion::V2 => {
                     let account = AccountV2 {
                         amount: self.amount(),
                         locked: self.locked(),

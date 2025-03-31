@@ -42,17 +42,29 @@ impl ContractSizeStats {
         }
     }
 
-    pub fn add_info(&mut self, shard_uid: ShardUId, account_id: AccountId, contract_size: usize) {
+    pub fn add_info(
+        &mut self,
+        shard_uid: ShardUId,
+        account_id: AccountId,
+        contract_size: usize,
+    ) {
         self.total_accounts += 1;
-        *self.shard_accounts.entry(shard_uid).or_insert(0) += 1;
+        *self
+            .shard_accounts
+            .entry(shard_uid)
+            .or_insert(0) += 1;
 
-        self.top_accounts.insert(ByteSize::b(contract_size as u64), account_id);
+        self.top_accounts
+            .insert(ByteSize::b(contract_size as u64), account_id);
         if self.top_accounts.len() > self.topn {
             self.top_accounts.pop_first();
         }
     }
 
-    pub fn print_stats(&self, compressed: bool) {
+    pub fn print_stats(
+        &self,
+        compressed: bool,
+    ) {
         println!("");
         println!("Analyzed {} accounts", self.total_accounts);
         println!("Accounts per shard:");
@@ -79,33 +91,46 @@ impl AnalyzeContractSizesCommand {
     ) -> anyhow::Result<()> {
         let mut near_config = load_config(home, genesis_validation).unwrap();
         let node_storage = open_storage(&home, &mut near_config).unwrap();
-        let store = node_storage.get_split_store().unwrap_or_else(|| node_storage.get_hot_store());
+        let store = node_storage
+            .get_split_store()
+            .unwrap_or_else(|| node_storage.get_hot_store());
         let chain_store = Rc::new(ChainStore::new(
             store.clone(),
-            near_config.genesis.config.genesis_height,
+            near_config
+                .genesis
+                .config
+                .genesis_height,
             false,
-            near_config.genesis.config.transaction_validity_period,
+            near_config
+                .genesis
+                .config
+                .transaction_validity_period,
         ));
 
         let head = chain_store.head().unwrap();
         let epoch_manager =
             EpochManager::new_from_genesis_config(store.clone(), &near_config.genesis.config)
                 .unwrap();
-        let shard_layout = epoch_manager.get_shard_layout(&head.epoch_id).unwrap();
+        let shard_layout = epoch_manager
+            .get_shard_layout(&head.epoch_id)
+            .unwrap();
 
         let mut stats = ContractSizeStats::new(self.topn);
         for shard_uid in shard_layout.shard_uids() {
             println!("Analyzing chunk with uid: {}", shard_uid);
 
-            let chunk_extra =
-                chain_store.get_chunk_extra(&head.last_block_hash, &shard_uid).unwrap();
+            let chunk_extra = chain_store
+                .get_chunk_extra(&head.last_block_hash, &shard_uid)
+                .unwrap();
 
             let state_root = chunk_extra.state_root();
             let trie_storage = Arc::new(TrieDBStorage::new(store.trie_store(), shard_uid));
             let trie = Trie::new(trie_storage, *state_root, None);
 
             let mut iterator = trie.disk_iter().unwrap();
-            iterator.seek_prefix(&[col::CONTRACT_CODE]).unwrap();
+            iterator
+                .seek_prefix(&[col::CONTRACT_CODE])
+                .unwrap();
 
             for (i, item) in iterator.enumerate() {
                 let (key, value) = item.unwrap();
@@ -117,7 +142,9 @@ impl AnalyzeContractSizesCommand {
                 let account_id = AccountId::from_str(account_id_str).unwrap();
 
                 let contract_size = if self.compressed {
-                    zstd::encode_all(value.as_slice(), 3).unwrap().len()
+                    zstd::encode_all(value.as_slice(), 3)
+                        .unwrap()
+                        .len()
                 } else {
                     value.len()
                 };

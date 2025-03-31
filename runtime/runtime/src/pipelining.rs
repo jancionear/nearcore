@@ -119,32 +119,35 @@ impl ReceiptPreparationPipeline {
             return false;
         }
         let actions = match receipt.receipt() {
-            ReceiptEnum::Action(a) | ReceiptEnum::PromiseYield(a) => &a.actions,
-            ReceiptEnum::Data(_) | ReceiptEnum::PromiseResume(_) => return false,
+            | ReceiptEnum::Action(a) | ReceiptEnum::PromiseYield(a) => &a.actions,
+            | ReceiptEnum::Data(_) | ReceiptEnum::PromiseResume(_) => return false,
         };
         let mut any_function_calls = false;
         for (action_index, action) in actions.iter().enumerate() {
             let account_id = account_id.clone();
             match action {
-                Action::DeployContract(_) | Action::UseGlobalContract(_) => {
+                | Action::DeployContract(_) => {
                     // FIXME: instead of blocking these accounts, move the handling of
                     // deploy action into here, so that the necessary data dependencies can be
                     // established.
                     return self.block_accounts.insert(account_id);
                 }
-                Action::FunctionCall(function_call) => {
+                | Action::FunctionCall(function_call) => {
                     let Some(account) = &**account else { continue };
                     let code_hash = account.code_hash();
                     let key = PrepareTaskKey { receipt_id: receipt.get_hash(), action_index };
                     let gas_counter = self.gas_counter(view_config.as_ref(), function_call.gas);
                     let entry = match self.map.entry(key) {
-                        std::collections::btree_map::Entry::Vacant(v) => v,
+                        | std::collections::btree_map::Entry::Vacant(v) => v,
                         // Already been submitted.
                         // TODO: Warning?
-                        std::collections::btree_map::Entry::Occupied(_) => continue,
+                        | std::collections::btree_map::Entry::Occupied(_) => continue,
                     };
                     let config = Arc::clone(&self.config.wasm_config);
-                    let cache = self.contract_cache.as_ref().map(|c| c.handle());
+                    let cache = self
+                        .contract_cache
+                        .as_ref()
+                        .map(|c| c.handle());
                     let storage = self.storage.clone();
                     let protocol_version = self.protocol_version;
                     let created = Instant::now();
@@ -182,9 +185,9 @@ impl ReceiptPreparationPipeline {
                     any_function_calls = true;
                 }
                 // No need to handle this receipt as it only generates other new receipts.
-                Action::Delegate(_) => {}
+                | Action::Delegate(_) => {}
                 // No handling for these.
-                Action::CreateAccount(_)
+                | Action::CreateAccount(_)
                 | Action::Transfer(_)
                 | Action::Stake(_)
                 | Action::AddKey(_)
@@ -192,7 +195,7 @@ impl ReceiptPreparationPipeline {
                 | Action::DeleteAccount(_)
                 | Action::DeployGlobalContract(_) => {}
                 #[cfg(feature = "protocol_feature_nonrefundable_transfer_nep491")]
-                Action::NonrefundableStorageTransfer(_) => {}
+                | Action::NonrefundableStorageTransfer(_) => {}
             }
         }
         return any_function_calls;
@@ -215,11 +218,11 @@ impl ReceiptPreparationPipeline {
     ) -> Box<dyn PreparedContract> {
         let account_id = receipt.receiver_id();
         let action = match receipt.receipt() {
-            ReceiptEnum::Action(r) | ReceiptEnum::PromiseYield(r) => r
+            | ReceiptEnum::Action(r) | ReceiptEnum::PromiseYield(r) => r
                 .actions
                 .get(action_index)
                 .expect("indexing receipt actions by an action_index failed!"),
-            ReceiptEnum::Data(_) | ReceiptEnum::PromiseResume(_) => {
+            | ReceiptEnum::Data(_) | ReceiptEnum::PromiseResume(_) => {
                 panic!("attempting to get_contract with a non-action receipt!?")
             }
         };
@@ -256,7 +259,7 @@ impl ReceiptPreparationPipeline {
         loop {
             let current = std::mem::replace(&mut *status_guard, PrepareTaskStatus::Working);
             match current {
-                PrepareTaskStatus::Pending => {
+                | PrepareTaskStatus::Pending => {
                     *status_guard = PrepareTaskStatus::Finished;
                     drop(status_guard);
                     let start = Instant::now();
@@ -267,7 +270,10 @@ impl ReceiptPreparationPipeline {
                         action_index
                     );
                     let gas_counter = self.gas_counter(view_config.as_ref(), function_call.gas);
-                    let cache = self.contract_cache.as_ref().map(|c| c.handle());
+                    let cache = self
+                        .contract_cache
+                        .as_ref()
+                        .map(|c| c.handle());
                     let method_name = function_call.method_name.clone();
                     let contract = prepare_function_call(
                         &self.storage,
@@ -284,18 +290,18 @@ impl ReceiptPreparationPipeline {
                         .inc_by(start.elapsed().as_secs_f64());
                     return contract;
                 }
-                PrepareTaskStatus::Working => {
+                | PrepareTaskStatus::Working => {
                     let start = Instant::now();
                     status_guard = task.condvar.wait(status_guard).unwrap();
                     PIPELINING_ACTIONS_WAITING_TIME.inc_by(start.elapsed().as_secs_f64());
                     continue;
                 }
-                PrepareTaskStatus::Prepared(c) => {
+                | PrepareTaskStatus::Prepared(c) => {
                     PIPELINING_ACTIONS_FOUND_PREPARED.inc_by(1);
                     *status_guard = PrepareTaskStatus::Finished;
                     return c;
                 }
-                PrepareTaskStatus::Finished => {
+                | PrepareTaskStatus::Finished => {
                     *status_guard = PrepareTaskStatus::Finished;
                     // Don't poison the lock.
                     drop(status_guard);
@@ -305,13 +311,25 @@ impl ReceiptPreparationPipeline {
         }
     }
 
-    fn gas_counter(&self, view_config: Option<&ViewConfig>, gas: Gas) -> GasCounter {
+    fn gas_counter(
+        &self,
+        view_config: Option<&ViewConfig>,
+        gas: Gas,
+    ) -> GasCounter {
         let max_gas_burnt = match view_config {
-            Some(ViewConfig { max_gas_burnt }) => *max_gas_burnt,
-            None => self.config.wasm_config.limit_config.max_gas_burnt,
+            | Some(ViewConfig { max_gas_burnt }) => *max_gas_burnt,
+            | None => {
+                self.config
+                    .wasm_config
+                    .limit_config
+                    .max_gas_burnt
+            }
         };
         GasCounter::new(
-            self.config.wasm_config.ext_costs.clone(),
+            self.config
+                .wasm_config
+                .ext_costs
+                .clone(),
             max_gas_burnt,
             self.config.wasm_config.regular_op_cost,
             gas,

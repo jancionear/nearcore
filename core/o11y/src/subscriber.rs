@@ -153,7 +153,7 @@ where
 /// production. Typically used for debugging IO and to replay on the estimator.
 #[cfg(feature = "io_trace")]
 pub fn make_io_tracing_layer<S>(
-    file: std::fs::File,
+    file: std::fs::File
 ) -> (
     tracing_subscriber::filter::Filtered<crate::io_tracer::IoTraceLayer, EnvFilter, S>,
     tracing_appender::non_blocking::WorkerGuard,
@@ -171,9 +171,9 @@ where
 
 fn use_color_output(options: &Options) -> bool {
     match options.color {
-        ColorOutput::Always => true,
-        ColorOutput::Never => false,
-        ColorOutput::Auto => use_color_auto(),
+        | ColorOutput::Always => true,
+        | ColorOutput::Never => false,
+        | ColorOutput::Auto => use_color_auto(),
     }
 }
 
@@ -215,14 +215,19 @@ pub fn default_subscriber(
     #[allow(unused_mut)]
     let mut io_trace_guard = None;
     #[cfg(feature = "io_trace")]
-    let subscriber = subscriber.with(options.record_io_trace.as_ref().map(|output_path| {
-        let (sub, guard) = make_io_tracing_layer(
-            std::fs::File::create(output_path)
-                .expect("unable to create or truncate IO trace output file"),
-        );
-        io_trace_guard = Some(guard);
-        sub
-    }));
+    let subscriber = subscriber.with(
+        options
+            .record_io_trace
+            .as_ref()
+            .map(|output_path| {
+                let (sub, guard) = make_io_tracing_layer(
+                    std::fs::File::create(output_path)
+                        .expect("unable to create or truncate IO trace output file"),
+                );
+                io_trace_guard = Some(guard);
+                sub
+            }),
+    );
 
     DefaultSubscriberGuard {
         subscriber: Some(subscriber),
@@ -278,14 +283,19 @@ pub async fn default_subscriber_with_opentelemetry(
     #[allow(unused_mut)]
     let mut io_trace_guard = None;
     #[cfg(feature = "io_trace")]
-    let subscriber = subscriber.with(options.record_io_trace.as_ref().map(|output_path| {
-        let (sub, guard) = make_io_tracing_layer(
-            std::fs::File::create(output_path)
-                .expect("unable to create or truncate IO trace output file"),
-        );
-        io_trace_guard = Some(guard);
-        sub
-    }));
+    let subscriber = subscriber.with(
+        options
+            .record_io_trace
+            .as_ref()
+            .map(|output_path| {
+                let (sub, guard) = make_io_tracing_layer(
+                    std::fs::File::create(output_path)
+                        .expect("unable to create or truncate IO trace output file"),
+                );
+                io_trace_guard = Some(guard);
+                sub
+            }),
+    );
 
     DefaultSubscriberGuard {
         subscriber: Some(subscriber),

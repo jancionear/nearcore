@@ -83,11 +83,9 @@ pub struct StoreConfig {
     /// List of shard UIDs for which we should load the tries in memory.
     /// TODO(#9511): This does not automatically survive resharding. We may need to figure out a
     /// strategy for that.
-    #[serde(rename = "load_mem_tries_for_shards")]
-    pub load_memtries_for_shards: Vec<ShardUId>,
-    /// If true, load mem trie for each shard being tracked; this has priority over `load_memtries_for_shards`.
-    #[serde(rename = "load_mem_tries_for_tracked_shards")]
-    pub load_memtries_for_tracked_shards: bool,
+    pub load_mem_tries_for_shards: Vec<ShardUId>,
+    /// If true, load mem trie for each shard being tracked; this has priority over `load_mem_tries_for_shards`.
+    pub load_mem_tries_for_tracked_shards: bool,
 
     /// Path where to create RocksDB checkpoints during database migrations or
     /// `false` to disable that feature.
@@ -185,11 +183,14 @@ impl StoreConfig {
     }
 
     /// Returns cache size for given column.
-    pub const fn col_cache_size(&self, col: DBCol) -> bytesize::ByteSize {
+    pub const fn col_cache_size(
+        &self,
+        col: DBCol,
+    ) -> bytesize::ByteSize {
         match col {
-            DBCol::State => self.col_state_cache_size,
-            DBCol::FlatState => self.col_flat_state_cache_size,
-            _ => bytesize::ByteSize::mib(32),
+            | DBCol::State => self.col_state_cache_size,
+            | DBCol::FlatState => self.col_flat_state_cache_size,
+            | _ => bytesize::ByteSize::mib(32),
         }
     }
 
@@ -292,8 +293,8 @@ impl Default for StoreConfig {
             // Doesn't work for resharding.
             // It will speed up processing of shards where it is enabled, but
             // requires more RAM and takes several minutes on startup.
-            load_memtries_for_shards: Default::default(),
-            load_memtries_for_tracked_shards: false,
+            load_mem_tries_for_shards: Default::default(),
+            load_mem_tries_for_tracked_shards: false,
 
             migration_snapshot: Default::default(),
 
@@ -310,11 +311,14 @@ impl MigrationSnapshot {
     ///
     /// Returns `None` if migration snapshot is disabled.  Relative paths are
     /// resolved relative to `db_path`.
-    pub fn get_path<'a>(&'a self, db_path: &std::path::Path) -> Option<std::path::PathBuf> {
+    pub fn get_path<'a>(
+        &'a self,
+        db_path: &std::path::Path,
+    ) -> Option<std::path::PathBuf> {
         let path = match &self {
-            Self::Enabled(false) => return None,
-            Self::Enabled(true) => std::path::Path::new("migration-snapshot"),
-            Self::Path(path) => path.as_path(),
+            | Self::Enabled(false) => return None,
+            | Self::Enabled(true) => std::path::Path::new("migration-snapshot"),
+            | Self::Path(path) => path.as_path(),
         };
         Some(db_path.join(path))
     }

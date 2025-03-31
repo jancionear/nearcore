@@ -43,7 +43,8 @@ pub struct MockClient {
 
 impl MockClient {
     pub fn get_state_update(&self) -> TrieUpdate {
-        self.tries.new_trie_update(ShardUId::single_shard(), self.state_root)
+        self.tries
+            .new_trie_update(ShardUId::single_shard(), self.state_root)
     }
 }
 
@@ -67,7 +68,13 @@ impl RuntimeUser {
         signer: Arc<Signer>,
         client: Arc<RwLock<MockClient>>,
     ) -> Self {
-        let runtime_config = Arc::new(client.read().unwrap().runtime_config.clone());
+        let runtime_config = Arc::new(
+            client
+                .read()
+                .unwrap()
+                .runtime_config
+                .clone(),
+        );
         RuntimeUser {
             signer,
             trie_viewer: TrieViewer::default(),
@@ -90,21 +97,30 @@ impl RuntimeUser {
     ) -> Result<(), ServerError> {
         let mut receipts = prev_receipts;
         for transaction in transactions.iter() {
-            self.transactions.borrow_mut().insert(transaction.clone());
+            self.transactions
+                .borrow_mut()
+                .insert(transaction.clone());
         }
         let mut txs = transactions;
         loop {
-            let mut client = self.client.write().expect(POISONED_LOCK_ERR);
+            let mut client = self
+                .client
+                .write()
+                .expect(POISONED_LOCK_ERR);
             let trie = if use_flat_storage {
-                client.tries.get_trie_with_block_hash_for_shard(
-                    ShardUId::single_shard(),
-                    client.state_root,
-                    &CryptoHash::default(),
-                    false,
-                )
+                client
+                    .tries
+                    .get_trie_with_block_hash_for_shard(
+                        ShardUId::single_shard(),
+                        client.state_root,
+                        &CryptoHash::default(),
+                        false,
+                    )
             } else {
                 let shard_uid = ShardUId::single_shard();
-                let mut trie = client.tries.get_trie_for_shard(shard_uid, client.state_root);
+                let mut trie = client
+                    .tries
+                    .get_trie_for_shard(shard_uid, client.state_root);
                 trie.set_charge_gas_for_trie_node_access(true);
                 trie
             };
@@ -120,16 +136,16 @@ impl RuntimeUser {
                     Default::default(),
                 )
                 .map_err(|e| match e {
-                    RuntimeError::InvalidTxError(e) => {
+                    | RuntimeError::InvalidTxError(e) => {
                         ServerError::TxExecutionError(TxExecutionError::InvalidTxError(e))
                     }
-                    RuntimeError::BalanceMismatchError(e) => panic!("{}", e),
-                    RuntimeError::StorageError(e) => panic!("Storage error {:?}", e),
-                    RuntimeError::UnexpectedIntegerOverflow(reason) => {
+                    | RuntimeError::BalanceMismatchError(e) => panic!("{}", e),
+                    | RuntimeError::StorageError(e) => panic!("Storage error {:?}", e),
+                    | RuntimeError::UnexpectedIntegerOverflow(reason) => {
                         panic!("UnexpectedIntegerOverflow error {reason}")
                     }
-                    RuntimeError::ReceiptValidationError(e) => panic!("{}", e),
-                    RuntimeError::ValidatorError(e) => panic!("{}", e),
+                    | RuntimeError::ReceiptValidationError(e) => panic!("{}", e),
+                    | RuntimeError::ValidatorError(e) => panic!("{}", e),
                 })?;
             for outcome_with_id in apply_result.outcomes {
                 self.transaction_results
@@ -149,7 +165,9 @@ impl RuntimeUser {
             update.commit().unwrap();
             client.state_root = apply_result.state_root;
             for receipt in apply_result.outgoing_receipts.iter() {
-                self.receipts.borrow_mut().insert(*receipt.receipt_id(), receipt.clone());
+                self.receipts
+                    .borrow_mut()
+                    .insert(*receipt.receipt_id(), receipt.clone());
             }
             receipts = apply_result.outgoing_receipts;
             txs = vec![];
@@ -183,7 +201,10 @@ impl RuntimeUser {
         let shard_id = *shard_ids.first().unwrap();
 
         let congestion_info = if ProtocolFeature::CongestionControl.enabled(PROTOCOL_VERSION) {
-            shard_ids.into_iter().map(|id| (id, ExtendedCongestionInfo::default())).collect()
+            shard_ids
+                .into_iter()
+                .map(|id| (id, ExtendedCongestionInfo::default()))
+                .collect()
         } else {
             Default::default()
         };
@@ -217,8 +238,8 @@ impl RuntimeUser {
         hash: &CryptoHash,
     ) -> Vec<ExecutionOutcomeWithIdView> {
         let outcome = match self.get_transaction_result(hash) {
-            Some(outcome) => outcome,
-            None => {
+            | Some(outcome) => outcome,
+            | None => {
                 return vec![];
             }
         };
@@ -231,44 +252,58 @@ impl RuntimeUser {
             block_hash: Default::default(),
         }];
         for hash in &receipt_ids {
-            transactions.extend(self.get_recursive_transaction_results(hash).into_iter());
+            transactions.extend(
+                self.get_recursive_transaction_results(hash)
+                    .into_iter(),
+            );
         }
         transactions
     }
 
     // TODO(#10942) get rid of copy pasted code, it's outdated comparing to the original
-    fn get_final_transaction_result(&self, hash: &CryptoHash) -> Option<FinalExecutionOutcomeView> {
+    fn get_final_transaction_result(
+        &self,
+        hash: &CryptoHash,
+    ) -> Option<FinalExecutionOutcomeView> {
         let mut outcomes = self.get_recursive_transaction_results(hash);
         let mut looking_for_id = *hash;
         let num_outcomes = outcomes.len();
-        let status = outcomes.iter().find_map(|outcome_with_id| {
-            if outcome_with_id.id == looking_for_id {
-                match &outcome_with_id.outcome.status {
-                    ExecutionStatusView::Unknown if num_outcomes == 1 => {
-                        Some(FinalExecutionStatus::NotStarted)
+        let status = outcomes
+            .iter()
+            .find_map(|outcome_with_id| {
+                if outcome_with_id.id == looking_for_id {
+                    match &outcome_with_id.outcome.status {
+                        | ExecutionStatusView::Unknown if num_outcomes == 1 => {
+                            Some(FinalExecutionStatus::NotStarted)
+                        }
+                        | ExecutionStatusView::Unknown => Some(FinalExecutionStatus::Started),
+                        | ExecutionStatusView::Failure(e) => {
+                            Some(FinalExecutionStatus::Failure(e.clone()))
+                        }
+                        | ExecutionStatusView::SuccessValue(v) => {
+                            Some(FinalExecutionStatus::SuccessValue(v.clone()))
+                        }
+                        | ExecutionStatusView::SuccessReceiptId(id) => {
+                            looking_for_id = *id;
+                            None
+                        }
                     }
-                    ExecutionStatusView::Unknown => Some(FinalExecutionStatus::Started),
-                    ExecutionStatusView::Failure(e) => {
-                        Some(FinalExecutionStatus::Failure(e.clone()))
-                    }
-                    ExecutionStatusView::SuccessValue(v) => {
-                        Some(FinalExecutionStatus::SuccessValue(v.clone()))
-                    }
-                    ExecutionStatusView::SuccessReceiptId(id) => {
-                        looking_for_id = *id;
-                        None
-                    }
+                } else {
+                    None
                 }
-            } else {
-                None
-            }
-        });
+            });
         // If we don't find the transaction at all, it must have been ignored due to having
         // been an invalid transaction (but due to relaxed validation we do not invalidate the
         // entire chunk.)
         let status = status?;
         let receipts = outcomes.split_off(1);
-        let transaction = self.transactions.borrow().get(hash).unwrap().clone().into();
+        let transaction = self
+            .transactions
+            .borrow()
+            .get(hash)
+            .unwrap()
+            .clone()
+            .into();
         Some(FinalExecutionOutcomeView {
             status,
             transaction,
@@ -279,16 +314,30 @@ impl RuntimeUser {
 }
 
 impl User for RuntimeUser {
-    fn view_account(&self, account_id: &AccountId) -> Result<AccountView, String> {
-        let state_update = self.client.read().expect(POISONED_LOCK_ERR).get_state_update();
+    fn view_account(
+        &self,
+        account_id: &AccountId,
+    ) -> Result<AccountView, String> {
+        let state_update = self
+            .client
+            .read()
+            .expect(POISONED_LOCK_ERR)
+            .get_state_update();
         self.trie_viewer
             .view_account(&state_update, account_id)
             .map(|account| account.into())
             .map_err(|err| err.to_string())
     }
 
-    fn view_contract_code(&self, account_id: &AccountId) -> Result<ContractCodeView, String> {
-        let state_update = self.client.read().expect(POISONED_LOCK_ERR).get_state_update();
+    fn view_contract_code(
+        &self,
+        account_id: &AccountId,
+    ) -> Result<ContractCodeView, String> {
+        let state_update = self
+            .client
+            .read()
+            .expect(POISONED_LOCK_ERR)
+            .get_state_update();
         self.trie_viewer
             .view_contract_code(&state_update, account_id)
             .map(|contract_code| {
@@ -298,15 +347,30 @@ impl User for RuntimeUser {
             .map_err(|err| err.to_string())
     }
 
-    fn view_state(&self, account_id: &AccountId, prefix: &[u8]) -> Result<ViewStateResult, String> {
-        let state_update = self.client.read().expect(POISONED_LOCK_ERR).get_state_update();
+    fn view_state(
+        &self,
+        account_id: &AccountId,
+        prefix: &[u8],
+    ) -> Result<ViewStateResult, String> {
+        let state_update = self
+            .client
+            .read()
+            .expect(POISONED_LOCK_ERR)
+            .get_state_update();
         self.trie_viewer
             .view_state(&state_update, account_id, prefix, false)
             .map_err(|err| err.to_string())
     }
 
-    fn is_locked(&self, account_id: &AccountId) -> Result<bool, String> {
-        let state_update = self.client.read().expect(POISONED_LOCK_ERR).get_state_update();
+    fn is_locked(
+        &self,
+        account_id: &AccountId,
+    ) -> Result<bool, String> {
+        let state_update = self
+            .client
+            .read()
+            .expect(POISONED_LOCK_ERR)
+            .get_state_update();
         self.trie_viewer
             .view_access_keys(&state_update, account_id)
             .map(|access_keys| access_keys.is_empty())
@@ -323,7 +387,10 @@ impl User for RuntimeUser {
         let shard_id = ShardId::new(0);
 
         let apply_state = self.apply_state();
-        let client = self.client.read().expect(POISONED_LOCK_ERR);
+        let client = self
+            .client
+            .read()
+            .expect(POISONED_LOCK_ERR);
         let state_update = client.get_state_update();
         let mut result = CallResult::default();
         let view_state = ViewApplyState {
@@ -352,7 +419,10 @@ impl User for RuntimeUser {
         Ok(result)
     }
 
-    fn add_transaction(&self, transaction: SignedTransaction) -> Result<(), ServerError> {
+    fn add_transaction(
+        &self,
+        transaction: SignedTransaction,
+    ) -> Result<(), ServerError> {
         self.apply_all(self.apply_state(), vec![], vec![transaction], true)?;
         Ok(())
     }
@@ -385,28 +455,50 @@ impl User for RuntimeUser {
         Some(CryptoHash::default())
     }
 
-    fn get_block_by_height(&self, _height: u64) -> Option<BlockView> {
+    fn get_block_by_height(
+        &self,
+        _height: u64,
+    ) -> Option<BlockView> {
         unimplemented!("get_block should not be implemented for RuntimeUser");
     }
 
-    fn get_block(&self, _block_hash: CryptoHash) -> Option<BlockView> {
+    fn get_block(
+        &self,
+        _block_hash: CryptoHash,
+    ) -> Option<BlockView> {
         None
     }
 
-    fn get_chunk_by_height(&self, _height: u64, _shard_id: ShardId) -> Option<ChunkView> {
+    fn get_chunk_by_height(
+        &self,
+        _height: u64,
+        _shard_id: ShardId,
+    ) -> Option<ChunkView> {
         unimplemented!("get_chunk should not be implemented for RuntimeUser");
     }
 
-    fn get_transaction_result(&self, hash: &CryptoHash) -> Option<ExecutionOutcomeView> {
-        self.transaction_results.borrow().get(hash).cloned()
+    fn get_transaction_result(
+        &self,
+        hash: &CryptoHash,
+    ) -> Option<ExecutionOutcomeView> {
+        self.transaction_results
+            .borrow()
+            .get(hash)
+            .cloned()
     }
 
-    fn get_transaction_final_result(&self, hash: &CryptoHash) -> Option<FinalExecutionOutcomeView> {
+    fn get_transaction_final_result(
+        &self,
+        hash: &CryptoHash,
+    ) -> Option<FinalExecutionOutcomeView> {
         self.get_final_transaction_result(hash)
     }
 
     fn get_state_root(&self) -> CryptoHash {
-        self.client.read().expect(POISONED_LOCK_ERR).state_root
+        self.client
+            .read()
+            .expect(POISONED_LOCK_ERR)
+            .state_root
     }
 
     fn get_access_key(
@@ -414,7 +506,11 @@ impl User for RuntimeUser {
         account_id: &AccountId,
         public_key: &PublicKey,
     ) -> Result<AccessKeyView, String> {
-        let state_update = self.client.read().expect(POISONED_LOCK_ERR).get_state_update();
+        let state_update = self
+            .client
+            .read()
+            .expect(POISONED_LOCK_ERR)
+            .get_state_update();
         self.trie_viewer
             .view_access_key(&state_update, account_id, public_key)
             .map(|access_key| access_key.into())
@@ -425,7 +521,10 @@ impl User for RuntimeUser {
         self.signer.clone()
     }
 
-    fn set_signer(&mut self, signer: Arc<Signer>) {
+    fn set_signer(
+        &mut self,
+        signer: Arc<Signer>,
+    ) {
         self.signer = signer;
     }
 }

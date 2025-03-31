@@ -255,7 +255,9 @@ impl From<&GenesisConfig> for EpochConfig {
         EpochConfig {
             epoch_length: config.epoch_length,
             num_block_producer_seats: config.num_block_producer_seats,
-            num_block_producer_seats_per_shard: config.num_block_producer_seats_per_shard.clone(),
+            num_block_producer_seats_per_shard: config
+                .num_block_producer_seats_per_shard
+                .clone(),
             avg_hidden_validator_seats_per_shard: config
                 .avg_hidden_validator_seats_per_shard
                 .clone(),
@@ -306,8 +308,8 @@ where
 {
     let opt = Option::<T>::deserialize(de)?;
     match opt {
-        None => Ok(T::default()),
-        Some(value) => Ok(value),
+        | None => Ok(T::default()),
+        | Some(value) => Ok(value),
     }
 }
 
@@ -333,8 +335,8 @@ pub enum GenesisContents {
 
 fn contents_are_from_record_file(contents: &GenesisContents) -> bool {
     match contents {
-        GenesisContents::RecordsFile { .. } => true,
-        _ => false,
+        | GenesisContents::RecordsFile { .. } => true,
+        | _ => false,
     }
 }
 
@@ -385,7 +387,10 @@ impl GenesisConfig {
     }
 
     /// Writes GenesisConfig to the file.
-    pub fn to_file<P: AsRef<Path>>(&self, path: P) {
+    pub fn to_file<P: AsRef<Path>>(
+        &self,
+        path: P,
+    ) {
         std::fs::write(
             path,
             serde_json::to_vec_pretty(self).expect("Error serializing the genesis config."),
@@ -433,7 +438,10 @@ impl GenesisRecords {
     }
 
     /// Writes GenesisRecords to the file.
-    pub fn to_file<P: AsRef<Path>>(&self, path: P) {
+    pub fn to_file<P: AsRef<Path>>(
+        &self,
+        path: P,
+    ) {
         std::fs::write(
             path,
             serde_json::to_vec_pretty(self).expect("Error serializing the genesis records."),
@@ -453,7 +461,10 @@ struct RecordsProcessor<F> {
 impl<'de, F: FnMut(StateRecord)> Visitor<'de> for RecordsProcessor<&'_ mut F> {
     type Value = ();
 
-    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+    fn expecting(
+        &self,
+        formatter: &mut fmt::Formatter,
+    ) -> fmt::Result {
         formatter.write_str(
             "either:\
         1. array of StateRecord\
@@ -461,7 +472,10 @@ impl<'de, F: FnMut(StateRecord)> Visitor<'de> for RecordsProcessor<&'_ mut F> {
         )
     }
 
-    fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+    fn visit_seq<A>(
+        self,
+        mut seq: A,
+    ) -> Result<Self::Value, A::Error>
     where
         A: SeqAccess<'de>,
     {
@@ -471,7 +485,10 @@ impl<'de, F: FnMut(StateRecord)> Visitor<'de> for RecordsProcessor<&'_ mut F> {
         Ok(())
     }
 
-    fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+    fn visit_map<A>(
+        self,
+        mut map: A,
+    ) -> Result<Self::Value, A::Error>
     where
         A: MapAccess<'de>,
     {
@@ -479,13 +496,14 @@ impl<'de, F: FnMut(StateRecord)> Visitor<'de> for RecordsProcessor<&'_ mut F> {
         let mut has_records_field = false;
         while let Some(key) = map.next_key::<String>()? {
             match key.as_str() {
-                "records" => {
-                    let me =
-                        me.take().ok_or_else(|| de::Error::custom("duplicate field: records"))?;
+                | "records" => {
+                    let me = me
+                        .take()
+                        .ok_or_else(|| de::Error::custom("duplicate field: records"))?;
                     map.next_value_seed(me)?;
                     has_records_field = true;
                 }
-                _ => {
+                | _ => {
                     map.next_value::<IgnoredAny>()?;
                 }
             }
@@ -501,7 +519,10 @@ impl<'de, F: FnMut(StateRecord)> Visitor<'de> for RecordsProcessor<&'_ mut F> {
 impl<'de, F: FnMut(StateRecord)> DeserializeSeed<'de> for RecordsProcessor<&'_ mut F> {
     type Value = ();
 
-    fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+    fn deserialize<D>(
+        self,
+        deserializer: D,
+    ) -> Result<Self::Value, D::Error>
     where
         D: Deserializer<'de>,
     {
@@ -529,33 +550,51 @@ impl GenesisJsonHasher {
         Self { digest: sha2::Sha256::new() }
     }
 
-    pub fn process_config(&mut self, config: &GenesisConfig) {
+    pub fn process_config(
+        &mut self,
+        config: &GenesisConfig,
+    ) {
         let mut ser = Serializer::pretty(&mut self.digest);
-        config.serialize(&mut ser).expect("Error serializing the genesis config.");
+        config
+            .serialize(&mut ser)
+            .expect("Error serializing the genesis config.");
     }
 
-    pub fn process_record(&mut self, record: &StateRecord) {
+    pub fn process_record(
+        &mut self,
+        record: &StateRecord,
+    ) {
         let mut ser = Serializer::pretty(&mut self.digest);
-        record.serialize(&mut ser).expect("Error serializing the genesis record.");
+        record
+            .serialize(&mut ser)
+            .expect("Error serializing the genesis record.");
     }
 
-    pub fn process_state_roots(&mut self, state_roots: &[StateRoot]) {
+    pub fn process_state_roots(
+        &mut self,
+        state_roots: &[StateRoot],
+    ) {
         // WARNING: THIS IS INCORRECT, because it is impossible to compute the
         // genesis hash from the state root in a way that is consistent to that
         // of a genesis that spells out all the records.
         // THEREFORE, THIS IS ONLY USED FOR TESTING, and this logic is only
         // present at all because a genesis hash always has to at least exist.
         let mut ser = Serializer::pretty(&mut self.digest);
-        state_roots.serialize(&mut ser).expect("Error serializing the state roots.");
+        state_roots
+            .serialize(&mut ser)
+            .expect("Error serializing the state roots.");
     }
 
-    pub fn process_genesis(&mut self, genesis: &Genesis) {
+    pub fn process_genesis(
+        &mut self,
+        genesis: &Genesis,
+    ) {
         self.process_config(&genesis.config);
         match &genesis.contents {
-            GenesisContents::StateRoots { state_roots } => {
+            | GenesisContents::StateRoots { state_roots } => {
                 self.process_state_roots(state_roots);
             }
-            _ => {
+            | _ => {
                 genesis.for_each_record(|record: &StateRecord| {
                     self.process_record(record);
                 });
@@ -574,7 +613,10 @@ pub enum GenesisValidationMode {
 }
 
 impl Genesis {
-    pub fn new(config: GenesisConfig, records: GenesisRecords) -> Result<Self, ValidationError> {
+    pub fn new(
+        config: GenesisConfig,
+        records: GenesisRecords,
+    ) -> Result<Self, ValidationError> {
         Self::new_validated(config, records, GenesisValidationMode::Full)
     }
 
@@ -600,9 +642,10 @@ impl Genesis {
         })?;
 
         let mut json_str = String::new();
-        file.read_to_string(&mut json_str).map_err(|e| ValidationError::GenesisFileError {
-            error_message: format!("Failed to read genesis config file to string: {:?}", e),
-        })?;
+        file.read_to_string(&mut json_str)
+            .map_err(|e| ValidationError::GenesisFileError {
+                error_message: format!("Failed to read genesis config file to string: {:?}", e),
+            })?;
 
         let json_str_without_comments = near_config_utils::strip_comments_from_json_str(&json_str)
             .map_err(|e| ValidationError::GenesisFileError {
@@ -634,12 +677,15 @@ impl Genesis {
     {
         let genesis_config = GenesisConfig::from_file(config_path).map_err(|error| {
             let error_message = error.to_string();
-            ValidationError::GenesisFileError { error_message: error_message }
+            ValidationError::GenesisFileError { error_message }
         })?;
         Self::new_with_path_validated(genesis_config, records_path, genesis_validation)
     }
 
-    pub fn new_from_state_roots(config: GenesisConfig, state_roots: Vec<StateRoot>) -> Self {
+    pub fn new_from_state_roots(
+        config: GenesisConfig,
+        state_roots: Vec<StateRoot>,
+    ) -> Self {
         Self { config, contents: GenesisContents::StateRoots { state_roots } }
     }
 
@@ -673,8 +719,8 @@ impl Genesis {
         genesis_validation: GenesisValidationMode,
     ) -> Result<(), ValidationError> {
         match genesis_validation {
-            GenesisValidationMode::Full => validate_genesis(self),
-            GenesisValidationMode::UnsafeFast => {
+            | GenesisValidationMode::Full => validate_genesis(self),
+            | GenesisValidationMode::UnsafeFast => {
                 warn!(target: "genesis", "Skipped genesis validation");
                 Ok(())
             }
@@ -682,7 +728,10 @@ impl Genesis {
     }
 
     /// Writes Genesis to the file.
-    pub fn to_file<P: AsRef<Path>>(&self, path: P) {
+    pub fn to_file<P: AsRef<Path>>(
+        &self,
+        path: P,
+    ) {
         std::fs::write(
             path,
             serde_json::to_vec_pretty(self).expect("Error serializing the genesis config."),
@@ -700,14 +749,17 @@ impl Genesis {
 
     /// If records vector is empty processes records stream from records_file.
     /// May panic if records_file is removed or is in wrong format.
-    pub fn for_each_record(&self, mut callback: impl FnMut(&StateRecord)) {
+    pub fn for_each_record(
+        &self,
+        mut callback: impl FnMut(&StateRecord),
+    ) {
         match &self.contents {
-            GenesisContents::Records { records } => {
+            | GenesisContents::Records { records } => {
                 for record in &records.0 {
                     callback(record);
                 }
             }
-            GenesisContents::RecordsFile { records_file } => {
+            | GenesisContents::RecordsFile { records_file } => {
                 let callback_move = |record: StateRecord| {
                     callback(&record);
                 };
@@ -717,7 +769,7 @@ impl Genesis {
                 stream_records_from_file(reader, callback_move)
                     .expect("error while streaming records");
             }
-            GenesisContents::StateRoots { .. } => {
+            | GenesisContents::StateRoots { .. } => {
                 unreachable!("Cannot iterate through records when genesis uses state roots");
             }
         }
@@ -733,18 +785,18 @@ impl Genesis {
     /// and then returns mutable reference to them.
     pub fn force_read_records(&mut self) -> &mut GenesisRecords {
         match &self.contents {
-            GenesisContents::RecordsFile { records_file } => {
+            | GenesisContents::RecordsFile { records_file } => {
                 self.contents =
                     GenesisContents::Records { records: GenesisRecords::from_file(records_file) };
             }
-            GenesisContents::Records { .. } => {}
-            GenesisContents::StateRoots { .. } => {
+            | GenesisContents::Records { .. } => {}
+            | GenesisContents::StateRoots { .. } => {
                 unreachable!("Cannot iterate through records when genesis uses state roots");
             }
         }
         match &mut self.contents {
-            GenesisContents::Records { records } => records,
-            _ => {
+            | GenesisContents::Records { records } => records,
+            | _ => {
                 unreachable!("Records should have been set previously");
             }
         }
@@ -780,7 +832,10 @@ pub struct GenesisChangeConfig {
 }
 
 impl GenesisChangeConfig {
-    pub fn with_select_account_ids(mut self, select_account_ids: Option<Vec<AccountId>>) -> Self {
+    pub fn with_select_account_ids(
+        mut self,
+        select_account_ids: Option<Vec<AccountId>>,
+    ) -> Self {
         self.select_account_ids = select_account_ids;
         self
     }
@@ -790,8 +845,12 @@ impl GenesisChangeConfig {
         whitelist_validators: Option<Vec<AccountId>>,
     ) -> Self {
         self.whitelist_validators = match whitelist_validators {
-            None => None,
-            Some(whitelist) => Some(whitelist.into_iter().collect::<HashSet<AccountId>>()),
+            | None => None,
+            | Some(whitelist) => Some(
+                whitelist
+                    .into_iter()
+                    .collect::<HashSet<AccountId>>(),
+            ),
         };
         self
     }
@@ -1223,7 +1282,9 @@ mod test {
         }"#;
         let genesis =
             serde_json::from_str::<Genesis>(&genesis_str).expect("Failed to deserialize Genesis");
-        genesis.validate(GenesisValidationMode::Full).expect("Failed to validate Genesis");
+        genesis
+            .validate(GenesisValidationMode::Full)
+            .expect("Failed to validate Genesis");
     }
 
     #[test]

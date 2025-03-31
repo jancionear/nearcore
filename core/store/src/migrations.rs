@@ -35,7 +35,10 @@ pub struct BatchedStoreUpdate<'a> {
 const PRINT_PROGRESS_EVERY_BYTES: u64 = bytesize::GIB;
 
 impl<'a> BatchedStoreUpdate<'a> {
-    pub fn new(store: &'a Store, batch_size_limit: usize) -> Self {
+    pub fn new(
+        store: &'a Store,
+        batch_size_limit: usize,
+    ) -> Self {
         Self {
             batch_size_limit,
             batch_size: 0,
@@ -155,11 +158,15 @@ pub fn migrate_32_to_33(store: &Store) -> anyhow::Result<()> {
 /// If the database has IS_ARCHIVAL key in BlockMisc column set to true, this
 /// overrides value of is_node_archival argument.  Otherwise, the kind of the
 /// resulting database is determined based on that argument.
-pub fn migrate_33_to_34(store: &Store, mut is_node_archival: bool) -> anyhow::Result<()> {
+pub fn migrate_33_to_34(
+    store: &Store,
+    mut is_node_archival: bool,
+) -> anyhow::Result<()> {
     const IS_ARCHIVE_KEY: &[u8; 10] = b"IS_ARCHIVE";
 
-    let is_store_archival =
-        store.get_ser::<bool>(DBCol::BlockMisc, IS_ARCHIVE_KEY)?.unwrap_or_default();
+    let is_store_archival = store
+        .get_ser::<bool>(DBCol::BlockMisc, IS_ARCHIVE_KEY)?
+        .unwrap_or_default();
 
     if is_store_archival != is_node_archival {
         if is_store_archival {
@@ -420,8 +427,10 @@ pub fn migrate_41_to_42(store: &Store) -> anyhow::Result<()> {
         if epoch_first_block != sync_hash {
             tracing::warn!(key = %epoch_first_block, %sync_hash, "sync_hash field of legacy StateSyncInfo not equal to the key. Something is wrong with this node's catchup info");
         }
-        let shards =
-            shards.into_iter().map(|LegacyShardInfo(shard_id, _chunk_hash)| shard_id).collect();
+        let shards = shards
+            .into_iter()
+            .map(|LegacyShardInfo(shard_id, _chunk_hash)| shard_id)
+            .collect();
         let new_info = StateSyncInfo::V0(StateSyncInfoV0 { sync_hash, shards });
         update
             .set_ser(DBCol::StateDlInfos, &key, &new_info)
@@ -480,7 +489,7 @@ pub fn migrate_42_to_43(store: &Store) -> anyhow::Result<()> {
             }
         })?;
         let (base_state, receipts_hash, contract_accesses, contract_deploys) = match old_data {
-            DeprecatedStoredChunkStateTransitionDataEnum::V1(
+            | DeprecatedStoredChunkStateTransitionDataEnum::V1(
                 DeprecatedStoredChunkStateTransitionDataV1 {
                     base_state,
                     receipts_hash,
@@ -495,7 +504,7 @@ pub fn migrate_42_to_43(store: &Store) -> anyhow::Result<()> {
                     ..
                 },
             ) => (base_state, receipts_hash, contract_accesses, vec![]),
-            DeprecatedStoredChunkStateTransitionDataEnum::V3(
+            | DeprecatedStoredChunkStateTransitionDataEnum::V3(
                 DeprecatedStoredChunkStateTransitionDataV3 {
                     base_state,
                     receipts_hash,

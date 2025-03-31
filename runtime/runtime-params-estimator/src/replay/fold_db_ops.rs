@@ -79,13 +79,24 @@ impl FoldDbOps {
             .print_top_level(false)
     }
 
-    pub(super) fn fold(mut self, anchor: impl Into<String>, printed_fields: &[&str]) -> Self {
-        let fields = printed_fields.into_iter().map(|s| (*s).into()).collect();
-        self.fold_anchors.insert(anchor.into(), fields);
+    pub(super) fn fold(
+        mut self,
+        anchor: impl Into<String>,
+        printed_fields: &[&str],
+    ) -> Self {
+        let fields = printed_fields
+            .into_iter()
+            .map(|s| (*s).into())
+            .collect();
+        self.fold_anchors
+            .insert(anchor.into(), fields);
         self
     }
 
-    pub(super) fn print_top_level(mut self, yes: bool) -> Self {
+    pub(super) fn print_top_level(
+        mut self,
+        yes: bool,
+    ) -> Self {
         self.print_top_level = yes;
         self
     }
@@ -96,7 +107,10 @@ impl FoldDbOps {
         self
     }
 
-    pub(super) fn account_filter(mut self, account: Option<String>) -> Self {
+    pub(super) fn account_filter(
+        mut self,
+        account: Option<String>,
+    ) -> Self {
         if account.is_some() {
             // evaluate nothing if there is a filter, until the filter matches the first time
             self.min_indent = usize::MAX;
@@ -106,31 +120,46 @@ impl FoldDbOps {
     }
 
     fn state(&mut self) -> &mut State {
-        self.states.last_mut().expect(EMPTY_STATE_ERR)
+        self.states
+            .last_mut()
+            .expect(EMPTY_STATE_ERR)
     }
 
-    fn push_state(&mut self, indent: usize) {
+    fn push_state(
+        &mut self,
+        indent: usize,
+    ) {
         let cache_stats = if self.track_caches { Some(CacheStats::default()) } else { None };
         let new_state = State { indent, ops_cols: Default::default(), cache_stats };
         self.states.push(new_state);
     }
 
     fn pop_state(&mut self) -> State {
-        let state = self.states.pop().expect(EMPTY_STATE_ERR);
+        let state = self
+            .states
+            .pop()
+            .expect(EMPTY_STATE_ERR);
         if self.states.is_empty() {
             self.push_state(0);
         }
         state
     }
 
-    fn skip_eval(&mut self, trace_indent: usize) -> bool {
+    fn skip_eval(
+        &mut self,
+        trace_indent: usize,
+    ) -> bool {
         trace_indent < self.min_indent
     }
 
     /// Check if indentation has gone back enough to pop current state or reset filter.
     ///
     /// Call this before `skip()` to ensure it uses the correct `min_indent`.
-    fn update_state(&mut self, out: &mut dyn Write, indent: usize) -> anyhow::Result<()> {
+    fn update_state(
+        &mut self,
+        out: &mut dyn Write,
+        indent: usize,
+    ) -> anyhow::Result<()> {
         if self.states.len() > 1 && self.state().indent >= indent {
             self.pop_state().print(out)?;
         }
@@ -160,12 +189,12 @@ impl Visitor for FoldDbOps {
         // `BlockInfo` column. Keep track of it so that each time something is
         // printed, the block hash can be included if desired.
         match op {
-            "GET" => {
+            | "GET" => {
                 if col == "BlockInfo" {
                     self.block_hash = Some(bs58::encode(key).into_string());
                 }
             }
-            _ => {
+            | _ => {
                 // nop
             }
         }
@@ -236,7 +265,12 @@ impl Visitor for FoldDbOps {
             // a mutable reference to self and cannot naively call
             // self.push_state above.
             // Better to lookup twice and keep code simple.
-            for key in self.fold_anchors.get(label).expect("just checked contains key").iter() {
+            for key in self
+                .fold_anchors
+                .get(label)
+                .expect("just checked contains key")
+                .iter()
+            {
                 if let Some(value) = dict.get(key.as_str()) {
                     write!(out, " {key}={value}")?;
                 }
@@ -253,7 +287,10 @@ impl Visitor for FoldDbOps {
         Ok(())
     }
 
-    fn flush(&mut self, out: &mut dyn Write) -> anyhow::Result<()> {
+    fn flush(
+        &mut self,
+        out: &mut dyn Write,
+    ) -> anyhow::Result<()> {
         if self.print_top_level {
             writeln!(out, "top-level:")?;
             self.pop_state().print(out)?;
@@ -263,7 +300,10 @@ impl Visitor for FoldDbOps {
 }
 
 impl State {
-    fn print(self, out: &mut dyn Write) -> anyhow::Result<()> {
+    fn print(
+        self,
+        out: &mut dyn Write,
+    ) -> anyhow::Result<()> {
         let indent = self.indent + 2;
         for (op, map) in self.ops_cols.into_iter() {
             if !map.is_empty() {

@@ -89,51 +89,52 @@ impl NeardCmd {
         };
 
         match neard_cmd.subcmd {
-            NeardSubCommand::Init(cmd) => cmd.run(&home_dir)?,
-            NeardSubCommand::Localnet(cmd) => cmd.run(&home_dir),
-            NeardSubCommand::Run(cmd) => cmd.run(
+            | NeardSubCommand::Init(cmd) => cmd.run(&home_dir)?,
+            | NeardSubCommand::Localnet(cmd) => cmd.run(&home_dir),
+            | NeardSubCommand::Run(cmd) => cmd.run(
                 &home_dir,
                 genesis_validation,
                 neard_cmd.opts.verbose_target(),
                 &neard_cmd.opts.o11y,
             ),
 
-            NeardSubCommand::StateViewer(cmd) => {
+            | NeardSubCommand::StateViewer(cmd) => {
                 let mode = if cmd.read_write { Mode::ReadWrite } else { Mode::ReadOnly };
-                cmd.subcmd.run(&home_dir, genesis_validation, mode, cmd.store_temperature);
+                cmd.subcmd
+                    .run(&home_dir, genesis_validation, mode, cmd.store_temperature);
             }
 
-            NeardSubCommand::VerifyProof(cmd) => {
+            | NeardSubCommand::VerifyProof(cmd) => {
                 cmd.run();
             }
-            NeardSubCommand::Ping(cmd) => {
+            | NeardSubCommand::Ping(cmd) => {
                 cmd.run()?;
             }
-            NeardSubCommand::Mirror(cmd) => {
+            | NeardSubCommand::Mirror(cmd) => {
                 cmd.run()?;
             }
-            NeardSubCommand::AmendGenesis(cmd) => {
+            | NeardSubCommand::AmendGenesis(cmd) => {
                 cmd.run()?;
             }
-            NeardSubCommand::ColdStore(cmd) => {
+            | NeardSubCommand::ColdStore(cmd) => {
                 cmd.run(&home_dir, genesis_validation)?;
             }
-            NeardSubCommand::StateParts(cmd) => {
+            | NeardSubCommand::StateParts(cmd) => {
                 cmd.run()?;
             }
-            NeardSubCommand::FlatStorage(cmd) => {
+            | NeardSubCommand::FlatStorage(cmd) => {
                 cmd.run(&home_dir, genesis_validation)?;
             }
-            NeardSubCommand::ValidateConfig(cmd) => {
+            | NeardSubCommand::ValidateConfig(cmd) => {
                 cmd.run(&home_dir, genesis_validation)?;
             }
-            NeardSubCommand::UndoBlock(cmd) => {
+            | NeardSubCommand::UndoBlock(cmd) => {
                 cmd.run(&home_dir, genesis_validation)?;
             }
-            NeardSubCommand::Database(cmd) => {
+            | NeardSubCommand::Database(cmd) => {
                 cmd.run(&home_dir, genesis_validation)?;
             }
-            NeardSubCommand::ForkNetwork(cmd) => {
+            | NeardSubCommand::ForkNetwork(cmd) => {
                 cmd.run(
                     &home_dir,
                     genesis_validation,
@@ -141,10 +142,10 @@ impl NeardCmd {
                     &neard_cmd.opts.o11y,
                 )?;
             }
-            NeardSubCommand::StatePartsDumpCheck(cmd) => {
+            | NeardSubCommand::StatePartsDumpCheck(cmd) => {
                 cmd.run()?;
             }
-            NeardSubCommand::ReplayArchive(cmd) => {
+            | NeardSubCommand::ReplayArchive(cmd) => {
                 cmd.run(&home_dir, genesis_validation)?;
             }
         };
@@ -267,8 +268,8 @@ impl FromStr for FirstProtocolVersion {
 
     fn from_str(input: &str) -> Result<Self, Self::Err> {
         match input {
-            "latest" => Ok(FirstProtocolVersion::Latest),
-            _ => input
+            | "latest" => Ok(FirstProtocolVersion::Latest),
+            | _ => input
                 .parse::<ProtocolVersion>()
                 .map(FirstProtocolVersion::Since)
                 .map_err(|_| format!("Invalid value for FirstProtocolVersion: {}", input)),
@@ -340,7 +341,11 @@ fn check_release_build(chain: &str) {
         && !cfg!(feature = "nightly")
         && !cfg!(feature = "nightly_protocol");
     if !is_release_build
-        && [near_primitives::chains::MAINNET, near_primitives::chains::TESTNET].contains(&chain)
+        && [
+            near_primitives::chains::MAINNET,
+            near_primitives::chains::TESTNET,
+        ]
+        .contains(&chain)
     {
         warn!(
             target: "neard",
@@ -361,7 +366,10 @@ fn check_release_build(chain: &str) {
 }
 
 impl InitCmd {
-    pub(super) fn run(self, home_dir: &Path) -> anyhow::Result<()> {
+    pub(super) fn run(
+        self,
+        home_dir: &Path,
+    ) -> anyhow::Result<()> {
         // TODO: Check if `home` exists. If exists check what networks we already have there.
         if (self.download_genesis || self.download_genesis_url.is_some()) && self.genesis.is_some()
         {
@@ -381,7 +389,8 @@ impl InitCmd {
         nearcore::init_configs(
             home_dir,
             self.chain_id,
-            self.account_id.and_then(|account_id| account_id.parse().ok()),
+            self.account_id
+                .and_then(|account_id| account_id.parse().ok()),
             self.test_seed.as_deref(),
             self.num_shards,
             self.fast,
@@ -465,19 +474,29 @@ impl RunCmd {
         near_config.client_config.version = crate::neard_version();
         // Override some parameters from command line.
         if let Some(produce_empty_blocks) = self.produce_empty_blocks {
-            near_config.client_config.produce_empty_blocks = produce_empty_blocks;
+            near_config
+                .client_config
+                .produce_empty_blocks = produce_empty_blocks;
         }
         if let Some(connect_to_reliable_peers_on_startup) =
             self.connect_to_reliable_peers_on_startup
         {
-            near_config.network_config.connect_to_reliable_peers_on_startup =
-                connect_to_reliable_peers_on_startup;
+            near_config
+                .network_config
+                .connect_to_reliable_peers_on_startup = connect_to_reliable_peers_on_startup;
         }
         if let Some(boot_nodes) = self.boot_nodes {
             if !boot_nodes.is_empty() {
-                near_config.network_config.peer_store.boot_nodes = boot_nodes
+                near_config
+                    .network_config
+                    .peer_store
+                    .boot_nodes = boot_nodes
                     .split(',')
-                    .map(|chunk| chunk.parse().expect("Failed to parse PeerInfo"))
+                    .map(|chunk| {
+                        chunk
+                            .parse()
+                            .expect("Failed to parse PeerInfo")
+                    })
                     .collect();
             }
         }
@@ -493,24 +512,33 @@ impl RunCmd {
             near_config.rpc_config = None;
         } else {
             if let Some(rpc_addr) = self.rpc_addr {
-                near_config.rpc_config.get_or_insert(Default::default()).addr =
-                    tcp::ListenerAddr::new(rpc_addr.parse().unwrap());
+                near_config
+                    .rpc_config
+                    .get_or_insert(Default::default())
+                    .addr = tcp::ListenerAddr::new(rpc_addr.parse().unwrap());
             }
             if let Some(rpc_prometheus_addr) = self.rpc_prometheus_addr {
-                near_config.rpc_config.get_or_insert(Default::default()).prometheus_addr =
-                    Some(rpc_prometheus_addr);
+                near_config
+                    .rpc_config
+                    .get_or_insert(Default::default())
+                    .prometheus_addr = Some(rpc_prometheus_addr);
             }
         }
         if let Some(telemetry_url) = self.telemetry_url {
             if !telemetry_url.is_empty() {
-                near_config.telemetry_config.endpoints.push(telemetry_url);
+                near_config
+                    .telemetry_config
+                    .endpoints
+                    .push(telemetry_url);
             }
         }
         if self.archive {
             near_config.client_config.archive = true;
         }
         if self.max_gas_burnt_view.is_some() {
-            near_config.client_config.max_gas_burnt_view = self.max_gas_burnt_view;
+            near_config
+                .client_config
+                .max_gas_burnt_view = self.max_gas_burnt_view;
         }
 
         #[cfg(feature = "sandbox")]
@@ -535,9 +563,19 @@ impl RunCmd {
             let _subscriber_guard = default_subscriber_with_opentelemetry(
                 make_env_filter(verbose_target).unwrap(),
                 o11y_opts,
-                near_config.client_config.chain_id.clone(),
-                near_config.network_config.node_key.public_key().clone(),
-                near_config.network_config.validator.account_id(),
+                near_config
+                    .client_config
+                    .chain_id
+                    .clone(),
+                near_config
+                    .network_config
+                    .node_key
+                    .public_key()
+                    .clone(),
+                near_config
+                    .network_config
+                    .validator
+                    .account_id(),
             )
             .await
             .global();
@@ -576,12 +614,16 @@ impl RunCmd {
             if let Some(handle) = cold_store_loop_handle {
                 handle.stop()
             }
-            state_sync_dumper.stop();
+            state_sync_dumper.stop_and_await();
             resharding_handle.stop();
-            futures::future::join_all(rpc_servers.iter().map(|(name, server)| async move {
-                server.stop(true).await;
-                debug!(target: "neard", "{} server stopped", name);
-            }))
+            futures::future::join_all(
+                rpc_servers
+                    .iter()
+                    .map(|(name, server)| async move {
+                        server.stop(true).await;
+                        debug!(target: "neard", "{} server stopped", name);
+                    }),
+            )
             .await;
             actix::System::current().stop();
             // Disable the subscriber to properly shutdown the tracer.
@@ -594,14 +636,20 @@ impl RunCmd {
 }
 
 #[cfg(not(unix))]
-async fn wait_for_interrupt_signal(_home_dir: &Path, mut _rx_crash: &Receiver<()>) -> &str {
+async fn wait_for_interrupt_signal(
+    _home_dir: &Path,
+    mut _rx_crash: &Receiver<()>,
+) -> &str {
     // TODO(#6372): Support graceful shutdown on windows.
     tokio::signal::ctrl_c().await.unwrap();
     "Ctrl+C"
 }
 
 #[cfg(unix)]
-async fn wait_for_interrupt_signal(_home_dir: &Path, rx_crash: &mut Receiver<()>) -> &'static str {
+async fn wait_for_interrupt_signal(
+    _home_dir: &Path,
+    rx_crash: &mut Receiver<()>,
+) -> &'static str {
     use tokio::signal::unix::{signal, SignalKind};
     let mut sigint = signal(SignalKind::interrupt()).unwrap();
     let mut sigterm = signal(SignalKind::terminate()).unwrap();
@@ -648,21 +696,33 @@ pub(super) struct LocalnetCmd {
 }
 
 impl LocalnetCmd {
-    fn parse_tracked_shards(tracked_shards: &str, num_shards: NumShards) -> Vec<ShardId> {
+    fn parse_tracked_shards(
+        tracked_shards: &str,
+        num_shards: NumShards,
+    ) -> Vec<ShardId> {
         if tracked_shards.to_lowercase() == "all" {
             let tracked_shards = 0..num_shards;
-            return tracked_shards.map(ShardId::new).collect();
+            return tracked_shards
+                .map(ShardId::new)
+                .collect();
         }
         if tracked_shards.to_lowercase() == "none" {
             return vec![];
         }
         tracked_shards
             .split(',')
-            .map(|shard_id| shard_id.parse::<ShardId>().expect("Shard id must be an integer"))
+            .map(|shard_id| {
+                shard_id
+                    .parse::<ShardId>()
+                    .expect("Shard id must be an integer")
+            })
             .collect()
     }
 
-    pub(super) fn run(self, home_dir: &Path) {
+    pub(super) fn run(
+        self,
+        home_dir: &Path,
+    ) {
         let tracked_shards = Self::parse_tracked_shards(&self.tracked_shards, self.shards);
         nearcore::config::init_localnet_configs(
             home_dir,
@@ -699,13 +759,14 @@ impl VerifyProofSubCommand {
             .with_context(|| "Could not open proof file.")
             .unwrap();
         let reader = BufReader::new(file);
-        let light_client_rpc_response: Value =
-            serde_json::from_reader(reader).with_context(|| "Failed to deserialize JSON.").unwrap();
+        let light_client_rpc_response: Value = serde_json::from_reader(reader)
+            .with_context(|| "Failed to deserialize JSON.")
+            .unwrap();
         Self::verify_json(light_client_rpc_response).unwrap()
     }
 
     pub fn verify_json(
-        light_client_rpc_response: Value,
+        light_client_rpc_response: Value
     ) -> Result<((CryptoHash, u64), CryptoHash), VerifyProofError> {
         let light_client_proof: RpcLightClientExecutionProofResponse =
             serde_json::from_value(light_client_rpc_response["result"].clone()).unwrap();
@@ -714,7 +775,9 @@ impl VerifyProofSubCommand {
             "Verifying light client proof for txn id: {:?}",
             light_client_proof.outcome_proof.id
         );
-        let outcome_hashes = light_client_proof.outcome_proof.to_hashes();
+        let outcome_hashes = light_client_proof
+            .outcome_proof
+            .to_hashes();
         println!("Hashes of the outcome are: {:?}", outcome_hashes);
 
         let outcome_hash = CryptoHash::hash_borsh(&outcome_hashes);
@@ -729,23 +792,37 @@ impl VerifyProofSubCommand {
         );
         println!("Block outcome root is: {:?}", block_outcome_root);
 
-        if light_client_proof.block_header_lite.inner_lite.outcome_root != block_outcome_root {
+        if light_client_proof
+            .block_header_lite
+            .inner_lite
+            .outcome_root
+            != block_outcome_root
+        {
             println!(
                 "{}",
                 yansi::Paint::default(format!(
                     "ERROR: computed outcome root: {:?} doesn't match the block one {:?}.",
                     block_outcome_root,
-                    light_client_proof.block_header_lite.inner_lite.outcome_root
+                    light_client_proof
+                        .block_header_lite
+                        .inner_lite
+                        .outcome_root
                 ))
                 .fg(yansi::Color::Red)
                 .bold()
             );
             return Err(VerifyProofError::InvalidOutcomeRootProof);
         }
-        let block_hash = light_client_proof.outcome_proof.block_hash;
+        let block_hash = light_client_proof
+            .outcome_proof
+            .block_hash;
 
-        if light_client_proof.block_header_lite.hash()
-            != light_client_proof.outcome_proof.block_hash
+        if light_client_proof
+            .block_header_lite
+            .hash()
+            != light_client_proof
+                .outcome_proof
+                .block_hash
         {
             println!(
                 "{}",
@@ -774,17 +851,29 @@ impl VerifyProofSubCommand {
         );
         println!(
             "OR verify that block with this hash {:?} is in the chain at this height {:?}",
-            block_hash, light_client_proof.block_header_lite.inner_lite.height
+            block_hash,
+            light_client_proof
+                .block_header_lite
+                .inner_lite
+                .height
         );
         Ok((
-            (block_hash, light_client_proof.block_header_lite.inner_lite.height),
+            (
+                block_hash,
+                light_client_proof
+                    .block_header_lite
+                    .inner_lite
+                    .height,
+            ),
             light_block_merkle_root,
         ))
     }
 }
 
 fn make_env_filter(verbose: Option<&str>) -> Result<EnvFilter, BuildEnvFilterError> {
-    let env_filter = EnvFilterBuilder::from_env().verbose(verbose).finish()?;
+    let env_filter = EnvFilterBuilder::from_env()
+        .verbose(verbose)
+        .finish()?;
     // Sandbox node can log to sandbox logging target via sandbox_debug_log host function.
     // This is hidden by default so we enable it for sandbox node.
     let env_filter = if cfg!(feature = "sandbox") {
@@ -811,13 +900,18 @@ impl ValidateConfigCommand {
 
 #[cfg(target_os = "linux")]
 fn normalize_whitespace(s: &str) -> String {
-    s.split_whitespace().collect::<Vec<_>>().join(" ")
+    s.split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 /// Checks the provided kernel parameter  from /proc/sys
 /// and prints an error if it is not set to the expected value.
 #[cfg(target_os = "linux")]
-fn check_kernel_param(param_name: &str, expected_value: &str) {
+fn check_kernel_param(
+    param_name: &str,
+    expected_value: &str,
+) {
     // Convert the dotted param_name into a path under /proc/sys
     // For example, "net.core.rmem_max" -> "/proc/sys/net/core/rmem_max"
     let mut path = PathBuf::from("/proc/sys");
@@ -826,7 +920,7 @@ fn check_kernel_param(param_name: &str, expected_value: &str) {
     }
 
     match std::fs::read_to_string(&path) {
-        Ok(contents) => {
+        | Ok(contents) => {
             let actual = contents.trim();
             let actual_normalized = normalize_whitespace(actual);
             let expected_normalized = normalize_whitespace(expected_value);
@@ -840,7 +934,7 @@ fn check_kernel_param(param_name: &str, expected_value: &str) {
                 info!("OK: {} is set to expected value {}", param_name, expected_normalized);
             }
         }
-        Err(e) => {
+        | Err(e) => {
             error!("ERROR: failed to read parameter {} from {}: {}", param_name, path.display(), e);
         }
     }
@@ -873,7 +967,12 @@ mod tests {
 
     #[test]
     fn optional_values() {
-        let cmd = NeardCmd::parse_from(&["test", "init", "--chain-id=testid", "--fast"]);
+        let cmd = NeardCmd::parse_from(&[
+            "test",
+            "init",
+            "--chain-id=testid",
+            "--fast",
+        ]);
         if let NeardSubCommand::Init(sub_cmd) = cmd.subcmd {
             assert_eq!(sub_cmd.chain_id, Some("testid".to_string()));
             assert!(sub_cmd.fast);

@@ -12,7 +12,9 @@ pub fn wat_contract(wat: &str) -> Vec<u8> {
 /// Trivial contract with a do-nothing main function.
 pub fn trivial_contract() -> &'static [u8] {
     static CONTRACT: OnceLock<Vec<u8>> = OnceLock::new();
-    CONTRACT.get_or_init(|| wat_contract(r#"(module (func (export "main")))"#)).as_slice()
+    CONTRACT
+        .get_or_init(|| wat_contract(r#"(module (func (export "main")))"#))
+        .as_slice()
 }
 
 /// Contract with exact size in bytes.
@@ -236,8 +238,13 @@ pub fn function_with_a_lot_of_nop(nops: u64) -> Vec<u8> {
 pub struct ArbitraryModule(pub wasm_smith::Module);
 
 impl ArbitraryModule {
-    pub fn new(config: wasm_smith::Config, u: &mut arbitrary::Unstructured) -> Self {
-        wasm_smith::Module::new(config, u).map(ArbitraryModule).expect("arbitrary won't fail")
+    pub fn new(
+        config: wasm_smith::Config,
+        u: &mut arbitrary::Unstructured,
+    ) -> Self {
+        wasm_smith::Module::new(config, u)
+            .map(ArbitraryModule)
+            .expect("arbitrary won't fail")
     }
 }
 
@@ -270,7 +277,10 @@ impl<'a> Arbitrary<'a> for ArbitraryModule {
 }
 
 impl std::fmt::Debug for ArbitraryModule {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+    ) -> std::fmt::Result {
         let bytes = self.0.to_bytes();
         write!(f, "{:?}", bytes)?;
         if let Ok(wat) = wasmprinter::print_bytes(&bytes) {
@@ -284,10 +294,14 @@ impl std::fmt::Debug for ArbitraryModule {
 pub fn arbitrary_contract(seed: u64) -> Vec<u8> {
     let mut rng = rand::rngs::SmallRng::seed_from_u64(seed);
     let mut buffer = vec![0u8; 10240];
-    buffer.try_fill(&mut rng).expect("fill buffer with random data");
+    buffer
+        .try_fill(&mut rng)
+        .expect("fill buffer with random data");
     let mut arbitrary = arbitrary::Unstructured::new(&buffer);
     let mut config =
         normalize_config(wasm_smith::Config::arbitrary(&mut arbitrary).expect("make config"));
     config.available_imports = Some(backwards_compatible_rs_contract().into());
-    ArbitraryModule::new(config, &mut arbitrary).0.to_bytes()
+    ArbitraryModule::new(config, &mut arbitrary)
+        .0
+        .to_bytes()
 }

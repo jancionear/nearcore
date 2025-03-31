@@ -64,7 +64,10 @@ impl VMExternRef {
 
     /// Panic if the ref count gets too high.
     #[track_caller]
-    fn sanity_check_ref_count(old_size: usize, growth_amount: usize) {
+    fn sanity_check_ref_count(
+        old_size: usize,
+        growth_amount: usize,
+    ) {
         // If we exceed 18_446_744_073_709_551_614 references on a 64bit system (or
         // 2_147_483_646 references on a 32bit system) then we either live in a future with
         // magic technology or we have a bug in our ref counting logic (i.e. a leak).
@@ -75,7 +78,10 @@ impl VMExternRef {
         // bug on systems that can address `usize` sized memory blocks or smaller because
         // the reference itself is at least `usize` in size and all virtual memory would be
         // taken by references to the data leaving no room for the data itself.
-        if old_size.checked_add(growth_amount).map_or(true, |v| v > Self::MAX_REFCOUNT) {
+        if old_size
+            .checked_add(growth_amount)
+            .map_or(true, |v| v > Self::MAX_REFCOUNT)
+        {
             panic!("Too many references to `ExternRef`");
         }
     }
@@ -85,7 +91,10 @@ impl VMExternRef {
     /// This is used as an optimization when implementing some low-level VM primitives.
     /// If you're using this type directly for whatever reason, you probably want
     /// [`Self::ref_clone`] instead.
-    pub fn ref_inc_by(&self, val: usize) {
+    pub fn ref_inc_by(
+        &self,
+        val: usize,
+    ) {
         if self.0.is_null() {
             return;
         }
@@ -138,7 +147,11 @@ impl VMExternRef {
         if self.0.is_null() {
             0
         } else {
-            unsafe { (&*self.0).strong.load(atomic::Ordering::SeqCst) }
+            unsafe {
+                (&*self.0)
+                    .strong
+                    .load(atomic::Ordering::SeqCst)
+            }
         }
     }
 }
@@ -162,7 +175,10 @@ impl VMExternRefInner {
 
     /// Increments the reference count.
     /// Returns the old value.
-    fn increment_ref_count(&self, val: usize) -> usize {
+    fn increment_ref_count(
+        &self,
+        val: usize,
+    ) -> usize {
         // Using a relaxed ordering is alright here, as knowledge of
         // the original reference prevents other threads from
         // erroneously deleting the object.
@@ -176,7 +192,8 @@ impl VMExternRefInner {
         // > provide any required synchronization.
         //
         // [1]: https://www.boost.org/doc/libs/1_55_0/doc/html/atomic/usage_examples.html
-        self.strong.fetch_add(val, atomic::Ordering::Relaxed)
+        self.strong
+            .fetch_add(val, atomic::Ordering::Relaxed)
     }
 
     /// Decrement the count and drop the data if the count hits 0
@@ -184,7 +201,11 @@ impl VMExternRefInner {
     fn decrement_and_drop(&self) -> bool {
         // Because `fetch_sub` is already atomic, we do not need to
         // synchronize with other thread.
-        if self.strong.fetch_sub(1, atomic::Ordering::Release) != 1 {
+        if self
+            .strong
+            .fetch_sub(1, atomic::Ordering::Release)
+            != 1
+        {
             return false;
         }
 

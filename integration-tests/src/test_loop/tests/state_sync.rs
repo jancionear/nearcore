@@ -53,14 +53,28 @@ fn generate_accounts(boundary_accounts: &[String]) -> Vec<Vec<(AccountId, Nonce)
     for a in boundary_accounts.iter() {
         accounts.push(
             (0..accounts_per_shard)
-                .map(|i| (format!("{}{}", account_base, i).parse().unwrap(), 1))
+                .map(|i| {
+                    (
+                        format!("{}{}", account_base, i)
+                            .parse()
+                            .unwrap(),
+                        1,
+                    )
+                })
                 .collect::<Vec<_>>(),
         );
         account_base = a.as_str();
     }
     accounts.push(
         (0..accounts_per_shard)
-            .map(|i| (format!("{}{}", account_base, i).parse().unwrap(), 1))
+            .map(|i| {
+                (
+                    format!("{}{}", account_base, i)
+                        .parse()
+                        .unwrap(),
+                    1,
+                )
+            })
             .collect::<Vec<_>>(),
     );
 
@@ -96,7 +110,10 @@ fn setup_initial_blockchain(
             }
         })
         .collect::<Vec<_>>();
-    let mut clients = validators.iter().map(|v| v.account_id.clone()).collect::<Vec<_>>();
+    let mut clients = validators
+        .iter()
+        .map(|v| v.account_id.clone())
+        .collect::<Vec<_>>();
 
     if let Some(schedule) = extra_node_shard_schedule.as_ref() {
         let idx = clients.len();
@@ -119,8 +136,12 @@ fn setup_initial_blockchain(
 
     let epoch_length = 10;
     let genesis_height = 10000;
-    let shard_layout =
-        ShardLayout::simple_v1(&boundary_accounts.iter().map(|s| s.as_str()).collect::<Vec<_>>());
+    let shard_layout = ShardLayout::simple_v1(
+        &boundary_accounts
+            .iter()
+            .map(|s| s.as_str())
+            .collect::<Vec<_>>(),
+    );
     let validators_spec = ValidatorsSpec::raw(
         validators,
         num_block_producer_seats as NumSeats,
@@ -189,11 +210,17 @@ fn setup_initial_blockchain(
     TestState { env, accounts, skip_block_height }
 }
 
-fn get_wrapped<T>(s: &[T], idx: usize) -> &T {
+fn get_wrapped<T>(
+    s: &[T],
+    idx: usize,
+) -> &T {
     &s[idx % s.len()]
 }
 
-fn get_wrapped_mut<T>(s: &mut [T], idx: usize) -> &mut T {
+fn get_wrapped_mut<T>(
+    s: &mut [T],
+    idx: usize,
+) -> &mut T {
     &mut s[idx % s.len()]
 }
 
@@ -205,7 +232,12 @@ fn send_txs_between_shards(
 ) {
     let clients = node_data
         .iter()
-        .map(|data| &test_loop.data.get(&data.client_sender.actor_handle()).client)
+        .map(|data| {
+            &test_loop
+                .data
+                .get(&data.client_sender.actor_handle())
+                .client
+        })
         .collect_vec();
     let block_hash = get_anchor_hash(&clients);
 
@@ -258,23 +290,44 @@ fn send_txs_between_shards(
 
 // Check that no block with height `skip_block_height` made it on the canonical chain, so we're testing
 // what we think we should be.
-fn assert_fork_happened(env: &TestLoopEnv, skip_block_height: BlockHeight) {
-    let client_handles =
-        env.datas.iter().map(|data| data.client_sender.actor_handle()).collect_vec();
-    let clients =
-        client_handles.iter().map(|handle| &env.test_loop.data.get(handle).client).collect_vec();
+fn assert_fork_happened(
+    env: &TestLoopEnv,
+    skip_block_height: BlockHeight,
+) {
+    let client_handles = env
+        .datas
+        .iter()
+        .map(|data| data.client_sender.actor_handle())
+        .collect_vec();
+    let clients = client_handles
+        .iter()
+        .map(|handle| &env.test_loop.data.get(handle).client)
+        .collect_vec();
 
     // Here we assume the one before the skipped block will exist, since it's easier that way and it should
     // be true in this test.
-    let prev_hash = clients[0].chain.get_block_hash_by_height(skip_block_height - 1).unwrap();
-    let next_hash = clients[0].chain.chain_store.get_next_block_hash(&prev_hash).unwrap();
-    let header = clients[0].chain.get_block_header(&next_hash).unwrap();
+    let prev_hash = clients[0]
+        .chain
+        .get_block_hash_by_height(skip_block_height - 1)
+        .unwrap();
+    let next_hash = clients[0]
+        .chain
+        .chain_store
+        .get_next_block_hash(&prev_hash)
+        .unwrap();
+    let header = clients[0]
+        .chain
+        .get_block_header(&next_hash)
+        .unwrap();
     assert!(header.height() > skip_block_height);
 
     // The way it's implemented currently, only one client will be aware of the fork
     for client in clients {
-        let hashes =
-            client.chain.chain_store.get_all_block_hashes_by_height(skip_block_height).unwrap();
+        let hashes = client
+            .chain
+            .chain_store
+            .get_all_block_hashes_by_height(skip_block_height)
+            .unwrap();
         if !hashes.is_empty() {
             return;
         }
@@ -293,7 +346,9 @@ fn produce_chunks(
     mut accounts: Option<Vec<Vec<(AccountId, Nonce)>>>,
     skip_block_height: Option<BlockHeight>,
 ) {
-    let handle = env.datas[0].client_sender.actor_handle();
+    let handle = env.datas[0]
+        .client_sender
+        .actor_handle();
     let client = &env.test_loop.data.get(&handle).client;
     let mut tip = client.chain.head().unwrap();
     // TODO: make this more precise. We don't have to wait 20 whole seconds, but the amount we wait will
@@ -307,7 +362,11 @@ fn produce_chunks(
                 let clients = env
                     .datas
                     .iter()
-                    .map(|test_data| &data.get(&test_data.client_sender.actor_handle()).client)
+                    .map(|test_data| {
+                        &data
+                            .get(&test_data.client_sender.actor_handle())
+                            .client
+                    })
                     .collect_vec();
                 let new_tip = get_smallest_height_head(&clients);
                 new_tip.height != tip.height
@@ -319,12 +378,18 @@ fn produce_chunks(
             .datas
             .iter()
             .map(|test_data| {
-                &env.test_loop.data.get(&test_data.client_sender.actor_handle()).client
+                &env.test_loop
+                    .data
+                    .get(&test_data.client_sender.actor_handle())
+                    .client
             })
             .collect_vec();
         let new_tip = get_smallest_height_head(&clients);
 
-        let header = clients[0].chain.get_block_header(&tip.last_block_hash).unwrap();
+        let header = clients[0]
+            .chain
+            .get_block_header(&tip.last_block_hash)
+            .unwrap();
         tracing::debug!("chunk mask for #{} {:?}", header.height(), header.chunk_mask());
 
         if new_tip.epoch_id != tip.epoch_id {
@@ -346,7 +411,9 @@ fn produce_chunks(
 
 fn run_test(state: TestState) {
     let TestState { mut env, mut accounts, skip_block_height } = state;
-    let handle = env.datas[0].client_sender.actor_handle();
+    let handle = env.datas[0]
+        .client_sender
+        .actor_handle();
     let client = &env.test_loop.data.get(&handle).client;
     let first_epoch_time = client.config.min_block_production_delay
         * u32::try_from(EPOCH_LENGTH).unwrap_or(u32::MAX)
@@ -358,7 +425,9 @@ fn run_test(state: TestState) {
 
     env.test_loop.run_until(
         |data| {
-            let handle = env.datas[0].client_sender.actor_handle();
+            let handle = env.datas[0]
+                .client_sender
+                .actor_handle();
             let client = &data.get(&handle).client;
             let tip = client.chain.head().unwrap();
             tip.epoch_id != Default::default()
@@ -444,7 +513,10 @@ static TEST_CASES: &[StateSyncTest] = &[
         num_chunk_producer_seats: 4,
         num_shards: 4,
         generate_shard_accounts: true,
-        chunks_produced: &[(ShardId::new(0), &[true, false]), (ShardId::new(1), &[true, false])],
+        chunks_produced: &[
+            (ShardId::new(0), &[true, false]),
+            (ShardId::new(1), &[true, false]),
+        ],
         skip_block_sync_height_delta: None,
         extra_node_shard_schedule: None,
     },
@@ -674,28 +746,49 @@ fn test_state_sync_fork_before_sync() {
 fn await_sync_hash(env: &mut TestLoopEnv) -> CryptoHash {
     env.test_loop.run_until(
         |data| {
-            let handle = env.datas[0].client_sender.actor_handle();
+            let handle = env.datas[0]
+                .client_sender
+                .actor_handle();
             let client = &data.get(&handle).client;
             let tip = client.chain.head().unwrap();
             if tip.epoch_id == Default::default() {
                 return false;
             }
-            client.chain.get_sync_hash(&tip.last_block_hash).unwrap().is_some()
+            client
+                .chain
+                .get_sync_hash(&tip.last_block_hash)
+                .unwrap()
+                .is_some()
         },
         Duration::seconds(20),
     );
-    let client_handle = env.datas[0].client_sender.actor_handle();
-    let client = &env.test_loop.data.get(&client_handle).client;
+    let client_handle = env.datas[0]
+        .client_sender
+        .actor_handle();
+    let client = &env
+        .test_loop
+        .data
+        .get(&client_handle)
+        .client;
     let tip = client.chain.head().unwrap();
-    client.chain.get_sync_hash(&tip.last_block_hash).unwrap().unwrap()
+    client
+        .chain
+        .get_sync_hash(&tip.last_block_hash)
+        .unwrap()
+        .unwrap()
 }
 
 // cspell:ignore reqs
 fn spam_state_sync_header_reqs(env: &mut TestLoopEnv) {
     let sync_hash = await_sync_hash(env);
 
-    let view_client_handle = env.datas[0].view_client_sender.actor_handle();
-    let view_client = env.test_loop.data.get_mut(&view_client_handle);
+    let view_client_handle = env.datas[0]
+        .view_client_sender
+        .actor_handle();
+    let view_client = env
+        .test_loop
+        .data
+        .get_mut(&view_client_handle);
 
     for _ in 0..30 {
         let res = view_client.handle(StateRequestHeader { shard_id: ShardId::new(0), sync_hash });
@@ -707,11 +800,17 @@ fn spam_state_sync_header_reqs(env: &mut TestLoopEnv) {
     let res = view_client.handle(StateRequestHeader { shard_id, sync_hash });
     assert!(res.is_none());
 
-    env.test_loop.run_for(Duration::seconds(40));
+    env.test_loop
+        .run_for(Duration::seconds(40));
 
     let sync_hash = await_sync_hash(env);
-    let view_client_handle = env.datas[0].view_client_sender.actor_handle();
-    let view_client = env.test_loop.data.get_mut(&view_client_handle);
+    let view_client_handle = env.datas[0]
+        .view_client_sender
+        .actor_handle();
+    let view_client = env
+        .test_loop
+        .data
+        .get_mut(&view_client_handle);
 
     let res = view_client.handle(StateRequestHeader { shard_id, sync_hash });
     assert!(res.is_some());

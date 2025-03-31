@@ -50,7 +50,10 @@ fn create_block() -> Block {
     );
     let genesis = Block::genesis(
         PROTOCOL_VERSION,
-        genesis_chunks.into_iter().map(|chunk| chunk.take_header()).collect(),
+        genesis_chunks
+            .into_iter()
+            .map(|chunk| chunk.take_header())
+            .collect(),
         Clock::real().now_utc(),
         0,
         1_000,
@@ -81,7 +84,6 @@ fn create_block() -> Block {
         CryptoHash::default(),
         CryptoHash::default(),
         Clock::real(),
-        None,
         None,
     )
 }

@@ -39,11 +39,11 @@ impl FlexibleDataHeader for EncodedValueHeader {
 
     fn from_input(value: &FlatStateValue) -> Self {
         match value {
-            FlatStateValue::Ref(value_ref) => {
+            | FlatStateValue::Ref(value_ref) => {
                 debug_assert!(value_ref.length < Self::INLINED_MASK);
                 EncodedValueHeader { length_and_inlined: value_ref.length }
             }
-            FlatStateValue::Inlined(v) => {
+            | FlatStateValue::Inlined(v) => {
                 assert!(v.len() < Self::INLINED_MASK as usize);
                 EncodedValueHeader { length_and_inlined: Self::INLINED_MASK | v.len() as u32 }
             }
@@ -66,15 +66,19 @@ impl FlexibleDataHeader for EncodedValueHeader {
     ) {
         let (length, inlined) = self.decode();
         match value {
-            FlatStateValue::Ref(value_ref) => {
+            | FlatStateValue::Ref(value_ref) => {
                 assert!(!inlined);
                 assert_eq!(length, value_ref.length);
-                target.raw_slice_mut().copy_from_slice(&value_ref.hash.0);
+                target
+                    .raw_slice_mut()
+                    .copy_from_slice(&value_ref.hash.0);
             }
-            FlatStateValue::Inlined(v) => {
+            | FlatStateValue::Inlined(v) => {
                 assert!(inlined);
                 assert_eq!(length, v.len() as u32);
-                target.raw_slice_mut().copy_from_slice(v);
+                target
+                    .raw_slice_mut()
+                    .copy_from_slice(v);
             }
         }
     }
@@ -102,10 +106,10 @@ pub enum ValueView<'a> {
 impl<'a> ValueView<'a> {
     pub fn to_flat_value(&self) -> FlatStateValue {
         match self {
-            Self::Ref { length, hash } => {
+            | Self::Ref { length, hash } => {
                 FlatStateValue::Ref(ValueRef { length: *length, hash: *hash })
             }
-            Self::Inlined(data) => FlatStateValue::Inlined(data.to_vec()),
+            | Self::Inlined(data) => FlatStateValue::Inlined(data.to_vec()),
         }
     }
 
@@ -115,8 +119,8 @@ impl<'a> ValueView<'a> {
 
     pub fn len(&self) -> usize {
         match self {
-            Self::Ref { length, .. } => *length as usize,
-            Self::Inlined(data) => data.len(),
+            | Self::Ref { length, .. } => *length as usize,
+            | Self::Inlined(data) => data.len(),
         }
     }
 }

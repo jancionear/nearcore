@@ -25,7 +25,10 @@ const SHARDS: &'static [ShardId] = &[
     ShardId::new(7),
 ];
 
-fn verify_total_supply(total_supply: Balance, chain_id: &str) {
+fn verify_total_supply(
+    total_supply: Balance,
+    chain_id: &str,
+) {
     if chain_id == near_primitives::chains::MAINNET {
         assert_eq!(
             total_supply,
@@ -41,12 +44,24 @@ fn verify_total_supply(total_supply: Balance, chain_id: &str) {
 
 /// Generates `config.json` and `genesis.config` from csv files.
 /// Verifies that `validator_key.json`, and `node_key.json` are present.
-pub fn csv_to_json_configs(home: &Path, chain_id: String, tracked_shards: Vec<ShardId>) {
+pub fn csv_to_json_configs(
+    home: &Path,
+    chain_id: String,
+    tracked_shards: Vec<ShardId>,
+) {
     // Verify that key files exist.
-    assert!(home.join(NODE_KEY_FILE).as_path().exists(), "Node key file should exist");
+    assert!(
+        home.join(NODE_KEY_FILE)
+            .as_path()
+            .exists(),
+        "Node key file should exist"
+    );
 
     let shards_set: HashSet<_> = SHARDS.iter().collect();
-    if tracked_shards.iter().any(|shard_id| !shards_set.contains(shard_id)) {
+    if tracked_shards
+        .iter()
+        .any(|shard_id| !shards_set.contains(shard_id))
+    {
         panic!("Trying to track a shard that does not exist");
     }
 
@@ -61,8 +76,11 @@ pub fn csv_to_json_configs(home: &Path, chain_id: String, tracked_shards: Vec<Sh
             MIN_GAS_PRICE,
         )
         .expect("Error parsing accounts file.");
-    config.network.boot_nodes =
-        peer_info.into_iter().map(|x| x.to_string()).collect::<Vec<_>>().join(",");
+    config.network.boot_nodes = peer_info
+        .into_iter()
+        .map(|x| x.to_string())
+        .collect::<Vec<_>>()
+        .join(",");
     let genesis_config = GenesisConfig {
         protocol_version: PROTOCOL_VERSION,
         genesis_time,
@@ -95,6 +113,8 @@ pub fn csv_to_json_configs(home: &Path, chain_id: String, tracked_shards: Vec<Sh
     verify_total_supply(genesis.config.total_supply, &chain_id);
 
     // Write all configs to files.
-    config.write_to_file(&home.join(CONFIG_FILENAME)).expect("Error writing config");
+    config
+        .write_to_file(&home.join(CONFIG_FILENAME))
+        .expect("Error writing config");
     genesis.to_file(&home.join(GENESIS_CONFIG_FILENAME));
 }

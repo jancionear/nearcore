@@ -44,7 +44,10 @@ impl ChainAccess {
             store.clone(),
             config.genesis.config.genesis_height,
             config.client_config.save_trie_changes,
-            config.genesis.config.transaction_validity_period,
+            config
+                .genesis
+                .config
+                .transaction_validity_period,
         );
         let epoch_manager = EpochManager::new_arc_handle(
             store.clone(),
@@ -73,8 +76,11 @@ impl crate::ChainAccess for ChainAccess {
             if height > head {
                 return Ok(block_heights);
             }
-            match self.chain.get_block_hash_by_height(height) {
-                Ok(hash) => {
+            match self
+                .chain
+                .get_block_hash_by_height(height)
+            {
+                | Ok(hash) => {
                     block_heights.push(
                         self.chain
                             .get_block_header(&hash)
@@ -83,21 +89,27 @@ impl crate::ChainAccess for ChainAccess {
                     );
                     break;
                 }
-                Err(near_chain_primitives::Error::DBNotFoundErr(_)) => {
+                | Err(near_chain_primitives::Error::DBNotFoundErr(_)) => {
                     height += 1;
                 }
-                Err(e) => {
+                | Err(e) => {
                     return Err(e)
                         .with_context(|| format!("failed fetching block hash for #{}", height))
                 }
             };
         }
         while block_heights.len() < num_initial_blocks {
-            let last_height = *block_heights.iter().next_back().unwrap();
-            match self.get_next_block_height(last_height).await {
-                Ok(h) => block_heights.push(h),
-                Err(ChainError::Unknown) => break,
-                Err(ChainError::Other(e)) => {
+            let last_height = *block_heights
+                .iter()
+                .next_back()
+                .unwrap();
+            match self
+                .get_next_block_height(last_height)
+                .await
+            {
+                | Ok(h) => block_heights.push(h),
+                | Err(ChainError::Unknown) => break,
+                | Err(ChainError::Other(e)) => {
                     return Err(e).with_context(|| {
                         format!("failed getting next block height after {}", last_height)
                     })
@@ -107,16 +119,26 @@ impl crate::ChainAccess for ChainAccess {
         Ok(block_heights)
     }
 
-    async fn block_height_to_hash(&self, height: BlockHeight) -> Result<CryptoHash, ChainError> {
-        Ok(self.chain.get_block_hash_by_height(height)?)
+    async fn block_height_to_hash(
+        &self,
+        height: BlockHeight,
+    ) -> Result<CryptoHash, ChainError> {
+        Ok(self
+            .chain
+            .get_block_hash_by_height(height)?)
     }
 
     async fn head_height(&self) -> Result<BlockHeight, ChainError> {
         Ok(self.chain.head()?.height)
     }
 
-    async fn get_txs(&self, height: BlockHeight) -> Result<SourceBlock, ChainError> {
-        let block_hash = self.chain.get_block_hash_by_height(height)?;
+    async fn get_txs(
+        &self,
+        height: BlockHeight,
+    ) -> Result<SourceBlock, ChainError> {
+        let block_hash = self
+            .chain
+            .get_block_hash_by_height(height)?;
         let block = self
             .chain
             .get_block(&block_hash)
@@ -124,9 +146,12 @@ impl crate::ChainAccess for ChainAccess {
 
         let mut chunks = Vec::new();
         for chunk in block.chunks().iter_deprecated() {
-            let chunk = match self.chain.get_chunk(&chunk.chunk_hash()) {
-                Ok(c) => c,
-                Err(e) => {
+            let chunk = match self
+                .chain
+                .get_chunk(&chunk.chunk_hash())
+            {
+                | Ok(c) => c,
+                | Err(e) => {
                     tracing::error!(
                         "Can't fetch source chain shard {} chunk at height {}. Are we tracking all shards?: {:?}",
                         chunk.shard_id(), height, e
@@ -143,10 +168,18 @@ impl crate::ChainAccess for ChainAccess {
         Ok(SourceBlock { hash: block_hash, chunks })
     }
 
-    async fn get_next_block_height(&self, height: BlockHeight) -> Result<BlockHeight, ChainError> {
-        let hash = self.chain.get_block_hash_by_height(height)?;
+    async fn get_next_block_height(
+        &self,
+        height: BlockHeight,
+    ) -> Result<BlockHeight, ChainError> {
+        let hash = self
+            .chain
+            .get_block_hash_by_height(height)?;
         let hash = self.chain.get_next_block_hash(&hash)?;
-        Ok(self.chain.get_block_header(&hash)?.height())
+        Ok(self
+            .chain
+            .get_block_header(&hash)?
+            .height())
     }
 
     async fn get_outcome(
@@ -154,8 +187,8 @@ impl crate::ChainAccess for ChainAccess {
         id: TransactionOrReceiptId,
     ) -> Result<ExecutionOutcomeWithIdView, ChainError> {
         let id = match id {
-            TransactionOrReceiptId::Receipt { receipt_id, .. } => receipt_id,
-            TransactionOrReceiptId::Transaction { transaction_hash, .. } => transaction_hash,
+            | TransactionOrReceiptId::Receipt { receipt_id, .. } => receipt_id,
+            | TransactionOrReceiptId::Transaction { transaction_hash, .. } => transaction_hash,
         };
         let outcomes = self.chain.get_outcomes_by_id(&id)?;
         // this implements the same logic as in Chain::get_execution_outcome(). We will rewrite
@@ -163,16 +196,26 @@ impl crate::ChainAccess for ChainAccess {
         // since we're just reading data, not doing any protocol related stuff
         outcomes
             .into_iter()
-            .find(|outcome| match self.chain.get_block_header(&outcome.block_hash) {
-                Ok(header) => is_on_current_chain(&self.chain, &header).unwrap_or(false),
-                Err(_) => false,
+            .find(|outcome| {
+                match self
+                    .chain
+                    .get_block_header(&outcome.block_hash)
+                {
+                    | Ok(header) => is_on_current_chain(&self.chain, &header).unwrap_or(false),
+                    | Err(_) => false,
+                }
             })
             .map(Into::into)
             .ok_or(ChainError::Unknown)
     }
 
-    async fn get_receipt(&self, id: &CryptoHash) -> Result<Arc<Receipt>, ChainError> {
-        self.chain.get_receipt(id)?.ok_or(ChainError::Unknown)
+    async fn get_receipt(
+        &self,
+        id: &CryptoHash,
+    ) -> Result<Arc<Receipt>, ChainError> {
+        self.chain
+            .get_receipt(id)?
+            .ok_or(ChainError::Unknown)
     }
 
     async fn get_full_access_keys(
@@ -181,14 +224,20 @@ impl crate::ChainAccess for ChainAccess {
         block_hash: &CryptoHash,
     ) -> Result<Vec<PublicKey>, ChainError> {
         let mut ret = Vec::new();
-        let header = self.chain.get_block_header(block_hash)?;
+        let header = self
+            .chain
+            .get_block_header(block_hash)?;
         let shard_id = self
             .epoch_manager
             .account_id_to_shard_id(account_id, header.epoch_id())
             .into_chain_error()?;
-        let shard_uid =
-            self.epoch_manager.shard_id_to_uid(shard_id, header.epoch_id()).into_chain_error()?;
-        let chunk_extra = self.chain.get_chunk_extra(header.hash(), &shard_uid)?;
+        let shard_uid = self
+            .epoch_manager
+            .shard_id_to_uid(shard_id, header.epoch_id())
+            .into_chain_error()?;
+        let chunk_extra = self
+            .chain
+            .get_chunk_extra(header.hash(), &shard_uid)?;
         match self
             .runtime
             .query(
@@ -203,14 +252,14 @@ impl crate::ChainAccess for ChainAccess {
             )?
             .kind
         {
-            QueryResponseKind::AccessKeyList(l) => {
+            | QueryResponseKind::AccessKeyList(l) => {
                 for k in l.keys {
                     if k.access_key.permission == AccessKeyPermissionView::FullAccess {
                         ret.push(k.public_key);
                     }
                 }
             }
-            _ => unreachable!(),
+            | _ => unreachable!(),
         }
         Ok(ret)
     }

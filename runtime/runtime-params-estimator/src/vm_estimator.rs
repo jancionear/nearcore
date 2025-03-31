@@ -44,7 +44,9 @@ fn measure_contract(
     cache: &dyn ContractRuntimeCache,
 ) -> GasCost {
     let config_store = RuntimeConfigStore::new(None);
-    let runtime_config = config_store.get_config(PROTOCOL_VERSION).as_ref();
+    let runtime_config = config_store
+        .get_config(PROTOCOL_VERSION)
+        .as_ref();
     let vm_config = runtime_config.wasm_config.clone();
     let start = GasCost::measure(gas_metric);
     let vm = vm_kind.runtime(vm_config).unwrap();

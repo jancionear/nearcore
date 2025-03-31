@@ -95,7 +95,10 @@ impl DurationCheckSerializer {
         Self { current_path: Vec::new() }
     }
 
-    pub fn of(&self, inner: &str) -> Self {
+    pub fn of(
+        &self,
+        inner: &str,
+    ) -> Self {
         Self {
             current_path: self
                 .current_path
@@ -123,59 +126,101 @@ impl Serializer for DurationCheckSerializer {
     type SerializeStruct = DurationCheckSerializer;
     type SerializeStructVariant = DurationCheckSerializer;
 
-    fn serialize_bool(self, _v: bool) -> Result<Self::Ok, Self::Error> {
+    fn serialize_bool(
+        self,
+        _v: bool,
+    ) -> Result<Self::Ok, Self::Error> {
         Ok(())
     }
 
-    fn serialize_i8(self, _v: i8) -> Result<Self::Ok, Self::Error> {
+    fn serialize_i8(
+        self,
+        _v: i8,
+    ) -> Result<Self::Ok, Self::Error> {
         Ok(())
     }
 
-    fn serialize_i16(self, _v: i16) -> Result<Self::Ok, Self::Error> {
+    fn serialize_i16(
+        self,
+        _v: i16,
+    ) -> Result<Self::Ok, Self::Error> {
         Ok(())
     }
 
-    fn serialize_i32(self, _v: i32) -> Result<Self::Ok, Self::Error> {
+    fn serialize_i32(
+        self,
+        _v: i32,
+    ) -> Result<Self::Ok, Self::Error> {
         Ok(())
     }
 
-    fn serialize_i64(self, _v: i64) -> Result<Self::Ok, Self::Error> {
+    fn serialize_i64(
+        self,
+        _v: i64,
+    ) -> Result<Self::Ok, Self::Error> {
         Ok(())
     }
 
-    fn serialize_u8(self, _v: u8) -> Result<Self::Ok, Self::Error> {
+    fn serialize_u8(
+        self,
+        _v: u8,
+    ) -> Result<Self::Ok, Self::Error> {
         Ok(())
     }
 
-    fn serialize_u16(self, _v: u16) -> Result<Self::Ok, Self::Error> {
+    fn serialize_u16(
+        self,
+        _v: u16,
+    ) -> Result<Self::Ok, Self::Error> {
         Ok(())
     }
 
-    fn serialize_u32(self, _v: u32) -> Result<Self::Ok, Self::Error> {
+    fn serialize_u32(
+        self,
+        _v: u32,
+    ) -> Result<Self::Ok, Self::Error> {
         Ok(())
     }
 
-    fn serialize_u64(self, _v: u64) -> Result<Self::Ok, Self::Error> {
+    fn serialize_u64(
+        self,
+        _v: u64,
+    ) -> Result<Self::Ok, Self::Error> {
         Ok(())
     }
 
-    fn serialize_f32(self, _v: f32) -> Result<Self::Ok, Self::Error> {
+    fn serialize_f32(
+        self,
+        _v: f32,
+    ) -> Result<Self::Ok, Self::Error> {
         Ok(())
     }
 
-    fn serialize_f64(self, _v: f64) -> Result<Self::Ok, Self::Error> {
+    fn serialize_f64(
+        self,
+        _v: f64,
+    ) -> Result<Self::Ok, Self::Error> {
         Ok(())
     }
 
-    fn serialize_char(self, _v: char) -> Result<Self::Ok, Self::Error> {
+    fn serialize_char(
+        self,
+        _v: char,
+    ) -> Result<Self::Ok, Self::Error> {
         Ok(())
     }
 
-    fn serialize_str(self, _v: &str) -> Result<Self::Ok, Self::Error> {
+    fn serialize_str(
+        self,
+        _v: &str,
+    ) -> Result<Self::Ok, Self::Error> {
         Ok(())
     }
 
-    fn serialize_bytes(self, _v: &[u8]) -> Result<Self::Ok, Self::Error> {
+    fn serialize_bytes(
+        self,
+        _v: &[u8],
+    ) -> Result<Self::Ok, Self::Error> {
         Ok(())
     }
 
@@ -183,7 +228,10 @@ impl Serializer for DurationCheckSerializer {
         panic!("The test setup should not leave any None's, otherwise it can miss some fields to check; None seen at field path {:?}", self.current_path);
     }
 
-    fn serialize_some<T>(self, value: &T) -> Result<Self::Ok, Self::Error>
+    fn serialize_some<T>(
+        self,
+        value: &T,
+    ) -> Result<Self::Ok, Self::Error>
     where
         T: Serialize + ?Sized,
     {
@@ -194,7 +242,10 @@ impl Serializer for DurationCheckSerializer {
         Ok(())
     }
 
-    fn serialize_unit_struct(self, _name: &'static str) -> Result<Self::Ok, Self::Error> {
+    fn serialize_unit_struct(
+        self,
+        _name: &'static str,
+    ) -> Result<Self::Ok, Self::Error> {
         Ok(())
     }
 
@@ -231,11 +282,17 @@ impl Serializer for DurationCheckSerializer {
         value.serialize(self.of(name))
     }
 
-    fn serialize_seq(self, _len: Option<usize>) -> Result<Self::SerializeSeq, Self::Error> {
+    fn serialize_seq(
+        self,
+        _len: Option<usize>,
+    ) -> Result<Self::SerializeSeq, Self::Error> {
         Ok(self)
     }
 
-    fn serialize_tuple(self, _len: usize) -> Result<Self::SerializeTuple, Self::Error> {
+    fn serialize_tuple(
+        self,
+        _len: usize,
+    ) -> Result<Self::SerializeTuple, Self::Error> {
         Ok(self.tuple())
     }
 
@@ -257,7 +314,10 @@ impl Serializer for DurationCheckSerializer {
         Ok(self.of(name))
     }
 
-    fn serialize_map(self, _len: Option<usize>) -> Result<Self::SerializeMap, Self::Error> {
+    fn serialize_map(
+        self,
+        _len: Option<usize>,
+    ) -> Result<Self::SerializeMap, Self::Error> {
         Ok(self)
     }
 
@@ -284,7 +344,10 @@ impl SerializeSeq for DurationCheckSerializer {
     type Ok = ();
     type Error = std::fmt::Error;
 
-    fn serialize_element<T>(&mut self, value: &T) -> Result<(), Self::Error>
+    fn serialize_element<T>(
+        &mut self,
+        value: &T,
+    ) -> Result<(), Self::Error>
     where
         T: Serialize + ?Sized,
     {
@@ -300,7 +363,11 @@ impl SerializeMap for DurationCheckSerializer {
     type Ok = ();
     type Error = std::fmt::Error;
 
-    fn serialize_entry<K, V>(&mut self, _key: &K, value: &V) -> Result<(), Self::Error>
+    fn serialize_entry<K, V>(
+        &mut self,
+        _key: &K,
+        value: &V,
+    ) -> Result<(), Self::Error>
     where
         K: Serialize + ?Sized,
         V: Serialize + ?Sized,
@@ -308,14 +375,20 @@ impl SerializeMap for DurationCheckSerializer {
         value.serialize(self.clone())
     }
 
-    fn serialize_key<T>(&mut self, _key: &T) -> Result<(), Self::Error>
+    fn serialize_key<T>(
+        &mut self,
+        _key: &T,
+    ) -> Result<(), Self::Error>
     where
         T: Serialize + ?Sized,
     {
         unreachable!()
     }
 
-    fn serialize_value<T>(&mut self, _value: &T) -> Result<(), Self::Error>
+    fn serialize_value<T>(
+        &mut self,
+        _value: &T,
+    ) -> Result<(), Self::Error>
     where
         T: Serialize + ?Sized,
     {
@@ -331,7 +404,11 @@ impl SerializeStruct for DurationCheckSerializer {
     type Ok = ();
     type Error = std::fmt::Error;
 
-    fn serialize_field<T>(&mut self, key: &'static str, value: &T) -> Result<(), Self::Error>
+    fn serialize_field<T>(
+        &mut self,
+        key: &'static str,
+        value: &T,
+    ) -> Result<(), Self::Error>
     where
         T: Serialize + ?Sized,
     {
@@ -347,11 +424,15 @@ impl SerializeTuple for DurationCheckTupleSerializer {
     type Ok = ();
     type Error = std::fmt::Error;
 
-    fn serialize_element<T>(&mut self, value: &T) -> Result<(), Self::Error>
+    fn serialize_element<T>(
+        &mut self,
+        value: &T,
+    ) -> Result<(), Self::Error>
     where
         T: Serialize + ?Sized,
     {
-        self.field_types.push(std::any::type_name::<T>().to_string());
+        self.field_types
+            .push(std::any::type_name::<T>().to_string());
         value.serialize(self.parent.clone())
     }
 
@@ -372,7 +453,10 @@ impl SerializeTupleStruct for DurationCheckSerializer {
     type Ok = ();
     type Error = std::fmt::Error;
 
-    fn serialize_field<T>(&mut self, value: &T) -> Result<(), Self::Error>
+    fn serialize_field<T>(
+        &mut self,
+        value: &T,
+    ) -> Result<(), Self::Error>
     where
         T: Serialize + ?Sized,
     {
@@ -388,7 +472,10 @@ impl SerializeTupleVariant for DurationCheckSerializer {
     type Ok = ();
     type Error = std::fmt::Error;
 
-    fn serialize_field<T>(&mut self, value: &T) -> Result<(), Self::Error>
+    fn serialize_field<T>(
+        &mut self,
+        value: &T,
+    ) -> Result<(), Self::Error>
     where
         T: Serialize + ?Sized,
     {
@@ -404,7 +491,11 @@ impl SerializeStructVariant for DurationCheckSerializer {
     type Ok = ();
     type Error = std::fmt::Error;
 
-    fn serialize_field<T>(&mut self, key: &'static str, value: &T) -> Result<(), Self::Error>
+    fn serialize_field<T>(
+        &mut self,
+        key: &'static str,
+        value: &T,
+    ) -> Result<(), Self::Error>
     where
         T: Serialize + ?Sized,
     {

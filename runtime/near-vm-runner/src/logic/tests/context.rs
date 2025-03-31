@@ -9,7 +9,9 @@ macro_rules! decl_test_bytes {
             let $ctx = &logic_builder.context;
             let want = $want.to_vec();
             let mut logic = logic_builder.build();
-            logic.$method(0).expect("read bytes into register from context should be ok");
+            logic
+                .$method(0)
+                .expect("read bytes into register from context should be ok");
             logic.assert_read_register(&want[..], 0);
         }
     };
@@ -24,7 +26,9 @@ macro_rules! decl_test_u64 {
             let want = $want;
 
             let mut logic = logic_builder.build();
-            let got = logic.$method().expect("read from context should be ok");
+            let got = logic
+                .$method()
+                .expect("read from context should be ok");
             assert_eq!(want, got);
         }
     };
@@ -39,8 +43,13 @@ macro_rules! decl_test_u128 {
             let want = $want;
 
             let mut logic = logic_builder.build();
-            logic.$method(0).expect("read from context should be ok");
-            let got = logic.internal_mem_read(0, 16).try_into().unwrap();
+            logic
+                .$method(0)
+                .expect("read from context should be ok");
+            let got = logic
+                .internal_mem_read(0, 16)
+                .try_into()
+                .unwrap();
             assert_eq!(u128::from_le_bytes(got), want);
         }
     };
@@ -91,15 +100,22 @@ fn test_attached_deposit_view() {
     fn test_view(amount: u128) {
         let mut logic_builder = VMLogicBuilder::default();
         let context = &mut logic_builder.context;
-        context.view_config =
-            Some(ViewConfig { max_gas_burnt: test_vm_config().limit_config.max_gas_burnt });
+        context.view_config = Some(ViewConfig {
+            max_gas_burnt: test_vm_config()
+                .limit_config
+                .max_gas_burnt,
+        });
         context.account_balance = 0;
         context.attached_deposit = amount;
         let mut logic = logic_builder.build();
 
-        logic.attached_deposit(0).expect("read from context should be ok");
-        let buf =
-            logic.internal_mem_read(0, std::mem::size_of::<u128>() as u64).try_into().unwrap();
+        logic
+            .attached_deposit(0)
+            .expect("read from context should be ok");
+        let buf = logic
+            .internal_mem_read(0, std::mem::size_of::<u128>() as u64)
+            .try_into()
+            .unwrap();
 
         let res = u128::from_le_bytes(buf);
         assert_eq!(res, amount);

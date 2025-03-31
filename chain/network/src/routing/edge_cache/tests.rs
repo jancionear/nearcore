@@ -93,19 +93,38 @@ fn test_p2id_mapping() {
     ec.insert_active_edge(&edge0);
     ec.insert_active_edge(&edge1);
     ec.insert_active_edge(&edge2);
-    ec.check_mapping(vec![node0.clone(), node1.clone(), node2.clone(), node3.clone()]);
+    ec.check_mapping(vec![
+        node0.clone(),
+        node1.clone(),
+        node2.clone(),
+        node3.clone(),
+    ]);
 
     // Remove edge1; all nodes are still active (0--1  2--3)
     ec.remove_active_edge(&edge1.key().into());
-    ec.check_mapping(vec![node0.clone(), node1.clone(), node2.clone(), node3.clone()]);
+    ec.check_mapping(vec![
+        node0.clone(),
+        node1.clone(),
+        node2.clone(),
+        node3.clone(),
+    ]);
 
     // Remove edge0; node1 will no longer be active (0  1  2--3)
     ec.remove_active_edge(&edge0.key().into());
-    ec.check_mapping(vec![node0.clone(), node2.clone(), node3.clone()]);
+    ec.check_mapping(vec![
+        node0.clone(),
+        node2.clone(),
+        node3.clone(),
+    ]);
 
     // Insert edge1; reactivates node1 (0  1--2--3)
     ec.insert_active_edge(&edge1);
-    ec.check_mapping(vec![node0.clone(), node1.clone(), node2.clone(), node3]);
+    ec.check_mapping(vec![
+        node0.clone(),
+        node1.clone(),
+        node2.clone(),
+        node3,
+    ]);
 
     // Remove edge2; deactivates only node2 (0  1--2  3)
     ec.remove_active_edge(&edge2.key().into());
@@ -130,7 +149,9 @@ fn reuse_ids() {
     for _ in 0..25 {
         // Generate some random PeerIds; should have at least 2 so we can make some edges
         let node_ct = rng.gen::<usize>() % (max_node_ct - 2) + 2;
-        let mut peer_ids: Vec<PeerId> = (1..node_ct).map(|_| random_peer_id()).collect();
+        let mut peer_ids: Vec<PeerId> = (1..node_ct)
+            .map(|_| random_peer_id())
+            .collect();
         peer_ids.push(local_node_id.clone());
 
         // Generate some random edges
@@ -219,7 +240,10 @@ fn overwrite_shortest_path_tree() {
     assert!(!ec.p2id.contains_key(&node2));
 }
 
-fn assert_eq_unordered(a: Vec<Edge>, b: Vec<Edge>) {
+fn assert_eq_unordered(
+    a: Vec<Edge>,
+    b: Vec<Edge>,
+) {
     for x in &a {
         assert!(b.contains(x));
     }
@@ -258,7 +282,11 @@ fn test_construct_shortest_path_tree() {
             (node3.clone(), 3),
         ]))
         .unwrap(),
-        vec![edge0.clone(), edge1.clone(), edge2.clone()],
+        vec![
+            edge0.clone(),
+            edge1.clone(),
+            edge2.clone(),
+        ],
     );
 
     // Add direct edges to node2 and node3

@@ -78,8 +78,10 @@ pub(crate) fn transaction_cost_ext(
         }
         eprintln!();
     }
-    let measurements =
-        measurements.into_iter().skip(testbed.config.warmup_iters_per_block).collect::<Vec<_>>();
+    let measurements = measurements
+        .into_iter()
+        .skip(testbed.config.warmup_iters_per_block)
+        .collect::<Vec<_>>();
 
     aggregate_per_block_measurements(block_size, measurements, Some(measurement_overhead))
 }
@@ -139,7 +141,11 @@ pub(crate) fn fn_cost_count(
 }
 
 pub(crate) fn noop_function_call_cost(ctx: &mut EstimatorContext) -> GasCost {
-    if let Some(cost) = ctx.cached.noop_function_call_cost.clone() {
+    if let Some(cost) = ctx
+        .cached
+        .noop_function_call_cost
+        .clone()
+    {
         return cost;
     }
 
@@ -211,13 +217,18 @@ pub(crate) fn fn_cost_with_setup(
         let (gas_cost, ext_costs) =
             aggregate_per_block_measurements(block_size, measurements, Some(overhead));
 
-        let is_write = [ExtCosts::storage_write_base, ExtCosts::storage_remove_base]
-            .iter()
-            .any(|cost| *ext_costs.get(cost).unwrap_or(&0) > 0);
+        let is_write = [
+            ExtCosts::storage_write_base,
+            ExtCosts::storage_remove_base,
+        ]
+        .iter()
+        .any(|cost| *ext_costs.get(cost).unwrap_or(&0) > 0);
         if !is_write {
             assert_eq!(
                 0,
-                *ext_costs.get(&ExtCosts::touching_trie_node).unwrap_or(&0),
+                *ext_costs
+                    .get(&ExtCosts::touching_trie_node)
+                    .unwrap_or(&0),
                 "flat storage not working"
             );
         }
@@ -257,13 +268,17 @@ pub(crate) fn fn_cost_in_contract(
 
     let mut chosen_accounts = {
         let tb = testbed.transaction_builder();
-        iter::repeat_with(|| tb.random_unused_account()).take(n_blocks + 1).collect::<Vec<_>>()
+        iter::repeat_with(|| tb.random_unused_account())
+            .take(n_blocks + 1)
+            .collect::<Vec<_>>()
     };
     testbed.clear_caches();
 
     for account in &chosen_accounts {
         let tb = testbed.transaction_builder();
-        let setup = vec![Action::DeployContract(DeployContractAction { code: code.to_vec() })];
+        let setup = vec![Action::DeployContract(
+            DeployContractAction { code: code.to_vec() },
+        )];
         let setup_tx = tb.transaction_from_actions(account.clone(), account.clone(), setup);
 
         testbed.process_block(vec![setup_tx], 0);
@@ -275,20 +290,20 @@ pub(crate) fn fn_cost_in_contract(
         let actions = iter::repeat_with(|| function_call_action(method.to_string()))
             .take(n_actions)
             .collect();
-        let tx = testbed.transaction_builder().transaction_from_actions(
-            account.clone(),
-            account,
-            actions,
-        );
+        let tx = testbed
+            .transaction_builder()
+            .transaction_from_actions(account.clone(), account, actions);
         blocks.push(vec![tx]);
     }
     // Base with single tx with single action. Insert it after warm-up blocks.
     let final_account = chosen_accounts.pop().unwrap();
-    let base_tx = testbed.transaction_builder().transaction_from_actions(
-        final_account.clone(),
-        final_account,
-        vec![function_call_action(method.to_string())],
-    );
+    let base_tx = testbed
+        .transaction_builder()
+        .transaction_from_actions(
+            final_account.clone(),
+            final_account,
+            vec![function_call_action(method.to_string())],
+        );
     blocks.insert(n_warmup_blocks, vec![base_tx]);
 
     let mut measurements = testbed.measure_blocks(blocks, 0);
@@ -362,7 +377,10 @@ pub(crate) fn aggregate_per_block_measurements(
 }
 
 pub(crate) fn average_cost(measurements: Vec<GasCost>) -> GasCost {
-    let scalar_costs = measurements.iter().map(|cost| cost.to_gas() as f64).collect::<Vec<_>>();
+    let scalar_costs = measurements
+        .iter()
+        .map(|cost| cost.to_gas() as f64)
+        .collect::<Vec<_>>();
     let total: GasCost = measurements.into_iter().sum();
     let mut avg = total / scalar_costs.len() as u64;
     if is_high_variance(&scalar_costs) {
@@ -386,7 +404,10 @@ pub(crate) fn is_high_variance(samples: &[f64]) -> bool {
         return true;
     }
     let mean = samples.iter().copied().sum::<f64>() / (samples.len() as f64);
-    let s2 = samples.iter().map(|value| (mean - *value).powi(2)).sum::<f64>()
+    let s2 = samples
+        .iter()
+        .map(|value| (mean - *value).powi(2))
+        .sum::<f64>()
         / (samples.len() - 1) as f64;
     let stddev = s2.sqrt();
     stddev / mean > threshold
@@ -408,22 +429,41 @@ pub(crate) fn percentiles(
 }
 
 /// Produce a valid function name with `len` letters
-pub(crate) fn generate_fn_name(index: usize, len: usize) -> Vec<u8> {
+pub(crate) fn generate_fn_name(
+    index: usize,
+    len: usize,
+) -> Vec<u8> {
     let mut name = Vec::new();
     let mut index = index;
-    name.push((b'A'..=b'Z').chain(b'a'..=b'z').nth(index % 52).unwrap());
+    name.push(
+        (b'A'..=b'Z')
+            .chain(b'a'..=b'z')
+            .nth(index % 52)
+            .unwrap(),
+    );
     for _ in 1..len {
         index = index / 52;
-        name.push((b'A'..=b'Z').chain(b'a'..=b'z').nth(index % 52).unwrap());
+        name.push(
+            (b'A'..=b'Z')
+                .chain(b'a'..=b'z')
+                .nth(index % 52)
+                .unwrap(),
+        );
     }
     name
 }
 
 /// Create a WASM module that is empty except for a main method and a single data entry with n characters
-pub(crate) fn generate_data_only_contract(data_size: usize, config: &VMConfig) -> Vec<u8> {
+pub(crate) fn generate_data_only_contract(
+    data_size: usize,
+    config: &VMConfig,
+) -> Vec<u8> {
     // Using pseudo-random stream with fixed seed to create deterministic, incompressable payload.
     let prng: XorShiftRng = rand::SeedableRng::seed_from_u64(0xdeadbeef);
-    let payload = prng.sample_iter(&Alphanumeric).take(data_size).collect();
+    let payload = prng
+        .sample_iter(&Alphanumeric)
+        .take(data_size)
+        .collect();
     let payload = String::from_utf8(payload).unwrap();
     let wat_code = format!(
         r#"(module
@@ -450,11 +490,19 @@ mod test {
     use rand::prelude::SliceRandom;
 
     #[track_caller]
-    fn check_percentiles(gas_values: &[u64], p_values: &[f32], expected_gas_results: &[u64]) {
-        let costs =
-            gas_values.iter().map(|n| GasCost::from_gas((*n).into(), GasMetric::Time)).collect();
+    fn check_percentiles(
+        gas_values: &[u64],
+        p_values: &[f32],
+        expected_gas_results: &[u64],
+    ) {
+        let costs = gas_values
+            .iter()
+            .map(|n| GasCost::from_gas((*n).into(), GasMetric::Time))
+            .collect();
 
-        let results = percentiles(costs, p_values).map(|cost| cost.to_gas()).collect::<Vec<_>>();
+        let results = percentiles(costs, p_values)
+            .map(|cost| cost.to_gas())
+            .collect::<Vec<_>>();
 
         assert_eq!(results, expected_gas_results,)
     }

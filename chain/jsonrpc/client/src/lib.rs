@@ -35,7 +35,12 @@ type HttpRequest<T> = LocalBoxFuture<'static, Result<T, String>>;
 type RpcRequest<T> = LocalBoxFuture<'static, Result<T, RpcError>>;
 
 /// Prepare a `RPCRequest` with a given client, server address, method and parameters.
-fn call_method<P, R>(client: &Client, server_addr: &str, method: &str, params: P) -> RpcRequest<R>
+fn call_method<P, R>(
+    client: &Client,
+    server_addr: &str,
+    method: &str,
+    params: P,
+) -> RpcRequest<R>
 where
     P: serde::Serialize,
     R: serde::de::DeserializeOwned + 'static,
@@ -48,22 +53,25 @@ where
         .send_json(&request)
         .map_err(|err| RpcError::new_internal_error(None, format!("{:?}", err)))
         .and_then(|mut response| {
-            response.body().limit(PAYLOAD_LIMIT).map(|body| match body {
-                Ok(bytes) => from_slice(&bytes).map_err(|err| {
-                    RpcError::parse_error(format!("Error {:?} in {:?}", err, bytes))
-                }),
-                Err(err) => {
-                    Err(RpcError::parse_error(format!("Failed to retrieve payload: {:?}", err)))
-                }
-            })
+            response
+                .body()
+                .limit(PAYLOAD_LIMIT)
+                .map(|body| match body {
+                    | Ok(bytes) => from_slice(&bytes).map_err(|err| {
+                        RpcError::parse_error(format!("Error {:?} in {:?}", err, bytes))
+                    }),
+                    | Err(err) => {
+                        Err(RpcError::parse_error(format!("Failed to retrieve payload: {:?}", err)))
+                    }
+                })
         })
         .and_then(|message| {
             future::ready(match message {
-                Message::Response(resp) => resp.result.and_then(|x| {
+                | Message::Response(resp) => resp.result.and_then(|x| {
                     serde_json::from_value(x)
                         .map_err(|err| RpcError::parse_error(format!("Failed to parse: {:?}", err)))
                 }),
-                _ => Err(RpcError::parse_error("Failed to parse JSON RPC response".to_string())),
+                | _ => Err(RpcError::parse_error("Failed to parse JSON RPC response".to_string())),
             })
         })
         .boxed_local()
@@ -87,8 +95,8 @@ where
         .map_err(|err| err.to_string())
         .and_then(|mut response| {
             response.body().map(|body| match body {
-                Ok(bytes) => serde_json::from_slice(&bytes).map_err(|err| err.to_string()),
-                Err(err) => Err(format!("Payload error: {err}")),
+                | Ok(bytes) => serde_json::from_slice(&bytes).map_err(|err| err.to_string()),
+                | Err(err) => Err(format!("Payload error: {err}")),
             })
         })
         .boxed_local()
@@ -208,15 +216,24 @@ impl JsonRpcClient {
         call_method(&self.client, &self.server_addr, "query", request)
     }
 
-    pub fn block_by_id(&self, block_id: BlockId) -> RpcRequest<BlockView> {
+    pub fn block_by_id(
+        &self,
+        block_id: BlockId,
+    ) -> RpcRequest<BlockView> {
         call_method(&self.client, &self.server_addr, "block", [block_id])
     }
 
-    pub fn block(&self, request: BlockReference) -> RpcRequest<BlockView> {
+    pub fn block(
+        &self,
+        request: BlockReference,
+    ) -> RpcRequest<BlockView> {
         call_method(&self.client, &self.server_addr, "block", request)
     }
 
-    pub fn tx(&self, request: RpcTransactionStatusRequest) -> RpcRequest<RpcTransactionResponse> {
+    pub fn tx(
+        &self,
+        request: RpcTransactionStatusRequest,
+    ) -> RpcRequest<RpcTransactionResponse> {
         call_method(&self.client, &self.server_addr, "tx", request)
     }
 
@@ -274,8 +291,8 @@ impl JsonRpcClient {
         epoch_id_or_block_id: Option<EpochReference>,
     ) -> RpcRequest<EpochValidatorInfo> {
         let epoch_reference = match epoch_id_or_block_id {
-            Some(epoch_reference) => epoch_reference,
-            _ => EpochReference::Latest,
+            | Some(epoch_reference) => epoch_reference,
+            | _ => EpochReference::Latest,
         };
         call_method(&self.client, &self.server_addr, "validators", epoch_reference)
     }

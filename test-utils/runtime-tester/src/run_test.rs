@@ -34,13 +34,21 @@ impl Scenario {
     }
 
     pub fn run(&self) -> ScenarioResult<RuntimeStats, Error> {
-        let accounts: Vec<AccountId> =
-            self.network_config.seeds.iter().map(|x| x.parse().unwrap()).collect();
+        let accounts: Vec<AccountId> = self
+            .network_config
+            .seeds
+            .iter()
+            .map(|x| x.parse().unwrap())
+            .collect();
         let clients = vec![accounts[0].clone()];
         let mut genesis = Genesis::test(accounts, 1);
         let mut runtime_config = near_parameters::RuntimeConfig::test();
         let wasm_config = Arc::make_mut(&mut runtime_config.wasm_config);
-        wasm_config.limit_config.max_total_prepaid_gas = self.runtime_config.max_total_prepaid_gas;
+        wasm_config
+            .limit_config
+            .max_total_prepaid_gas = self
+            .runtime_config
+            .max_total_prepaid_gas;
         genesis.config.epoch_length = self.runtime_config.epoch_length;
         genesis.config.gas_limit = self.runtime_config.gas_limit;
         let runtime_config_store = RuntimeConfigStore::with_one_config(runtime_config);
@@ -81,8 +89,14 @@ impl Scenario {
         ScenarioResult { result, homedir: tempdir, env }
     }
 
-    fn process_blocks(&self, env: &mut TestEnv) -> Result<RuntimeStats, Error> {
-        let mut last_block = env.clients[0].chain.get_block_by_height(0).unwrap();
+    fn process_blocks(
+        &self,
+        env: &mut TestEnv,
+    ) -> Result<RuntimeStats, Error> {
+        let mut last_block = env.clients[0]
+            .chain
+            .get_block_by_height(0)
+            .unwrap();
 
         let mut runtime_stats = RuntimeStats::default();
 
@@ -91,7 +105,9 @@ impl Scenario {
 
             for tx in &block.transactions {
                 let signed_tx = tx.to_signed_transaction(&last_block);
-                block_stats.tx_hashes.push(signed_tx.get_hash());
+                block_stats
+                    .tx_hashes
+                    .push(signed_tx.get_hash());
                 if !self.is_fuzzing {
                     // fuzzing can generate invalid transactions
                     assert_eq!(
@@ -110,7 +126,9 @@ impl Scenario {
 
             block_stats.block_production_time = start_time.elapsed();
 
-            runtime_stats.blocks_stats.push(block_stats);
+            runtime_stats
+                .blocks_stats
+                .push(block_stats);
         }
 
         Ok(runtime_stats)
@@ -166,7 +184,10 @@ pub struct BlockStats {
 }
 
 impl std::fmt::Debug for Scenario {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+    ) -> std::fmt::Result {
         write!(f, "{}", serde_json::to_string_pretty(&self).unwrap())
     }
 }
@@ -178,7 +199,10 @@ impl BlockConfig {
 }
 
 impl TransactionConfig {
-    fn to_signed_transaction(&self, last_block: &Block) -> SignedTransaction {
+    fn to_signed_transaction(
+        &self,
+        last_block: &Block,
+    ) -> SignedTransaction {
         SignedTransaction::from_actions(
             self.nonce,
             self.signer_id.clone(),
@@ -215,7 +239,10 @@ mod test {
 
         let scenario = Scenario::from_file(path).expect("Failed to deserialize the scenario file.");
         let starting_time = Instant::now();
-        let runtime_stats = scenario.run().result.expect("Error while running scenario");
+        let runtime_stats = scenario
+            .run()
+            .result
+            .expect("Error while running scenario");
         info!("Time to run: {:?}", starting_time.elapsed());
         for block_stats in runtime_stats.blocks_stats {
             if block_stats.block_production_time > Duration::from_secs(1) {

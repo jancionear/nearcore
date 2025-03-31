@@ -35,13 +35,13 @@ fn use_trampoline(
     map: &mut HashMap<usize, usize>,
 ) -> Option<usize> {
     match trampolines {
-        Some(trampolines) => Some(trampolines_add(
+        | Some(trampolines) => Some(trampolines_add(
             map,
             trampolines,
             address,
             *allocated_sections[trampolines.section_index] as usize,
         )),
-        _ => None,
+        | _ => None,
     }
 }
 
@@ -51,7 +51,7 @@ fn fill_trampoline_map(
 ) -> HashMap<usize, usize> {
     let mut map: HashMap<usize, usize> = HashMap::new();
     match trampolines {
-        Some(trampolines) => {
+        | Some(trampolines) => {
             let baseaddress = *allocated_sections[trampolines.section_index] as usize;
             for i in 0..trampolines.size {
                 let jmpslot: usize = unsafe {
@@ -62,7 +62,7 @@ fn fill_trampoline_map(
                 }
             }
         }
-        _ => {}
+        | _ => {}
     };
     map
 }
@@ -77,12 +77,12 @@ fn apply_relocation(
     trampolines_map: &mut HashMap<usize, usize>,
 ) {
     let target_func_address: usize = match r.reloc_target {
-        RelocationTarget::LocalFunc(index) => *allocated_functions[index].body as usize,
-        RelocationTarget::LibCall(libcall) => libcall.function_pointer(),
-        RelocationTarget::CustomSection(custom_section) => {
+        | RelocationTarget::LocalFunc(index) => *allocated_functions[index].body as usize,
+        | RelocationTarget::LibCall(libcall) => libcall.function_pointer(),
+        | RelocationTarget::CustomSection(custom_section) => {
             *allocated_sections[custom_section] as usize
         }
-        RelocationTarget::JumpTable(func_index, jt) => {
+        | RelocationTarget::JumpTable(func_index, jt) => {
             let offset = jt_offsets(func_index, jt);
             *allocated_functions[func_index].body as usize + offset as usize
         }
@@ -90,26 +90,26 @@ fn apply_relocation(
 
     match r.kind {
         #[cfg(target_pointer_width = "64")]
-        RelocationKind::Abs8 => unsafe {
+        | RelocationKind::Abs8 => unsafe {
             let (reloc_address, reloc_delta) = r.for_address(body, target_func_address as u64);
             write_unaligned(reloc_address as *mut u64, reloc_delta);
         },
         #[cfg(target_pointer_width = "32")]
-        RelocationKind::X86PCRel4 => unsafe {
+        | RelocationKind::X86PCRel4 => unsafe {
             let (reloc_address, reloc_delta) = r.for_address(body, target_func_address as u64);
             write_unaligned(reloc_address as *mut u32, reloc_delta as _);
         },
         #[cfg(target_pointer_width = "64")]
-        RelocationKind::X86PCRel8 => unsafe {
+        | RelocationKind::X86PCRel8 => unsafe {
             let (reloc_address, reloc_delta) = r.for_address(body, target_func_address as u64);
             write_unaligned(reloc_address as *mut u64, reloc_delta);
         },
-        RelocationKind::X86CallPCRel4 => unsafe {
+        | RelocationKind::X86CallPCRel4 => unsafe {
             let (reloc_address, reloc_delta) = r.for_address(body, target_func_address as u64);
             write_unaligned(reloc_address as *mut u32, reloc_delta as _);
         },
-        RelocationKind::X86PCRelRodata4 => {}
-        RelocationKind::Arm64Call => unsafe {
+        | RelocationKind::X86PCRelRodata4 => {}
+        | RelocationKind::Arm64Call => unsafe {
             let (reloc_address, mut reloc_delta) = r.for_address(body, target_func_address as u64);
             if (reloc_delta as i64).abs() >= 0x1000_0000 {
                 let new_address = match use_trampoline(
@@ -118,8 +118,8 @@ fn apply_relocation(
                     trampolines,
                     trampolines_map,
                 ) {
-                    Some(new_address) => new_address,
-                    _ => panic!(
+                    | Some(new_address) => new_address,
+                    | _ => panic!(
                         "Relocation to big for {:?} for {:?} with {:x}, current val {:x}",
                         r.kind,
                         r.reloc_target,
@@ -135,31 +135,31 @@ fn apply_relocation(
                 | read_unaligned(reloc_address as *mut u32);
             write_unaligned(reloc_address as *mut u32, reloc_delta);
         },
-        RelocationKind::Arm64Movw0 => unsafe {
+        | RelocationKind::Arm64Movw0 => unsafe {
             let (reloc_address, reloc_delta) = r.for_address(body, target_func_address as u64);
             let reloc_delta =
                 (((reloc_delta & 0xffff) as u32) << 5) | read_unaligned(reloc_address as *mut u32);
             write_unaligned(reloc_address as *mut u32, reloc_delta);
         },
-        RelocationKind::Arm64Movw1 => unsafe {
+        | RelocationKind::Arm64Movw1 => unsafe {
             let (reloc_address, reloc_delta) = r.for_address(body, target_func_address as u64);
             let reloc_delta = ((((reloc_delta >> 16) & 0xffff) as u32) << 5)
                 | read_unaligned(reloc_address as *mut u32);
             write_unaligned(reloc_address as *mut u32, reloc_delta);
         },
-        RelocationKind::Arm64Movw2 => unsafe {
+        | RelocationKind::Arm64Movw2 => unsafe {
             let (reloc_address, reloc_delta) = r.for_address(body, target_func_address as u64);
             let reloc_delta = ((((reloc_delta >> 32) & 0xffff) as u32) << 5)
                 | read_unaligned(reloc_address as *mut u32);
             write_unaligned(reloc_address as *mut u32, reloc_delta);
         },
-        RelocationKind::Arm64Movw3 => unsafe {
+        | RelocationKind::Arm64Movw3 => unsafe {
             let (reloc_address, reloc_delta) = r.for_address(body, target_func_address as u64);
             let reloc_delta = ((((reloc_delta >> 48) & 0xffff) as u32) << 5)
                 | read_unaligned(reloc_address as *mut u32);
             write_unaligned(reloc_address as *mut u32, reloc_delta);
         },
-        kind => panic!("Relocation kind unsupported in the current architecture {}", kind),
+        | kind => panic!("Relocation kind unsupported in the current architecture {}", kind),
     }
 }
 

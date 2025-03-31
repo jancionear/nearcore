@@ -73,15 +73,15 @@ impl StatePartsCommand {
 
         let genesis_hash = if let Some(h) = &self.genesis_hash {
             match CryptoHash::from_str(&h) {
-                Ok(h) => h,
-                Err(e) => {
+                | Ok(h) => h,
+                | Err(e) => {
                     anyhow::bail!("Could not parse --genesis-hash {}: {:?}", &h, e)
                 }
             }
         } else {
             match chain_info {
-                Some(chain_info) => chain_info.genesis_hash,
-                None => anyhow::bail!(
+                | Some(chain_info) => chain_info.genesis_hash,
+                | None => anyhow::bail!(
                     "--genesis-hash not given, and genesis hash for --chain-id {} not known",
                     &self.chain_id
                 ),
@@ -89,8 +89,8 @@ impl StatePartsCommand {
         };
 
         let peer = match PeerInfo::from_str(&self.peer) {
-            Ok(p) => p,
-            Err(e) => anyhow::bail!("Could not parse --peer {}: {:?}", &self.peer, e),
+            | Ok(p) => p,
+            | Err(e) => anyhow::bail!("Could not parse --peer {}: {:?}", &self.peer, e),
         };
         if peer.addr.is_none() {
             anyhow::bail!("--peer should be in the form [public key]@[socket addr]");

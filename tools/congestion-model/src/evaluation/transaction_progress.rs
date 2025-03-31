@@ -26,11 +26,17 @@ impl Transaction {
     }
 
     pub(crate) fn gas_burnt(&self) -> GGas {
-        if self.future_receipts.contains_key(&self.initial_receipt) {
+        if self
+            .future_receipts
+            .contains_key(&self.initial_receipt)
+        {
             return 0;
         }
-        let receipts_gas: GGas =
-            self.executed_receipts.values().map(|receipt| receipt.gas_burnt()).sum();
+        let receipts_gas: GGas = self
+            .executed_receipts
+            .values()
+            .map(|receipt| receipt.gas_burnt())
+            .sum();
         receipts_gas + self.tx_conversion_cost
     }
 }

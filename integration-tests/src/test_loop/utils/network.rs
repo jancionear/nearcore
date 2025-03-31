@@ -19,8 +19,8 @@ pub fn chunk_endorsement_dropper_by_hash(
         // Filter out only messages related to distributing chunk in the
         // network; extract `chunk_hash` from the message.
         let chunk_hash = match &request {
-            NetworkRequests::ChunkEndorsement(_, endorsement) => Some(endorsement.chunk_hash()),
-            _ => None,
+            | NetworkRequests::ChunkEndorsement(_, endorsement) => Some(endorsement.chunk_hash()),
+            | _ => None,
         };
 
         let Some(chunk_hash) = chunk_hash else {
@@ -29,7 +29,10 @@ pub fn chunk_endorsement_dropper_by_hash(
 
         let chunk = {
             let chunks_storage = chunks_storage.lock().unwrap();
-            let chunk = chunks_storage.get(&chunk_hash).unwrap().clone();
+            let chunk = chunks_storage
+                .get(&chunk_hash)
+                .unwrap()
+                .clone();
             let can_drop_chunk = chunks_storage.can_drop_chunk(&chunk);
 
             if !can_drop_chunk {
@@ -43,7 +46,10 @@ pub fn chunk_endorsement_dropper_by_hash(
         // retrieve epoch id.
         // This case appears to be too rare to interfere with the goal of
         // dropping chunk.
-        if epoch_manager_adapter.get_epoch_id_from_prev_block(chunk.prev_block_hash()).is_err() {
+        if epoch_manager_adapter
+            .get_epoch_id_from_prev_block(chunk.prev_block_hash())
+            .is_err()
+        {
             return Some(request);
         };
 
@@ -58,7 +64,7 @@ pub fn chunk_endorsement_dropper_by_hash(
 /// Handler to drop all network messages containing chunk endorsements sent
 /// from a given chunk-validator account.
 pub fn chunk_endorsement_dropper(
-    validator: AccountId,
+    validator: AccountId
 ) -> Box<dyn Fn(NetworkRequests) -> Option<NetworkRequests>> {
     Box::new(move |request| {
         if let NetworkRequests::ChunkEndorsement(_target, endorsement) = &request {
@@ -85,16 +91,16 @@ pub fn chunk_endorsement_dropper(
 /// - Only the producer of the skipped block will receive it, so we only observe the behavior when we see two different
 /// descendants of the same block on one node. This could be improved, though.
 pub fn block_dropper_by_height(
-    heights: HashSet<BlockHeight>,
+    heights: HashSet<BlockHeight>
 ) -> Box<dyn Fn(NetworkRequests) -> Option<NetworkRequests>> {
     Box::new(move |request| match &request {
-        NetworkRequests::Block { block } => {
+        | NetworkRequests::Block { block } => {
             if !heights.contains(&block.header().height()) {
                 Some(request)
             } else {
                 None
             }
         }
-        _ => Some(request),
+        | _ => Some(request),
     })
 }

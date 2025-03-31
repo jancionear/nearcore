@@ -32,11 +32,11 @@ mod tests {
         let mut reader = BinaryReader::new(b"\0\0\0\0");
         let binary_reader_error = reader.read_bytes(10).unwrap_err();
         match WasmError::from(binary_reader_error) {
-            WasmError::InvalidWebAssembly { message, offset } => {
+            | WasmError::InvalidWebAssembly { message, offset } => {
                 assert_eq!(message, "unexpected end-of-file");
                 assert_eq!(offset, 0);
             }
-            err => panic!("Unexpected error: {:?}", err),
+            | err => panic!("Unexpected error: {:?}", err),
         }
     }
 
@@ -45,11 +45,11 @@ mod tests {
         let mut reader = BinaryReader::new(b"\0\0\0\0");
         let binary_reader_error = reader.read_bytes(10).unwrap_err();
         match CompileError::from(binary_reader_error) {
-            CompileError::Wasm(WasmError::InvalidWebAssembly { message, offset }) => {
+            | CompileError::Wasm(WasmError::InvalidWebAssembly { message, offset }) => {
                 assert_eq!(message, "unexpected end-of-file");
                 assert_eq!(offset, 0);
             }
-            err => panic!("Unexpected error: {:?}", err),
+            | err => panic!("Unexpected error: {:?}", err),
         }
     }
 }

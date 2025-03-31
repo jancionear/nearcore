@@ -443,7 +443,10 @@ impl Config {
         crate::config_validate::validate_config(self)
     }
 
-    pub fn write_to_file(&self, path: &Path) -> std::io::Result<()> {
+    pub fn write_to_file(
+        &self,
+        path: &Path,
+    ) -> std::io::Result<()> {
         let mut file = File::create(path)?;
         let str = serde_json::to_string_pretty(self)?;
         file.write_all(str.as_bytes())
@@ -457,10 +460,15 @@ impl Config {
         None
     }
 
-    pub fn set_rpc_addr(&mut self, addr: tcp::ListenerAddr) {
+    pub fn set_rpc_addr(
+        &mut self,
+        addr: tcp::ListenerAddr,
+    ) {
         #[cfg(feature = "json_rpc")]
         {
-            self.rpc.get_or_insert(Default::default()).addr = addr;
+            self.rpc
+                .get_or_insert(Default::default())
+                .addr = addr;
         }
     }
 
@@ -509,25 +517,43 @@ impl NearConfig {
                     config.expected_shutdown,
                     "expected_shutdown",
                 ),
-                block_production_tracking_delay: config.consensus.block_production_tracking_delay,
-                min_block_production_delay: config.consensus.min_block_production_delay,
-                max_block_production_delay: config.consensus.max_block_production_delay,
+                block_production_tracking_delay: config
+                    .consensus
+                    .block_production_tracking_delay,
+                min_block_production_delay: config
+                    .consensus
+                    .min_block_production_delay,
+                max_block_production_delay: config
+                    .consensus
+                    .max_block_production_delay,
                 max_block_wait_delay: config.consensus.max_block_wait_delay,
                 skip_sync_wait: config.network.skip_sync_wait,
                 sync_check_period: config.consensus.sync_check_period,
                 sync_step_period: config.consensus.sync_step_period,
                 sync_height_threshold: config.consensus.sync_height_threshold,
                 sync_max_block_requests: config.consensus.sync_max_block_requests,
-                header_sync_initial_timeout: config.consensus.header_sync_initial_timeout,
-                header_sync_progress_timeout: config.consensus.header_sync_progress_timeout,
-                header_sync_stall_ban_timeout: config.consensus.header_sync_stall_ban_timeout,
+                header_sync_initial_timeout: config
+                    .consensus
+                    .header_sync_initial_timeout,
+                header_sync_progress_timeout: config
+                    .consensus
+                    .header_sync_progress_timeout,
+                header_sync_stall_ban_timeout: config
+                    .consensus
+                    .header_sync_stall_ban_timeout,
                 header_sync_expected_height_per_second: config
                     .consensus
                     .header_sync_expected_height_per_second,
-                state_sync_external_timeout: config.consensus.state_sync_external_timeout,
+                state_sync_external_timeout: config
+                    .consensus
+                    .state_sync_external_timeout,
                 state_sync_p2p_timeout: config.consensus.state_sync_p2p_timeout,
-                state_sync_retry_backoff: config.consensus.state_sync_retry_backoff,
-                state_sync_external_backoff: config.consensus.state_sync_external_backoff,
+                state_sync_retry_backoff: config
+                    .consensus
+                    .state_sync_retry_backoff,
+                state_sync_external_backoff: config
+                    .consensus
+                    .state_sync_external_backoff,
                 min_num_peers: config.consensus.min_num_peers,
                 log_summary_period: config.log_summary_period,
                 produce_empty_blocks: config.consensus.produce_empty_blocks,
@@ -536,16 +562,24 @@ impl NearConfig {
                 ttl_account_id_router: config.network.ttl_account_id_router,
                 // TODO(1047): this should be adjusted depending on the speed of sync of state.
                 block_fetch_horizon: config.consensus.block_fetch_horizon,
-                block_header_fetch_horizon: config.consensus.block_header_fetch_horizon,
+                block_header_fetch_horizon: config
+                    .consensus
+                    .block_header_fetch_horizon,
                 catchup_step_period: config.consensus.catchup_step_period,
-                chunk_request_retry_period: config.consensus.chunk_request_retry_period,
+                chunk_request_retry_period: config
+                    .consensus
+                    .chunk_request_retry_period,
                 doomslug_step_period: config.consensus.doomslug_step_period,
                 tracked_accounts: config.tracked_accounts,
                 tracked_shards: config.tracked_shards,
                 tracked_shadow_validator: config.tracked_shadow_validator,
-                tracked_shard_schedule: config.tracked_shard_schedule.unwrap_or(vec![]),
+                tracked_shard_schedule: config
+                    .tracked_shard_schedule
+                    .unwrap_or(vec![]),
                 archive: config.archive,
-                save_trie_changes: config.save_trie_changes.unwrap_or(!config.archive),
+                save_trie_changes: config
+                    .save_trie_changes
+                    .unwrap_or(!config.archive),
                 log_summary_style: config.log_summary_style,
                 gc: config.gc,
                 view_client_threads: config.view_client_threads,
@@ -558,7 +592,9 @@ impl NearConfig {
                 state_sync: config.state_sync.unwrap_or_default(),
                 epoch_sync: config.epoch_sync.unwrap_or_default(),
                 transaction_pool_size_limit: config.transaction_pool_size_limit,
-                enable_multiline_logging: config.enable_multiline_logging.unwrap_or(true),
+                enable_multiline_logging: config
+                    .enable_multiline_logging
+                    .unwrap_or(true),
                 resharding_config: MutableConfigValue::new(
                     config.resharding_config,
                     "resharding_config",
@@ -601,10 +637,15 @@ impl NearConfig {
 impl NearConfig {
     /// Test tool to save configs back to the folder.
     /// Useful for dynamic creating testnet configs and then saving them in different folders.
-    pub fn save_to_dir(&self, dir: &Path) {
+    pub fn save_to_dir(
+        &self,
+        dir: &Path,
+    ) {
         fs::create_dir_all(dir).expect("Failed to create directory");
 
-        self.config.write_to_file(&dir.join(CONFIG_FILENAME)).expect("Error writing config");
+        self.config
+            .write_to_file(&dir.join(CONFIG_FILENAME))
+            .expect("Error writing config");
 
         if let Some(validator_signer) = &self.validator_signer.get() {
             validator_signer
@@ -620,7 +661,8 @@ impl NearConfig {
             .write_to_file(&dir.join(&self.config.node_key_file))
             .expect("Error writing key file");
 
-        self.genesis.to_file(dir.join(&self.config.genesis_file));
+        self.genesis
+            .to_file(dir.join(&self.config.genesis_file));
     }
 }
 
@@ -633,9 +675,17 @@ impl NightshadeRuntime {
         epoch_manager: Arc<EpochManagerHandle>,
     ) -> std::io::Result<Arc<NightshadeRuntime>> {
         // TODO (#9989): directly use the new state snapshot config once the migration is done.
-        let mut state_snapshot_type =
-            config.config.store.state_snapshot_config.state_snapshot_type.clone();
-        if config.config.store.state_snapshot_enabled {
+        let mut state_snapshot_type = config
+            .config
+            .store
+            .state_snapshot_config
+            .state_snapshot_type
+            .clone();
+        if config
+            .config
+            .store
+            .state_snapshot_enabled
+        {
             state_snapshot_type = StateSnapshotType::EveryEpoch;
         }
         let state_snapshot_config = StateSnapshotConfig {
@@ -662,7 +712,9 @@ impl NightshadeRuntime {
             ContractRuntimeCache::handle(&contract_cache),
             &config.genesis.config,
             epoch_manager,
-            config.client_config.trie_viewer_state_size_limit,
+            config
+                .client_config
+                .trie_viewer_state_size_limit,
             config.client_config.max_gas_burnt_view,
             None,
             config.config.gc.gc_num_epochs_to_keep(),
@@ -731,10 +783,10 @@ fn generate_or_load_keys(
 ) -> anyhow::Result<()> {
     generate_or_load_key(dir, &config.node_key_file, Some("node".parse().unwrap()), None)?;
     match chain_id {
-        near_primitives::chains::MAINNET | near_primitives::chains::TESTNET => {
+        | near_primitives::chains::MAINNET | near_primitives::chains::TESTNET => {
             generate_or_load_key(dir, &config.validator_key_file, account_id, None)?;
         }
-        _ => {
+        | _ => {
             let account_id = account_id.unwrap_or_else(|| "test.near".parse().unwrap());
             generate_or_load_key(dir, &config.validator_key_file, Some(account_id), test_seed)?;
         }
@@ -742,25 +794,41 @@ fn generate_or_load_keys(
     Ok(())
 }
 
-fn set_block_production_delay(chain_id: &str, fast: bool, config: &mut Config) {
+fn set_block_production_delay(
+    chain_id: &str,
+    fast: bool,
+    config: &mut Config,
+) {
     match chain_id {
-        near_primitives::chains::MAINNET => {
-            config.consensus.min_block_production_delay =
+        | near_primitives::chains::MAINNET => {
+            config
+                .consensus
+                .min_block_production_delay =
                 Duration::milliseconds(MAINNET_MIN_BLOCK_PRODUCTION_DELAY);
-            config.consensus.max_block_production_delay =
+            config
+                .consensus
+                .max_block_production_delay =
                 Duration::milliseconds(MAINNET_MAX_BLOCK_PRODUCTION_DELAY);
         }
-        near_primitives::chains::TESTNET => {
-            config.consensus.min_block_production_delay =
+        | near_primitives::chains::TESTNET => {
+            config
+                .consensus
+                .min_block_production_delay =
                 Duration::milliseconds(TESTNET_MIN_BLOCK_PRODUCTION_DELAY);
-            config.consensus.max_block_production_delay =
+            config
+                .consensus
+                .max_block_production_delay =
                 Duration::milliseconds(TESTNET_MAX_BLOCK_PRODUCTION_DELAY);
         }
-        _ => {
+        | _ => {
             if fast {
-                config.consensus.min_block_production_delay =
+                config
+                    .consensus
+                    .min_block_production_delay =
                     Duration::milliseconds(FAST_MIN_BLOCK_PRODUCTION_DELAY);
-                config.consensus.max_block_production_delay =
+                config
+                    .consensus
+                    .max_block_production_delay =
                     Duration::milliseconds(FAST_MAX_BLOCK_PRODUCTION_DELAY);
             }
         }
@@ -795,8 +863,8 @@ pub fn init_configs(
 
     assert_ne!(chain_id, Some("".to_string()));
     let chain_id = match chain_id {
-        Some(chain_id) => chain_id,
-        None => random_chain_id(),
+        | Some(chain_id) => chain_id,
+        | None => random_chain_id(),
     };
 
     // Check if config already exists in home dir.
@@ -846,31 +914,39 @@ pub fn init_configs(
     // Before finalizing the Config and Genesis, make sure the node and validator keys exist.
     generate_or_load_keys(dir, &config, &chain_id, account_id, test_seed)?;
     match chain_id.as_ref() {
-        near_primitives::chains::MAINNET | near_primitives::chains::TESTNET => {
+        | near_primitives::chains::MAINNET | near_primitives::chains::TESTNET => {
             if test_seed.is_some() {
                 bail!("Test seed is not supported for {chain_id}");
             }
-            config.telemetry.endpoints.push(NETWORK_LEGACY_TELEMETRY_URL.replace("{}", &chain_id));
-            config.telemetry.endpoints.push(NETWORK_TELEMETRY_URL.to_string());
+            config
+                .telemetry
+                .endpoints
+                .push(NETWORK_LEGACY_TELEMETRY_URL.replace("{}", &chain_id));
+            config
+                .telemetry
+                .endpoints
+                .push(NETWORK_TELEMETRY_URL.to_string());
             config.state_sync = Some(StateSyncConfig::gcs_default());
         }
-        _ => {
+        | _ => {
             // Create new configuration, key files and genesis for one validator.
             config.network.skip_sync_wait = true;
         }
     }
 
-    config.write_to_file(&dir.join(CONFIG_FILENAME)).with_context(|| {
-        format!("Error writing config to {}", dir.join(CONFIG_FILENAME).display())
-    })?;
+    config
+        .write_to_file(&dir.join(CONFIG_FILENAME))
+        .with_context(|| {
+            format!("Error writing config to {}", dir.join(CONFIG_FILENAME).display())
+        })?;
 
     match chain_id.as_ref() {
-        near_primitives::chains::MAINNET => {
+        | near_primitives::chains::MAINNET => {
             let genesis = near_mainnet_res::mainnet_genesis();
             genesis.to_file(dir.join(config.genesis_file));
             info!(target: "near", "Generated mainnet genesis file in {}", dir.display());
         }
-        near_primitives::chains::TESTNET => {
+        | near_primitives::chains::TESTNET => {
             if let Some(ref filename) = config.genesis_records_file {
                 let records_path = dir.join(filename);
 
@@ -886,8 +962,9 @@ pub fn init_configs(
 
             // download genesis from s3
             let genesis_path = dir.join("genesis.json");
-            let mut genesis_path_str =
-                genesis_path.to_str().with_context(|| "Genesis path must be initialized")?;
+            let mut genesis_path_str = genesis_path
+                .to_str()
+                .with_context(|| "Genesis path must be initialized")?;
 
             if let Some(url) = download_genesis_url {
                 download_genesis(url, &genesis_path)
@@ -898,15 +975,15 @@ pub fn init_configs(
                     .context(format!("Failed to download the genesis file from {}", url))?;
             } else {
                 genesis_path_str = match genesis {
-                    Some(g) => g,
-                    None => {
+                    | Some(g) => g,
+                    | None => {
                         bail!("Genesis file is required for {chain_id}.\nUse <--genesis|--download-genesis>");
                     }
                 };
             }
 
             let mut genesis = match &config.genesis_records_file {
-                Some(records_file) => {
+                | Some(records_file) => {
                     let records_path = dir.join(records_file);
                     let records_path_str = records_path
                         .to_str()
@@ -917,15 +994,18 @@ pub fn init_configs(
                         GenesisValidationMode::Full,
                     )
                 }
-                None => Genesis::from_file(genesis_path_str, GenesisValidationMode::Full),
+                | None => Genesis::from_file(genesis_path_str, GenesisValidationMode::Full),
             }?;
 
-            genesis.config.chain_id.clone_from(&chain_id);
+            genesis
+                .config
+                .chain_id
+                .clone_from(&chain_id);
 
             genesis.to_file(dir.join(config.genesis_file));
             info!(target: "near", "Generated for {chain_id} network node key and genesis file in {}", dir.display());
         }
-        _ => {
+        | _ => {
             let validator_file = dir.join(&config.validator_key_file);
             let signer = InMemorySigner::from_file(&validator_file).unwrap();
 
@@ -943,7 +1023,11 @@ pub fn init_configs(
 
             let genesis_config = GenesisConfig {
                 protocol_version: PROTOCOL_VERSION,
-                genesis_time: from_timestamp(Clock::real().now_utc().unix_timestamp_nanos() as u64),
+                genesis_time: from_timestamp(
+                    Clock::real()
+                        .now_utc()
+                        .unix_timestamp_nanos() as u64,
+                ),
                 chain_id,
                 genesis_height: 0,
                 num_block_producer_seats: NUM_BLOCK_PRODUCER_SEATS,
@@ -1043,16 +1127,20 @@ pub fn create_localnet_configs_from_seeds(
         num_validators + num_non_validators_archival + num_non_validators_rpc + num_non_validators,
         "Number of seeds should match the total number of nodes including validators and non-validators."
     );
-    let validator_signers =
-        seeds.iter().map(|seed| create_test_signer(seed.as_str())).collect::<Vec<_>>();
+    let validator_signers = seeds
+        .iter()
+        .map(|seed| create_test_signer(seed.as_str()))
+        .collect::<Vec<_>>();
     let network_signers = seeds
         .iter()
         .map(|seed| InMemorySigner::from_seed("node".parse().unwrap(), KeyType::ED25519, seed))
         .collect::<Vec<_>>();
 
     let shard_layout = ShardLayout::multi_shard(num_shards, 0);
-    let accounts_to_add_to_genesis: Vec<AccountId> =
-        seeds.iter().map(|s| s.parse().unwrap()).collect();
+    let accounts_to_add_to_genesis: Vec<AccountId> = seeds
+        .iter()
+        .map(|s| s.parse().unwrap())
+        .collect();
 
     let genesis = Genesis::test_with_seeds(
         Clock::real(),
@@ -1134,13 +1222,20 @@ fn create_localnet_config(
     let mut config = Config::default();
 
     // Configure consensus protocol.
-    config.consensus.min_block_production_delay = Duration::milliseconds(600);
-    config.consensus.max_block_production_delay = Duration::milliseconds(2000);
+    config
+        .consensus
+        .min_block_production_delay = Duration::milliseconds(600);
+    config
+        .consensus
+        .max_block_production_delay = Duration::milliseconds(2000);
     config.consensus.min_num_peers =
         std::cmp::min(num_validators as usize - 1, config.consensus.min_num_peers);
 
     // Configure networking and RPC endpoint. Enable debug-RPC by default for all nodes.
-    config.rpc.get_or_insert(Default::default()).enable_debug_rpc = true;
+    config
+        .rpc
+        .get_or_insert(Default::default())
+        .enable_debug_rpc = true;
     config.network.addr = if params.is_boot {
         boot_node_addr.to_string()
     } else {
@@ -1157,17 +1252,23 @@ fn create_localnet_config(
     // Configure archival node with split storage (hot + cold DB).
     if params.is_archival {
         config.archive = true;
-        config.cold_store.get_or_insert(config.store.clone()).path =
-            Some(PathBuf::from("cold-data"));
-        config.split_storage.get_or_insert(Default::default()).enable_split_storage_view_client =
-            true;
+        config
+            .cold_store
+            .get_or_insert(config.store.clone())
+            .path = Some(PathBuf::from("cold-data"));
+        config
+            .split_storage
+            .get_or_insert(Default::default())
+            .enable_split_storage_view_client = true;
         config.save_trie_changes = Some(true);
     }
 
     // Make non-validator archival and RPC nodes track all shards.
     // Note that validator nodes may track all or some of the shards.
     config.tracked_shards = if !params.is_validator && (params.is_archival || params.is_rpc) {
-        (0..num_shards).map(ShardId::new).collect()
+        (0..num_shards)
+            .map(ShardId::new)
+            .collect()
     } else {
         tracked_shards.clone()
     };
@@ -1199,7 +1300,9 @@ pub fn create_localnet_configs(
 ) -> (Vec<Config>, Vec<ValidatorSigner>, Vec<Signer>, Genesis, Vec<Signer>) {
     let num_all_nodes =
         num_validators + num_non_validators_archival + num_non_validators_rpc + num_non_validators;
-    let seeds = (0..num_all_nodes).map(|i| format!("{}{}", prefix, i)).collect::<Vec<_>>();
+    let seeds = (0..num_all_nodes)
+        .map(|i| format!("{}{}", prefix, i))
+        .collect::<Vec<_>>();
 
     let (configs, validator_signers, network_signers, genesis) = create_localnet_configs_from_seeds(
         seeds,
@@ -1269,7 +1372,9 @@ pub fn init_localnet_configs(
         }
 
         genesis.to_file(&node_dir.join(&config.genesis_file));
-        config.write_to_file(&node_dir.join(CONFIG_FILENAME)).expect("Error writing config");
+        config
+            .write_to_file(&node_dir.join(CONFIG_FILENAME))
+            .expect("Error writing config");
         log_config
             .write_to_file(&node_dir.join(LOG_CONFIG_FILENAME))
             .expect("Error writing log config");
@@ -1291,14 +1396,20 @@ pub fn get_records_url(chain_id: &str) -> String {
     )
 }
 
-pub fn get_config_url(chain_id: &str, config_type: DownloadConfigType) -> String {
+pub fn get_config_url(
+    chain_id: &str,
+    config_type: DownloadConfigType,
+) -> String {
     format!(
         "https://s3-us-west-1.amazonaws.com/build.nearprotocol.com/nearcore-deploy/{}/{}/config.json",
         chain_id, config_type.to_string()
     )
 }
 
-pub fn download_genesis(url: &str, path: &Path) -> Result<(), FileDownloadError> {
+pub fn download_genesis(
+    url: &str,
+    path: &Path,
+) -> Result<(), FileDownloadError> {
     info!(target: "near", "Downloading genesis file from: {} ...", url);
     let result = run_download_file(url, path);
     if result.is_ok() {
@@ -1307,7 +1418,10 @@ pub fn download_genesis(url: &str, path: &Path) -> Result<(), FileDownloadError>
     result
 }
 
-pub fn download_records(url: &str, path: &Path) -> Result<(), FileDownloadError> {
+pub fn download_records(
+    url: &str,
+    path: &Path,
+) -> Result<(), FileDownloadError> {
     info!(target: "near", "Downloading records file from: {} ...", url);
     let result = run_download_file(url, path);
     if result.is_ok() {
@@ -1316,7 +1430,10 @@ pub fn download_records(url: &str, path: &Path) -> Result<(), FileDownloadError>
     result
 }
 
-pub fn download_config(url: &str, path: &Path) -> Result<(), FileDownloadError> {
+pub fn download_config(
+    url: &str,
+    path: &Path,
+) -> Result<(), FileDownloadError> {
     info!(target: "near", "Downloading config file from: {} ...", url);
     let result = run_download_file(url, path);
     if result.is_ok() {
@@ -1366,8 +1483,8 @@ pub fn load_validator_key(validator_file: &Path) -> anyhow::Result<Option<Arc<Va
         return Ok(None);
     }
     match InMemoryValidatorSigner::from_file(&validator_file) {
-        Ok(signer) => Ok(Some(Arc::new(signer))),
-        Err(_) => {
+        | Ok(signer) => Ok(Some(Arc::new(signer))),
+        | Err(_) => {
             let error_message =
                 format!("Failed initializing validator signer from {}", validator_file.display());
             Err(anyhow!(error_message))
@@ -1390,8 +1507,8 @@ pub fn load_config(
 
     let validator_file: PathBuf = dir.join(&config.validator_key_file);
     let validator_signer = match load_validator_key(&validator_file) {
-        Ok(validator_signer) => validator_signer,
-        Err(e) => {
+        | Ok(validator_signer) => validator_signer,
+        | Err(e) => {
             validation_errors.push_validator_key_file_error(e.to_string());
             None
         }
@@ -1400,8 +1517,8 @@ pub fn load_config(
     let node_key_path = dir.join(&config.node_key_file);
     let network_signer_result = NodeKeyFile::from_file(&node_key_path);
     let network_signer = match network_signer_result {
-        Ok(node_key_file) => Some(node_key_file),
-        Err(_) => {
+        | Ok(node_key_file) => Some(node_key_file),
+        | Err(_) => {
             let error_message =
                 format!("Failed reading node key file from {}", node_key_path.display());
             validation_errors.push_node_key_file_error(error_message);
@@ -1413,22 +1530,22 @@ pub fn load_config(
     let genesis_result = match &config.genesis_records_file {
         // only load Genesis from file. Skip test for now.
         // this allows us to know the chain_id in order to check tracked_shards even if semantics checks fail.
-        Some(records_file) => Genesis::from_files(
+        | Some(records_file) => Genesis::from_files(
             &genesis_file,
             dir.join(records_file),
             GenesisValidationMode::UnsafeFast,
         ),
-        None => Genesis::from_file(&genesis_file, GenesisValidationMode::UnsafeFast),
+        | None => Genesis::from_file(&genesis_file, GenesisValidationMode::UnsafeFast),
     };
 
     let genesis = match genesis_result {
-        Ok(genesis) => {
+        | Ok(genesis) => {
             if let Err(e) = genesis.validate(genesis_validation) {
                 validation_errors.push_errors(e)
             };
             Some(genesis)
         }
-        Err(error) => {
+        | Err(error) => {
             validation_errors.push_errors(error);
             None
         }
@@ -1448,14 +1565,20 @@ pub fn load_config(
     Ok(near_config)
 }
 
-pub fn load_test_config(seed: &str, addr: tcp::ListenerAddr, genesis: Genesis) -> NearConfig {
+pub fn load_test_config(
+    seed: &str,
+    addr: tcp::ListenerAddr,
+    genesis: Genesis,
+) -> NearConfig {
     let mut config = Config::default();
     config.network.addr = addr.to_string();
     config.set_rpc_addr(tcp::ListenerAddr::reserve_for_test());
-    config.consensus.min_block_production_delay =
-        Duration::milliseconds(FAST_MIN_BLOCK_PRODUCTION_DELAY);
-    config.consensus.max_block_production_delay =
-        Duration::milliseconds(FAST_MAX_BLOCK_PRODUCTION_DELAY);
+    config
+        .consensus
+        .min_block_production_delay = Duration::milliseconds(FAST_MIN_BLOCK_PRODUCTION_DELAY);
+    config
+        .consensus
+        .max_block_production_delay = Duration::milliseconds(FAST_MAX_BLOCK_PRODUCTION_DELAY);
     let (signer, validator_signer) = if seed.is_empty() {
         let signer = InMemorySigner::from_random("node".parse().unwrap(), KeyType::ED25519).into();
         (signer, None)
@@ -1574,8 +1697,12 @@ mod tests {
             Genesis::from_file(temp_dir.path().join("genesis.json"), GenesisValidationMode::Full)
                 .unwrap();
         let config = Config::from_file(&temp_dir.path().join(CONFIG_FILENAME)).unwrap();
-        let node_key_file = temp_dir.path().join(config.node_key_file);
-        let validator_key_file = temp_dir.path().join(config.validator_key_file);
+        let node_key_file = temp_dir
+            .path()
+            .join(config.node_key_file);
+        let validator_key_file = temp_dir
+            .path()
+            .join(config.validator_key_file);
         assert!(node_key_file.exists());
         assert!(validator_key_file.exists());
 
@@ -1614,9 +1741,10 @@ mod tests {
     fn test_config_from_file_skip_validation() {
         let base = Path::new(env!("CARGO_MANIFEST_DIR"));
 
-        for (has_gc, path) in
-            [(true, "res/example-config-gc.json"), (false, "res/example-config-no-gc.json")]
-        {
+        for (has_gc, path) in [
+            (true, "res/example-config-gc.json"),
+            (false, "res/example-config-no-gc.json"),
+        ] {
             let path = base.join(path);
             let data = std::fs::read(path).unwrap();
             let tmp = tempfile::NamedTempFile::new().unwrap();
@@ -1698,17 +1826,28 @@ mod tests {
             let config = &configs[i];
             assert_eq!(config.archive, true);
             assert_eq!(
-                config.cold_store.clone().unwrap().path.unwrap(),
+                config
+                    .cold_store
+                    .clone()
+                    .unwrap()
+                    .path
+                    .unwrap(),
                 PathBuf::from("cold-data")
             );
             assert_eq!(config.save_trie_changes.unwrap(), true);
             assert_eq!(
-                config.split_storage.clone().unwrap().enable_split_storage_view_client,
+                config
+                    .split_storage
+                    .clone()
+                    .unwrap()
+                    .enable_split_storage_view_client,
                 true
             );
             assert_eq!(
                 config.tracked_shards,
-                (0..num_shards).map(ShardId::new).collect::<Vec<_>>()
+                (0..num_shards)
+                    .map(ShardId::new)
+                    .collect::<Vec<_>>()
             );
         }
 
@@ -1720,7 +1859,9 @@ mod tests {
             assert!(config.split_storage.is_none());
             assert_eq!(
                 config.tracked_shards,
-                (0..num_shards).map(ShardId::new).collect::<Vec<_>>()
+                (0..num_shards)
+                    .map(ShardId::new)
+                    .collect::<Vec<_>>()
             );
         }
 
@@ -1734,7 +1875,14 @@ mod tests {
         }
 
         assert_eq!(genesis.config.validators.len() as u64, num_shards);
-        assert_eq!(genesis.config.shard_layout.shard_ids().count() as NumShards, num_shards);
+        assert_eq!(
+            genesis
+                .config
+                .shard_layout
+                .shard_ids()
+                .count() as NumShards,
+            num_shards
+        );
     }
 
     #[test]
@@ -1781,17 +1929,28 @@ mod tests {
             let config = &configs[i];
             assert_eq!(config.archive, true);
             assert_eq!(
-                config.cold_store.clone().unwrap().path.unwrap(),
+                config
+                    .cold_store
+                    .clone()
+                    .unwrap()
+                    .path
+                    .unwrap(),
                 PathBuf::from("cold-data")
             );
             assert_eq!(config.save_trie_changes.unwrap(), true);
             assert_eq!(
-                config.split_storage.clone().unwrap().enable_split_storage_view_client,
+                config
+                    .split_storage
+                    .clone()
+                    .unwrap()
+                    .enable_split_storage_view_client,
                 true
             );
             assert_eq!(
                 config.tracked_shards,
-                (0..num_shards).map(ShardId::new).collect::<Vec<_>>()
+                (0..num_shards)
+                    .map(ShardId::new)
+                    .collect::<Vec<_>>()
             );
         }
 
@@ -1803,7 +1962,9 @@ mod tests {
             assert!(config.split_storage.is_none());
             assert_eq!(
                 config.tracked_shards,
-                (0..num_shards).map(ShardId::new).collect::<Vec<_>>()
+                (0..num_shards)
+                    .map(ShardId::new)
+                    .collect::<Vec<_>>()
             );
         }
 
@@ -1817,7 +1978,14 @@ mod tests {
         }
 
         assert_eq!(genesis.config.validators.len() as u64, num_shards);
-        assert_eq!(genesis.config.shard_layout.shard_ids().count() as NumShards, num_shards);
+        assert_eq!(
+            genesis
+                .config
+                .shard_layout
+                .shard_ids()
+                .count() as NumShards,
+            num_shards
+        );
     }
 
     #[test]
@@ -1850,7 +2018,9 @@ mod tests {
         };
 
         // account_id == None → do nothing, return None
-        assert!(generate_or_load_key(home_dir, "key", None, None).unwrap().is_none());
+        assert!(generate_or_load_key(home_dir, "key", None, None)
+            .unwrap()
+            .is_none());
         assert!(!home_dir.join("key").exists());
 
         // account_id == Some, file doesn’t exist → create new key

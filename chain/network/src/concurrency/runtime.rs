@@ -11,7 +11,10 @@ pub(crate) struct Runtime {
 impl Runtime {
     pub fn new() -> Self {
         let stop = Arc::new(tokio::sync::Notify::new());
-        let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
         let handle = runtime.handle().clone();
         let thread = std::thread::spawn({
             let stop = stop.clone();

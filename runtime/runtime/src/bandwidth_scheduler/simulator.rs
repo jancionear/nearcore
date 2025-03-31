@@ -62,8 +62,8 @@ enum NewOrOld<T> {
 impl<T> NewOrOld<T> {
     fn get(&self) -> &T {
         match self {
-            NewOrOld::New(t) => t,
-            NewOrOld::Old(t) => t,
+            | NewOrOld::New(t) => t,
+            | NewOrOld::Old(t) => t,
         }
     }
 }
@@ -127,7 +127,10 @@ impl ChainSimulator {
         }
     }
 
-    fn run_for(&mut self, num_blocks: usize) {
+    fn run_for(
+        &mut self,
+        num_blocks: usize,
+    ) {
         for _ in 0..num_blocks {
             self.produce_next_block();
         }
@@ -138,39 +141,66 @@ impl ChainSimulator {
         let new_block_height = self.next_block_height;
         self.next_block_height += 1;
 
-        let is_block_missing = self.rng.gen_bool(self.scenario.missing_block_probability);
+        let is_block_missing = self
+            .rng
+            .gen_bool(self.scenario.missing_block_probability);
         if is_block_missing {
-            self.blocks.insert(new_block_height, None);
+            self.blocks
+                .insert(new_block_height, None);
             return;
         }
 
         let mut previous_block_height = new_block_height - 1;
-        while self.blocks.get(&previous_block_height).unwrap().is_none() {
+        while self
+            .blocks
+            .get(&previous_block_height)
+            .unwrap()
+            .is_none()
+        {
             previous_block_height -= 1;
         }
 
-        let previous_block = self.blocks.get(&previous_block_height).unwrap().clone().unwrap();
+        let previous_block = self
+            .blocks
+            .get(&previous_block_height)
+            .unwrap()
+            .clone()
+            .unwrap();
 
         let mut new_block = Block { chunks: BTreeMap::new() };
         for (shard_id, chunk) in &previous_block.chunks {
             self.apply_chunk(previous_block_height, *shard_id);
-            let is_chunk_missing = self.rng.gen_bool(self.scenario.missing_chunk_probability);
+            let is_chunk_missing = self
+                .rng
+                .gen_bool(self.scenario.missing_chunk_probability);
             if is_chunk_missing {
-                new_block.chunks.insert(*shard_id, NewOrOld::Old(chunk.get().clone()));
+                new_block
+                    .chunks
+                    .insert(*shard_id, NewOrOld::Old(chunk.get().clone()));
             } else {
                 let new_chunk = self.produce_new_chunk(new_block_height, *shard_id);
-                new_block.chunks.insert(*shard_id, NewOrOld::New(Rc::new(new_chunk)));
+                new_block
+                    .chunks
+                    .insert(*shard_id, NewOrOld::New(Rc::new(new_chunk)));
             }
         }
 
-        self.blocks.insert(new_block_height, Some(Rc::new(new_block)));
+        self.blocks
+            .insert(new_block_height, Some(Rc::new(new_block)));
     }
 
-    fn apply_chunk(&mut self, height: BlockHeight, shard_id: ShardId) {
+    fn apply_chunk(
+        &mut self,
+        height: BlockHeight,
+        shard_id: ShardId,
+    ) {
         // Load the current shard state
         let mut shard_state_opt = None;
         for previous_height in (0..height).rev() {
-            if let Some(state) = self.shard_states.get(&(previous_height, shard_id)) {
+            if let Some(state) = self
+                .shard_states
+                .get(&(previous_height, shard_id))
+            {
                 shard_state_opt = Some(state.clone());
                 break;
             }
@@ -185,7 +215,12 @@ impl ChainSimulator {
         let pre_state_hash = CryptoHash::hash_borsh(&shard_state);
 
         // Find the block that contains this chunk
-        let current_block = self.blocks.get(&height).unwrap().clone().unwrap();
+        let current_block = self
+            .blocks
+            .get(&height)
+            .unwrap()
+            .clone()
+            .unwrap();
 
         // Collect all bandwidth requests in the current block
         let mut shards_bandwidth_requests: BTreeMap<ShardId, BandwidthRequests> = BTreeMap::new();
@@ -201,9 +236,13 @@ impl ChainSimulator {
         let shards_status: BTreeMap<ShardId, ShardStatus> = shards
             .iter()
             .map(|chunk_shard_id| {
-                let is_missing = match current_block.chunks.get(chunk_shard_id).unwrap() {
-                    NewOrOld::New(_) => false,
-                    NewOrOld::Old(_) => true,
+                let is_missing = match current_block
+                    .chunks
+                    .get(chunk_shard_id)
+                    .unwrap()
+                {
+                    | NewOrOld::New(_) => false,
+                    | NewOrOld::Old(_) => true,
                 };
 
                 let status = ShardStatus {
@@ -226,9 +265,13 @@ impl ChainSimulator {
         );
 
         // Don't process receipts for missing chunks, return early if a chunk is missing
-        let chunk_is_missing = match current_block.chunks.get(&shard_id).unwrap() {
-            NewOrOld::New(_) => false,
-            NewOrOld::Old(_) => true,
+        let chunk_is_missing = match current_block
+            .chunks
+            .get(&shard_id)
+            .unwrap()
+        {
+            | NewOrOld::New(_) => false,
+            | NewOrOld::Old(_) => true,
         };
         if chunk_is_missing {
             self.application_results.insert(
@@ -240,7 +283,8 @@ impl ChainSimulator {
                     post_state_hash: CryptoHash::hash_borsh(&shard_state),
                 },
             );
-            self.shard_states.insert((height, shard_id), shard_state);
+            self.shard_states
+                .insert((height, shard_id), shard_state);
             return;
         }
 
@@ -248,8 +292,12 @@ impl ChainSimulator {
         stats.congestion_level = 0.0;
 
         let incoming_receipts = self.get_incoming_receipts_for_chunk(height, shard_id);
-        stats.total_incoming_receipts_size =
-            ByteSize::b(incoming_receipts.iter().map(|r| r.size).sum());
+        stats.total_incoming_receipts_size = ByteSize::b(
+            incoming_receipts
+                .iter()
+                .map(|r| r.size)
+                .sum(),
+        );
 
         // Define outgoing limits for this shard using bandwidth grants
         let mut outgoing_limits: BTreeMap<ShardId, u64> = BTreeMap::new();
@@ -263,13 +311,21 @@ impl ChainSimulator {
         let mut outgoing_receipts: BTreeMap<ShardId, Vec<SimReceipt>> = BTreeMap::new();
 
         // Forward buffered receipts
-        for (receiver, buffered_receipts) in shard_state.buffered_outgoing_receipts.iter_mut() {
-            let outgoing_limit = outgoing_limits.get_mut(receiver).unwrap();
+        for (receiver, buffered_receipts) in shard_state
+            .buffered_outgoing_receipts
+            .iter_mut()
+        {
+            let outgoing_limit = outgoing_limits
+                .get_mut(receiver)
+                .unwrap();
             'inner: while let Some(first_receipt) = buffered_receipts.front() {
                 if *outgoing_limit >= first_receipt.size {
                     *outgoing_limit -= first_receipt.size;
                     let receipt = buffered_receipts.pop_front().unwrap();
-                    outgoing_receipts.entry(*receiver).or_insert_with(Vec::new).push(receipt);
+                    outgoing_receipts
+                        .entry(*receiver)
+                        .or_insert_with(Vec::new)
+                        .push(receipt);
                 } else {
                     break 'inner;
                 }
@@ -277,19 +333,35 @@ impl ChainSimulator {
         }
 
         // Generate and send out new receipts
-        let sender_idx = self.shard_layout.get_shard_index(shard_id).unwrap();
-        if let Some(links_vec) = self.scenario.link_generators.get_mut(&sender_idx) {
+        let sender_idx = self
+            .shard_layout
+            .get_shard_index(shard_id)
+            .unwrap();
+        if let Some(links_vec) = self
+            .scenario
+            .link_generators
+            .get_mut(&sender_idx)
+        {
             for (receiver_idx, link_generator) in links_vec.iter_mut() {
-                let receiver = self.shard_layout.get_shard_id(*receiver_idx).unwrap();
+                let receiver = self
+                    .shard_layout
+                    .get_shard_id(*receiver_idx)
+                    .unwrap();
 
-                let outgoing_limit = outgoing_limits.get_mut(&receiver).unwrap();
-                let outgoing_receipts_to_receiver =
-                    outgoing_receipts.entry(receiver).or_insert_with(Vec::new);
+                let outgoing_limit = outgoing_limits
+                    .get_mut(&receiver)
+                    .unwrap();
+                let outgoing_receipts_to_receiver = outgoing_receipts
+                    .entry(receiver)
+                    .or_insert_with(Vec::new);
                 let outgoing_buffer = shard_state
                     .buffered_outgoing_receipts
                     .entry(receiver)
                     .or_insert_with(VecDeque::new);
-                let mut outgoing_buffer_size: u64 = outgoing_buffer.iter().map(|r| r.size).sum();
+                let mut outgoing_buffer_size: u64 = outgoing_buffer
+                    .iter()
+                    .map(|r| r.size)
+                    .sum();
                 // Produce new receipts until the buffer size exceeds 20MB
                 while outgoing_buffer_size < 20_000_000 {
                     let new_receipt_size = link_generator.generate_receipt_size(&mut self.rng);
@@ -312,15 +384,22 @@ impl ChainSimulator {
                 total_to_shard += ByteSize::b(receipt.size);
             }
 
-            let to_shard_index = self.shard_layout.get_shard_index(*to_shard_id).unwrap();
-            stats.size_of_outgoing_receipts_to_shard.insert(to_shard_index, total_to_shard);
+            let to_shard_index = self
+                .shard_layout
+                .get_shard_index(*to_shard_id)
+                .unwrap();
+            stats
+                .size_of_outgoing_receipts_to_shard
+                .insert(to_shard_index, total_to_shard);
             stats.total_outgoing_receipts_size += total_to_shard;
         }
 
         // Generate bandwidth requests based on buffered receipts
         let mut bandwidth_requests = Vec::new();
         for (receiver, buffered_receipts) in &shard_state.buffered_outgoing_receipts {
-            let sizes_iter = buffered_receipts.iter().map(|r| Ok::<u64, Infallible>(r.size));
+            let sizes_iter = buffered_receipts
+                .iter()
+                .map(|r| Ok::<u64, Infallible>(r.size));
             if let Some(request) =
                 BandwidthRequest::make_from_receipt_sizes(*receiver, sizes_iter, &scheduler_params)
                     .unwrap()
@@ -328,11 +407,19 @@ impl ChainSimulator {
                 bandwidth_requests.push(request);
             }
 
-            let receiver_idx = self.shard_layout.get_shard_index(*receiver).unwrap();
+            let receiver_idx = self
+                .shard_layout
+                .get_shard_index(*receiver)
+                .unwrap();
 
-            let first5: Vec<ByteSize> =
-                buffered_receipts.iter().map(|r| ByteSize::b(r.size)).take(5).collect();
-            stats.first_five_buffered_sizes.insert(receiver_idx, first5);
+            let first5: Vec<ByteSize> = buffered_receipts
+                .iter()
+                .map(|r| ByteSize::b(r.size))
+                .take(5)
+                .collect();
+            stats
+                .first_five_buffered_sizes
+                .insert(receiver_idx, first5);
 
             let first5_big: Vec<ByteSize> = buffered_receipts
                 .iter()
@@ -340,11 +427,17 @@ impl ChainSimulator {
                 .filter(|size| *size > ByteSize::kb(500))
                 .take(5)
                 .collect();
-            stats.first_five_big_buffered_sizes.insert(receiver_idx, first5_big);
+            stats
+                .first_five_big_buffered_sizes
+                .insert(receiver_idx, first5_big);
         }
 
-        let shard_index = self.shard_layout.get_shard_index(shard_id).unwrap();
-        self.chunk_stats.insert((height, shard_index), stats);
+        let shard_index = self
+            .shard_layout
+            .get_shard_index(shard_id)
+            .unwrap();
+        self.chunk_stats
+            .insert((height, shard_index), stats);
 
         // Save the application result and new shard state
         let post_state_hash = CryptoHash::hash_borsh(&shard_state);
@@ -356,19 +449,31 @@ impl ChainSimulator {
             pre_state_hash,
             post_state_hash,
         };
-        self.application_results.insert((height, shard_id), application_result);
-        self.shard_states.insert((height, shard_id), shard_state);
+        self.application_results
+            .insert((height, shard_id), application_result);
+        self.shard_states
+            .insert((height, shard_id), shard_state);
     }
 
-    fn produce_new_chunk(&self, height: BlockHeight, shard_id: ShardId) -> Chunk {
+    fn produce_new_chunk(
+        &self,
+        height: BlockHeight,
+        shard_id: ShardId,
+    ) -> Chunk {
         // Find outgoing receipts generated while applying the previous non-missing chunk on this shard
         let previous_chunk_height = self.get_previous_non_missing_chunk_height(height, shard_id);
-        let application_result =
-            self.application_results.get(&(previous_chunk_height, shard_id)).unwrap();
+        let application_result = self
+            .application_results
+            .get(&(previous_chunk_height, shard_id))
+            .unwrap();
 
         Chunk {
-            prev_outgoing_receipts: application_result.outgoing_receipts.clone(),
-            bandwidth_requests: application_result.bandwidth_requests.clone(),
+            prev_outgoing_receipts: application_result
+                .outgoing_receipts
+                .clone(),
+            bandwidth_requests: application_result
+                .bandwidth_requests
+                .clone(),
         }
     }
 
@@ -393,7 +498,10 @@ impl ChainSimulator {
                     continue;
                 };
 
-                if let Some(receipts) = new_chunk.prev_outgoing_receipts.get(&shard_id) {
+                if let Some(receipts) = new_chunk
+                    .prev_outgoing_receipts
+                    .get(&shard_id)
+                {
                     incoming_receipts.extend(receipts.iter().cloned());
                 }
             }
@@ -446,7 +554,9 @@ fn run_scenario(scenario: TestScenario) -> TestSummary {
     let active_links = scenario.get_active_links();
     let mut simulator = ChainSimulator::new(scenario);
     simulator.run_for(blocks_num);
-    let summary = simulator.stats().summarize(&active_links);
+    let summary = simulator
+        .stats()
+        .summarize(&active_links);
     println!("{}", summary);
     summary
 }
@@ -505,29 +615,29 @@ fn test_bandwidth_scheduler_simulator_random_link_generators() {
     for sender in 0..num_shards {
         for receiver in 0..num_shards {
             match rng.gen_range(0..4) {
-                0 => {
+                | 0 => {
                     scenario_builder =
                         scenario_builder.link_generator(sender, receiver, SmallReceiptSizeGenerator)
                 }
-                1 => {
+                | 1 => {
                     scenario_builder = scenario_builder.link_generator(
                         sender,
                         receiver,
                         MediumReceiptSizeGenerator,
                     )
                 }
-                2 => {
+                | 2 => {
                     scenario_builder =
                         scenario_builder.link_generator(sender, receiver, LargeReceiptSizeGenerator)
                 }
-                3 => {
+                | 3 => {
                     scenario_builder = scenario_builder.link_generator(
                         sender,
                         receiver,
                         RandomReceiptSizeGenerator,
                     )
                 }
-                _ => unreachable!(),
+                | _ => unreachable!(),
             }
         }
     }

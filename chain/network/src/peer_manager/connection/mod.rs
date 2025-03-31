@@ -32,18 +32,21 @@ impl tcp::Tier {
     /// TIER1 is reserved exclusively for BFT consensus messages.
     /// Each validator establishes a lot of TIER1 connections, so bandwidth shouldn't be
     /// wasted on broadcasting or periodic state syncs on TIER1 connections.
-    pub(crate) fn is_allowed(self, msg: &PeerMessage) -> bool {
+    pub(crate) fn is_allowed(
+        self,
+        msg: &PeerMessage,
+    ) -> bool {
         match msg {
-            PeerMessage::Tier1Handshake(_) => self == tcp::Tier::T1,
-            PeerMessage::Tier2Handshake(_) => self == tcp::Tier::T2,
-            PeerMessage::Tier3Handshake(_) => self == tcp::Tier::T3,
-            PeerMessage::HandshakeFailure(_, _) => true,
-            PeerMessage::LastEdge(_) => true,
-            PeerMessage::VersionedStateResponse(_) => {
+            | PeerMessage::Tier1Handshake(_) => self == tcp::Tier::T1,
+            | PeerMessage::Tier2Handshake(_) => self == tcp::Tier::T2,
+            | PeerMessage::Tier3Handshake(_) => self == tcp::Tier::T3,
+            | PeerMessage::HandshakeFailure(_, _) => true,
+            | PeerMessage::LastEdge(_) => true,
+            | PeerMessage::VersionedStateResponse(_) => {
                 self == tcp::Tier::T2 || self == tcp::Tier::T3
             }
-            PeerMessage::Routed(msg) => self.is_allowed_routed(&msg.body),
-            PeerMessage::SyncRoutingTable(..)
+            | PeerMessage::Routed(msg) => self.is_allowed_routed(&msg.body),
+            | PeerMessage::SyncRoutingTable(..)
             | PeerMessage::DistanceVector(..)
             | PeerMessage::RequestUpdateNonce(..)
             | PeerMessage::SyncAccountsData(..)
@@ -64,10 +67,13 @@ impl tcp::Tier {
         }
     }
 
-    pub(crate) fn is_allowed_routed(self, body: &RoutedMessageBody) -> bool {
+    pub(crate) fn is_allowed_routed(
+        self,
+        body: &RoutedMessageBody,
+    ) -> bool {
         match body {
             // T1
-            RoutedMessageBody::BlockApproval(..)
+            | RoutedMessageBody::BlockApproval(..)
             | RoutedMessageBody::VersionedChunkEndorsement(..)
             | RoutedMessageBody::PartialEncodedStateWitness(..)
             | RoutedMessageBody::PartialEncodedStateWitnessForward(..)
@@ -76,7 +82,7 @@ impl tcp::Tier {
             | RoutedMessageBody::ContractCodeRequest(_)
             | RoutedMessageBody::ContractCodeResponse(_) => true,
             // Rest
-            RoutedMessageBody::ForwardTx(..)
+            | RoutedMessageBody::ForwardTx(..)
             | RoutedMessageBody::TxStatusRequest(..)
             | RoutedMessageBody::TxStatusResponse(..)
             | RoutedMessageBody::PartialEncodedChunkRequest(..)
@@ -88,7 +94,7 @@ impl tcp::Tier {
             | RoutedMessageBody::StatePartRequest(..)
             | RoutedMessageBody::PartialEncodedContractDeploys(..) => self == tcp::Tier::T2,
             // Deprecated
-            RoutedMessageBody::_UnusedQueryRequest
+            | RoutedMessageBody::_UnusedQueryRequest
             | RoutedMessageBody::_UnusedQueryResponse
             | RoutedMessageBody::_UnusedReceiptOutcomeRequest(..)
             | RoutedMessageBody::_UnusedReceiptOutcomeResponse
@@ -102,6 +108,22 @@ impl tcp::Tier {
             | RoutedMessageBody::_UnusedEpochSyncRequest
             | RoutedMessageBody::_UnusedEpochSyncResponse(..) => unreachable!(),
         }
+    }
+
+    pub(crate) fn is_allowed_send(
+        self,
+        body: &RoutedMessageBody,
+    ) -> bool {
+        // With release 2.5 we had changed VersionedChunkEndorsement to be allowed on T1.
+        // This lead to a compatibility issue with 2.4 nodes, which were expecting
+        // VersionedChunkEndorsement to be allowed only on T2.
+        // To fix this problem, with release 2.5 we allow to receive VersionedChunkEndorsement
+        // on T1 but send on VersionedChunkEndorsement T2.
+        // TODO: With release 2.6 remove this hack.
+        if let RoutedMessageBody::VersionedChunkEndorsement(..) = body {
+            return self == tcp::Tier::T2;
+        }
+        self.is_allowed_routed(body)
     }
 }
 
@@ -162,7 +184,10 @@ pub(crate) struct Connection {
 }
 
 impl fmt::Debug for Connection {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
         f.debug_struct("Connection")
             .field("peer_info", &self.peer_info)
             .field("peer_type", &self.peer_type)
@@ -182,16 +207,24 @@ impl Connection {
         FullPeerInfo { peer_info: self.peer_info.clone(), chain_info }
     }
 
-    pub fn stop(&self, ban_reason: Option<ReasonForBan>) {
-        self.addr.do_send(peer_actor::Stop { ban_reason }.with_span_context());
+    pub fn stop(
+        &self,
+        ban_reason: Option<ReasonForBan>,
+    ) {
+        self.addr
+            .do_send(peer_actor::Stop { ban_reason }.with_span_context());
     }
 
     // TODO(gprusak): embed Stream directly in Connection,
     // so that we can skip actix queue when sending messages.
-    pub fn send_message(&self, msg: Arc<PeerMessage>) {
+    pub fn send_message(
+        &self,
+        msg: Arc<PeerMessage>,
+    ) {
         let msg_kind = msg.msg_variant().to_string();
         tracing::trace!(target: "network", ?msg_kind, "Send message");
-        self.addr.do_send(SendMessage { message: msg }.with_span_context());
+        self.addr
+            .do_send(SendMessage { message: msg }.with_span_context());
     }
 
     pub fn send_accounts_data(
@@ -209,12 +242,12 @@ impl Connection {
                         let mut sum = HashMap::<_, Arc<SignedAccountData>>::new();
                         for d in ds.into_iter().flatten() {
                             match sum.entry(d.account_key.clone()) {
-                                Entry::Occupied(mut x) => {
+                                | Entry::Occupied(mut x) => {
                                     if x.get().version < d.version {
                                         x.insert(d);
                                     }
                                 }
-                                Entry::Vacant(x) => {
+                                | Entry::Vacant(x) => {
                                     x.insert(d);
                                 }
                             }
@@ -260,14 +293,14 @@ impl Connection {
                         let mut sum = HashMap::<_, Arc<SnapshotHostInfo>>::new();
                         for d in ds.into_iter().flatten() {
                             match sum.entry(d.peer_id.clone()) {
-                                Entry::Occupied(mut x) => {
+                                | Entry::Occupied(mut x) => {
                                     // If two entries are present for the same peer,
                                     // keep one with the greatest epoch_height.
                                     if x.get().epoch_height < d.epoch_height {
                                         x.insert(d);
                                     }
                                 }
-                                Entry::Vacant(x) => {
+                                | Entry::Vacant(x) => {
                                     x.insert(d);
                                 }
                             }
@@ -346,7 +379,10 @@ impl OutboundHandshakePermit {
 }
 
 impl fmt::Debug for OutboundHandshakePermit {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
         self.peer_id().fmt(f)
     }
 }
@@ -394,7 +430,10 @@ impl Pool {
         self.0.load()
     }
 
-    pub fn insert_ready(&self, peer: Arc<Connection>) -> Result<(), PoolError> {
+    pub fn insert_ready(
+        &self,
+        peer: Arc<Connection>,
+    ) -> Result<(), PoolError> {
         self.0.try_update(move |mut pool| {
             let id = peer.peer_info.id.clone();
             // We support loopback connections for the purpose of
@@ -416,12 +455,12 @@ impl Pool {
                 return Ok(((), pool));
             }
             match peer.peer_type {
-                PeerType::Inbound => {
+                | PeerType::Inbound => {
                     if pool.outbound_handshakes.contains(&id) && id >= pool.me {
                         return Err(PoolError::AlreadyStartedConnecting);
                     }
                 }
-                PeerType::Outbound => {
+                | PeerType::Outbound => {
                     // This is a bug, if an outbound permit is not kept
                     // until insert_ready is called.
                     // TODO(gprusak): in fact, we can make insert_ready
@@ -434,7 +473,11 @@ impl Pool {
                     }
                 }
             }
-            if pool.ready.insert(id.clone(), peer.clone()).is_some() {
+            if pool
+                .ready
+                .insert(id.clone(), peer.clone())
+                .is_some()
+            {
                 return Err(PoolError::AlreadyConnected);
             }
             if let Some(owned_account) = &peer.owned_account {
@@ -466,7 +509,12 @@ impl Pool {
                     // with owned_account present.
                     let err = PoolError::AlreadyConnectedAccount {
                         peer_id: conn.peer_info.id.clone(),
-                        account_key: conn.owned_account.as_ref().unwrap().account_key.clone(),
+                        account_key: conn
+                            .owned_account
+                            .as_ref()
+                            .unwrap()
+                            .account_key
+                            .clone(),
                     };
                     // We duplicate the error logging here, because returning an error
                     // from insert_ready is expected (pool may regularly reject connections),
@@ -493,33 +541,49 @@ impl Pool {
     /// NOTE: Pool supports loop connections (i.e. connections in which both ends are the same
     /// node) for the purpose of verifying one's own public IP.
     // TODO(gprusak): simplify this flow.
-    pub fn start_outbound(&self, peer_id: PeerId) -> Result<OutboundHandshakePermit, PoolError> {
+    pub fn start_outbound(
+        &self,
+        peer_id: PeerId,
+    ) -> Result<OutboundHandshakePermit, PoolError> {
         self.0.try_update(move |mut pool| {
             if pool.ready.contains_key(&peer_id) {
                 return Err(PoolError::AlreadyConnected);
             }
-            if pool.outbound_handshakes.contains(&peer_id) {
+            if pool
+                .outbound_handshakes
+                .contains(&peer_id)
+            {
                 return Err(PoolError::AlreadyStartedConnecting);
             }
-            pool.outbound_handshakes.insert(peer_id.clone());
+            pool.outbound_handshakes
+                .insert(peer_id.clone());
             Ok((OutboundHandshakePermit(peer_id, Arc::downgrade(&self.0)), pool))
         })
     }
 
-    pub fn remove(&self, conn: &Arc<Connection>) {
+    pub fn remove(
+        &self,
+        conn: &Arc<Connection>,
+    ) {
         self.0.update(|mut pool| {
-            match pool.ready.entry(conn.peer_info.id.clone()) {
-                im::hashmap::Entry::Occupied(e) if Arc::ptr_eq(e.get(), conn) => {
+            match pool
+                .ready
+                .entry(conn.peer_info.id.clone())
+            {
+                | im::hashmap::Entry::Occupied(e) if Arc::ptr_eq(e.get(), conn) => {
                     e.remove_entry();
                 }
-                _ => {}
+                | _ => {}
             }
             if let Some(owned_account) = &conn.owned_account {
-                match pool.ready_by_account_key.entry(owned_account.account_key.clone()) {
-                    im::hashmap::Entry::Occupied(e) if Arc::ptr_eq(e.get(), conn) => {
+                match pool
+                    .ready_by_account_key
+                    .entry(owned_account.account_key.clone())
+                {
+                    | im::hashmap::Entry::Occupied(e) if Arc::ptr_eq(e.get(), conn) => {
                         e.remove_entry();
                     }
-                    _ => {}
+                    | _ => {}
                 }
             }
             ((), pool)
@@ -528,7 +592,11 @@ impl Pool {
 
     /// Send message to peer that belongs to our active set
     /// Return whether the message is sent or not.
-    pub fn send_message(&self, peer_id: PeerId, msg: Arc<PeerMessage>) -> bool {
+    pub fn send_message(
+        &self,
+        peer_id: PeerId,
+        msg: Arc<PeerMessage>,
+    ) -> bool {
         let pool = self.load();
         if let Some(peer) = pool.ready.get(&peer_id) {
             peer.send_message(msg);
@@ -544,8 +612,13 @@ impl Pool {
     }
 
     /// Broadcast message to all ready peers.
-    pub fn broadcast_message(&self, msg: Arc<PeerMessage>) {
-        metrics::BROADCAST_MESSAGES.with_label_values(&[msg.msg_variant()]).inc();
+    pub fn broadcast_message(
+        &self,
+        msg: Arc<PeerMessage>,
+    ) {
+        metrics::BROADCAST_MESSAGES
+            .with_label_values(&[msg.msg_variant()])
+            .inc();
         for peer in self.load().ready.values() {
             peer.send_message(msg.clone());
         }

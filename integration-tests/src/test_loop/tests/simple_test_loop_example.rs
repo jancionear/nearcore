@@ -42,8 +42,9 @@ fn test_client_with_simple_test_loop() {
         false,
     );
     let initial_balance = 10000 * ONE_NEAR;
-    let accounts =
-        (0..100).map(|i| format!("account{}", i).parse().unwrap()).collect::<Vec<AccountId>>();
+    let accounts = (0..100)
+        .map(|i| format!("account{}", i).parse().unwrap())
+        .collect::<Vec<AccountId>>();
 
     let genesis = TestGenesisBuilder::new()
         .genesis_time_from_clock(&test_loop.clock())

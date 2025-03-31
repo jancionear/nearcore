@@ -66,8 +66,8 @@ impl StateSyncDownloadSourcePeerSharedState {
             shard_id,
             sync_hash,
             kind: match data.part_id() {
-                Some(part_id) => PartIdOrHeader::Part { part_id },
-                None => PartIdOrHeader::Header,
+                | Some(part_id) => PartIdOrHeader::Part { part_id },
+                | None => PartIdOrHeader::Header,
             },
         };
 
@@ -76,19 +76,29 @@ impl StateSyncDownloadSourcePeerSharedState {
             return Err(near_chain::Error::Other("Unexpected state response".to_owned()));
         };
 
-        if request.peer_id.as_ref().is_some_and(|expecting_peer_id| expecting_peer_id != &peer_id) {
+        if request
+            .peer_id
+            .as_ref()
+            .is_some_and(|expecting_peer_id| expecting_peer_id != &peer_id)
+        {
             return Err(near_chain::Error::Other(
                 "Unexpected state response (wrong sender)".to_owned(),
             ));
         }
 
-        let value = self.pending_requests.remove(&key).unwrap();
+        let value = self
+            .pending_requests
+            .remove(&key)
+            .unwrap();
         let _ = value.sender.send(data);
         Ok(())
     }
 
     /// Sets the peers that are eligible for querying state sync headers/parts.
-    pub fn set_highest_peers(&mut self, peers: Vec<PeerId>) {
+    pub fn set_highest_peers(
+        &mut self,
+        peers: Vec<PeerId>,
+    ) {
         self.highest_height_peers = peers;
     }
 }
@@ -118,7 +128,7 @@ impl StateSyncDownloadSourcePeer {
         let network_request = {
             let mut state_lock = state.lock().unwrap();
             let (network_request, state_value) = match &key.kind {
-                PartIdOrHeader::Part { part_id } => {
+                | PartIdOrHeader::Part { part_id } => {
                     let prev_hash = *store
                         .get_ser::<BlockHeader>(DBCol::BlockHeader, key.sync_hash.as_bytes())?
                         .ok_or_else(|| {
@@ -148,7 +158,7 @@ impl StateSyncDownloadSourcePeer {
                     let state_value = PendingPeerRequestValue { peer_id: None, sender };
                     (network_request, state_value)
                 }
-                PartIdOrHeader::Header => {
+                | PartIdOrHeader::Header => {
                     let peer_id = state_lock
                         .highest_height_peers
                         .choose(&mut rand::thread_rng())
@@ -168,7 +178,9 @@ impl StateSyncDownloadSourcePeer {
                     )
                 }
             };
-            state_lock.pending_requests.insert(key.clone(), state_value);
+            state_lock
+                .pending_requests
+                .insert(key.clone(), state_value);
             network_request
         };
 
@@ -177,8 +189,8 @@ impl StateSyncDownloadSourcePeer {
 
         let deadline = clock.now() + request_timeout;
         let typ = match &key.kind {
-            PartIdOrHeader::Part { .. } => "part",
-            PartIdOrHeader::Header => "header",
+            | PartIdOrHeader::Part { .. } => "part",
+            | PartIdOrHeader::Header => "header",
         };
 
         let _timer = metrics::STATE_SYNC_P2P_REQUEST_DELAY
@@ -186,14 +198,17 @@ impl StateSyncDownloadSourcePeer {
             .start_timer();
 
         handle.set_status("Sending network request");
-        match request_sender.send_async(network_request).await {
-            Ok(response) => {
+        match request_sender
+            .send_async(network_request)
+            .await
+        {
+            | Ok(response) => {
                 if let NetworkResponses::RouteNotFound = response.as_network_response() {
                     increment_download_count(key.shard_id, typ, "network", "route_not_found");
                     return Err(near_chain::Error::Other("Route not found".to_owned()));
                 }
             }
-            Err(e) => {
+            | Err(e) => {
                 increment_download_count(key.shard_id, typ, "network", "failed_to_send");
                 return Err(near_chain::Error::Other(format!("Failed to send request: {}", e)));
             }
@@ -234,7 +249,9 @@ struct RemoveKeyUponDrop {
 impl Drop for RemoveKeyUponDrop {
     fn drop(&mut self) {
         let mut state_lock = self.state.lock().unwrap();
-        state_lock.pending_requests.remove(&self.key);
+        state_lock
+            .pending_requests
+            .remove(&self.key);
     }
 }
 

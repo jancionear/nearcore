@@ -35,13 +35,16 @@ pub enum CommitError {
 
 impl std::error::Error for CommitError {}
 impl std::fmt::Display for CommitError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+    ) -> std::fmt::Result {
         match self {
-            CommitError::Server(s) => f.write_fmt(format_args!(
+            | CommitError::Server(s) => f.write_fmt(format_args!(
                 "server error occurred while committing a transaction: {}",
                 s
             )),
-            CommitError::OutcomeNotFound => {
+            | CommitError::OutcomeNotFound => {
                 f.write_str("transaction outcome not found while committing it (tx invalid...)")
             }
         }
@@ -49,18 +52,34 @@ impl std::fmt::Display for CommitError {
 }
 
 pub trait User {
-    fn view_account(&self, account_id: &AccountId) -> Result<AccountView, String>;
+    fn view_account(
+        &self,
+        account_id: &AccountId,
+    ) -> Result<AccountView, String>;
 
-    fn view_balance(&self, account_id: &AccountId) -> Result<Balance, String> {
+    fn view_balance(
+        &self,
+        account_id: &AccountId,
+    ) -> Result<Balance, String> {
         Ok(self.view_account(account_id)?.amount)
     }
 
-    fn view_contract_code(&self, account_id: &AccountId) -> Result<ContractCodeView, String>;
+    fn view_contract_code(
+        &self,
+        account_id: &AccountId,
+    ) -> Result<ContractCodeView, String>;
 
-    fn view_state(&self, account_id: &AccountId, prefix: &[u8]) -> Result<ViewStateResult, String>;
+    fn view_state(
+        &self,
+        account_id: &AccountId,
+        prefix: &[u8],
+    ) -> Result<ViewStateResult, String>;
 
     /// Returns whether the account is locked (has no access keys).
-    fn is_locked(&self, account_id: &AccountId) -> Result<bool, String>;
+    fn is_locked(
+        &self,
+        account_id: &AccountId,
+    ) -> Result<bool, String>;
 
     fn view_call(
         &self,
@@ -69,7 +88,10 @@ pub trait User {
         args: &[u8],
     ) -> Result<CallResult, String>;
 
-    fn add_transaction(&self, signed_transaction: SignedTransaction) -> Result<(), ServerError>;
+    fn add_transaction(
+        &self,
+        signed_transaction: SignedTransaction,
+    ) -> Result<(), ServerError>;
 
     fn commit_transaction(
         &self,
@@ -82,7 +104,10 @@ pub trait User {
         _use_flat_storage: bool,
     ) -> Result<(), ServerError>;
 
-    fn get_access_key_nonce_for_signer(&self, account_id: &AccountId) -> Result<u64, String> {
+    fn get_access_key_nonce_for_signer(
+        &self,
+        account_id: &AccountId,
+    ) -> Result<u64, String> {
         self.get_access_key(account_id, &self.signer().public_key())
             .map(|access_key| access_key.nonce)
     }
@@ -91,15 +116,31 @@ pub trait User {
 
     fn get_best_block_hash(&self) -> Option<CryptoHash>;
 
-    fn get_block_by_height(&self, height: BlockHeight) -> Option<BlockView>;
+    fn get_block_by_height(
+        &self,
+        height: BlockHeight,
+    ) -> Option<BlockView>;
 
-    fn get_block(&self, block_hash: CryptoHash) -> Option<BlockView>;
+    fn get_block(
+        &self,
+        block_hash: CryptoHash,
+    ) -> Option<BlockView>;
 
-    fn get_chunk_by_height(&self, height: BlockHeight, shard_id: ShardId) -> Option<ChunkView>;
+    fn get_chunk_by_height(
+        &self,
+        height: BlockHeight,
+        shard_id: ShardId,
+    ) -> Option<ChunkView>;
 
-    fn get_transaction_result(&self, hash: &CryptoHash) -> Option<ExecutionOutcomeView>;
+    fn get_transaction_result(
+        &self,
+        hash: &CryptoHash,
+    ) -> Option<ExecutionOutcomeView>;
 
-    fn get_transaction_final_result(&self, hash: &CryptoHash) -> Option<FinalExecutionOutcomeView>;
+    fn get_transaction_final_result(
+        &self,
+        hash: &CryptoHash,
+    ) -> Option<FinalExecutionOutcomeView>;
 
     fn get_state_root(&self) -> CryptoHash;
 
@@ -111,7 +152,10 @@ pub trait User {
 
     fn signer(&self) -> Arc<Signer>;
 
-    fn set_signer(&mut self, signer: Arc<Signer>);
+    fn set_signer(
+        &mut self,
+        signer: Arc<Signer>,
+    );
 
     fn sign_and_commit_actions(
         &self,
@@ -119,9 +163,13 @@ pub trait User {
         receiver_id: AccountId,
         actions: Vec<Action>,
     ) -> Result<FinalExecutionOutcomeView, CommitError> {
-        let block_hash = self.get_best_block_hash().unwrap_or_default();
+        let block_hash = self
+            .get_best_block_hash()
+            .unwrap_or_default();
         let signed_transaction = SignedTransaction::from_actions(
-            self.get_access_key_nonce_for_signer(&signer_id).unwrap_or_default() + 1,
+            self.get_access_key_nonce_for_signer(&signer_id)
+                .unwrap_or_default()
+                + 1,
             signer_id,
             receiver_id,
             &*self.signer(),
@@ -141,7 +189,9 @@ pub trait User {
         self.sign_and_commit_actions(
             signer_id,
             receiver_id,
-            vec![Action::Transfer(TransferAction { deposit: amount })],
+            vec![Action::Transfer(TransferAction {
+                deposit: amount,
+            })],
         )
     }
 
@@ -153,7 +203,9 @@ pub trait User {
         self.sign_and_commit_actions(
             signer_id.clone(),
             signer_id,
-            vec![Action::DeployContract(DeployContractAction { code })],
+            vec![Action::DeployContract(
+                DeployContractAction { code },
+            )],
         )
     }
 
@@ -169,12 +221,9 @@ pub trait User {
         self.sign_and_commit_actions(
             signer_id,
             contract_id,
-            vec![Action::FunctionCall(Box::new(FunctionCallAction {
-                method_name: method_name.to_string(),
-                args,
-                gas,
-                deposit,
-            }))],
+            vec![Action::FunctionCall(Box::new(
+                FunctionCallAction { method_name: method_name.to_string(), args, gas, deposit },
+            ))],
         )
     }
 
@@ -208,7 +257,10 @@ pub trait User {
         self.sign_and_commit_actions(
             signer_id.clone(),
             signer_id,
-            vec![Action::AddKey(Box::new(AddKeyAction { public_key, access_key }))],
+            vec![Action::AddKey(Box::new(AddKeyAction {
+                public_key,
+                access_key,
+            }))],
         )
     }
 
@@ -220,7 +272,9 @@ pub trait User {
         self.sign_and_commit_actions(
             signer_id.clone(),
             signer_id,
-            vec![Action::DeleteKey(Box::new(DeleteKeyAction { public_key }))],
+            vec![Action::DeleteKey(Box::new(
+                DeleteKeyAction { public_key },
+            ))],
         )
     }
 
@@ -250,7 +304,9 @@ pub trait User {
         self.sign_and_commit_actions(
             signer_id,
             receiver_id,
-            vec![Action::DeleteAccount(DeleteAccountAction { beneficiary_id })],
+            vec![Action::DeleteAccount(
+                DeleteAccountAction { beneficiary_id },
+            )],
         )
     }
 
@@ -271,7 +327,10 @@ pub trait User {
         self.sign_and_commit_actions(
             signer_id.clone(),
             signer_id,
-            vec![Action::Stake(Box::new(StakeAction { stake, public_key }))],
+            vec![Action::Stake(Box::new(StakeAction {
+                stake,
+                public_key,
+            }))],
         )
     }
 
@@ -302,13 +361,19 @@ pub trait User {
             max_block_height: 100,
             public_key: inner_signer.public_key(),
         };
-        let signature = inner_signer.sign(delegate_action.get_nep461_hash().as_bytes());
+        let signature = inner_signer.sign(
+            delegate_action
+                .get_nep461_hash()
+                .as_bytes(),
+        );
         let signed_delegate_action = SignedDelegateAction { delegate_action, signature };
 
         self.sign_and_commit_actions(
             relayer_id,
             signer_id,
-            vec![Action::Delegate(Box::new(signed_delegate_action))],
+            vec![Action::Delegate(Box::new(
+                signed_delegate_action,
+            ))],
         )
     }
 }
@@ -324,7 +389,9 @@ pub trait AsyncUser: Send + Sync {
         &self,
         account_id: &AccountId,
     ) -> LocalBoxFuture<'static, Result<Balance, ServerError>> {
-        self.view_account(account_id).map(|res| res.map(|acc| acc.amount)).boxed_local()
+        self.view_account(account_id)
+            .map(|res| res.map(|acc| acc.amount))
+            .boxed_local()
     }
 
     fn view_state(

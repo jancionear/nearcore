@@ -81,66 +81,69 @@ pub enum Transaction {
 impl Transaction {
     pub fn signer_id(&self) -> &AccountId {
         match self {
-            Transaction::V0(tx) => &tx.signer_id,
-            Transaction::V1(tx) => &tx.signer_id,
+            | Transaction::V0(tx) => &tx.signer_id,
+            | Transaction::V1(tx) => &tx.signer_id,
         }
     }
 
     pub fn receiver_id(&self) -> &AccountId {
         match self {
-            Transaction::V0(tx) => &tx.receiver_id,
-            Transaction::V1(tx) => &tx.receiver_id,
+            | Transaction::V0(tx) => &tx.receiver_id,
+            | Transaction::V1(tx) => &tx.receiver_id,
         }
     }
 
     pub fn public_key(&self) -> &PublicKey {
         match self {
-            Transaction::V0(tx) => &tx.public_key,
-            Transaction::V1(tx) => &tx.public_key,
+            | Transaction::V0(tx) => &tx.public_key,
+            | Transaction::V1(tx) => &tx.public_key,
         }
     }
 
     pub fn nonce(&self) -> Nonce {
         match self {
-            Transaction::V0(tx) => tx.nonce,
-            Transaction::V1(tx) => tx.nonce,
+            | Transaction::V0(tx) => tx.nonce,
+            | Transaction::V1(tx) => tx.nonce,
         }
     }
 
     pub fn actions(&self) -> &[Action] {
         match self {
-            Transaction::V0(tx) => &tx.actions,
-            Transaction::V1(tx) => &tx.actions,
+            | Transaction::V0(tx) => &tx.actions,
+            | Transaction::V1(tx) => &tx.actions,
         }
     }
 
     pub fn take_actions(self) -> Vec<Action> {
         match self {
-            Transaction::V0(tx) => tx.actions,
-            Transaction::V1(tx) => tx.actions,
+            | Transaction::V0(tx) => tx.actions,
+            | Transaction::V1(tx) => tx.actions,
         }
     }
 
     pub fn block_hash(&self) -> &CryptoHash {
         match self {
-            Transaction::V0(tx) => &tx.block_hash,
-            Transaction::V1(tx) => &tx.block_hash,
+            | Transaction::V0(tx) => &tx.block_hash,
+            | Transaction::V1(tx) => &tx.block_hash,
         }
     }
 
     pub fn priority_fee(&self) -> Option<u64> {
         match self {
-            Transaction::V0(_) => None,
-            Transaction::V1(tx) => Some(tx.priority_fee),
+            | Transaction::V0(_) => None,
+            | Transaction::V1(tx) => Some(tx.priority_fee),
         }
     }
 }
 
 impl BorshSerialize for Transaction {
-    fn serialize<W: Write>(&self, writer: &mut W) -> Result<(), Error> {
+    fn serialize<W: Write>(
+        &self,
+        writer: &mut W,
+    ) -> Result<(), Error> {
         match self {
-            Transaction::V0(tx) => tx.serialize(writer)?,
-            Transaction::V1(tx) => {
+            | Transaction::V0(tx) => tx.serialize(writer)?,
+            | Transaction::V1(tx) => {
                 BorshSerialize::serialize(&1_u8, writer)?;
                 tx.serialize(writer)?;
             }
@@ -225,7 +228,10 @@ pub struct SignedTransaction {
 }
 
 impl SignedTransaction {
-    pub fn new(signature: Signature, transaction: Transaction) -> Self {
+    pub fn new(
+        signature: Signature,
+        transaction: Transaction,
+    ) -> Self {
         let mut signed_tx =
             Self { signature, transaction, hash: CryptoHash::default(), size: u64::default() };
         signed_tx.init();
@@ -248,13 +254,19 @@ impl SignedTransaction {
 }
 
 impl Hash for SignedTransaction {
-    fn hash<H: Hasher>(&self, state: &mut H) {
+    fn hash<H: Hasher>(
+        &self,
+        state: &mut H,
+    ) {
         self.hash.hash(state)
     }
 }
 
 impl PartialEq for SignedTransaction {
-    fn eq(&self, other: &SignedTransaction) -> bool {
+    fn eq(
+        &self,
+        other: &SignedTransaction,
+    ) -> bool {
         self.hash == other.hash && self.signature == other.signature
     }
 }
@@ -266,7 +278,10 @@ impl Borrow<CryptoHash> for SignedTransaction {
 }
 
 impl serde::Serialize for SignedTransaction {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    fn serialize<S>(
+        &self,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
@@ -309,14 +324,17 @@ pub enum ExecutionStatus {
 }
 
 impl fmt::Debug for ExecutionStatus {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
         match self {
-            ExecutionStatus::Unknown => f.write_str("Unknown"),
-            ExecutionStatus::Failure(e) => f.write_fmt(format_args!("Failure({})", e)),
-            ExecutionStatus::SuccessValue(v) => {
+            | ExecutionStatus::Unknown => f.write_str("Unknown"),
+            | ExecutionStatus::Failure(e) => f.write_fmt(format_args!("Failure({})", e)),
+            | ExecutionStatus::SuccessValue(v) => {
                 f.write_fmt(format_args!("SuccessValue({})", AbbrBytes(v)))
             }
-            ExecutionStatus::SuccessReceiptId(receipt_id) => {
+            | ExecutionStatus::SuccessReceiptId(receipt_id) => {
                 f.write_fmt(format_args!("SuccessReceiptId({})", receipt_id))
             }
         }
@@ -357,10 +375,10 @@ pub enum PartialExecutionStatus {
 impl From<ExecutionStatus> for PartialExecutionStatus {
     fn from(status: ExecutionStatus) -> PartialExecutionStatus {
         match status {
-            ExecutionStatus::Unknown => PartialExecutionStatus::Unknown,
-            ExecutionStatus::Failure(_) => PartialExecutionStatus::Failure,
-            ExecutionStatus::SuccessValue(value) => PartialExecutionStatus::SuccessValue(value),
-            ExecutionStatus::SuccessReceiptId(id) => PartialExecutionStatus::SuccessReceiptId(id),
+            | ExecutionStatus::Unknown => PartialExecutionStatus::Unknown,
+            | ExecutionStatus::Failure(_) => PartialExecutionStatus::Failure,
+            | ExecutionStatus::SuccessValue(value) => PartialExecutionStatus::SuccessValue(value),
+            | ExecutionStatus::SuccessReceiptId(id) => PartialExecutionStatus::SuccessReceiptId(id),
         }
     }
 }
@@ -419,7 +437,10 @@ pub enum ExecutionMetadata {
 }
 
 impl fmt::Debug for ExecutionOutcome {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
         f.debug_struct("ExecutionOutcome")
             .field("logs", &Slice(&self.logs))
             .field("receipt_ids", &Slice(&self.receipt_ids))
@@ -450,7 +471,12 @@ impl ExecutionOutcomeWithId {
         let mut result = Vec::with_capacity(2 + self.outcome.logs.len());
         result.push(self.id);
         result.push(CryptoHash::hash_borsh(PartialExecutionOutcome::from(&self.outcome)));
-        result.extend(self.outcome.logs.iter().map(|log| hash(log.as_bytes())));
+        result.extend(
+            self.outcome
+                .logs
+                .iter()
+                .map(|log| hash(log.as_bytes())),
+        );
         result
     }
 }
@@ -478,7 +504,9 @@ pub fn verify_transaction_signature(
 ) -> bool {
     let hash = transaction.get_hash();
     let hash = hash.as_ref();
-    public_keys.iter().any(|key| transaction.signature.verify(hash, key))
+    public_keys
+        .iter()
+        .any(|key| transaction.signature.verify(hash, key))
 }
 
 /// A more compact struct, just for storage.
@@ -508,7 +536,10 @@ mod tests {
         })
         .sign(&signer);
         let wrong_public_key = PublicKey::from_seed(KeyType::ED25519, "wrong");
-        let valid_keys = vec![signer.public_key(), wrong_public_key.clone()];
+        let valid_keys = vec![
+            signer.public_key(),
+            wrong_public_key.clone(),
+        ];
         assert!(verify_transaction_signature(&transaction, &valid_keys));
 
         let invalid_keys = vec![wrong_public_key];
@@ -520,7 +551,9 @@ mod tests {
     }
 
     fn create_transaction_v0() -> TransactionV0 {
-        let public_key: PublicKey = "22skMptHjFWNyuEWY22ftn2AbLPSYpmYwGJRGwpNHbTV".parse().unwrap();
+        let public_key: PublicKey = "22skMptHjFWNyuEWY22ftn2AbLPSYpmYwGJRGwpNHbTV"
+            .parse()
+            .unwrap();
         TransactionV0 {
             signer_id: "test.near".parse().unwrap(),
             public_key: public_key.clone(),
@@ -561,7 +594,9 @@ mod tests {
     }
 
     fn create_transaction_v1() -> TransactionV1 {
-        let public_key: PublicKey = "22skMptHjFWNyuEWY22ftn2AbLPSYpmYwGJRGwpNHbTV".parse().unwrap();
+        let public_key: PublicKey = "22skMptHjFWNyuEWY22ftn2AbLPSYpmYwGJRGwpNHbTV"
+            .parse()
+            .unwrap();
         TransactionV1 {
             signer_id: "test.near".parse().unwrap(),
             public_key: public_key.clone(),
@@ -647,7 +682,9 @@ mod tests {
         assert_eq!(
             vec![
                 id,
-                "5JQs5ekQqKudMmYejuccbtEu1bzhQPXa92Zm4HdV64dQ".parse().unwrap(),
+                "5JQs5ekQqKudMmYejuccbtEu1bzhQPXa92Zm4HdV64dQ"
+                    .parse()
+                    .unwrap(),
                 hash("123".as_bytes()),
                 hash("321".as_bytes()),
             ],

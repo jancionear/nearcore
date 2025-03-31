@@ -44,21 +44,21 @@ pub enum RpcChunkError {
 impl From<RpcChunkError> for crate::errors::RpcError {
     fn from(error: RpcChunkError) -> Self {
         let error_data = match &error {
-            RpcChunkError::InternalError { .. } => Some(Value::String(error.to_string())),
-            RpcChunkError::UnknownBlock { error_message } => Some(Value::String(format!(
+            | RpcChunkError::InternalError { .. } => Some(Value::String(error.to_string())),
+            | RpcChunkError::UnknownBlock { error_message } => Some(Value::String(format!(
                 "DB Not Found Error: {} \n Cause: Unknown",
                 error_message
             ))),
-            RpcChunkError::InvalidShardId { .. } => Some(Value::String(error.to_string())),
-            RpcChunkError::UnknownChunk { chunk_hash } => Some(Value::String(format!(
+            | RpcChunkError::InvalidShardId { .. } => Some(Value::String(error.to_string())),
+            | RpcChunkError::UnknownChunk { chunk_hash } => Some(Value::String(format!(
                 "Chunk Missing (unavailable on the node): ChunkHash(`{}`) \n Cause: Unknown",
                 chunk_hash.0
             ))),
         };
 
         let error_data_value = match serde_json::to_value(error) {
-            Ok(value) => value,
-            Err(err) => {
+            | Ok(value) => value,
+            | Err(err) => {
                 return Self::new_internal_error(
                     None,
                     format!("Failed to serialize RpcStateChangesError: {:?}", err),

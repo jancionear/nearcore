@@ -62,13 +62,19 @@ impl Default for TrieViewer {
     fn default() -> Self {
         let config_store = RuntimeConfigStore::new(None);
         let latest_runtime_config = config_store.get_config(PROTOCOL_VERSION);
-        let max_gas_burnt = latest_runtime_config.wasm_config.limit_config.max_gas_burnt;
+        let max_gas_burnt = latest_runtime_config
+            .wasm_config
+            .limit_config
+            .max_gas_burnt;
         Self { state_size_limit: None, max_gas_burnt_view: max_gas_burnt }
     }
 }
 
 impl TrieViewer {
-    pub fn new(state_size_limit: Option<u64>, max_gas_burnt_view: Option<Gas>) -> Self {
+    pub fn new(
+        state_size_limit: Option<u64>,
+        max_gas_burnt_view: Option<Gas>,
+    ) -> Self {
         let max_gas_burnt_view =
             max_gas_burnt_view.unwrap_or_else(|| TrieViewer::default().max_gas_burnt_view);
         Self { state_size_limit, max_gas_burnt_view }
@@ -92,11 +98,11 @@ impl TrieViewer {
         account_id: &AccountId,
     ) -> Result<ContractCode, errors::ViewContractCodeError> {
         let account = self.view_account(state_update, account_id)?;
-        state_update.get_code(account_id.clone(), account.code_hash())?.ok_or_else(|| {
-            errors::ViewContractCodeError::NoContractCode {
+        state_update
+            .get_code(account_id.clone(), account.code_hash())?
+            .ok_or_else(|| errors::ViewContractCodeError::NoContractCode {
                 contract_account_id: account_id.clone(),
-            }
-        })
+            })
     }
 
     pub fn view_access_key(
@@ -148,19 +154,23 @@ impl TrieViewer {
         include_proof: bool,
     ) -> Result<ViewStateResult, errors::ViewStateError> {
         match get_account(state_update, account_id)? {
-            Some(account) => {
+            | Some(account) => {
                 let code_len = state_update
                     .get_code_len(account_id.clone(), account.code_hash())?
                     .unwrap_or_default() as u64;
                 if let Some(limit) = self.state_size_limit {
-                    if account.storage_usage().saturating_sub(code_len) > limit {
+                    if account
+                        .storage_usage()
+                        .saturating_sub(code_len)
+                        > limit
+                    {
                         return Err(errors::ViewStateError::AccountStateTooLarge {
                             requested_account_id: account_id.clone(),
                         });
                     }
                 }
             }
-            None => {
+            | None => {
                 return Err(errors::ViewStateError::AccountDoesNotExist {
                     requested_account_id: account_id.clone(),
                 })
@@ -250,7 +260,10 @@ impl TrieViewer {
         });
         let pipeline = ReceiptPreparationPipeline::new(
             Arc::clone(config),
-            apply_state.cache.as_ref().map(|v| v.handle()),
+            apply_state
+                .cache
+                .as_ref()
+                .map(|v| v.handle()),
             apply_state.current_protocol_version,
             state_update.contract_storage(),
         );
@@ -298,8 +311,8 @@ impl TrieViewer {
             debug!(target: "runtime", "(exec time {}) result of execution: {:?}", time_str, outcome);
             logs.extend(outcome.logs);
             let result = match outcome.return_data {
-                ReturnData::Value(buf) => buf,
-                ReturnData::ReceiptIndex(_) | ReturnData::None => vec![],
+                | ReturnData::Value(buf) => buf,
+                | ReturnData::ReceiptIndex(_) | ReturnData::None => vec![],
             };
             Ok(result)
         }

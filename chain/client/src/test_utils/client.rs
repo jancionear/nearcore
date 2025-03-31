@@ -83,14 +83,20 @@ impl Client {
         let signer = self.validator_signer.get();
         let mut accepted_blocks = vec![];
         while wait_for_all_blocks_in_processing(&mut self.chain) {
-            accepted_blocks.extend(self.postprocess_ready_blocks(None, true, &signer).0);
+            accepted_blocks.extend(
+                self.postprocess_ready_blocks(None, true, &signer)
+                    .0,
+            );
         }
         accepted_blocks
     }
 
     /// This function finishes processing block with hash `hash`, if the processing of that block
     /// has started.
-    pub fn finish_block_in_processing(&mut self, hash: &CryptoHash) -> Vec<CryptoHash> {
+    pub fn finish_block_in_processing(
+        &mut self,
+        hash: &CryptoHash,
+    ) -> Vec<CryptoHash> {
         if let Ok(()) = wait_for_block_in_processing(&mut self.chain, hash) {
             let signer = self.validator_signer.get();
             let (accepted_blocks, _) = self.postprocess_ready_blocks(None, true, &signer);
@@ -100,7 +106,11 @@ impl Client {
     }
 
     /// Manually produce a single chunk on the given shard and send out the corresponding network messages
-    pub fn produce_one_chunk(&mut self, height: BlockHeight, shard_id: ShardId) -> ShardChunk {
+    pub fn produce_one_chunk(
+        &mut self,
+        height: BlockHeight,
+        shard_id: ShardId,
+    ) -> ShardChunk {
         let ProduceChunkResult {
             chunk: encoded_chunk,
             encoded_chunk_parts_paths: merkle_paths,
@@ -113,10 +123,17 @@ impl Client {
                 encoded_chunk,
                 merkle_paths,
                 receipts,
-                signer.as_ref().unwrap().validator_id().clone(),
+                signer
+                    .as_ref()
+                    .unwrap()
+                    .validator_id()
+                    .clone(),
             )
             .unwrap();
-        let prev_block = self.chain.get_block(shard_chunk.prev_block()).unwrap();
+        let prev_block = self
+            .chain
+            .get_block(shard_chunk.prev_block())
+            .unwrap();
         let prev_chunk_header = Chain::get_prev_chunk_header(
             self.epoch_manager.as_ref(),
             &prev_block,
@@ -124,7 +141,10 @@ impl Client {
         )
         .unwrap();
         self.send_chunk_state_witness_to_chunk_validators(
-            &self.epoch_manager.get_epoch_id_from_prev_block(shard_chunk.prev_block()).unwrap(),
+            &self
+                .epoch_manager
+                .get_epoch_id_from_prev_block(shard_chunk.prev_block())
+                .unwrap(),
             prev_block.header(),
             &prev_chunk_header,
             &shard_chunk,
@@ -141,13 +161,23 @@ fn create_chunk_on_height_for_shard(
     next_height: BlockHeight,
     shard_id: ShardId,
 ) -> ProduceChunkResult {
-    let last_block_hash = client.chain.head().unwrap().last_block_hash;
-    let last_block = client.chain.get_block(&last_block_hash).unwrap();
+    let last_block_hash = client
+        .chain
+        .head()
+        .unwrap()
+        .last_block_hash;
+    let last_block = client
+        .chain
+        .get_block(&last_block_hash)
+        .unwrap();
     let signer = client.validator_signer.get();
     client
         .try_produce_chunk(
             &last_block,
-            &client.epoch_manager.get_epoch_id_from_prev_block(&last_block_hash).unwrap(),
+            &client
+                .epoch_manager
+                .get_epoch_id_from_prev_block(&last_block_hash)
+                .unwrap(),
             Chain::get_prev_chunk_header(client.epoch_manager.as_ref(), &last_block, shard_id)
                 .unwrap(),
             next_height,
@@ -158,7 +188,10 @@ fn create_chunk_on_height_for_shard(
         .unwrap()
 }
 
-pub fn create_chunk_on_height(client: &mut Client, next_height: BlockHeight) -> ProduceChunkResult {
+pub fn create_chunk_on_height(
+    client: &mut Client,
+    next_height: BlockHeight,
+) -> ProduceChunkResult {
     create_chunk_on_height_for_shard(client, next_height, ShardUId::single_shard().shard_id())
 }
 
@@ -176,7 +209,10 @@ pub fn create_chunk(
     replace_transactions: Option<Vec<SignedTransaction>>,
     replace_tx_root: Option<CryptoHash>,
 ) -> (ProduceChunkResult, Block) {
-    let last_block = client.chain.get_block_by_height(client.chain.head().unwrap().height).unwrap();
+    let last_block = client
+        .chain
+        .get_block_by_height(client.chain.head().unwrap().height)
+        .unwrap();
     let next_height = last_block.header().height() + 1;
     let signer = client.validator_signer.get();
     let ProduceChunkResult {
@@ -198,14 +234,20 @@ pub fn create_chunk(
     let should_replace = replace_transactions.is_some() || replace_tx_root.is_some();
     let transactions = replace_transactions.unwrap_or_else(Vec::new);
     let tx_root = match replace_tx_root {
-        Some(root) => root,
-        None => merklize(&transactions).0,
+        | Some(root) => root,
+        | None => merklize(&transactions).0,
     };
     // reconstruct the chunk with changes (if any)
     if should_replace {
         // The best way it to decode chunk, replace transactions and then recreate encoded chunk.
-        let total_parts = client.chain.epoch_manager.num_total_parts();
-        let data_parts = client.chain.epoch_manager.num_data_parts();
+        let total_parts = client
+            .chain
+            .epoch_manager
+            .num_total_parts();
+        let data_parts = client
+            .chain
+            .epoch_manager
+            .num_data_parts();
         let decoded_chunk = chunk.decode_chunk(data_parts).unwrap();
         let parity_parts = total_parts - data_parts;
         let rs = ReedSolomon::new(data_parts, parity_parts).unwrap();
@@ -223,7 +265,9 @@ pub fn create_chunk(
             header.gas_limit(),
             header.prev_balance_burnt(),
             tx_root,
-            header.prev_validator_proposals().collect(),
+            header
+                .prev_validator_proposals()
+                .collect(),
             transactions,
             decoded_chunk.prev_outgoing_receipts(),
             header.prev_outgoing_receipts_root(),
@@ -237,15 +281,18 @@ pub fn create_chunk(
         swap(&mut merkle_paths, &mut new_merkle_paths);
     }
     match &mut chunk {
-        EncodedShardChunk::V1(chunk) => {
+        | EncodedShardChunk::V1(chunk) => {
             chunk.header.height_included = next_height;
         }
-        EncodedShardChunk::V2(chunk) => {
+        | EncodedShardChunk::V2(chunk) => {
             *chunk.header.height_included_mut() = next_height;
         }
     }
-    let block_merkle_tree =
-        client.chain.chain_store().get_block_merkle_tree(last_block.hash()).unwrap();
+    let block_merkle_tree = client
+        .chain
+        .chain_store()
+        .get_block_merkle_tree(last_block.hash())
+        .unwrap();
     let mut block_merkle_tree = PartialMerkleTree::clone(&block_merkle_tree);
 
     let signer = client.validator_signer.get().unwrap();
@@ -260,7 +307,9 @@ pub fn create_chunk(
         next_height,
         last_block.header().block_ordinal() + 1,
         vec![chunk.cloned_header()],
-        vec![vec![Some(Box::new(endorsement.signature()))]],
+        vec![vec![Some(Box::new(
+            endorsement.signature(),
+        ))]],
         *last_block.header().epoch_id(),
         *last_block.header().next_epoch_id(),
         None,
@@ -275,7 +324,6 @@ pub fn create_chunk(
         *last_block.header().next_bp_hash(),
         block_merkle_tree.root(),
         client.clock.clone(),
-        None,
         None,
     );
     (
@@ -300,23 +348,35 @@ pub fn run_catchup(
     let block_messages = Arc::new(RwLock::new(vec![]));
     let block_inside_messages = block_messages.clone();
     let block_catch_up = Sender::from_fn(move |msg: BlockCatchUpRequest| {
-        block_inside_messages.write().unwrap().push(msg);
+        block_inside_messages
+            .write()
+            .unwrap()
+            .push(msg);
     });
     let _ = System::new();
     loop {
         let signer = client.validator_signer.get();
         client.run_catchup(highest_height_peers, &block_catch_up, None, &signer)?;
         let mut catchup_done = true;
-        for msg in block_messages.write().unwrap().drain(..) {
+        for msg in block_messages
+            .write()
+            .unwrap()
+            .drain(..)
+        {
             let results = do_apply_chunks(msg.block_hash, msg.block_height, msg.work)
                 .into_iter()
                 .map(|res| res.1)
                 .collect_vec();
-            if let Some(CatchupState { catchup, .. }) =
-                client.catchup_state_syncs.get_mut(&msg.sync_hash)
+            if let Some(CatchupState { catchup, .. }) = client
+                .catchup_state_syncs
+                .get_mut(&msg.sync_hash)
             {
-                assert!(catchup.scheduled_blocks.remove(&msg.block_hash));
-                catchup.processed_blocks.insert(msg.block_hash, results);
+                assert!(catchup
+                    .scheduled_blocks
+                    .remove(&msg.block_hash));
+                catchup
+                    .processed_blocks
+                    .insert(msg.block_hash, results);
             } else {
                 panic!("block catch up processing result from unknown sync hash");
             }

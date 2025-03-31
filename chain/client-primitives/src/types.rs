@@ -56,19 +56,22 @@ pub enum ShardSyncStatus {
 impl ShardSyncStatus {
     pub fn repr(&self) -> u8 {
         match self {
-            ShardSyncStatus::StateDownloadHeader => 0,
-            ShardSyncStatus::StateDownloadParts => 1,
-            ShardSyncStatus::StateApplyScheduling => 2,
-            ShardSyncStatus::StateApplyInProgress => 3,
-            ShardSyncStatus::StateApplyFinalizing => 4,
-            ShardSyncStatus::StateSyncDone => 5,
+            | ShardSyncStatus::StateDownloadHeader => 0,
+            | ShardSyncStatus::StateDownloadParts => 1,
+            | ShardSyncStatus::StateApplyScheduling => 2,
+            | ShardSyncStatus::StateApplyInProgress => 3,
+            | ShardSyncStatus::StateApplyFinalizing => 4,
+            | ShardSyncStatus::StateSyncDone => 5,
         }
     }
 }
 
 /// Manually implement compare for ShardSyncStatus to compare only based on variant name
 impl PartialEq<Self> for ShardSyncStatus {
-    fn eq(&self, other: &Self) -> bool {
+    fn eq(
+        &self,
+        other: &Self,
+    ) -> bool {
         std::mem::discriminant(self) == std::mem::discriminant(other)
     }
 }
@@ -78,12 +81,12 @@ impl Eq for ShardSyncStatus {}
 impl ToString for ShardSyncStatus {
     fn to_string(&self) -> String {
         match self {
-            ShardSyncStatus::StateDownloadHeader => "header".to_string(),
-            ShardSyncStatus::StateDownloadParts => "parts".to_string(),
-            ShardSyncStatus::StateApplyScheduling => "apply scheduling".to_string(),
-            ShardSyncStatus::StateApplyInProgress => "apply in progress".to_string(),
-            ShardSyncStatus::StateApplyFinalizing => "apply finalizing".to_string(),
-            ShardSyncStatus::StateSyncDone => "done".to_string(),
+            | ShardSyncStatus::StateDownloadHeader => "header".to_string(),
+            | ShardSyncStatus::StateDownloadParts => "parts".to_string(),
+            | ShardSyncStatus::StateApplyScheduling => "apply scheduling".to_string(),
+            | ShardSyncStatus::StateApplyInProgress => "apply in progress".to_string(),
+            | ShardSyncStatus::StateApplyFinalizing => "apply finalizing".to_string(),
+            | ShardSyncStatus::StateSyncDone => "done".to_string(),
         }
     }
 }
@@ -159,34 +162,37 @@ impl SyncStatus {
     /// True if currently engaged in syncing the chain.
     pub fn is_syncing(&self) -> bool {
         match self {
-            SyncStatus::NoSync => false,
-            _ => true,
+            | SyncStatus::NoSync => false,
+            | _ => true,
         }
     }
 
     pub fn repr(&self) -> u8 {
         match self {
             // Represent NoSync as 0 because it is the state of a normal well-behaving node.
-            SyncStatus::NoSync => 0,
-            SyncStatus::AwaitingPeers => 1,
-            SyncStatus::EpochSync { .. } => 2,
-            SyncStatus::EpochSyncDone { .. } => 3,
-            SyncStatus::HeaderSync { .. } => 4,
-            SyncStatus::StateSync(_) => 5,
-            SyncStatus::StateSyncDone => 6,
-            SyncStatus::BlockSync { .. } => 7,
+            | SyncStatus::NoSync => 0,
+            | SyncStatus::AwaitingPeers => 1,
+            | SyncStatus::EpochSync { .. } => 2,
+            | SyncStatus::EpochSyncDone { .. } => 3,
+            | SyncStatus::HeaderSync { .. } => 4,
+            | SyncStatus::StateSync(_) => 5,
+            | SyncStatus::StateSyncDone => 6,
+            | SyncStatus::BlockSync { .. } => 7,
         }
     }
 
     pub fn start_height(&self) -> Option<BlockHeight> {
         match self {
-            SyncStatus::HeaderSync { start_height, .. } => Some(*start_height),
-            SyncStatus::BlockSync { start_height, .. } => Some(*start_height),
-            _ => None,
+            | SyncStatus::HeaderSync { start_height, .. } => Some(*start_height),
+            | SyncStatus::BlockSync { start_height, .. } => Some(*start_height),
+            | _ => None,
         }
     }
 
-    pub fn update(&mut self, new_value: Self) {
+    pub fn update(
+        &mut self,
+        new_value: Self,
+    ) {
         let _span =
             debug_span!(target: "sync", "update_sync_status", old_value = ?self, ?new_value)
                 .entered();
@@ -197,18 +203,18 @@ impl SyncStatus {
 impl From<SyncStatus> for SyncStatusView {
     fn from(status: SyncStatus) -> Self {
         match status {
-            SyncStatus::AwaitingPeers => SyncStatusView::AwaitingPeers,
-            SyncStatus::NoSync => SyncStatusView::NoSync,
-            SyncStatus::EpochSync(status) => SyncStatusView::EpochSync {
+            | SyncStatus::AwaitingPeers => SyncStatusView::AwaitingPeers,
+            | SyncStatus::NoSync => SyncStatusView::NoSync,
+            | SyncStatus::EpochSync(status) => SyncStatusView::EpochSync {
                 source_peer_height: status.source_peer_height,
                 source_peer_id: status.source_peer_id.to_string(),
                 attempt_time: status.attempt_time.to_string(),
             },
-            SyncStatus::EpochSyncDone => SyncStatusView::EpochSyncDone,
-            SyncStatus::HeaderSync { start_height, current_height, highest_height } => {
+            | SyncStatus::EpochSyncDone => SyncStatusView::EpochSyncDone,
+            | SyncStatus::HeaderSync { start_height, current_height, highest_height } => {
                 SyncStatusView::HeaderSync { start_height, current_height, highest_height }
             }
-            SyncStatus::StateSync(state_sync_status) => {
+            | SyncStatus::StateSync(state_sync_status) => {
                 SyncStatusView::StateSync(StateSyncStatusView {
                     sync_hash: state_sync_status.sync_hash,
                     shard_sync_status: state_sync_status
@@ -222,8 +228,8 @@ impl From<SyncStatus> for SyncStatusView {
                     computation_tasks: state_sync_status.computation_tasks,
                 })
             }
-            SyncStatus::StateSyncDone => SyncStatusView::StateSyncDone,
-            SyncStatus::BlockSync { start_height, current_height, highest_height } => {
+            | SyncStatus::StateSyncDone => SyncStatusView::StateSyncDone,
+            | SyncStatus::BlockSync { start_height, current_height, highest_height } => {
                 SyncStatusView::BlockSync { start_height, current_height, highest_height }
             }
         }
@@ -253,13 +259,13 @@ pub enum GetBlockError {
 impl From<near_chain_primitives::Error> for GetBlockError {
     fn from(error: near_chain_primitives::Error) -> Self {
         match error {
-            near_chain_primitives::Error::IOErr(error) => {
+            | near_chain_primitives::Error::IOErr(error) => {
                 Self::IOError { error_message: error.to_string() }
             }
-            near_chain_primitives::Error::DBNotFoundErr(error_message) => {
+            | near_chain_primitives::Error::DBNotFoundErr(error_message) => {
                 Self::UnknownBlock { error_message }
             }
-            _ => Self::Unreachable { error_message: error.to_string() },
+            | _ => Self::Unreachable { error_message: error.to_string() },
         }
     }
 }
@@ -335,19 +341,19 @@ pub enum GetChunkError {
 impl From<near_chain_primitives::Error> for GetChunkError {
     fn from(error: near_chain_primitives::Error) -> Self {
         match error {
-            near_chain_primitives::Error::IOErr(error) => {
+            | near_chain_primitives::Error::IOErr(error) => {
                 Self::IOError { error_message: error.to_string() }
             }
-            near_chain_primitives::Error::DBNotFoundErr(error_message) => {
+            | near_chain_primitives::Error::DBNotFoundErr(error_message) => {
                 Self::UnknownBlock { error_message }
             }
-            near_chain_primitives::Error::InvalidShardId(shard_id) => {
+            | near_chain_primitives::Error::InvalidShardId(shard_id) => {
                 Self::InvalidShardId { shard_id }
             }
-            near_chain_primitives::Error::ChunkMissing(chunk_hash) => {
+            | near_chain_primitives::Error::ChunkMissing(chunk_hash) => {
                 Self::UnknownChunk { chunk_hash }
             }
-            _ => Self::Unreachable { error_message: error.to_string() },
+            | _ => Self::Unreachable { error_message: error.to_string() },
         }
     }
 }
@@ -360,7 +366,10 @@ pub struct Query {
 }
 
 impl Query {
-    pub fn new(block_reference: BlockReference, request: QueryRequest) -> Self {
+    pub fn new(
+        block_reference: BlockReference,
+        request: QueryRequest,
+    ) -> Self {
         Query { block_reference, request }
     }
 }
@@ -462,17 +471,17 @@ pub enum StatusError {
 impl From<near_chain_primitives::error::Error> for StatusError {
     fn from(error: near_chain_primitives::error::Error) -> Self {
         match error {
-            near_chain_primitives::error::Error::IOErr(error) => {
+            | near_chain_primitives::error::Error::IOErr(error) => {
                 Self::InternalError { error_message: error.to_string() }
             }
-            near_chain_primitives::error::Error::DBNotFoundErr(error_message)
+            | near_chain_primitives::error::Error::DBNotFoundErr(error_message)
             | near_chain_primitives::error::Error::ValidatorError(error_message) => {
                 Self::InternalError { error_message }
             }
-            near_chain_primitives::error::Error::EpochOutOfBounds(epoch_id) => {
+            | near_chain_primitives::error::Error::EpochOutOfBounds(epoch_id) => {
                 Self::EpochOutOfBounds { epoch_id }
             }
-            _ => Self::Unreachable { error_message: error.to_string() },
+            | _ => Self::Unreachable { error_message: error.to_string() },
         }
     }
 }
@@ -505,16 +514,16 @@ pub enum GetNextLightClientBlockError {
 impl From<near_chain_primitives::error::Error> for GetNextLightClientBlockError {
     fn from(error: near_chain_primitives::error::Error) -> Self {
         match error {
-            near_chain_primitives::error::Error::DBNotFoundErr(error_message) => {
+            | near_chain_primitives::error::Error::DBNotFoundErr(error_message) => {
                 Self::UnknownBlock { error_message }
             }
-            near_chain_primitives::error::Error::IOErr(error) => {
+            | near_chain_primitives::error::Error::IOErr(error) => {
                 Self::InternalError { error_message: error.to_string() }
             }
-            near_chain_primitives::error::Error::EpochOutOfBounds(epoch_id) => {
+            | near_chain_primitives::error::Error::EpochOutOfBounds(epoch_id) => {
                 Self::EpochOutOfBounds { epoch_id }
             }
-            _ => Self::Unreachable { error_message: error.to_string() },
+            | _ => Self::Unreachable { error_message: error.to_string() },
         }
     }
 }
@@ -556,13 +565,13 @@ pub enum GetGasPriceError {
 impl From<near_chain_primitives::Error> for GetGasPriceError {
     fn from(error: near_chain_primitives::Error) -> Self {
         match error {
-            near_chain_primitives::Error::IOErr(error) => {
+            | near_chain_primitives::Error::IOErr(error) => {
                 Self::InternalError { error_message: error.to_string() }
             }
-            near_chain_primitives::Error::DBNotFoundErr(error_message) => {
+            | near_chain_primitives::Error::DBNotFoundErr(error_message) => {
                 Self::UnknownBlock { error_message }
             }
-            _ => Self::Unreachable { error_message: error.to_string() },
+            | _ => Self::Unreachable { error_message: error.to_string() },
         }
     }
 }
@@ -647,10 +656,10 @@ pub enum GetValidatorInfoError {
 impl From<near_chain_primitives::Error> for GetValidatorInfoError {
     fn from(error: near_chain_primitives::Error) -> Self {
         match error {
-            near_chain_primitives::Error::DBNotFoundErr(_)
+            | near_chain_primitives::Error::DBNotFoundErr(_)
             | near_chain_primitives::Error::EpochOutOfBounds(_) => Self::UnknownEpoch,
-            near_chain_primitives::Error::IOErr(s) => Self::IOError(s.to_string()),
-            _ => Self::Unreachable(error.to_string()),
+            | near_chain_primitives::Error::IOErr(s) => Self::IOError(s.to_string()),
+            | _ => Self::Unreachable(error.to_string()),
         }
     }
 }
@@ -689,13 +698,13 @@ pub enum GetStateChangesError {
 impl From<near_chain_primitives::Error> for GetStateChangesError {
     fn from(error: near_chain_primitives::Error) -> Self {
         match error {
-            near_chain_primitives::Error::IOErr(error) => {
+            | near_chain_primitives::Error::IOErr(error) => {
                 Self::IOError { error_message: error.to_string() }
             }
-            near_chain_primitives::Error::DBNotFoundErr(error_message) => {
+            | near_chain_primitives::Error::DBNotFoundErr(error_message) => {
                 Self::UnknownBlock { error_message }
             }
-            _ => Self::Unreachable { error_message: error.to_string() },
+            | _ => Self::Unreachable { error_message: error.to_string() },
         }
     }
 }
@@ -768,10 +777,10 @@ pub enum GetExecutionOutcomeError {
 impl From<TxStatusError> for GetExecutionOutcomeError {
     fn from(error: TxStatusError) -> Self {
         match error {
-            TxStatusError::ChainError(err) => {
+            | TxStatusError::ChainError(err) => {
                 Self::InternalError { error_message: err.to_string() }
             }
-            _ => Self::Unreachable { error_message: format!("{:?}", error) },
+            | _ => Self::Unreachable { error_message: format!("{:?}", error) },
         }
     }
 }
@@ -779,13 +788,13 @@ impl From<TxStatusError> for GetExecutionOutcomeError {
 impl From<near_chain_primitives::error::Error> for GetExecutionOutcomeError {
     fn from(error: near_chain_primitives::error::Error) -> Self {
         match error {
-            near_chain_primitives::Error::IOErr(error) => {
+            | near_chain_primitives::Error::IOErr(error) => {
                 Self::InternalError { error_message: error.to_string() }
             }
-            near_chain_primitives::Error::DBNotFoundErr(error_message) => {
+            | near_chain_primitives::Error::DBNotFoundErr(error_message) => {
                 Self::UnknownBlock { error_message }
             }
-            _ => Self::Unreachable { error_message: error.to_string() },
+            | _ => Self::Unreachable { error_message: error.to_string() },
         }
     }
 }
@@ -836,13 +845,13 @@ pub enum GetBlockProofError {
 impl From<near_chain_primitives::error::Error> for GetBlockProofError {
     fn from(error: near_chain_primitives::error::Error) -> Self {
         match error {
-            near_chain_primitives::error::Error::DBNotFoundErr(error_message) => {
+            | near_chain_primitives::error::Error::DBNotFoundErr(error_message) => {
                 Self::UnknownBlock { error_message }
             }
-            near_chain_primitives::error::Error::Other(error_message) => {
+            | near_chain_primitives::error::Error::Other(error_message) => {
                 Self::InternalError { error_message }
             }
-            err => Self::Unreachable { error_message: err.to_string() },
+            | err => Self::Unreachable { error_message: err.to_string() },
         }
     }
 }
@@ -873,8 +882,8 @@ pub enum GetReceiptError {
 impl From<near_chain_primitives::Error> for GetReceiptError {
     fn from(error: near_chain_primitives::Error) -> Self {
         match error {
-            near_chain_primitives::Error::IOErr(error) => Self::IOError(error.to_string()),
-            _ => Self::Unreachable(error.to_string()),
+            | near_chain_primitives::Error::IOErr(error) => Self::IOError(error.to_string()),
+            | _ => Self::Unreachable(error.to_string()),
         }
     }
 }
@@ -907,9 +916,9 @@ pub enum GetProtocolConfigError {
 impl From<near_chain_primitives::Error> for GetProtocolConfigError {
     fn from(error: near_chain_primitives::Error) -> Self {
         match error {
-            near_chain_primitives::Error::IOErr(error) => Self::IOError(error.to_string()),
-            near_chain_primitives::Error::DBNotFoundErr(s) => Self::UnknownBlock(s),
-            _ => Self::Unreachable(error.to_string()),
+            | near_chain_primitives::Error::IOErr(error) => Self::IOError(error.to_string()),
+            | near_chain_primitives::Error::DBNotFoundErr(s) => Self::UnknownBlock(s),
+            | _ => Self::Unreachable(error.to_string()),
         }
     }
 }
@@ -934,8 +943,8 @@ pub enum GetMaintenanceWindowsError {
 impl From<near_chain_primitives::Error> for GetMaintenanceWindowsError {
     fn from(error: near_chain_primitives::Error) -> Self {
         match error {
-            near_chain_primitives::Error::IOErr(error) => Self::IOError(error.to_string()),
-            _ => Self::Unreachable(error.to_string()),
+            | near_chain_primitives::Error::IOErr(error) => Self::IOError(error.to_string()),
+            | _ => Self::Unreachable(error.to_string()),
         }
     }
 }
@@ -962,8 +971,8 @@ pub enum GetClientConfigError {
 impl From<near_chain_primitives::Error> for GetClientConfigError {
     fn from(error: near_chain_primitives::Error) -> Self {
         match error {
-            near_chain_primitives::Error::IOErr(error) => Self::IOError(error.to_string()),
-            _ => Self::Unreachable(error.to_string()),
+            | near_chain_primitives::Error::IOErr(error) => Self::IOError(error.to_string()),
+            | _ => Self::Unreachable(error.to_string()),
         }
     }
 }
@@ -990,8 +999,8 @@ pub enum GetSplitStorageInfoError {
 impl From<near_chain_primitives::Error> for GetSplitStorageInfoError {
     fn from(error: near_chain_primitives::Error) -> Self {
         match error {
-            near_chain_primitives::Error::IOErr(error) => Self::IOError(error.to_string()),
-            _ => Self::Unreachable(error.to_string()),
+            | near_chain_primitives::Error::IOErr(error) => Self::IOError(error.to_string()),
+            | _ => Self::Unreachable(error.to_string()),
         }
     }
 }

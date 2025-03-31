@@ -70,5 +70,7 @@ pub fn genesis_block(genesis: &Genesis) -> Block {
         noop().into_multi_sender(),
     )
     .unwrap();
-    chain.get_block(&chain.genesis().hash().clone()).unwrap()
+    chain
+        .get_block(&chain.genesis().hash().clone())
+        .unwrap()
 }

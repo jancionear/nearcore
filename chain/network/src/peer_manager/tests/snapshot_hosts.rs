@@ -36,7 +36,11 @@ fn make_snapshot_host_info(
     let max_shard_id = 32;
     let shards_num: usize = rng.gen_range(1..16);
     let shards = (0..max_shard_id).choose_multiple(rng, shards_num);
-    let shards = shards.into_iter().sorted().map(ShardId::new).collect();
+    let shards = shards
+        .into_iter()
+        .sorted()
+        .map(ShardId::new)
+        .collect();
     let sync_hash = CryptoHash::hash_borsh(epoch_height);
     Arc::new(SnapshotHostInfo::new(peer_id.clone(), sync_hash, epoch_height, shards, secret_key))
 }
@@ -44,11 +48,11 @@ fn make_snapshot_host_info(
 /// Used to consume peer events until there's an event of type SyncSnapshotHosts
 fn take_sync_snapshot_msg(event: crate::peer::testonly::Event) -> Option<SyncSnapshotHosts> {
     match event {
-        peer::testonly::Event::Network(PME::MessageProcessed(
+        | peer::testonly::Event::Network(PME::MessageProcessed(
             tcp::Tier::T2,
             PeerMessage::SyncSnapshotHosts(msg),
         )) => Some(msg),
-        _ => None,
+        | _ => None,
     }
 }
 
@@ -60,7 +64,10 @@ async fn wait_for_host_info(
     allowed_ignorable_infos: &[Arc<SnapshotHostInfo>],
 ) {
     loop {
-        let msg = peer.events.recv_until(take_sync_snapshot_msg).await;
+        let msg = peer
+            .events
+            .recv_until(take_sync_snapshot_msg)
+            .await;
         for info in msg.hosts {
             if info.as_ref() == target_info {
                 return;
@@ -92,21 +99,39 @@ async fn broadcast() {
 
     tracing::info!(target:"test", "Connect a peer, expect initial sync to be empty.");
     let peer1_config = chain.make_config(rng);
-    let mut peer1 =
-        pm.start_inbound(chain.clone(), peer1_config.clone()).await.handshake(clock).await;
-    let empty_sync_msg = peer1.events.recv_until(take_sync_snapshot_msg).await;
+    let mut peer1 = pm
+        .start_inbound(chain.clone(), peer1_config.clone())
+        .await
+        .handshake(clock)
+        .await;
+    let empty_sync_msg = peer1
+        .events
+        .recv_until(take_sync_snapshot_msg)
+        .await;
     assert_eq!(empty_sync_msg.hosts, vec![]);
 
     tracing::info!(target:"test", "Connect two more peers.");
     let peer2_config = chain.make_config(rng);
-    let mut peer2 =
-        pm.start_inbound(chain.clone(), peer2_config.clone()).await.handshake(clock).await;
-    let empty_sync_msg = peer2.events.recv_until(take_sync_snapshot_msg).await;
+    let mut peer2 = pm
+        .start_inbound(chain.clone(), peer2_config.clone())
+        .await
+        .handshake(clock)
+        .await;
+    let empty_sync_msg = peer2
+        .events
+        .recv_until(take_sync_snapshot_msg)
+        .await;
     assert_eq!(empty_sync_msg.hosts, vec![]);
 
-    let mut peer3 =
-        pm.start_inbound(chain.clone(), chain.make_config(rng)).await.handshake(clock).await;
-    let empty_sync_msg = peer3.events.recv_until(take_sync_snapshot_msg).await;
+    let mut peer3 = pm
+        .start_inbound(chain.clone(), chain.make_config(rng))
+        .await
+        .handshake(clock)
+        .await;
+    let empty_sync_msg = peer3
+        .events
+        .recv_until(take_sync_snapshot_msg)
+        .await;
     assert_eq!(empty_sync_msg.hosts, vec![]);
 
     tracing::info!(target:"test", "Send a SyncSnapshotHosts message from peer1, make sure that all peers receive it.");
@@ -117,19 +142,34 @@ async fn broadcast() {
         .send(PeerMessage::SyncSnapshotHosts(SyncSnapshotHosts { hosts: vec![info1.clone()] }))
         .await;
 
-    let got1 = peer1.events.recv_until(take_sync_snapshot_msg).await;
+    let got1 = peer1
+        .events
+        .recv_until(take_sync_snapshot_msg)
+        .await;
     assert_eq!(got1.hosts, vec![info1.clone()]);
 
-    let got2 = peer2.events.recv_until(take_sync_snapshot_msg).await;
+    let got2 = peer2
+        .events
+        .recv_until(take_sync_snapshot_msg)
+        .await;
     assert_eq!(got2.hosts, vec![info1.clone()]);
 
-    let got3 = peer3.events.recv_until(take_sync_snapshot_msg).await;
+    let got3 = peer3
+        .events
+        .recv_until(take_sync_snapshot_msg)
+        .await;
     assert_eq!(got3.hosts, vec![info1.clone()]);
 
     tracing::info!(target:"test", "Connect another peer, make sure that it receives the correct information on joining.");
-    let mut peer4 =
-        pm.start_inbound(chain.clone(), chain.make_config(rng)).await.handshake(clock).await;
-    let peer4_sync_msg = peer4.events.recv_until(take_sync_snapshot_msg).await;
+    let mut peer4 = pm
+        .start_inbound(chain.clone(), chain.make_config(rng))
+        .await
+        .handshake(clock)
+        .await;
+    let peer4_sync_msg = peer4
+        .events
+        .recv_until(take_sync_snapshot_msg)
+        .await;
     assert_eq!(peer4_sync_msg.hosts, vec![info1.clone()]);
 
     tracing::info!(target:"test", "Publish another piece of snapshot information, check that it's also broadcasted.");
@@ -139,13 +179,22 @@ async fn broadcast() {
         .send(PeerMessage::SyncSnapshotHosts(SyncSnapshotHosts { hosts: vec![info2.clone()] }))
         .await;
 
-    let got1 = peer1.events.recv_until(take_sync_snapshot_msg).await;
+    let got1 = peer1
+        .events
+        .recv_until(take_sync_snapshot_msg)
+        .await;
     assert_eq!(got1.hosts, vec![info2.clone()]);
 
     tracing::info!(target:"test", "Connect another peer, check that it receives all of the published information.");
-    let mut peer5 =
-        pm.start_inbound(chain.clone(), chain.make_config(rng)).await.handshake(clock).await;
-    let peer5_sync_msg = peer5.events.recv_until(take_sync_snapshot_msg).await;
+    let mut peer5 = pm
+        .start_inbound(chain.clone(), chain.make_config(rng))
+        .await
+        .handshake(clock)
+        .await;
+    let peer5_sync_msg = peer5
+        .events
+        .recv_until(take_sync_snapshot_msg)
+        .await;
     assert_eq!(peer5_sync_msg.hosts.as_set(), vec![info1, info2].as_set());
 }
 
@@ -170,20 +219,38 @@ async fn invalid_signature_not_broadcast() {
 
     tracing::info!(target:"test", "Connect peers, expect initial sync to be empty.");
     let peer1_config = chain.make_config(rng);
-    let mut peer1 =
-        pm.start_inbound(chain.clone(), peer1_config.clone()).await.handshake(clock).await;
-    let empty_sync_msg = peer1.events.recv_until(take_sync_snapshot_msg).await;
+    let mut peer1 = pm
+        .start_inbound(chain.clone(), peer1_config.clone())
+        .await
+        .handshake(clock)
+        .await;
+    let empty_sync_msg = peer1
+        .events
+        .recv_until(take_sync_snapshot_msg)
+        .await;
     assert_eq!(empty_sync_msg.hosts, vec![]);
 
     let peer2_config = chain.make_config(rng);
-    let mut peer2 =
-        pm.start_inbound(chain.clone(), peer2_config.clone()).await.handshake(clock).await;
-    let empty_sync_msg = peer2.events.recv_until(take_sync_snapshot_msg).await;
+    let mut peer2 = pm
+        .start_inbound(chain.clone(), peer2_config.clone())
+        .await
+        .handshake(clock)
+        .await;
+    let empty_sync_msg = peer2
+        .events
+        .recv_until(take_sync_snapshot_msg)
+        .await;
     assert_eq!(empty_sync_msg.hosts, vec![]);
 
-    let mut peer3 =
-        pm.start_inbound(chain.clone(), chain.make_config(rng)).await.handshake(clock).await;
-    let empty_sync_msg = peer3.events.recv_until(take_sync_snapshot_msg).await;
+    let mut peer3 = pm
+        .start_inbound(chain.clone(), chain.make_config(rng))
+        .await
+        .handshake(clock)
+        .await;
+    let empty_sync_msg = peer3
+        .events
+        .recv_until(take_sync_snapshot_msg)
+        .await;
     assert_eq!(empty_sync_msg.hosts, vec![]);
 
     tracing::info!(target:"test", "Send an invalid SyncSnapshotHosts message from peer1. One of the host infos has an invalid signature.");
@@ -194,7 +261,11 @@ async fn invalid_signature_not_broadcast() {
     let ok_info_b = make_snapshot_host_info(&peer1_config.node_id(), &peer1_config.node_key, rng);
 
     let invalid_message = PeerMessage::SyncSnapshotHosts(SyncSnapshotHosts {
-        hosts: vec![ok_info_a.clone(), invalid_info, ok_info_b.clone()],
+        hosts: vec![
+            ok_info_a.clone(),
+            invalid_info,
+            ok_info_b.clone(),
+        ],
     });
     peer1.send(invalid_message).await;
 
@@ -234,25 +305,44 @@ async fn too_many_shards_not_broadcast() {
 
     tracing::info!(target:"test", "Connect peers, expect initial sync to be empty.");
     let peer1_config = chain.make_config(rng);
-    let mut peer1 =
-        pm.start_inbound(chain.clone(), peer1_config.clone()).await.handshake(clock).await;
-    let empty_sync_msg = peer1.events.recv_until(take_sync_snapshot_msg).await;
+    let mut peer1 = pm
+        .start_inbound(chain.clone(), peer1_config.clone())
+        .await
+        .handshake(clock)
+        .await;
+    let empty_sync_msg = peer1
+        .events
+        .recv_until(take_sync_snapshot_msg)
+        .await;
     assert_eq!(empty_sync_msg.hosts, vec![]);
 
     let peer2_config = chain.make_config(rng);
-    let mut peer2 =
-        pm.start_inbound(chain.clone(), peer2_config.clone()).await.handshake(clock).await;
-    let empty_sync_msg = peer2.events.recv_until(take_sync_snapshot_msg).await;
+    let mut peer2 = pm
+        .start_inbound(chain.clone(), peer2_config.clone())
+        .await
+        .handshake(clock)
+        .await;
+    let empty_sync_msg = peer2
+        .events
+        .recv_until(take_sync_snapshot_msg)
+        .await;
     assert_eq!(empty_sync_msg.hosts, vec![]);
 
-    let mut peer3 =
-        pm.start_inbound(chain.clone(), chain.make_config(rng)).await.handshake(clock).await;
-    let empty_sync_msg = peer3.events.recv_until(take_sync_snapshot_msg).await;
+    let mut peer3 = pm
+        .start_inbound(chain.clone(), chain.make_config(rng))
+        .await
+        .handshake(clock)
+        .await;
+    let empty_sync_msg = peer3
+        .events
+        .recv_until(take_sync_snapshot_msg)
+        .await;
     assert_eq!(empty_sync_msg.hosts, vec![]);
 
     tracing::info!(target:"test", "Send an invalid SyncSnapshotHosts message from peer1. One of the host infos has more shard ids than allowed.");
-    let too_many_shards: Vec<ShardId> =
-        (0..(MAX_SHARDS_PER_SNAPSHOT_HOST_INFO as u64 + 1)).map(Into::into).collect();
+    let too_many_shards: Vec<ShardId> = (0..(MAX_SHARDS_PER_SNAPSHOT_HOST_INFO as u64 + 1))
+        .map(Into::into)
+        .collect();
     let invalid_info = Arc::new(SnapshotHostInfo::new(
         peer1_config.node_id(),
         CryptoHash::hash_borsh(rng.gen::<u64>()),
@@ -265,7 +355,11 @@ async fn too_many_shards_not_broadcast() {
     let ok_info_b = make_snapshot_host_info(&peer1_config.node_id(), &peer1_config.node_key, rng);
 
     let invalid_message = PeerMessage::SyncSnapshotHosts(SyncSnapshotHosts {
-        hosts: vec![ok_info_a.clone(), invalid_info, ok_info_b.clone()],
+        hosts: vec![
+            ok_info_a.clone(),
+            invalid_info,
+            ok_info_b.clone(),
+        ],
     });
     peer1.send(invalid_message).await;
 
@@ -323,10 +417,18 @@ async fn propagate() {
     // [0] - [1]
     //  |     |
     // [2] - [3]
-    pms[0].connect_to(&pms[1].peer_info(), tcp::Tier::T2).await;
-    pms[0].connect_to(&pms[2].peer_info(), tcp::Tier::T2).await;
-    pms[1].connect_to(&pms[3].peer_info(), tcp::Tier::T2).await;
-    pms[2].connect_to(&pms[3].peer_info(), tcp::Tier::T2).await;
+    pms[0]
+        .connect_to(&pms[1].peer_info(), tcp::Tier::T2)
+        .await;
+    pms[0]
+        .connect_to(&pms[2].peer_info(), tcp::Tier::T2)
+        .await;
+    pms[1]
+        .connect_to(&pms[3].peer_info(), tcp::Tier::T2)
+        .await;
+    pms[2]
+        .connect_to(&pms[3].peer_info(), tcp::Tier::T2)
+        .await;
 
     tracing::info!(target:"test", "Send a SnapshotHostInfo message from peer manager #1.");
     let info1 = make_snapshot_host_info(&pms[1].peer_info().id, &pms[1].cfg.node_key, rng);
@@ -337,11 +439,18 @@ async fn propagate() {
         shards: info1.shards.clone(),
     });
 
-    pms[1].actix.addr.send(message.with_span_context()).await.unwrap();
+    pms[1]
+        .actix
+        .addr
+        .send(message.with_span_context())
+        .await
+        .unwrap();
 
     tracing::info!(target:"test", "Make sure that the message sent from #1 reaches #2 on the other side of the ring.");
     let want: HashSet<Arc<SnapshotHostInfo>> = std::iter::once(info1).collect();
-    pms[2].wait_for_snapshot_hosts(&want).await;
+    pms[2]
+        .wait_for_snapshot_hosts(&want)
+        .await;
 }
 
 /// Send a SyncSnapshotHosts message with very large shard ids.
@@ -367,7 +476,11 @@ async fn large_shard_id_in_cache() {
 
     tracing::info!(target:"test", "Connect a peer");
     let peer1_config = chain.make_config(rng);
-    let peer1 = pm.start_inbound(chain.clone(), peer1_config.clone()).await.handshake(clock).await;
+    let peer1 = pm
+        .start_inbound(chain.clone(), peer1_config.clone())
+        .await
+        .handshake(clock)
+        .await;
 
     tracing::info!(target:"test", "Send a SnapshotHostInfo message with very large shard ids.");
     let large_shard_id_1 = ShardId::new(u64::MAX - 1);
@@ -376,9 +489,14 @@ async fn large_shard_id_in_cache() {
         peer1_config.node_id(),
         CryptoHash::hash_borsh(1234_u64),
         1234,
-        vec![ShardId::new(0), ShardId::new(1232232), large_shard_id_1, large_shard_id_2]
-            .into_iter()
-            .collect(),
+        vec![
+            ShardId::new(0),
+            ShardId::new(1232232),
+            large_shard_id_1,
+            large_shard_id_2,
+        ]
+        .into_iter()
+        .collect(),
         &peer1_config.node_key,
     ));
 
@@ -416,15 +534,22 @@ async fn too_many_shards_truncate() {
     .await;
 
     tracing::info!(target:"test", "Connect a peer, expect initial sync message to be empty.");
-    let mut peer1 =
-        pm.start_inbound(chain.clone(), chain.make_config(rng)).await.handshake(clock).await;
-    let empty_sync_msg = peer1.events.recv_until(take_sync_snapshot_msg).await;
+    let mut peer1 = pm
+        .start_inbound(chain.clone(), chain.make_config(rng))
+        .await
+        .handshake(clock)
+        .await;
+    let empty_sync_msg = peer1
+        .events
+        .recv_until(take_sync_snapshot_msg)
+        .await;
     assert_eq!(empty_sync_msg.hosts, vec![]);
 
     tracing::info!(target:"test", "Ask peer manager to send out an invalid SyncSnapshotHosts message. The info has more shard ids than allowed.");
     // Create a list of shards with twice as many shard ids as is allowed
-    let too_many_shards: Vec<ShardId> =
-        (0..(2 * MAX_SHARDS_PER_SNAPSHOT_HOST_INFO as u64)).map(Into::into).collect();
+    let too_many_shards: Vec<ShardId> = (0..(2 * MAX_SHARDS_PER_SNAPSHOT_HOST_INFO as u64))
+        .map(Into::into)
+        .collect();
 
     let sync_hash = CryptoHash::hash_borsh(rng.gen::<u64>());
     let epoch_height: EpochHeight = rng.gen();
@@ -435,10 +560,17 @@ async fn too_many_shards_truncate() {
         shards: too_many_shards.clone(),
     });
 
-    pm.actix.addr.send(message.with_span_context()).await.unwrap();
+    pm.actix
+        .addr
+        .send(message.with_span_context())
+        .await
+        .unwrap();
 
     tracing::info!(target:"test", "Receive the truncated SnapshotHostInfo message on peer1, make sure that the contents are correct.");
-    let msg = peer1.events.recv_until(take_sync_snapshot_msg).await;
+    let msg = peer1
+        .events
+        .recv_until(take_sync_snapshot_msg)
+        .await;
     assert_eq!(msg.hosts.len(), 1);
     let info: &SnapshotHostInfo = &msg.hosts[0];
     assert_eq!(info.peer_id, pm.peer_info().id);
@@ -454,7 +586,10 @@ async fn too_many_shards_truncate() {
     }
     // The shard_ids are sorted and unique (no two elements are equal, hence the < condition instead of <=)
     // cspell:ignore twoelems
-    assert!(info.shards.windows(2).all(|twoelems| twoelems[0] < twoelems[1]));
+    assert!(info
+        .shards
+        .windows(2)
+        .all(|twoelems| twoelems[0] < twoelems[1]));
     // The list isn't truncated by choosing the first half of the shards vec, it should be chosen randomly.
     // MAX_SHARDS_PER_SNAPSHOT_HOST_INFO is at least 128, so the chance of this check failing due to randomness is extremely low.
     assert_ne!(&info.shards, &too_many_shards[..MAX_SHARDS_PER_SNAPSHOT_HOST_INFO]);

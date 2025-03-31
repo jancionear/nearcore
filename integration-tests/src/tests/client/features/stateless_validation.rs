@@ -129,7 +129,13 @@ fn run_chunk_validation_test(
     }
     let genesis = Genesis::new(genesis_config, GenesisRecords(records)).unwrap();
     let mut env = TestEnv::builder(&genesis.config)
-        .clients(accounts.iter().take(8).cloned().collect())
+        .clients(
+            accounts
+                .iter()
+                .take(8)
+                .cloned()
+                .collect(),
+        )
         .epoch_managers_with_test_overrides(epoch_config_test_overrides)
         // Disable congestion control in order to avoid rejecting transactions
         // in tests with missing chunks.
@@ -153,7 +159,13 @@ fn run_chunk_validation_test(
         let heads = env
             .clients
             .iter()
-            .map(|client| client.chain.head().unwrap().last_block_hash)
+            .map(|client| {
+                client
+                    .chain
+                    .head()
+                    .unwrap()
+                    .last_block_hash
+            })
             .collect::<HashSet<_>>();
         assert_eq!(heads.len(), 1, "All clients should have the same head");
         let tip = env.clients[0].chain.head().unwrap();
@@ -180,7 +192,11 @@ fn run_chunk_validation_test(
             target: "client",
             "Producing block at height {} by {}", height, block_producer
         );
-        let block = env.client(&block_producer).produce_block(height).unwrap().unwrap();
+        let block = env
+            .client(&block_producer)
+            .produce_block(height)
+            .unwrap()
+            .unwrap();
 
         // Apply the block.
         for i in 0..env.clients.len() {
@@ -194,7 +210,9 @@ fn run_chunk_validation_test(
                     .process_block_test_no_produce_chunk(block.clone().into(), Provenance::NONE)
                     .unwrap()
             } else {
-                env.clients[i].process_block_test(block.clone().into(), Provenance::NONE).unwrap()
+                env.clients[i]
+                    .process_block_test(block.clone().into(), Provenance::NONE)
+                    .unwrap()
             };
             assert_eq!(blocks_processed, vec![*block.hash()]);
         }
@@ -215,7 +233,9 @@ fn run_chunk_validation_test(
     // state witness against non-trivial recorded storage is checked.
     let mut has_executed_txs = false;
     for tx_hash in tx_hashes {
-        let outcome = env.clients[0].chain.get_final_transaction_result(&tx_hash);
+        let outcome = env.clients[0]
+            .chain
+            .get_final_transaction_result(&tx_hash);
         if let Ok(outcome) = outcome {
             if let FinalExecutionStatus::SuccessValue(_) = outcome.status {
                 has_executed_txs = true;
@@ -236,17 +256,29 @@ fn run_chunk_validation_test(
     let client = &env.clients[0];
 
     let genesis = client.chain.genesis();
-    let genesis_epoch_id = client.epoch_manager.get_epoch_id(genesis.hash()).unwrap();
+    let genesis_epoch_id = client
+        .epoch_manager
+        .get_epoch_id(genesis.hash())
+        .unwrap();
     assert_eq!(
         genesis_protocol_version,
-        client.epoch_manager.get_epoch_protocol_version(&genesis_epoch_id).unwrap()
+        client
+            .epoch_manager
+            .get_epoch_protocol_version(&genesis_epoch_id)
+            .unwrap()
     );
 
     let head = client.chain.head().unwrap();
-    let head_epoch_id = client.epoch_manager.get_epoch_id(&head.last_block_hash).unwrap();
+    let head_epoch_id = client
+        .epoch_manager
+        .get_epoch_id(&head.last_block_hash)
+        .unwrap();
     assert_eq!(
         PROTOCOL_VERSION,
-        client.epoch_manager.get_epoch_protocol_version(&head_epoch_id).unwrap()
+        client
+            .epoch_manager
+            .get_epoch_protocol_version(&head_epoch_id)
+            .unwrap()
     );
 
     env.print_summary();
@@ -331,7 +363,9 @@ fn test_protocol_upgrade_81() {
         ..Default::default()
     };
     let epoch_manager = EpochManager::new_arc_handle(create_test_store(), &genesis_config, None);
-    let config = epoch_manager.get_epoch_config(&EpochId::default()).unwrap();
+    let config = epoch_manager
+        .get_epoch_config(&EpochId::default())
+        .unwrap();
     assert_eq!(config.block_producer_kickout_threshold, 90);
     assert_eq!(config.chunk_producer_kickout_threshold, 90);
 }
@@ -346,17 +380,24 @@ fn get_accounts_and_shard_layout(
         .map(|i| format!("account{}", i).parse().unwrap())
         .collect::<Vec<AccountId>>();
     let boundary_accounts = vec!["account2", "account4", "account6"];
-    let boundary_accounts = boundary_accounts.into_iter().map(|s| s.parse().unwrap()).collect();
+    let boundary_accounts = boundary_accounts
+        .into_iter()
+        .map(|s| s.parse().unwrap())
+        .collect();
     let shard_layout = ShardLayout::multi_shard_custom(boundary_accounts, 3);
 
     // The number of accounts in each shard.
     let mut shard_account_count: HashMap<ShardId, u32> = HashMap::new();
     for account in &accounts[..num_validators] {
         let shard_id = shard_layout.account_id_to_shard_id(account);
-        *shard_account_count.entry(shard_id).or_default() += 1;
+        *shard_account_count
+            .entry(shard_id)
+            .or_default() += 1;
     }
     for shard_id in shard_layout.shard_ids() {
-        let account_count = shard_account_count.get(&shard_id).unwrap_or(&0);
+        let account_count = shard_account_count
+            .get(&shard_id)
+            .unwrap_or(&0);
         assert_eq!(account_count, &2, "Each shard should have 2 validator accounts");
     }
 
@@ -379,12 +420,19 @@ fn test_chunk_state_witness_bad_shard_id() {
     let upper_height = 6;
     for height in 1..upper_height {
         tracing::info!(target: "test", "Producing block at height: {height}");
-        let block = env.clients[0].produce_block(height).unwrap().unwrap();
+        let block = env.clients[0]
+            .produce_block(height)
+            .unwrap()
+            .unwrap();
         env.process_block(0, block, Provenance::PRODUCED);
     }
 
     // Create a dummy ChunkStateWitness with an invalid shard_id
-    let previous_block = env.clients[0].chain.head().unwrap().prev_block_hash;
+    let previous_block = env.clients[0]
+        .chain
+        .head()
+        .unwrap()
+        .prev_block_hash;
     let invalid_shard_id = ShardId::new(1000000000);
     let witness = ChunkStateWitness::new_dummy(upper_height, invalid_shard_id, previous_block);
     let witness_size = borsh::to_vec(&witness).unwrap().len();
@@ -403,22 +451,30 @@ fn test_chunk_state_witness_bad_shard_id() {
 /// Tests that eth-implicit accounts still work with stateless validation.
 #[test]
 fn test_eth_implicit_accounts() {
-    let accounts =
-        vec!["test0".parse().unwrap(), "test1".parse().unwrap(), "test2".parse().unwrap()];
+    let accounts = vec![
+        "test0".parse().unwrap(),
+        "test1".parse().unwrap(),
+        "test2".parse().unwrap(),
+    ];
     let genesis = Genesis::test(accounts.clone(), 2);
     let mut env = TestEnv::builder(&genesis.config)
         .validators(accounts.clone())
         .clients(accounts)
         .nightshade_runtimes(&genesis)
         .build();
-    let genesis_block = env.clients[0].chain.get_block_by_height(0).unwrap();
+    let genesis_block = env.clients[0]
+        .chain
+        .get_block_by_height(0)
+        .unwrap();
     let signer = create_user_test_signer(AccountIdRef::new("test2").unwrap());
 
     // 1. Create two eth-implicit accounts
     let secret_key = SecretKey::from_seed(KeyType::SECP256K1, "test");
     let public_key = secret_key.public_key();
     let alice_eth_account = derive_eth_implicit_account_id(public_key.unwrap_as_secp256k1());
-    let bob_eth_account: AccountId = "0x0000000000000000000000000000000000000b0b".parse().unwrap();
+    let bob_eth_account: AccountId = "0x0000000000000000000000000000000000000b0b"
+        .parse()
+        .unwrap();
 
     let alice_init_balance = 3 * ONE_NEAR;
     let create_alice_tx = SignedTransaction::send_money(
@@ -531,12 +587,22 @@ fn produce_block(env: &mut TestEnv) {
     let heads = env
         .clients
         .iter()
-        .map(|client| client.chain.head().unwrap().last_block_hash)
+        .map(|client| {
+            client
+                .chain
+                .head()
+                .unwrap()
+                .last_block_hash
+        })
         .collect::<HashSet<_>>();
     assert_eq!(heads.len(), 1, "All clients should have the same head");
     let tip = env.clients[0].chain.head().unwrap();
     let block_producer = env.get_block_producer_at_offset(&tip, 1);
-    let block = env.client(&block_producer).produce_block(tip.height + 1).unwrap().unwrap();
+    let block = env
+        .client(&block_producer)
+        .produce_block(tip.height + 1)
+        .unwrap()
+        .unwrap();
 
     for i in 0..env.clients.len() {
         let validator_id = env.get_client_id(i);
@@ -544,8 +610,9 @@ fn produce_block(env: &mut TestEnv) {
             target: "client",
             "Applying block at height {} at {}", block.header().height(), validator_id
         );
-        let blocks_processed =
-            env.clients[i].process_block_test(block.clone().into(), Provenance::NONE).unwrap();
+        let blocks_processed = env.clients[i]
+            .process_block_test(block.clone().into(), Provenance::NONE)
+            .unwrap();
         assert_eq!(blocks_processed, vec![*block.hash()]);
     }
 

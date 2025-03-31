@@ -4,7 +4,18 @@ use near_vm_test_api::*;
 use std::convert::Infallible;
 use std::sync::{Arc, Mutex};
 
-fn long_f(a: u32, b: u32, c: u32, d: u32, e: u32, f: u16, g: u64, h: u64, i: u16, j: u32) -> u64 {
+fn long_f(
+    a: u32,
+    b: u32,
+    c: u32,
+    d: u32,
+    e: u32,
+    f: u16,
+    g: u64,
+    h: u64,
+    i: u16,
+    j: u32,
+) -> u64 {
     j as u64
         + i as u64 * 10
         + h * 100
@@ -65,13 +76,17 @@ fn native_function_works_for_wasm(config: crate::Config) -> anyhow::Result<()> {
     }
 
     {
-        let f: Function = instance.lookup_function("double_then_add").expect("lookup function");
+        let f: Function = instance
+            .lookup_function("double_then_add")
+            .expect("lookup function");
         let result = f.call(&[Val::I32(4), Val::I32(6)])?;
         assert_eq!(result[0], Val::I32(20));
     }
 
     {
-        let dyn_f: Function = instance.lookup_function("double_then_add").expect("lookup function");
+        let dyn_f: Function = instance
+            .lookup_function("double_then_add")
+            .expect("lookup function");
         let f: NativeFunc<(i32, i32), i32> = dyn_f.native().unwrap();
         let result = f.call(4, 6)?;
         assert_eq!(result, 20);
@@ -192,14 +207,18 @@ fn native_function_works_for_wasm_function_manyparams(config: crate::Config) -> 
     )?;
 
     {
-        let dyn_f: Function = instance.lookup_function("longf").unwrap();
+        let dyn_f: Function = instance
+            .lookup_function("longf")
+            .unwrap();
         let f: NativeFunc<(), i64> = dyn_f.native().unwrap();
         let result = f.call()?;
         assert_eq!(result, 1234567890);
     }
 
     {
-        let dyn_f: Function = instance.lookup_function("longf_pure").unwrap();
+        let dyn_f: Function = instance
+            .lookup_function("longf_pure")
+            .unwrap();
         let f: NativeFunc<(u32, u32, u32, u32, u32, u16, u64, u64, u16, u32), i64> =
             dyn_f.native().unwrap();
         let result = f.call(1, 2, 3, 4, 5, 6, 7, 8, 9, 0)?;
@@ -211,7 +230,7 @@ fn native_function_works_for_wasm_function_manyparams(config: crate::Config) -> 
 
 #[compiler_test(native_functions)]
 fn native_function_works_for_wasm_function_manyparams_dynamic(
-    config: crate::Config,
+    config: crate::Config
 ) -> anyhow::Result<()> {
     let store = config.store();
     let wat = r#"(module
@@ -236,14 +255,18 @@ fn native_function_works_for_wasm_function_manyparams_dynamic(
     )?;
 
     {
-        let dyn_f: Function = instance.lookup_function("longf").unwrap();
+        let dyn_f: Function = instance
+            .lookup_function("longf")
+            .unwrap();
         let f: NativeFunc<(), i64> = dyn_f.native().unwrap();
         let result = f.call()?;
         assert_eq!(result, 1234567890);
     }
 
     {
-        let dyn_f: Function = instance.lookup_function("longf_pure").unwrap();
+        let dyn_f: Function = instance
+            .lookup_function("longf_pure")
+            .unwrap();
         let f: NativeFunc<(u32, u32, u32, u32, u32, u16, u64, u64, u16, u32), i64> =
             dyn_f.native().unwrap();
         let result = f.call(1, 2, 3, 4, 5, 6, 7, 8, 9, 0)?;
@@ -257,11 +280,21 @@ fn native_function_works_for_wasm_function_manyparams_dynamic(
 fn static_host_function_without_env(config: crate::Config) -> anyhow::Result<()> {
     let store = config.store();
 
-    fn f(a: i32, b: i64, c: f32, d: f64) -> (f64, f32, i64, i32) {
+    fn f(
+        a: i32,
+        b: i64,
+        c: f32,
+        d: f64,
+    ) -> (f64, f32, i64, i32) {
         (d * 4.0, c * 3.0, b * 2, a * 1)
     }
 
-    fn f_ok(a: i32, b: i64, c: f32, d: f64) -> Result<(f64, f32, i64, i32), Infallible> {
+    fn f_ok(
+        a: i32,
+        b: i64,
+        c: f32,
+        d: f64,
+    ) -> Result<(f64, f32, i64, i32), Infallible> {
         Ok((d * 4.0, c * 3.0, b * 2, a * 1))
     }
 
@@ -318,7 +351,13 @@ fn static_host_function_without_env(config: crate::Config) -> anyhow::Result<()>
 fn static_host_function_with_env(config: crate::Config) -> anyhow::Result<()> {
     let store = config.store();
 
-    fn f(env: &Env, a: i32, b: i64, c: f32, d: f64) -> (f64, f32, i64, i32) {
+    fn f(
+        env: &Env,
+        a: i32,
+        b: i64,
+        c: f32,
+        d: f64,
+    ) -> (f64, f32, i64, i32) {
         let mut guard = env.0.lock().unwrap();
         assert_eq!(*guard, 100);
         *guard = 101;
@@ -326,7 +365,13 @@ fn static_host_function_with_env(config: crate::Config) -> anyhow::Result<()> {
         (d * 4.0, c * 3.0, b * 2, a * 1)
     }
 
-    fn f_ok(env: &Env, a: i32, b: i64, c: f32, d: f64) -> Result<(f64, f32, i64, i32), Infallible> {
+    fn f_ok(
+        env: &Env,
+        a: i32,
+        b: i64,
+        c: f32,
+        d: f64,
+    ) -> Result<(f64, f32, i64, i32), Infallible> {
         let mut guard = env.0.lock().unwrap();
         assert_eq!(*guard, 100);
         *guard = 101;
@@ -385,8 +430,18 @@ fn dynamic_host_function_without_env(config: crate::Config) -> anyhow::Result<()
     let f = Function::new(
         &store,
         FunctionType::new(
-            vec![ValType::I32, ValType::I64, ValType::F32, ValType::F64],
-            vec![ValType::F64, ValType::F32, ValType::I64, ValType::I32],
+            vec![
+                ValType::I32,
+                ValType::I64,
+                ValType::F32,
+                ValType::F64,
+            ],
+            vec![
+                ValType::F64,
+                ValType::F32,
+                ValType::I64,
+                ValType::I32,
+            ],
         ),
         |values| {
             Ok(vec![
@@ -424,8 +479,18 @@ fn dynamic_host_function_with_env(config: crate::Config) -> anyhow::Result<()> {
     let f = Function::new_with_env(
         &store,
         FunctionType::new(
-            vec![ValType::I32, ValType::I64, ValType::F32, ValType::F64],
-            vec![ValType::F64, ValType::F32, ValType::I64, ValType::I32],
+            vec![
+                ValType::I32,
+                ValType::I64,
+                ValType::F32,
+                ValType::F64,
+            ],
+            vec![
+                ValType::F64,
+                ValType::F32,
+                ValType::I64,
+                ValType::I32,
+            ],
         ),
         env.clone(),
         |env, values| {

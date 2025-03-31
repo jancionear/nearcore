@@ -116,7 +116,11 @@ mod old_validator_selection {
         let mut stake_change = BTreeMap::new();
         let mut fishermen = vec![];
         debug_assert!(
-            proposals.iter().map(|stake| stake.account_id()).collect::<HashSet<_>>().len()
+            proposals
+                .iter()
+                .map(|stake| stake.account_id())
+                .collect::<HashSet<_>>()
+                .len()
                 == proposals.len(),
             "Proposals should not have duplicates"
         );
@@ -137,8 +141,12 @@ mod old_validator_selection {
                 stake_change.insert(account_id, 0);
                 continue;
             }
-            let p = ordered_proposals.entry(account_id.clone()).or_insert(r);
-            *p.stake_mut() += *validator_reward.get(&account_id).unwrap_or(&0);
+            let p = ordered_proposals
+                .entry(account_id.clone())
+                .or_insert(r);
+            *p.stake_mut() += *validator_reward
+                .get(&account_id)
+                .unwrap_or(&0);
             stake_change.insert(account_id, p.stake());
         }
 
@@ -157,10 +165,15 @@ mod old_validator_selection {
         }
 
         // Get the threshold given current number of seats and stakes.
-        let num_hidden_validator_seats: NumSeats =
-            epoch_config.avg_hidden_validator_seats_per_shard.iter().sum();
+        let num_hidden_validator_seats: NumSeats = epoch_config
+            .avg_hidden_validator_seats_per_shard
+            .iter()
+            .sum();
         let num_total_seats = epoch_config.num_block_producer_seats + num_hidden_validator_seats;
-        let stakes = ordered_proposals.iter().map(|(_, p)| p.stake()).collect::<Vec<_>>();
+        let stakes = ordered_proposals
+            .iter()
+            .map(|(_, p)| p.stake())
+            .collect::<Vec<_>>();
         let threshold = find_threshold(&stakes, num_total_seats)?;
         // Remove proposals under threshold.
         let mut final_proposals = vec![];
@@ -173,7 +186,9 @@ mod old_validator_selection {
                 // Do not return stake back since they will become fishermen
                 fishermen.push(p);
             } else {
-                *stake_change.get_mut(&account_id).unwrap() = 0;
+                *stake_change
+                    .get_mut(&account_id)
+                    .unwrap() = 0;
                 if prev_epoch_info.account_is_validator(&account_id)
                     || prev_epoch_info.account_is_fisherman(&account_id)
                 {
@@ -199,18 +214,21 @@ mod old_validator_selection {
         let mut block_producers_settlement =
             dup_proposals[..epoch_config.num_block_producer_seats as usize].to_vec();
         // remove proposals that are not selected
-        let indices_to_keep = block_producers_settlement.iter().copied().collect::<BTreeSet<_>>();
-        let (final_proposals, proposals_to_remove) = final_proposals.into_iter().enumerate().fold(
-            (vec![], vec![]),
-            |(mut proposals, mut to_remove), (i, p)| {
+        let indices_to_keep = block_producers_settlement
+            .iter()
+            .copied()
+            .collect::<BTreeSet<_>>();
+        let (final_proposals, proposals_to_remove) = final_proposals
+            .into_iter()
+            .enumerate()
+            .fold((vec![], vec![]), |(mut proposals, mut to_remove), (i, p)| {
                 if indices_to_keep.contains(&(i as u64)) {
                     proposals.push(p);
                 } else {
                     to_remove.push(p);
                 }
                 (proposals, to_remove)
-            },
-        );
+            });
         for p in proposals_to_remove {
             debug_assert!(p.stake() >= threshold);
             if p.stake() >= epoch_config.fishermen_threshold {
@@ -234,7 +252,10 @@ mod old_validator_selection {
         // Collect proposals into block producer assignments.
         let mut chunk_producers_settlement: Vec<Vec<ValidatorId>> = vec![];
         let mut last_index: u64 = 0;
-        for num_seats_in_shard in epoch_config.num_block_producer_seats_per_shard.iter() {
+        for num_seats_in_shard in epoch_config
+            .num_block_producer_seats_per_shard
+            .iter()
+        {
             let mut shard_settlement: Vec<ValidatorId> = vec![];
             for _ in 0..*num_seats_in_shard {
                 let proposal_index = block_producers_settlement[last_index as usize];
@@ -270,14 +291,20 @@ mod old_validator_selection {
         ))
     }
 
-    fn shuffle_duplicate_proposals(dup_proposals: &mut Vec<u64>, rng_seed: RngSeed) {
+    fn shuffle_duplicate_proposals(
+        dup_proposals: &mut Vec<u64>,
+        rng_seed: RngSeed,
+    ) {
         let mut rng: Hc128Rng = SeedableRng::from_seed(rng_seed);
         for i in (1..dup_proposals.len()).rev() {
             dup_proposals.swap(i, gen_index_old(&mut rng, (i + 1) as u64) as usize);
         }
     }
 
-    fn gen_index_old(rng: &mut Hc128Rng, bound: u64) -> u64 {
+    fn gen_index_old(
+        rng: &mut Hc128Rng,
+        bound: u64,
+    ) -> u64 {
         // This is a simplified copy of the rand gen_index implementation to ensure that
         // upgrades to the rand library will not cause a change in the shuffling behavior.
         let zone = (bound << bound.leading_zeros()).wrapping_sub(1);

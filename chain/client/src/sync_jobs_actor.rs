@@ -21,7 +21,10 @@ impl messaging::Actor for SyncJobsActor {}
 
 impl Handler<BlockCatchUpRequest> for SyncJobsActor {
     #[perf]
-    fn handle(&mut self, msg: BlockCatchUpRequest) {
+    fn handle(
+        &mut self,
+        msg: BlockCatchUpRequest,
+    ) {
         self.handle_block_catch_up_request(msg);
     }
 }
@@ -41,14 +44,18 @@ impl SyncJobsActor {
         addr
     }
 
-    pub fn handle_block_catch_up_request(&mut self, msg: BlockCatchUpRequest) {
+    pub fn handle_block_catch_up_request(
+        &mut self,
+        msg: BlockCatchUpRequest,
+    ) {
         tracing::debug!(target: "sync", ?msg);
         let results = do_apply_chunks(msg.block_hash, msg.block_height, msg.work);
 
-        self.client_sender.send(BlockCatchUpResponse {
-            sync_hash: msg.sync_hash,
-            block_hash: msg.block_hash,
-            results,
-        });
+        self.client_sender
+            .send(BlockCatchUpResponse {
+                sync_hash: msg.sync_hash,
+                block_hash: msg.block_hash,
+                results,
+            });
     }
 }

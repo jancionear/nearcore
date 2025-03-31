@@ -28,7 +28,10 @@ pub struct MemTrieNodeId {
 }
 
 impl MemTrieNodeId {
-    pub fn new(arena: &mut impl ArenaMut, input: InputMemTrieNode) -> Self {
+    pub fn new(
+        arena: &mut impl ArenaMut,
+        input: InputMemTrieNode,
+    ) -> Self {
         Self::new_impl(arena, input, None)
     }
 
@@ -40,7 +43,10 @@ impl MemTrieNodeId {
         Self::new_impl(arena, input, Some(hash))
     }
 
-    pub fn as_ptr<'a, M: ArenaMemory>(&self, arena: &'a M) -> MemTrieNodePtr<'a, M> {
+    pub fn as_ptr<'a, M: ArenaMemory>(
+        &self,
+        arena: &'a M,
+    ) -> MemTrieNodePtr<'a, M> {
         MemTrieNodePtr { ptr: arena.ptr(self.pos) }
     }
 }
@@ -61,7 +67,10 @@ pub struct MemTrieNodePtr<'a, M: ArenaMemory> {
 }
 
 impl<'a, M: ArenaMemory> Debug for MemTrieNodePtr<'a, M> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut Formatter<'_>,
+    ) -> std::fmt::Result {
         self.id().fmt(f)
     }
 }
@@ -126,10 +135,10 @@ impl<'a> InputMemTrieNode<'a> {
         arena: &Memory,
     ) -> RawTrieNodeWithSize {
         match self {
-            Self::Leaf { .. } => {
+            | Self::Leaf { .. } => {
                 unreachable!("Leaf nodes do not need hash computation")
             }
-            Self::Extension { extension, child, .. } => {
+            | Self::Extension { extension, child, .. } => {
                 let view = child.as_ptr(arena).view();
                 let memory_usage = TRIE_COSTS.node_cost
                     + extension.len() as u64 * TRIE_COSTS.byte_of_key
@@ -137,7 +146,7 @@ impl<'a> InputMemTrieNode<'a> {
                 let node = RawTrieNode::Extension(extension.to_vec(), view.node_hash());
                 RawTrieNodeWithSize { node, memory_usage }
             }
-            Self::Branch { children, .. } => {
+            | Self::Branch { children, .. } => {
                 let mut memory_usage = TRIE_COSTS.node_cost;
                 let mut hashes = [None; 16];
                 for (i, child) in children.iter().enumerate() {
@@ -150,10 +159,10 @@ impl<'a> InputMemTrieNode<'a> {
                 let node = RawTrieNode::BranchNoValue(Children(hashes));
                 RawTrieNodeWithSize { node, memory_usage }
             }
-            Self::BranchWithValue { children, value, .. } => {
+            | Self::BranchWithValue { children, value, .. } => {
                 let value_len = match value {
-                    FlatStateValue::Ref(value_ref) => value_ref.len(),
-                    FlatStateValue::Inlined(value) => value.len(),
+                    | FlatStateValue::Ref(value_ref) => value_ref.len(),
+                    | FlatStateValue::Inlined(value) => value.len(),
                 };
                 let mut memory_usage = TRIE_COSTS.node_cost
                     + value_len as u64 * TRIE_COSTS.byte_of_value

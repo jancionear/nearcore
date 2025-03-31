@@ -77,8 +77,9 @@ impl RuntimeConfigStore {
     /// protocol upgrades this is done for all protocol versions
     /// TODO #4775: introduce new protocol version to have the same runtime config for all chains
     pub fn new(genesis_runtime_config: Option<&RuntimeConfig>) -> Self {
-        let mut params: ParameterTable =
-            BASE_CONFIG.parse().expect("Failed parsing base parameter file.");
+        let mut params: ParameterTable = BASE_CONFIG
+            .parse()
+            .expect("Failed parsing base parameter file.");
 
         let mut store = BTreeMap::new();
         #[cfg(not(feature = "calimero_zero_storage"))]
@@ -90,7 +91,8 @@ impl RuntimeConfigStore {
         {
             let mut initial_config = RuntimeConfig::new(&params).unwrap_or_else(|err| panic!("Failed generating `RuntimeConfig` from parameters for base parameter file. Error: {err}"));
             let fees = Arc::make_mut(&mut initial_config.fees);
-            fees.storage_usage_config.storage_amount_per_byte = 0;
+            fees.storage_usage_config
+                .storage_amount_per_byte = 0;
             store.insert(0, Arc::new(initial_config));
         }
 
@@ -106,20 +108,24 @@ impl RuntimeConfigStore {
             {
                 let mut runtime_config = RuntimeConfig::new(&params).unwrap_or_else(|err| panic!("Failed generating `RuntimeConfig` from parameters for version {protocol_version}. Error: {err}"));
                 let fees = Arc::make_mut(&mut runtime_config.fees);
-                fees.storage_usage_config.storage_amount_per_byte = 0;
+                fees.storage_usage_config
+                    .storage_amount_per_byte = 0;
                 store.insert(*protocol_version, Arc::new(runtime_config));
             }
         }
 
         if let Some(runtime_config) = genesis_runtime_config {
             let mut fees = crate::RuntimeFeesConfig::clone(&runtime_config.fees);
-            fees.storage_usage_config.storage_amount_per_byte = 10u128.pow(19);
+            fees.storage_usage_config
+                .storage_amount_per_byte = 10u128.pow(19);
             store.insert(
                 42,
                 Arc::new(RuntimeConfig {
                     fees: Arc::new(fees),
                     wasm_config: Arc::clone(&runtime_config.wasm_config),
-                    account_creation_config: runtime_config.account_creation_config.clone(),
+                    account_creation_config: runtime_config
+                        .account_creation_config
+                        .clone(),
                     congestion_control_config: runtime_config.congestion_control_config,
                     witness_config: runtime_config.witness_config,
                     bandwidth_scheduler_config: runtime_config.bandwidth_scheduler_config,
@@ -142,22 +148,26 @@ impl RuntimeConfigStore {
     /// This requires increasing the limits below that are set too conservatively.
     pub fn for_chain_id(chain_id: &str) -> Self {
         match chain_id {
-            near_primitives_core::chains::TESTNET => {
+            | near_primitives_core::chains::TESTNET => {
                 let genesis_runtime_config = RuntimeConfig::initial_testnet_config();
                 Self::new(Some(&genesis_runtime_config))
             }
-            near_primitives_core::chains::BENCHMARKNET => {
+            | near_primitives_core::chains::BENCHMARKNET => {
                 let mut config_store = Self::new(None);
                 let mut config = RuntimeConfig::clone(config_store.get_config(PROTOCOL_VERSION));
                 config.congestion_control_config = CongestionControlConfig::test_disabled();
                 config.witness_config = WitnessConfig::test_disabled();
                 let mut wasm_config = vm::Config::clone(&config.wasm_config);
-                wasm_config.limit_config.per_receipt_storage_proof_size_limit = 999_999_999_999_999;
+                wasm_config
+                    .limit_config
+                    .per_receipt_storage_proof_size_limit = 999_999_999_999_999;
                 config.wasm_config = Arc::new(wasm_config);
-                config_store.store.insert(PROTOCOL_VERSION, Arc::new(config));
+                config_store
+                    .store
+                    .insert(PROTOCOL_VERSION, Arc::new(config));
                 config_store
             }
-            near_primitives_core::chains::CONGESTION_CONTROL_TEST => {
+            | near_primitives_core::chains::CONGESTION_CONTROL_TEST => {
                 let mut config_store = Self::new(None);
 
                 // Get the original congestion control config. The nayduck tests
@@ -168,16 +178,24 @@ impl RuntimeConfigStore {
                 let mut config = RuntimeConfig::clone(config_store.get_config(PROTOCOL_VERSION));
                 config.congestion_control_config = source_runtime_config.congestion_control_config;
 
-                config_store.store.insert(PROTOCOL_VERSION, Arc::new(config));
+                config_store
+                    .store
+                    .insert(PROTOCOL_VERSION, Arc::new(config));
                 config_store
             }
-            _ => Self::new(None),
+            | _ => Self::new(None),
         }
     }
 
     /// Constructs test store.
     pub fn with_one_config(runtime_config: RuntimeConfig) -> Self {
-        Self { store: BTreeMap::from_iter([(0, Arc::new(runtime_config))].iter().cloned()) }
+        Self {
+            store: BTreeMap::from_iter(
+                [(0, Arc::new(runtime_config))]
+                    .iter()
+                    .cloned(),
+            ),
+        }
     }
 
     /// Constructs store with custom configs. This should only be used for testing.
@@ -204,7 +222,10 @@ impl RuntimeConfigStore {
     }
 
     /// Returns a `RuntimeConfig` for the corresponding protocol version.
-    pub fn get_config(&self, protocol_version: ProtocolVersion) -> &Arc<RuntimeConfig> {
+    pub fn get_config(
+        &self,
+        protocol_version: ProtocolVersion,
+    ) -> &Arc<RuntimeConfig> {
         self.store
             .range((Bound::Unbounded, Bound::Included(protocol_version)))
             .next_back()
@@ -290,15 +311,26 @@ mod tests {
         // Check that default value is 32.
         let base_store = RuntimeConfigStore::new(None);
         let base_cfg = base_store.get_config(GENESIS_PROTOCOL_VERSION);
-        assert_eq!(base_cfg.account_creation_config.min_allowed_top_level_account_length, 32);
+        assert_eq!(
+            base_cfg
+                .account_creation_config
+                .min_allowed_top_level_account_length,
+            32
+        );
 
         let mut cfg = base_cfg.as_ref().clone();
-        cfg.account_creation_config.min_allowed_top_level_account_length = 0;
+        cfg.account_creation_config
+            .min_allowed_top_level_account_length = 0;
 
         // Check that length was changed.
         let new_store = RuntimeConfigStore::new(Some(&cfg));
         let new_cfg = new_store.get_config(GENESIS_PROTOCOL_VERSION);
-        assert_eq!(new_cfg.account_creation_config.min_allowed_top_level_account_length, 0);
+        assert_eq!(
+            new_cfg
+                .account_creation_config
+                .min_allowed_top_level_account_length,
+            0
+        );
     }
 
     #[test]
@@ -307,12 +339,24 @@ mod tests {
         let base_cfg = store.get_config(LowerStorageCost.protocol_version());
         let new_cfg = store.get_config(LowerDataReceiptAndEcrecoverBaseCost.protocol_version());
         assert!(
-            base_cfg.fees.fee(ActionCosts::new_data_receipt_base).send_sir
-                > new_cfg.fees.fee(ActionCosts::new_data_receipt_base).send_sir
+            base_cfg
+                .fees
+                .fee(ActionCosts::new_data_receipt_base)
+                .send_sir
+                > new_cfg
+                    .fees
+                    .fee(ActionCosts::new_data_receipt_base)
+                    .send_sir
         );
         assert!(
-            base_cfg.fees.fee(ActionCosts::new_data_receipt_byte).send_sir
-                > new_cfg.fees.fee(ActionCosts::new_data_receipt_byte).send_sir
+            base_cfg
+                .fees
+                .fee(ActionCosts::new_data_receipt_byte)
+                .send_sir
+                > new_cfg
+                    .fees
+                    .fee(ActionCosts::new_data_receipt_byte)
+                    .send_sir
         );
     }
 
@@ -331,28 +375,46 @@ mod tests {
         let config = store.get_config(LowerStorageCost.protocol_version());
         assert_eq!(base_config.storage_amount_per_byte(), 100_000_000_000_000_000_000u128);
         assert_eq!(config.storage_amount_per_byte(), 10_000_000_000_000_000_000u128);
-        assert_eq!(config.fees.fee(ActionCosts::new_data_receipt_base).send_sir, 4_697_339_419_375);
+        assert_eq!(
+            config
+                .fees
+                .fee(ActionCosts::new_data_receipt_base)
+                .send_sir,
+            4_697_339_419_375
+        );
         assert_ne!(config.as_ref(), &base_config);
         assert_ne!(
             config.as_ref(),
-            store.get_config(LowerStorageCost.protocol_version() - 1).as_ref()
+            store
+                .get_config(LowerStorageCost.protocol_version() - 1)
+                .as_ref()
         );
 
         for (ver, diff) in &CONFIG_DIFFS[..] {
             if *ver <= LowerStorageCost.protocol_version() {
-                base_params.apply_diff(diff.parse().unwrap()).unwrap();
+                base_params
+                    .apply_diff(diff.parse().unwrap())
+                    .unwrap();
             }
         }
         let expected_config = RuntimeConfig::new(&base_params).unwrap();
         assert_eq!(**config, expected_config);
 
         let config = store.get_config(LowerDataReceiptAndEcrecoverBaseCost.protocol_version());
-        assert_eq!(config.fees.fee(ActionCosts::new_data_receipt_base).send_sir, 36_486_732_312);
+        assert_eq!(
+            config
+                .fees
+                .fee(ActionCosts::new_data_receipt_base)
+                .send_sir,
+            36_486_732_312
+        );
         for (ver, diff) in &CONFIG_DIFFS[..] {
             if *ver <= LowerStorageCost.protocol_version() {
                 continue;
             } else if *ver <= LowerDataReceiptAndEcrecoverBaseCost.protocol_version() {
-                base_params.apply_diff(diff.parse().unwrap()).unwrap();
+                base_params
+                    .apply_diff(diff.parse().unwrap())
+                    .unwrap();
             }
         }
         let expected_config = RuntimeConfig::new(&base_params).unwrap();
@@ -365,8 +427,14 @@ mod tests {
         let base_cfg = store.get_config(LowerStorageCost.protocol_version());
         let new_cfg = store.get_config(LowerDataReceiptAndEcrecoverBaseCost.protocol_version());
         assert!(
-            base_cfg.wasm_config.ext_costs.gas_cost(ExtCosts::ecrecover_base)
-                > new_cfg.wasm_config.ext_costs.gas_cost(ExtCosts::ecrecover_base)
+            base_cfg
+                .wasm_config
+                .ext_costs
+                .gas_cost(ExtCosts::ecrecover_base)
+                > new_cfg
+                    .wasm_config
+                    .ext_costs
+                    .gas_cost(ExtCosts::ecrecover_base)
         );
     }
 
@@ -376,8 +444,14 @@ mod tests {
         let base_cfg = store.get_config(LowerStorageKeyLimit.protocol_version() - 1);
         let new_cfg = store.get_config(LowerStorageKeyLimit.protocol_version());
         assert!(
-            base_cfg.wasm_config.limit_config.max_length_storage_key
-                > new_cfg.wasm_config.limit_config.max_length_storage_key
+            base_cfg
+                .wasm_config
+                .limit_config
+                .max_length_storage_key
+                > new_cfg
+                    .wasm_config
+                    .limit_config
+                    .max_length_storage_key
         );
     }
 
@@ -401,7 +475,12 @@ mod tests {
 
         for version in store.store.keys() {
             let snapshot_name = format!("{version}.json");
-            let config_view = RuntimeConfigView::from(store.get_config(*version).as_ref().clone());
+            let config_view = RuntimeConfigView::from(
+                store
+                    .get_config(*version)
+                    .as_ref()
+                    .clone(),
+            );
             any_failure |= std::panic::catch_unwind(|| {
                 insta::assert_json_snapshot!(snapshot_name, config_view, { ".wasm_config.vm_kind" => "<REDACTED>"});
             })
@@ -411,10 +490,13 @@ mod tests {
         // Store the latest values of parameters in a human-readable snapshot.
         {
             let mut params: ParameterTable = BASE_CONFIG.parse().unwrap();
-            for (_, diff_bytes) in
-                CONFIG_DIFFS.iter().filter(|(version, _)| *version <= PROTOCOL_VERSION)
+            for (_, diff_bytes) in CONFIG_DIFFS
+                .iter()
+                .filter(|(version, _)| *version <= PROTOCOL_VERSION)
             {
-                params.apply_diff(diff_bytes.parse().unwrap()).unwrap();
+                params
+                    .apply_diff(diff_bytes.parse().unwrap())
+                    .unwrap();
             }
             insta::with_settings!({
                 snapshot_path => "../res/runtime_configs",
@@ -435,7 +517,12 @@ mod tests {
 
         for version in testnet_store.store.keys() {
             let snapshot_name = format!("testnet_{version}.json");
-            let config_view = RuntimeConfigView::from(store.get_config(*version).as_ref().clone());
+            let config_view = RuntimeConfigView::from(
+                store
+                    .get_config(*version)
+                    .as_ref()
+                    .clone(),
+            );
             any_failure |= std::panic::catch_unwind(|| {
                 insta::assert_json_snapshot!(snapshot_name, config_view, { ".wasm_config.vm_kind" => "<REDACTED>"});
             })
@@ -459,6 +546,11 @@ mod tests {
     fn test_benchmarknet_config() {
         let store = RuntimeConfigStore::for_chain_id(near_primitives_core::chains::BENCHMARKNET);
         let config = store.get_config(PROTOCOL_VERSION);
-        assert_eq!(config.witness_config.main_storage_proof_size_soft_limit, usize::MAX);
+        assert_eq!(
+            config
+                .witness_config
+                .main_storage_proof_size_soft_limit,
+            usize::MAX
+        );
     }
 }

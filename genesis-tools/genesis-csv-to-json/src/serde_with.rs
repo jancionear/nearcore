@@ -4,13 +4,16 @@ pub mod peer_info_to_str {
     use serde::{Deserialize, Deserializer, Serializer};
     use std::str::FromStr;
 
-    pub fn serialize<S>(peer_info: &Option<PeerInfo>, serializer: S) -> Result<S::Ok, S::Error>
+    pub fn serialize<S>(
+        peer_info: &Option<PeerInfo>,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
         match peer_info {
-            Some(peer_info) => serializer.serialize_str(peer_info.to_string().as_str()),
-            None => serializer.serialize_str(""),
+            | Some(peer_info) => serializer.serialize_str(peer_info.to_string().as_str()),
+            | None => serializer.serialize_str(""),
         }
     }
 
@@ -32,11 +35,17 @@ pub mod pks_as_str {
     use near_crypto::PublicKey;
     use serde::{Deserialize, Deserializer, Serializer};
 
-    pub fn serialize<S>(peer_info: &[PublicKey], serializer: S) -> Result<S::Ok, S::Error>
+    pub fn serialize<S>(
+        peer_info: &[PublicKey],
+        serializer: S,
+    ) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        let res: Vec<_> = peer_info.iter().map(|pk| pk.to_string()).collect();
+        let res: Vec<_> = peer_info
+            .iter()
+            .map(|pk| pk.to_string())
+            .collect();
         serializer.serialize_str(&res.join(","))
     }
 
@@ -49,7 +58,9 @@ pub mod pks_as_str {
             Ok(vec![])
         } else {
             s.retain(|c| !c.is_whitespace());
-            Ok(s.split(',').map(|c| c.parse().unwrap()).collect())
+            Ok(s.split(',')
+                .map(|c| c.parse().unwrap())
+                .collect())
         }
     }
 }

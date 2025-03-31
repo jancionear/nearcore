@@ -18,7 +18,11 @@ pub struct FairnessBenchmarkProducer {
 }
 
 impl Producer for FairnessBenchmarkProducer {
-    fn init(&mut self, _shards: &[ShardId]) {}
+    fn init(
+        &mut self,
+        _shards: &[ShardId],
+    ) {
+    }
 
     fn produce_transactions(
         &mut self,
@@ -60,7 +64,11 @@ impl Producer for FairnessBenchmarkProducer {
 }
 
 impl FairnessBenchmarkProducer {
-    fn produce_tx(&self, receiver: ShardId, tx: &mut TransactionBuilder) {
+    fn produce_tx(
+        &self,
+        receiver: ShardId,
+        tx: &mut TransactionBuilder,
+    ) {
         let receipt = ReceiptDefinition {
             receiver,
             size: self.receipt_size,

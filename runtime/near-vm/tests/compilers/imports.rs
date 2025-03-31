@@ -297,10 +297,10 @@ fn static_function_that_fails(config: crate::Config) -> Result<()> {
     assert!(result.is_err());
 
     match result {
-        Err(InstantiationError::Start(runtime_error)) => {
+        | Err(InstantiationError::Start(runtime_error)) => {
             assert_eq!(runtime_error.message(), "oops")
         }
-        _ => assert!(false),
+        | _ => assert!(false),
     }
 
     Ok(())
@@ -383,7 +383,9 @@ fn regression_import_trampolines(config: crate::Config) -> Result<()> {
     };
     let instance =
         Instance::new_with_config(&module, InstanceConfig::with_stack_limit(1000000), &imports)?;
-    let panic = instance.lookup_function("panic").unwrap();
+    let panic = instance
+        .lookup_function("panic")
+        .unwrap();
     panic.call(&[])?;
     let gas = instance.lookup_function("gas").unwrap();
     gas.call(&[Value::I32(42)])?;

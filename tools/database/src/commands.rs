@@ -73,23 +73,23 @@ impl DatabaseCommand {
         genesis_validation: GenesisValidationMode,
     ) -> anyhow::Result<()> {
         match &self.subcmd {
-            SubCommand::AnalyseDataSizeDistribution(cmd) => cmd.run(home),
-            SubCommand::AnalyseGasUsage(cmd) => cmd.run(home, genesis_validation),
-            SubCommand::ChangeDbKind(cmd) => cmd.run(home, genesis_validation),
-            SubCommand::CompactDatabase(cmd) => cmd.run(home),
-            SubCommand::CorruptStateSnapshot(cmd) => cmd.run(home),
-            SubCommand::MakeSnapshot(cmd) => {
+            | SubCommand::AnalyseDataSizeDistribution(cmd) => cmd.run(home),
+            | SubCommand::AnalyseGasUsage(cmd) => cmd.run(home, genesis_validation),
+            | SubCommand::ChangeDbKind(cmd) => cmd.run(home, genesis_validation),
+            | SubCommand::CompactDatabase(cmd) => cmd.run(home),
+            | SubCommand::CorruptStateSnapshot(cmd) => cmd.run(home),
+            | SubCommand::MakeSnapshot(cmd) => {
                 let near_config = load_config(home, genesis_validation);
                 cmd.run(home, &near_config.config.store, near_config.config.archival_config())
             }
-            SubCommand::RunMigrations(cmd) => cmd.run(home, genesis_validation),
-            SubCommand::StatePerf(cmd) => cmd.run(home),
-            SubCommand::LoadMemTrie(cmd) => cmd.run(home, genesis_validation),
-            SubCommand::WriteCryptoHash(cmd) => cmd.run(home, genesis_validation),
-            SubCommand::HighLoadStats(cmd) => cmd.run(home),
-            SubCommand::AnalyzeDelayedReceipt(cmd) => cmd.run(home, genesis_validation),
-            SubCommand::AnalyzeContractSizes(cmd) => cmd.run(home, genesis_validation),
-            SubCommand::Resharding(cmd) => {
+            | SubCommand::RunMigrations(cmd) => cmd.run(home, genesis_validation),
+            | SubCommand::StatePerf(cmd) => cmd.run(home),
+            | SubCommand::LoadMemTrie(cmd) => cmd.run(home, genesis_validation),
+            | SubCommand::WriteCryptoHash(cmd) => cmd.run(home, genesis_validation),
+            | SubCommand::HighLoadStats(cmd) => cmd.run(home),
+            | SubCommand::AnalyzeDelayedReceipt(cmd) => cmd.run(home, genesis_validation),
+            | SubCommand::AnalyzeContractSizes(cmd) => cmd.run(home, genesis_validation),
+            | SubCommand::Resharding(cmd) => {
                 let near_config = load_config(home, genesis_validation);
                 cmd.run(near_config, home)
             }
@@ -97,7 +97,10 @@ impl DatabaseCommand {
     }
 }
 
-fn load_config(home: &PathBuf, genesis_validation: GenesisValidationMode) -> nearcore::NearConfig {
+fn load_config(
+    home: &PathBuf,
+    genesis_validation: GenesisValidationMode,
+) -> nearcore::NearConfig {
     let near_config = nearcore::config::load_config(&home, genesis_validation);
     let near_config = near_config.unwrap_or_else(|e| panic!("Error loading config: {:#}", e));
     near_config

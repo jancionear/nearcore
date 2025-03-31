@@ -16,25 +16,57 @@ pub fn test_memory_like(factory: impl FnOnce() -> Box<dyn MemoryLike>) {
     }
 
     impl TestContext {
-        fn test_read(&mut self, ptr: u64, len: u64, value: u8) {
+        fn test_read(
+            &mut self,
+            ptr: u64,
+            len: u64,
+            value: u8,
+        ) {
             self.buf.fill(!value);
-            self.mem.fits_memory(MemSlice { ptr, len }).unwrap();
-            self.mem.read_memory(ptr, &mut self.buf[..(len as usize)]).unwrap();
-            assert!(self.buf[..(len as usize)].iter().all(|&v| v == value));
+            self.mem
+                .fits_memory(MemSlice { ptr, len })
+                .unwrap();
+            self.mem
+                .read_memory(ptr, &mut self.buf[..(len as usize)])
+                .unwrap();
+            assert!(self.buf[..(len as usize)]
+                .iter()
+                .all(|&v| v == value));
         }
 
-        fn test_write(&mut self, ptr: u64, len: u64, value: u8) {
+        fn test_write(
+            &mut self,
+            ptr: u64,
+            len: u64,
+            value: u8,
+        ) {
             self.buf.fill(value);
-            self.mem.fits_memory(MemSlice { ptr, len }).unwrap();
-            self.mem.write_memory(ptr, &self.buf[..(len as usize)]).unwrap();
+            self.mem
+                .fits_memory(MemSlice { ptr, len })
+                .unwrap();
+            self.mem
+                .write_memory(ptr, &self.buf[..(len as usize)])
+                .unwrap();
         }
 
-        fn test_oob(&mut self, ptr: u64, len: u64) {
+        fn test_oob(
+            &mut self,
+            ptr: u64,
+            len: u64,
+        ) {
             self.buf.fill(42);
-            self.mem.fits_memory(MemSlice { ptr, len }).unwrap_err();
-            self.mem.read_memory(ptr, &mut self.buf[..(len as usize)]).unwrap_err();
-            assert!(self.buf[..(len as usize)].iter().all(|&v| v == 42));
-            self.mem.write_memory(ptr, &self.buf[..(len as usize)]).unwrap_err();
+            self.mem
+                .fits_memory(MemSlice { ptr, len })
+                .unwrap_err();
+            self.mem
+                .read_memory(ptr, &mut self.buf[..(len as usize)])
+                .unwrap_err();
+            assert!(self.buf[..(len as usize)]
+                .iter()
+                .all(|&v| v == 42));
+            self.mem
+                .write_memory(ptr, &self.buf[..(len as usize)])
+                .unwrap_err();
         }
     }
 

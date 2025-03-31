@@ -50,7 +50,10 @@ impl State {
     ///
     /// Returns an error if process’ resource limits are too low to allow
     /// max_open_files open file descriptors for the new database instance.
-    fn try_new_instance(&self, max_open_files: u32) -> Result<(), String> {
+    fn try_new_instance(
+        &self,
+        max_open_files: u32,
+    ) -> Result<(), String> {
         let num_instances = {
             let mut inner = self.inner.lock().unwrap();
             let max_open_files = inner.max_open_files + u64::from(max_open_files);
@@ -63,10 +66,15 @@ impl State {
         Ok(())
     }
 
-    fn close_instance(&self, max_open_files: u32) {
+    fn close_instance(
+        &self,
+        max_open_files: u32,
+    ) {
         let num_instances = {
             let mut inner = self.inner.lock().unwrap();
-            inner.max_open_files = inner.max_open_files.saturating_sub(max_open_files.into());
+            inner.max_open_files = inner
+                .max_open_files
+                .saturating_sub(max_open_files.into());
             inner.count = inner.count.saturating_sub(1);
             if inner.count == 0 {
                 self.zero_cvar.notify_all();
@@ -151,7 +159,10 @@ impl Drop for InstanceTracker {
 /// Returns error if NOFILE limit could not be read or set.  In practice the
 /// only thing that can happen is hard limit being too low such that soft limit
 /// cannot be increased to required value.
-fn ensure_max_open_files_limit(mut nofile: impl NoFile, max_open_files: u64) -> Result<(), String> {
+fn ensure_max_open_files_limit(
+    mut nofile: impl NoFile,
+    max_open_files: u64,
+) -> Result<(), String> {
     let required = max_open_files.saturating_add(1000);
     if required > i64::MAX as u64 {
         return Err(format!(
@@ -165,12 +176,14 @@ fn ensure_max_open_files_limit(mut nofile: impl NoFile, max_open_files: u64) -> 
     if required <= soft {
         Ok(())
     } else if required <= hard {
-        nofile.set(required, hard).map_err(|err| {
-            format!(
-                "Unable to change limit for the number of open files (NOFILE) \
+        nofile
+            .set(required, hard)
+            .map_err(|err| {
+                format!(
+                    "Unable to change limit for the number of open files (NOFILE) \
                  from ({soft}, {hard}) to ({required}, {hard}): {err}"
-            )
-        })
+                )
+            })
     } else {
         Err(format!(
             "Hard limit for the number of open files (NOFILE) is too low \
@@ -187,7 +200,11 @@ fn ensure_max_open_files_limit(mut nofile: impl NoFile, max_open_files: u64) -> 
 /// that it access mock limits rather than real ones.
 trait NoFile {
     fn get(&self) -> std::io::Result<(u64, u64)>;
-    fn set(&mut self, soft: u64, hard: u64) -> std::io::Result<()>;
+    fn set(
+        &mut self,
+        soft: u64,
+        hard: u64,
+    ) -> std::io::Result<()>;
 }
 
 /// Access to the real process NOFILE resource limit.
@@ -198,7 +215,11 @@ impl NoFile for RealNoFile {
         rlimit::Resource::NOFILE.get()
     }
 
-    fn set(&mut self, soft: u64, hard: u64) -> std::io::Result<()> {
+    fn set(
+        &mut self,
+        soft: u64,
+        hard: u64,
+    ) -> std::io::Result<()> {
         rlimit::Resource::NOFILE.set(soft, hard)
     }
 }
@@ -217,7 +238,11 @@ fn test_ensure_max_open_files_limit() {
             }
         }
 
-        fn set(&mut self, soft: u64, hard: u64) -> std::io::Result<()> {
+        fn set(
+            &mut self,
+            soft: u64,
+            hard: u64,
+        ) -> std::io::Result<()> {
             let (old_soft, old_hard) = self.get().unwrap();
             if old_hard == 666000 {
                 Err(std::io::ErrorKind::Other.into())

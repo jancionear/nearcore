@@ -27,7 +27,12 @@ use std::collections::HashSet;
 use std::str::FromStr;
 use strum::IntoEnumIterator;
 
-fn check_key(first_store: &Store, second_store: &Store, col: DBCol, key: &[u8]) {
+fn check_key(
+    first_store: &Store,
+    second_store: &Store,
+    col: DBCol,
+    key: &[u8],
+) {
     let pretty_key = near_fmt::StorageKey(key);
     tracing::debug!("Checking {:?} {:?}", col, pretty_key);
 
@@ -44,7 +49,10 @@ fn check_iter(
     no_check_rules: &Vec<Box<dyn Fn(DBCol, &Box<[u8]>, &Box<[u8]>) -> bool>>,
 ) -> u64 {
     let mut num_checks = 0;
-    for (key, value) in first_store.iter(col).map(Result::unwrap) {
+    for (key, value) in first_store
+        .iter(col)
+        .map(Result::unwrap)
+    {
         let mut check = true;
         for no_check in no_check_rules {
             if no_check(col, &key, &value) {
@@ -67,7 +75,11 @@ fn test1() -> AccountId {
     "test1".parse().unwrap()
 }
 
-fn create_tx_send_money(nonce: u64, signer: &Signer, block_hash: CryptoHash) -> SignedTransaction {
+fn create_tx_send_money(
+    nonce: u64,
+    signer: &Signer,
+    block_hash: CryptoHash,
+) -> SignedTransaction {
     SignedTransaction::send_money(nonce, test0(), test1(), signer, 1, block_hash)
 }
 
@@ -112,7 +124,9 @@ fn test_storage_after_commit_of_cold_update() {
     let mut genesis = Genesis::test(vec![test0(), test1()], 1);
     genesis.config.epoch_length = epoch_length;
     genesis.config.min_gas_price = 0;
-    let mut env = TestEnv::builder(&genesis.config).nightshade_runtimes(&genesis).build();
+    let mut env = TestEnv::builder(&genesis.config)
+        .nightshade_runtimes(&genesis)
+        .build();
 
     let (storage, ..) = create_test_node_storage_with_cold(DB_VERSION, DbKind::Hot);
     let cold_db = storage.cold_db().unwrap();
@@ -142,15 +156,26 @@ fn test_storage_after_commit_of_cold_update() {
             }
         }
 
-        let block = env.clients[0].produce_block(height).unwrap().unwrap();
+        let block = env.clients[0]
+            .produce_block(height)
+            .unwrap()
+            .unwrap();
         env.process_block(0, block.clone(), Provenance::PRODUCED);
 
         let client = &env.clients[0];
         let client_store = client.runtime_adapter.store();
-        let epoch_id = client.epoch_manager.get_epoch_id(block.hash()).unwrap();
-        let shard_layout = client.epoch_manager.get_shard_layout(&epoch_id).unwrap();
-        let is_last_block_in_epoch =
-            client.epoch_manager.is_next_block_epoch_start(block.hash()).unwrap();
+        let epoch_id = client
+            .epoch_manager
+            .get_epoch_id(block.hash())
+            .unwrap();
+        let shard_layout = client
+            .epoch_manager
+            .get_shard_layout(&epoch_id)
+            .unwrap();
+        let is_last_block_in_epoch = client
+            .epoch_manager
+            .is_next_block_epoch_start(block.hash())
+            .unwrap();
         update_cold_db(cold_db, &client_store, &shard_layout, &height, is_last_block_in_epoch, 4)
             .unwrap();
 
@@ -224,9 +249,15 @@ fn test_cold_db_head_update() {
         let client_store = env.clients[0].runtime_adapter.store();
         update_cold_head(&cold_db, &client_store, &height).unwrap();
 
-        let head = &client_store.get_ser::<Tip>(DBCol::BlockMisc, HEAD_KEY).unwrap();
-        let cold_head_in_hot = hot_store.get_ser::<Tip>(DBCol::BlockMisc, COLD_HEAD_KEY).unwrap();
-        let cold_head_in_cold = cold_store.get_ser::<Tip>(DBCol::BlockMisc, HEAD_KEY).unwrap();
+        let head = &client_store
+            .get_ser::<Tip>(DBCol::BlockMisc, HEAD_KEY)
+            .unwrap();
+        let cold_head_in_hot = hot_store
+            .get_ser::<Tip>(DBCol::BlockMisc, COLD_HEAD_KEY)
+            .unwrap();
+        let cold_head_in_cold = cold_store
+            .get_ser::<Tip>(DBCol::BlockMisc, HEAD_KEY)
+            .unwrap();
 
         assert_eq!(head, &cold_head_in_cold);
         assert_eq!(head, &cold_head_in_hot);
@@ -275,7 +306,10 @@ fn test_cold_db_copy_with_height_skips() {
 
         let block = {
             if !skips.contains(&height) {
-                let block = env.clients[0].produce_block(height).unwrap().unwrap();
+                let block = env.clients[0]
+                    .produce_block(height)
+                    .unwrap()
+                    .unwrap();
                 env.process_block(0, block.clone(), Provenance::PRODUCED);
                 Some(block)
             } else {
@@ -285,18 +319,27 @@ fn test_cold_db_copy_with_height_skips() {
 
         let client = &env.clients[0];
         let hot_store = client.runtime_adapter.store();
-        let block_hash =
-            hot_store.get_ser::<CryptoHash>(DBCol::BlockHeight, &height.to_le_bytes()).unwrap();
+        let block_hash = hot_store
+            .get_ser::<CryptoHash>(DBCol::BlockHeight, &height.to_le_bytes())
+            .unwrap();
         let Some(block) = block else {
             assert!(block_hash.is_none());
             continue;
         };
         let block_hash = block_hash.unwrap();
         assert!(&block_hash == block.hash());
-        let epoch_id = client.epoch_manager.get_epoch_id(&block_hash).unwrap();
-        let shard_layout = client.epoch_manager.get_shard_layout(&epoch_id).unwrap();
-        let is_last_block_in_epoch =
-            client.epoch_manager.is_next_block_epoch_start(&block_hash).unwrap();
+        let epoch_id = client
+            .epoch_manager
+            .get_epoch_id(&block_hash)
+            .unwrap();
+        let shard_layout = client
+            .epoch_manager
+            .get_shard_layout(&epoch_id)
+            .unwrap();
+        let is_last_block_in_epoch = client
+            .epoch_manager
+            .is_next_block_epoch_start(&block_hash)
+            .unwrap();
         update_cold_db(&cold_db, hot_store, &shard_layout, &height, is_last_block_in_epoch, 1)
             .unwrap();
         last_hash = block_hash;
@@ -345,7 +388,9 @@ fn test_initial_copy_to_cold(batch_size: usize) {
 
     let mut genesis = Genesis::test(vec![test0(), test1()], 1);
     genesis.config.epoch_length = epoch_length;
-    let mut env = TestEnv::builder(&genesis.config).nightshade_runtimes(&genesis).build();
+    let mut env = TestEnv::builder(&genesis.config)
+        .nightshade_runtimes(&genesis)
+        .build();
 
     let (storage, ..) = create_test_node_storage_with_cold(DB_VERSION, DbKind::Archive);
 
@@ -357,7 +402,10 @@ fn test_initial_copy_to_cold(batch_size: usize) {
             assert_eq!(env.clients[0].process_tx(tx, false, false), ProcessTxResponse::ValidTx);
         }
 
-        let block = env.clients[0].produce_block(height).unwrap().unwrap();
+        let block = env.clients[0]
+            .produce_block(height)
+            .unwrap()
+            .unwrap();
         env.process_block(0, block.clone(), Provenance::PRODUCED);
         last_hash = *block.hash();
     }
@@ -433,7 +481,12 @@ fn test_cold_loop_on_gc_boundary() {
         .nightshade_runtimes(&genesis)
         .build();
 
-    let height_delta = env.clients[0].config.gc.gc_num_epochs_to_keep * epoch_length * 2;
+    let height_delta = env.clients[0]
+        .config
+        .gc
+        .gc_num_epochs_to_keep
+        * epoch_length
+        * 2;
 
     let mut last_hash = *env.clients[0].chain.genesis().hash();
 
@@ -444,7 +497,10 @@ fn test_cold_loop_on_gc_boundary() {
             assert_eq!(env.clients[0].process_tx(tx, false, false), ProcessTxResponse::ValidTx);
         }
 
-        let block = env.clients[0].produce_block(height).unwrap().unwrap();
+        let block = env.clients[0]
+            .produce_block(height)
+            .unwrap()
+            .unwrap();
         env.process_block(0, block.clone(), Provenance::PRODUCED);
         last_hash = *block.hash();
     }
@@ -463,13 +519,19 @@ fn test_cold_loop_on_gc_boundary() {
             assert_eq!(env.clients[0].process_tx(tx, false, false), ProcessTxResponse::ValidTx);
         }
 
-        let block = env.clients[0].produce_block(height).unwrap().unwrap();
+        let block = env.clients[0]
+            .produce_block(height)
+            .unwrap()
+            .unwrap();
         env.process_block(0, block.clone(), Provenance::PRODUCED);
         last_hash = *block.hash();
     }
 
-    let start_cold_head =
-        cold_store.get_ser::<Tip>(DBCol::BlockMisc, COLD_HEAD_KEY).unwrap().unwrap().height;
+    let start_cold_head = cold_store
+        .get_ser::<Tip>(DBCol::BlockMisc, COLD_HEAD_KEY)
+        .unwrap()
+        .unwrap()
+        .height;
 
     let signer =
         InMemorySigner::from_random(AccountId::from_str("test").unwrap(), KeyType::ED25519);
@@ -493,8 +555,11 @@ fn test_cold_loop_on_gc_boundary() {
     spawn_cold_store_loop(&near_config, &storage, epoch_manager).unwrap();
     std::thread::sleep(std::time::Duration::from_secs(1));
 
-    let end_cold_head =
-        cold_store.get_ser::<Tip>(DBCol::BlockMisc, COLD_HEAD_KEY).unwrap().unwrap().height;
+    let end_cold_head = cold_store
+        .get_ser::<Tip>(DBCol::BlockMisc, COLD_HEAD_KEY)
+        .unwrap()
+        .unwrap()
+        .height;
 
     assert!(
         end_cold_head > start_cold_head,

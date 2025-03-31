@@ -18,7 +18,10 @@ pub(crate) fn hex_to_nibbles(hex: &str) -> Vec<u8> {
 /// vectors of nibbles. For example, "01 02 10" is converted to
 /// [[0, 1], [0, 2], [1, 0]].
 pub(crate) fn multi_hex_to_nibbles(hexes: &str) -> Vec<Vec<u8>> {
-    hexes.split_whitespace().map(|x| hex_to_nibbles(x)).collect()
+    hexes
+        .split_whitespace()
+        .map(|x| hex_to_nibbles(x))
+        .collect()
 }
 
 pub(crate) fn all_two_nibble_nibbles() -> Vec<Vec<u8>> {

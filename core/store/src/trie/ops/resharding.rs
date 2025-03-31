@@ -50,15 +50,14 @@ fn boundary_account_to_intervals(
         // These are the `red` and `yellow` keys in resharding design.
         // They are handled by either copying the keys to both shards or only to the lower index shard.
         match prefix {
-            col::DELAYED_RECEIPT_OR_INDICES
+            | col::DELAYED_RECEIPT_OR_INDICES
             | col::PROMISE_YIELD_INDICES
             | col::PROMISE_YIELD_TIMEOUT
-            | col::BANDWIDTH_SCHEDULER_STATE
-            | col::GLOBAL_CONTRACT_CODE => {
+            | col::BANDWIDTH_SCHEDULER_STATE => {
                 // This section contains the keys that we need to copy to both shards.
                 intervals.push(get_interval_for_copy_to_both_children(prefix))
             }
-            col::BUFFERED_RECEIPT_INDICES
+            | col::BUFFERED_RECEIPT_INDICES
             | col::BUFFERED_RECEIPT
             | col::BUFFERED_RECEIPT_GROUPS_QUEUE_DATA
             | col::BUFFERED_RECEIPT_GROUPS_QUEUE_ITEM => {
@@ -68,13 +67,16 @@ fn boundary_account_to_intervals(
                 }
             }
             // Poor man's exhaustive check for handling all column types.
-            _ => panic!("Unhandled trie key type: {}", name),
+            | _ => panic!("Unhandled trie key type: {}", name),
         }
     }
     intervals
 }
 
-fn append_key(trie_key: u8, boundary_account: &AccountId) -> Vec<u8> {
+fn append_key(
+    trie_key: u8,
+    boundary_account: &AccountId,
+) -> Vec<u8> {
     let mut key = vec![trie_key];
     key.extend_from_slice(boundary_account.as_bytes());
     key
@@ -93,8 +95,8 @@ fn get_interval_for_split_keys(
     prefix: u8,
 ) -> Range<Vec<u8>> {
     match retain_mode {
-        RetainMode::Left => vec![prefix]..append_key(prefix, boundary_account),
-        RetainMode::Right => append_key(prefix, boundary_account)..vec![prefix + 1],
+        | RetainMode::Left => vec![prefix]..append_key(prefix, boundary_account),
+        | RetainMode::Right => append_key(prefix, boundary_account)..vec![prefix + 1],
     }
 }
 
@@ -120,8 +122,8 @@ fn get_interval_for_copy_to_one_child(
     prefix: u8,
 ) -> Option<Range<Vec<u8>>> {
     match retain_mode {
-        RetainMode::Left => Some(vec![prefix]..vec![prefix + 1]),
-        RetainMode::Right => None,
+        | RetainMode::Left => Some(vec![prefix]..vec![prefix + 1]),
+        | RetainMode::Right => None,
     }
 }
 
@@ -130,8 +132,12 @@ fn intervals_to_nibbles(intervals: &[Range<Vec<u8>>]) -> Vec<Range<Vec<u8>>> {
     intervals
         .iter()
         .map(|range| {
-            NibbleSlice::new(&range.start).iter().collect_vec()
-                ..NibbleSlice::new(&range.end).iter().collect_vec()
+            NibbleSlice::new(&range.start)
+                .iter()
+                .collect_vec()
+                ..NibbleSlice::new(&range.end)
+                    .iter()
+                    .collect_vec()
         })
         .collect_vec()
 }
@@ -156,29 +162,37 @@ where
     ) -> Result<(), StorageError> {
         let decision = retain_decision(&key_nibbles, intervals_nibbles);
         match decision {
-            RetainDecision::RetainAll => return Ok(()),
-            RetainDecision::DiscardAll => {
+            | RetainDecision::RetainAll => return Ok(()),
+            | RetainDecision::DiscardAll => {
                 let _ = self.take_node(node_id);
                 self.place_node_at(node_id, GenericUpdatedTrieNodeWithSize::empty());
                 return Ok(());
             }
-            RetainDecision::Descend => {
+            | RetainDecision::Descend => {
                 // We need to descend into all children. The logic follows below.
             }
         }
 
         let GenericUpdatedTrieNodeWithSize { node, memory_usage } = self.take_node(node_id);
         match node {
-            GenericUpdatedTrieNode::Empty => {
+            | GenericUpdatedTrieNode::Empty => {
                 // Nowhere to descend.
                 self.place_node_at(node_id, GenericUpdatedTrieNodeWithSize::empty());
                 return Ok(());
             }
-            GenericUpdatedTrieNode::Leaf { extension, value } => {
-                let full_key_nibbles =
-                    [key_nibbles, NibbleSlice::from_encoded(&extension).0.iter().collect_vec()]
-                        .concat();
-                if !intervals_nibbles.iter().any(|interval| interval.contains(&full_key_nibbles)) {
+            | GenericUpdatedTrieNode::Leaf { extension, value } => {
+                let full_key_nibbles = [
+                    key_nibbles,
+                    NibbleSlice::from_encoded(&extension)
+                        .0
+                        .iter()
+                        .collect_vec(),
+                ]
+                .concat();
+                if !intervals_nibbles
+                    .iter()
+                    .any(|interval| interval.contains(&full_key_nibbles))
+                {
                     self.place_node_at(node_id, GenericUpdatedTrieNodeWithSize::empty());
                 } else {
                     self.place_node_at(
@@ -191,8 +205,11 @@ where
                 }
                 return Ok(());
             }
-            GenericUpdatedTrieNode::Branch { mut children, mut value } => {
-                if !intervals_nibbles.iter().any(|interval| interval.contains(&key_nibbles)) {
+            | GenericUpdatedTrieNode::Branch { mut children, mut value } => {
+                if !intervals_nibbles
+                    .iter()
+                    .any(|interval| interval.contains(&key_nibbles))
+                {
                     value = None;
                 }
 
@@ -224,10 +241,12 @@ where
                 memory_usage += node.memory_usage_direct();
                 self.place_node_at(node_id, GenericUpdatedTrieNodeWithSize { node, memory_usage });
             }
-            GenericUpdatedTrieNode::Extension { extension, child } => {
+            | GenericUpdatedTrieNode::Extension { extension, child } => {
                 let new_child_id = self.ensure_updated(child)?;
-                let extension_nibbles =
-                    NibbleSlice::from_encoded(&extension).0.iter().collect_vec();
+                let extension_nibbles = NibbleSlice::from_encoded(&extension)
+                    .0
+                    .iter()
+                    .collect_vec();
                 let child_key = [key_nibbles, extension_nibbles].concat();
                 self.retain_multi_range_recursive(new_child_id, child_key, intervals_nibbles)?;
 
@@ -235,7 +254,9 @@ where
                     extension,
                     child: GenericNodeOrIndex::Updated(new_child_id),
                 };
-                let child_memory_usage = self.get_node_ref(new_child_id).memory_usage;
+                let child_memory_usage = self
+                    .get_node_ref(new_child_id)
+                    .memory_usage;
                 let memory_usage = node.memory_usage_direct() + child_memory_usage;
                 self.place_node_at(node_id, GenericUpdatedTrieNodeWithSize { node, memory_usage });
             }
@@ -256,7 +277,10 @@ where
 }
 
 /// Based on the key and the intervals, makes decision on the subtree exploration.
-fn retain_decision(key: &[u8], intervals: &[Range<Vec<u8>>]) -> RetainDecision {
+fn retain_decision(
+    key: &[u8],
+    intervals: &[Range<Vec<u8>>],
+) -> RetainDecision {
     let mut should_descend = false;
     for interval in intervals {
         // If key can be extended to be equal to start or end of the interval,
@@ -294,7 +318,11 @@ where
     N: Debug,
     V: Debug + HasValueLength,
 {
-    fn retain_split_shard(&mut self, boundary_account: &AccountId, retain_mode: RetainMode);
+    fn retain_split_shard(
+        &mut self,
+        boundary_account: &AccountId,
+        retain_mode: RetainMode,
+    );
 }
 
 impl<'a, N, V, T> GenericTrieUpdateRetain<'a, N, V> for T
@@ -303,10 +331,15 @@ where
     V: Debug + HasValueLength,
     T: GenericTrieUpdateRetainInner<'a, N, V>,
 {
-    fn retain_split_shard(&mut self, boundary_account: &AccountId, retain_mode: RetainMode) {
+    fn retain_split_shard(
+        &mut self,
+        boundary_account: &AccountId,
+        retain_mode: RetainMode,
+    ) {
         let intervals = boundary_account_to_intervals(boundary_account, retain_mode);
         let intervals_nibbles = intervals_to_nibbles(&intervals);
-        self.retain_multi_range_recursive(0, vec![], &intervals_nibbles).unwrap();
+        self.retain_multi_range_recursive(0, vec![], &intervals_nibbles)
+            .unwrap();
     }
 }
 
@@ -321,7 +354,9 @@ pub fn retain_split_shard_custom_ranges<'a, N, V>(
     V: Debug + HasValueLength,
 {
     let intervals_nibbles = intervals_to_nibbles(retain_multi_ranges);
-    update.retain_multi_range_recursive(0, vec![], &intervals_nibbles).unwrap();
+    update
+        .retain_multi_range_recursive(0, vec![], &intervals_nibbles)
+        .unwrap();
 }
 
 #[cfg(test)]
@@ -336,8 +371,10 @@ mod tests {
 
     #[test]
     fn test_boundary_account_to_intervals() {
-        let column_name_map =
-            col::ALL_COLUMNS_WITH_NAMES.iter().cloned().collect::<HashMap<_, _>>();
+        let column_name_map = col::ALL_COLUMNS_WITH_NAMES
+            .iter()
+            .cloned()
+            .collect::<HashMap<_, _>>();
         let alice_account = AccountId::try_from("alice.near".to_string()).unwrap();
 
         let left_intervals = boundary_account_to_intervals(&alice_account, RetainMode::Left);
@@ -362,10 +399,14 @@ mod tests {
                 ..vec![col::BUFFERED_RECEIPT_GROUPS_QUEUE_DATA + 1],
             vec![col::BUFFERED_RECEIPT_GROUPS_QUEUE_ITEM]
                 ..vec![col::BUFFERED_RECEIPT_GROUPS_QUEUE_ITEM + 1],
-            vec![col::GLOBAL_CONTRACT_CODE]..vec![col::GLOBAL_CONTRACT_CODE + 1],
         ];
-        assert!(left_intervals.iter().all(|range| range.start < range.end));
-        for (actual, expected) in left_intervals.iter().zip_eq(expected_left_intervals.iter()) {
+        assert!(left_intervals
+            .iter()
+            .all(|range| range.start < range.end));
+        for (actual, expected) in left_intervals
+            .iter()
+            .zip_eq(expected_left_intervals.iter())
+        {
             let column_name = column_name_map[&expected.start[0]];
             assert_eq!(actual, expected, "Mismatch in key: {:?}", column_name);
         }
@@ -387,10 +428,14 @@ mod tests {
             append_key(col::PROMISE_YIELD_RECEIPT, &alice_account)
                 ..vec![col::PROMISE_YIELD_RECEIPT + 1],
             vec![col::BANDWIDTH_SCHEDULER_STATE]..vec![col::BANDWIDTH_SCHEDULER_STATE + 1],
-            vec![col::GLOBAL_CONTRACT_CODE]..vec![col::GLOBAL_CONTRACT_CODE + 1],
         ];
-        assert!(right_intervals.iter().all(|range| range.start < range.end));
-        for (actual, expected) in right_intervals.iter().zip_eq(expected_right_intervals.iter()) {
+        assert!(right_intervals
+            .iter()
+            .all(|range| range.start < range.end));
+        for (actual, expected) in right_intervals
+            .iter()
+            .zip_eq(expected_right_intervals.iter())
+        {
             let column_name = column_name_map[&expected.start[0]];
             assert_eq!(actual, expected, "Mismatch in key: {:?}", column_name);
         }

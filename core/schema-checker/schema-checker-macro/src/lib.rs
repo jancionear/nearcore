@@ -29,7 +29,7 @@ mod helper {
 
         let type_id = quote! { std::any::TypeId::of::<#name #ty_generics_without_lifetimes>() };
         let info = match &input.data {
-            Data::Struct(data_struct) => {
+            | Data::Struct(data_struct) => {
                 let fields = extract_struct_fields(&data_struct.fields);
                 quote! {
                     near_schema_checker_lib::ProtocolSchemaInfo::Struct {
@@ -39,7 +39,7 @@ mod helper {
                     }
                 }
             }
-            Data::Enum(data_enum) => {
+            | Data::Enum(data_enum) => {
                 let variants = extract_enum_variants(&data_enum.variants);
                 quote! {
                     near_schema_checker_lib::ProtocolSchemaInfo::Enum {
@@ -49,7 +49,7 @@ mod helper {
                     }
                 }
             }
-            Data::Union(_) => panic!("Unions are not supported"),
+            | Data::Union(_) => panic!("Unions are not supported"),
         };
 
         let expanded = quote! {
@@ -70,33 +70,33 @@ mod helper {
 
     fn extract_struct_fields(fields: &Fields) -> TokenStream2 {
         match fields {
-            Fields::Named(FieldsNamed { named, .. }) => {
+            | Fields::Named(FieldsNamed { named, .. }) => {
                 let fields = extract_from_named_fields(named);
                 quote! { &[#(#fields),*] }
             }
-            Fields::Unnamed(FieldsUnnamed { unnamed, .. }) => {
+            | Fields::Unnamed(FieldsUnnamed { unnamed, .. }) => {
                 let fields = extract_from_unnamed_fields(unnamed);
                 quote! { &[#(#fields),*] }
             }
-            Fields::Unit => quote! { &[] },
+            | Fields::Unit => quote! { &[] },
         }
     }
 
     fn extract_enum_variants(
-        variants: &syn::punctuated::Punctuated<Variant, syn::token::Comma>,
+        variants: &syn::punctuated::Punctuated<Variant, syn::token::Comma>
     ) -> TokenStream2 {
         let variants = variants.iter().map(|v| {
             let name = &v.ident;
             let fields = match &v.fields {
-                Fields::Named(FieldsNamed { named, .. }) => {
+                | Fields::Named(FieldsNamed { named, .. }) => {
                     let fields = extract_from_named_fields(named);
                     quote! { Some(&[#(#fields),*]) }
                 }
-                Fields::Unnamed(FieldsUnnamed { unnamed, .. }) => {
+                | Fields::Unnamed(FieldsUnnamed { unnamed, .. }) => {
                     let fields = extract_from_unnamed_fields(unnamed);
                     quote! { Some(&[#(#fields),*]) }
                 }
-                Fields::Unit => quote! { None },
+                | Fields::Unit => quote! { None },
             };
             quote! { (stringify!(#name), #fields) }
         });
@@ -109,8 +109,8 @@ mod helper {
     fn extract_type_ids_from_type(ty: &Type) -> Vec<TokenStream2> {
         let mut result = vec![quote! { std::any::TypeId::of::<#ty>() }];
         let type_path = match ty {
-            Type::Path(type_path) => type_path,
-            _ => return result,
+            | Type::Path(type_path) => type_path,
+            | _ => return result,
         };
 
         // TODO (#11755): last segment does not necessarily cover all generics.
@@ -118,10 +118,15 @@ mod helper {
         // `AssocType` in `impl Fruit<Round>` for `Apple` can be a `Vec<Round>`
         // or any other instantiation of a generic type.
         // Not urgent because protocol structs are expected to be simple.
-        let generic_params = &type_path.path.segments.last().unwrap().arguments;
+        let generic_params = &type_path
+            .path
+            .segments
+            .last()
+            .unwrap()
+            .arguments;
         let params = match generic_params {
-            PathArguments::AngleBracketed(params) => params,
-            _ => return result,
+            | PathArguments::AngleBracketed(params) => params,
+            | _ => return result,
         };
 
         let inner_type_ids = params
@@ -142,8 +147,13 @@ mod helper {
 
     fn extract_type_info(ty: &Type) -> TokenStream2 {
         match ty {
-            Type::Path(type_path) => {
-                let type_name = &type_path.path.segments.last().unwrap().ident;
+            | Type::Path(type_path) => {
+                let type_name = &type_path
+                    .path
+                    .segments
+                    .last()
+                    .unwrap()
+                    .ident;
                 let type_without_lifetimes = remove_lifetimes_from_type(type_path);
                 let type_ids = extract_type_ids_from_type(&type_without_lifetimes);
                 let type_ids_count = type_ids.len();
@@ -158,11 +168,11 @@ mod helper {
                     }
                 }
             }
-            Type::Reference(type_ref) => {
+            | Type::Reference(type_ref) => {
                 let elem = &type_ref.elem;
                 extract_type_info(elem)
             }
-            Type::Array(array) => {
+            | Type::Array(array) => {
                 let elem = &array.elem;
                 let len = &array.len;
                 quote! {
@@ -174,7 +184,7 @@ mod helper {
                     }
                 }
             }
-            _ => {
+            | _ => {
                 println!("Unsupported type: {:?}", ty);
                 quote! { (stringify!(#ty), &[std::any::TypeId::of::<#ty>()]) }
             }
@@ -182,36 +192,40 @@ mod helper {
     }
 
     fn remove_lifetimes_from_type(type_path: &TypePath) -> Type {
-        let segments = type_path.path.segments.iter().map(|segment| {
-            let mut new_segment =
-                PathSegment { ident: segment.ident.clone(), arguments: PathArguments::None };
+        let segments = type_path
+            .path
+            .segments
+            .iter()
+            .map(|segment| {
+                let mut new_segment =
+                    PathSegment { ident: segment.ident.clone(), arguments: PathArguments::None };
 
-            if let PathArguments::AngleBracketed(args) = &segment.arguments {
-                let new_args: Vec<_> = args
-                    .args
-                    .iter()
-                    .filter_map(|arg| match arg {
-                        GenericArgument::Type(ty) => {
-                            Some(GenericArgument::Type(remove_lifetimes_from_type_recursive(ty)))
-                        }
-                        GenericArgument::Const(c) => Some(GenericArgument::Const(c.clone())),
-                        _ => None,
-                    })
-                    .collect();
+                if let PathArguments::AngleBracketed(args) = &segment.arguments {
+                    let new_args: Vec<_> = args
+                        .args
+                        .iter()
+                        .filter_map(|arg| match arg {
+                            | GenericArgument::Type(ty) => Some(GenericArgument::Type(
+                                remove_lifetimes_from_type_recursive(ty),
+                            )),
+                            | GenericArgument::Const(c) => Some(GenericArgument::Const(c.clone())),
+                            | _ => None,
+                        })
+                        .collect();
 
-                if !new_args.is_empty() {
-                    new_segment.arguments =
-                        PathArguments::AngleBracketed(syn::AngleBracketedGenericArguments {
-                            colon2_token: args.colon2_token,
-                            lt_token: args.lt_token,
-                            args: new_args.into_iter().collect(),
-                            gt_token: args.gt_token,
-                        });
+                    if !new_args.is_empty() {
+                        new_segment.arguments =
+                            PathArguments::AngleBracketed(syn::AngleBracketedGenericArguments {
+                                colon2_token: args.colon2_token,
+                                lt_token: args.lt_token,
+                                args: new_args.into_iter().collect(),
+                                gt_token: args.gt_token,
+                            });
+                    }
                 }
-            }
 
-            new_segment
-        });
+                new_segment
+            });
 
         // cspell:ignore qself
         Type::Path(TypePath {
@@ -225,19 +239,19 @@ mod helper {
 
     fn remove_lifetimes_from_type_recursive(ty: &Type) -> Type {
         match ty {
-            Type::Path(type_path) => remove_lifetimes_from_type(type_path),
-            Type::Reference(type_ref) => Type::Reference(syn::TypeReference {
+            | Type::Path(type_path) => remove_lifetimes_from_type(type_path),
+            | Type::Reference(type_ref) => Type::Reference(syn::TypeReference {
                 and_token: type_ref.and_token,
                 lifetime: None,
                 mutability: type_ref.mutability,
                 elem: Box::new(remove_lifetimes_from_type_recursive(&type_ref.elem)),
             }),
-            _ => ty.clone(),
+            | _ => ty.clone(),
         }
     }
 
     fn extract_from_named_fields(
-        named: &syn::punctuated::Punctuated<Field, syn::token::Comma>,
+        named: &syn::punctuated::Punctuated<Field, syn::token::Comma>
     ) -> impl Iterator<Item = TokenStream2> + '_ {
         named.iter().map(|f| {
             let name = &f.ident;
@@ -248,14 +262,17 @@ mod helper {
     }
 
     fn extract_from_unnamed_fields(
-        unnamed: &syn::punctuated::Punctuated<Field, syn::token::Comma>,
+        unnamed: &syn::punctuated::Punctuated<Field, syn::token::Comma>
     ) -> impl Iterator<Item = TokenStream2> + '_ {
-        unnamed.iter().enumerate().map(|(i, f)| {
-            let index = Index::from(i);
-            let ty = &f.ty;
-            let type_info = extract_type_info(ty);
-            quote! { (stringify!(#index), #type_info) }
-        })
+        unnamed
+            .iter()
+            .enumerate()
+            .map(|(i, f)| {
+                let index = Index::from(i);
+                let ty = &f.ty;
+                let type_info = extract_type_info(ty);
+                quote! { (stringify!(#index), #type_info) }
+            })
     }
 
     fn remove_lifetimes(generics: &Generics) -> proc_macro2::TokenStream {
@@ -263,9 +280,9 @@ mod helper {
             .params
             .iter()
             .filter_map(|param| match param {
-                GenericParam::Type(type_param) => Some(quote! { #type_param }),
-                GenericParam::Const(const_param) => Some(quote! { #const_param }),
-                GenericParam::Lifetime(_) => None,
+                | GenericParam::Type(type_param) => Some(quote! { #type_param }),
+                | GenericParam::Const(const_param) => Some(quote! { #const_param }),
+                | GenericParam::Lifetime(_) => None,
             })
             .collect();
 

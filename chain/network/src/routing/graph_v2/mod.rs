@@ -82,7 +82,10 @@ impl Inner {
     /// because just the last edge was invalid. Instead, we cache all the edges verified so
     /// far and return an error only afterwards.
     #[cfg(not(test))]
-    fn verify_and_cache_edge_nonces(&mut self, edges: &Vec<Edge>) -> bool {
+    fn verify_and_cache_edge_nonces(
+        &mut self,
+        edges: &Vec<Edge>,
+    ) -> bool {
         metrics::EDGE_UPDATES.inc_by(edges.len() as u64);
 
         // Collect only those edges which are new to us for verification.
@@ -94,7 +97,10 @@ impl Inner {
                 return false;
             }
 
-            if !self.edge_cache.has_edge_nonce_or_newer(e) {
+            if !self
+                .edge_cache
+                .has_edge_nonce_or_newer(e)
+            {
                 unverified_edges.push(e.clone());
             }
         }
@@ -102,17 +108,24 @@ impl Inner {
         // Verify the new edges in parallel on rayon.
         // Stop at first invalid edge.
         let (verified_edges, ok) = concurrency::rayon::run_blocking(move || {
-            concurrency::rayon::try_map(unverified_edges.into_iter().par_bridge(), |e| {
-                if e.verify() {
-                    Some(e)
-                } else {
-                    None
-                }
-            })
+            concurrency::rayon::try_map(
+                unverified_edges
+                    .into_iter()
+                    .par_bridge(),
+                |e| {
+                    if e.verify() {
+                        Some(e)
+                    } else {
+                        None
+                    }
+                },
+            )
         });
 
         // Store the verified nonces in the cache
-        verified_edges.iter().for_each(|e| self.edge_cache.write_verified_nonce(e));
+        verified_edges
+            .iter()
+            .for_each(|e| self.edge_cache.write_verified_nonce(e));
 
         ok
     }
@@ -138,7 +151,8 @@ impl Inner {
         tree_edges: &Vec<Edge>,
     ) -> Option<(Vec<Option<u32>>, Vec<Option<u32>>)> {
         // Prepare for graph traversal by ensuring all PeerIds in the tree have a u32 label
-        self.edge_cache.create_ids_for_tree(root, tree_edges);
+        self.edge_cache
+            .create_ids_for_tree(root, tree_edges);
 
         // Build adjacency-list representation of the edges
         let mut adjacency = vec![Vec::<u32>::new(); self.edge_cache.max_id()];
@@ -214,7 +228,9 @@ impl Inner {
         // Verify that the advertised distances are corroborated by the spanning tree distances
         let mut advertised_distances: Vec<Option<u32>> = vec![None; self.edge_cache.max_id()];
         for entry in &distance_vector.distances {
-            let destination_id = self.edge_cache.get_or_create_id(&entry.destination) as usize;
+            let destination_id = self
+                .edge_cache
+                .get_or_create_id(&entry.destination) as usize;
             advertised_distances[destination_id] = Some(entry.distance);
         }
         let mut consistent = true;
@@ -266,9 +282,13 @@ impl Inner {
         }
 
         // Look in the spanning tree for the direct edge between the local node and the root
-        let tree_edge = distance_vector.edges.iter().find(|edge| {
-            edge.contains_peer(&self.config.node_id) && edge.contains_peer(&distance_vector.root)
-        });
+        let tree_edge = distance_vector
+            .edges
+            .iter()
+            .find(|edge| {
+                edge.contains_peer(&self.config.node_id)
+                    && edge.contains_peer(&distance_vector.root)
+            });
 
         // If the tree has more recent state for the direct edge, replace the local state
         if let Some(tree_edge) = tree_edge {
@@ -283,7 +303,10 @@ impl Inner {
         }
 
         // Without a direct edge, we cannot use the distances advertised by the peer
-        let Some(local_edge) = self.local_edges.get(&distance_vector.root) else {
+        let Some(local_edge) = self
+            .local_edges
+            .get(&distance_vector.root)
+        else {
             return false;
         };
         if local_edge.edge_type() == EdgeState::Removed {
@@ -305,10 +328,15 @@ impl Inner {
         // .min().unwrap() is safe here because the tree is now guaranteed to at least
         // include the direct edge between the local node and the peer
         debug_assert!(!spanning_tree.is_empty());
-        let min_nonce = spanning_tree.iter().map(|e| e.nonce()).min().unwrap();
+        let min_nonce = spanning_tree
+            .iter()
+            .map(|e| e.nonce())
+            .min()
+            .unwrap();
 
         // Store the tree used to validate the distances.
-        self.edge_cache.update_tree(&distance_vector.root, &spanning_tree);
+        self.edge_cache
+            .update_tree(&distance_vector.root, &spanning_tree);
         // Store the validated distances
         self.peer_distances.insert(
             distance_vector.root.clone(),
@@ -336,8 +364,8 @@ impl Inner {
         let is_valid = validated_distances.is_some();
 
         let stored = match validated_distances {
-            Some(distances) => self.store_validated_peer_distances(&distance_vector, distances),
-            None => false,
+            | Some(distances) => self.store_validated_peer_distances(&distance_vector, distances),
+            | None => false,
         };
 
         if !stored {
@@ -349,7 +377,10 @@ impl Inner {
     }
 
     /// Updates the local state of the edge cache with the nonces for the given edges.
-    fn handle_edge_nonce_refresh(&mut self, edges: &Vec<Edge>) -> bool {
+    fn handle_edge_nonce_refresh(
+        &mut self,
+        edges: &Vec<Edge>,
+    ) -> bool {
         for e in edges {
             // TODO(saketh): deprecate tombstones entirely
             if e.edge_type() != EdgeState::Active {
@@ -358,7 +389,10 @@ impl Inner {
 
             // TODO (saketh): After V1 routing is deprecated, we will need to actually perform
             // edge verification here. For now, edges make it here after already being verified.
-            if !self.edge_cache.has_edge_nonce_or_newer(e) {
+            if !self
+                .edge_cache
+                .has_edge_nonce_or_newer(e)
+            {
                 self.edge_cache.write_verified_nonce(e);
             }
         }
@@ -370,7 +404,10 @@ impl Inner {
     /// - Updates the state of `local_edges`.
     /// - Erases the peer's latest spanning tree, if there is one, from `edge_cache`.
     /// - Erases the advertised distances for the peer.
-    pub(crate) fn remove_direct_peer(&mut self, peer_id: &PeerId) {
+    pub(crate) fn remove_direct_peer(
+        &mut self,
+        peer_id: &PeerId,
+    ) {
         if let Some(edge) = self.local_edges.get_mut(peer_id) {
             // TODO(saketh): refactor Edge once the old routing protocol is deprecated
             if edge.edge_type() != EdgeState::Removed {
@@ -389,11 +426,18 @@ impl Inner {
     /// - Updates the state of `local_edges`.
     /// - Adds or updates the nonce in the `edge_cache`.
     /// - If we don't already have a DistanceVector for this peer, initializes one.
-    pub(crate) fn add_or_update_direct_peer(&mut self, peer_id: PeerId, edge: Edge) -> bool {
+    pub(crate) fn add_or_update_direct_peer(
+        &mut self,
+        peer_id: PeerId,
+        edge: Edge,
+    ) -> bool {
         assert_eq!(edge.edge_type(), EdgeState::Active);
 
         // We have this nonce or a newer one already; ignore the update entirely
-        if self.edge_cache.has_edge_nonce_or_newer(&edge) {
+        if self
+            .edge_cache
+            .has_edge_nonce_or_newer(&edge)
+        {
             return true;
         }
 
@@ -403,11 +447,15 @@ impl Inner {
         }
 
         // Update the state of `local_edges`
-        self.local_edges.insert(peer_id.clone(), edge.clone());
+        self.local_edges
+            .insert(peer_id.clone(), edge.clone());
 
         // If we don't already have a DistanceVector received from this peer,
         // create one for it and process it as if we received it
-        if !self.peer_distances.contains_key(&peer_id) {
+        if !self
+            .peer_distances
+            .contains_key(&peer_id)
+        {
             self.handle_distance_vector(&network_protocol::DistanceVector {
                 root: peer_id.clone(),
                 distances: vec![
@@ -432,17 +480,19 @@ impl Inner {
         update: &NetworkTopologyChange,
     ) -> bool {
         match update {
-            NetworkTopologyChange::PeerConnected(peer_id, edge) => {
+            | NetworkTopologyChange::PeerConnected(peer_id, edge) => {
                 self.add_or_update_direct_peer(peer_id.clone(), edge.clone())
             }
-            NetworkTopologyChange::PeerDisconnected(peer_id) => {
+            | NetworkTopologyChange::PeerDisconnected(peer_id) => {
                 self.remove_direct_peer(peer_id);
                 true
             }
-            NetworkTopologyChange::PeerAdvertisedDistances(distance_vector) => {
+            | NetworkTopologyChange::PeerAdvertisedDistances(distance_vector) => {
                 self.handle_distance_vector(distance_vector)
             }
-            NetworkTopologyChange::EdgeNonceRefresh(edges) => self.handle_edge_nonce_refresh(edges),
+            | NetworkTopologyChange::EdgeNonceRefresh(edges) => {
+                self.handle_edge_nonce_refresh(edges)
+            }
         }
     }
 
@@ -520,7 +570,10 @@ impl Inner {
     /// expired edges. Any such DistanceVectors are removed in their entirety.
     ///
     /// Also removes old edges from `local_edges` and from the EdgeCache.
-    fn prune_expired_peer_distances(&mut self, clock: &time::Clock) {
+    fn prune_expired_peer_distances(
+        &mut self,
+        clock: &time::Clock,
+    ) {
         if let Some(prune_edges_after) = self.config.prune_edges_after {
             let prune_nonces_older_than =
                 (clock.now_utc() - prune_edges_after).unix_timestamp() as u64;
@@ -549,9 +602,11 @@ impl Inner {
                 self.remove_direct_peer(peer_id);
             }
 
-            self.local_edges.retain(|_, edge| edge.nonce() >= prune_nonces_older_than);
+            self.local_edges
+                .retain(|_, edge| edge.nonce() >= prune_nonces_older_than);
 
-            self.edge_cache.prune_old_edges(prune_nonces_older_than);
+            self.edge_cache
+                .prune_old_edges(prune_nonces_older_than);
         }
     }
 
@@ -572,7 +627,9 @@ impl Inner {
                 })
                 .collect(),
             // Construct a spanning tree of signed edges achieving the claimed distances
-            edges: self.edge_cache.construct_spanning_tree(distances)?,
+            edges: self
+                .edge_cache
+                .construct_spanning_tree(distances)?,
         })
     }
 
@@ -669,12 +726,19 @@ impl GraphV2 {
         }
     }
 
-    pub fn set_unreliable_peers(&self, unreliable_peers: HashSet<PeerId>) {
-        self.unreliable_peers.store(Arc::new(unreliable_peers));
+    pub fn set_unreliable_peers(
+        &self,
+        unreliable_peers: HashSet<PeerId>,
+    ) {
+        self.unreliable_peers
+            .store(Arc::new(unreliable_peers));
     }
 
     /// Logs the given batch of updates and the results from processing them.
-    fn write_event_logs(updates: &Vec<NetworkTopologyChange>, oks: &Vec<bool>) {
+    fn write_event_logs(
+        updates: &Vec<NetworkTopologyChange>,
+        oks: &Vec<bool>,
+    ) {
         for (update, &ok) in updates.iter().zip(oks) {
             if ok {
                 tracing::debug!(target: "routing", "Processed event {:?}", update);
@@ -723,7 +787,8 @@ impl GraphV2 {
                 let (next_hops, to_broadcast) =
                     inner.compute_routes(&clock, &this.unreliable_peers.load());
 
-                this.routing_table.update(next_hops.into(), Arc::new(inner.my_distances.clone()));
+                this.routing_table
+                    .update(next_hops.into(), Arc::new(inner.my_distances.clone()));
 
                 inner.log_state();
 

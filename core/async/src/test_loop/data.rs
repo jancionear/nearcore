@@ -47,13 +47,19 @@ pub struct TestLoopData {
 }
 
 impl TestLoopData {
-    pub fn new(pending_events_sender: PendingEventsSender, shutting_down: Arc<AtomicBool>) -> Self {
+    pub fn new(
+        pending_events_sender: PendingEventsSender,
+        shutting_down: Arc<AtomicBool>,
+    ) -> Self {
         Self { data: Vec::new(), pending_events_sender, shutting_down }
     }
 
     /// Function to register data of any type in the TestLoopData.
     /// Returns a handler to the data that can be used to access the data later.
-    pub fn register_data<T>(&mut self, data: T) -> TestLoopDataHandle<T> {
+    pub fn register_data<T>(
+        &mut self,
+        data: T,
+    ) -> TestLoopDataHandle<T> {
         let id = self.data.len();
         self.data.push(Box::new(data));
         TestLoopDataHandle::new(id)
@@ -74,7 +80,9 @@ impl TestLoopData {
         let actor_handle = self.register_data(actor);
         let sender = TestLoopSender::new(
             actor_handle,
-            self.pending_events_sender.clone().for_index(index),
+            self.pending_events_sender
+                .clone()
+                .for_index(index),
             self.shutting_down.clone(),
         );
         self.queue_start_actor_event(sender.clone());
@@ -85,8 +93,10 @@ impl TestLoopData {
     }
 
     // Helper function to queue the start actor event on the test loop while registering an actor.
-    fn queue_start_actor_event<A>(&self, mut sender: TestLoopSender<A>)
-    where
+    fn queue_start_actor_event<A>(
+        &self,
+        mut sender: TestLoopSender<A>,
+    ) where
         A: Actor + 'static,
     {
         let callback = move |data: &mut TestLoopData| {
@@ -98,7 +108,10 @@ impl TestLoopData {
     }
 
     /// Function to get reference to the data stored in TestLoopData.
-    pub fn get<T>(&self, handle: &TestLoopDataHandle<T>) -> &T {
+    pub fn get<T>(
+        &self,
+        handle: &TestLoopDataHandle<T>,
+    ) -> &T {
         self.data
             .get(handle.id)
             .expect("Handle id out of bounds. Does handle belong to this TestLoopData?")
@@ -107,7 +120,10 @@ impl TestLoopData {
     }
 
     /// Function to get mutable reference to the data stored in TestLoopData.
-    pub fn get_mut<T>(&mut self, handle: &TestLoopDataHandle<T>) -> &mut T {
+    pub fn get_mut<T>(
+        &mut self,
+        handle: &TestLoopDataHandle<T>,
+    ) -> &mut T {
         self.data
             .get_mut(handle.id)
             .expect("Handle id out of bounds. Does handle belong to this TestLoopData?")

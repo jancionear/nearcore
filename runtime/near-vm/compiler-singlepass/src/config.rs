@@ -52,7 +52,10 @@ impl Singlepass {
     ///
     /// Note that this doesn't guarantee deterministic execution across
     /// different platforms.
-    pub fn enable_stack_check(&mut self, enable: bool) -> &mut Self {
+    pub fn enable_stack_check(
+        &mut self,
+        enable: bool,
+    ) -> &mut Self {
         self.enable_stack_check = enable;
         self
     }
@@ -61,11 +64,17 @@ impl Singlepass {
         self.enable_nan_canonicalization = true;
     }
 
-    pub fn set_9393_fix(&mut self, enable: bool) {
+    pub fn set_9393_fix(
+        &mut self,
+        enable: bool,
+    ) {
         self.disable_9393_fix = !enable;
     }
 
-    pub fn canonicalize_nans(&mut self, enable: bool) -> &mut Self {
+    pub fn canonicalize_nans(
+        &mut self,
+        enable: bool,
+    ) -> &mut Self {
         self.enable_nan_canonicalization = enable;
         self
     }
@@ -83,7 +92,10 @@ impl CompilerConfig for Singlepass {
     }
 
     /// Gets the default features for this compiler in the given target
-    fn default_features_for_target(&self, _target: &Target) -> Features {
+    fn default_features_for_target(
+        &self,
+        _target: &Target,
+    ) -> Features {
         let mut features = Features::default();
         features.multi_value(false);
         features
@@ -97,11 +109,14 @@ impl Default for Singlepass {
 }
 
 impl Intrinsic {
-    pub(crate) fn is_params_ok(&self, params: &SmallVec<[Location; 8]>) -> bool {
+    pub(crate) fn is_params_ok(
+        &self,
+        params: &SmallVec<[Location; 8]>,
+    ) -> bool {
         match self.kind {
-            IntrinsicKind::Gas => match params[0] {
-                Location::Imm32(value) => value < i32::MAX as u32,
-                _ => false,
+            | IntrinsicKind::Gas => match params[0] {
+                | Location::Imm32(value) => value < i32::MAX as u32,
+                | _ => false,
             },
         }
     }

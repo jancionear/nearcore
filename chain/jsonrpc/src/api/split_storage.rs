@@ -23,10 +23,10 @@ impl RpcFrom<AsyncSendError> for RpcSplitStorageInfoError {
 impl RpcFrom<GetSplitStorageInfoError> for RpcSplitStorageInfoError {
     fn rpc_from(error: GetSplitStorageInfoError) -> Self {
         match error {
-            GetSplitStorageInfoError::IOError(error_message) => {
+            | GetSplitStorageInfoError::IOError(error_message) => {
                 Self::InternalError { error_message }
             }
-            GetSplitStorageInfoError::Unreachable(ref error_message) => {
+            | GetSplitStorageInfoError::Unreachable(ref error_message) => {
                 tracing::warn!(target: "jsonrpc", "Unreachable error occurred: {}", error_message);
                 crate::metrics::RPC_UNREACHABLE_ERROR_COUNT
                     .with_label_values(&["RpcSplitStorageInfoError"])

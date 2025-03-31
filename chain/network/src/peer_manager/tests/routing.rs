@@ -48,12 +48,15 @@ async fn simple() {
     pm1.wait_for_routing_table(&[]).await;
 
     tracing::info!(target:"test", "connect the nodes");
-    pm0.connect_to(&pm1.peer_info(), tcp::Tier::T2).await;
+    pm0.connect_to(&pm1.peer_info(), tcp::Tier::T2)
+        .await;
 
     tracing::info!(target:"test", "wait for {id0} routing table");
-    pm0.wait_for_routing_table(&[(id1.clone(), vec![id1.clone()])]).await;
+    pm0.wait_for_routing_table(&[(id1.clone(), vec![id1.clone()])])
+        .await;
     tracing::info!(target:"test", "wait for {id1} routing table");
-    pm1.wait_for_routing_table(&[(id0.clone(), vec![id0.clone()])]).await;
+    pm1.wait_for_routing_table(&[(id0.clone(), vec![id0.clone()])])
+        .await;
 }
 
 // test routing for three nodes in a line
@@ -70,8 +73,10 @@ async fn three_nodes_path() {
     let pm1 = start_pm(clock.clock(), TestDB::new(), chain.make_config(rng), chain.clone()).await;
     let pm2 = start_pm(clock.clock(), TestDB::new(), chain.make_config(rng), chain.clone()).await;
 
-    pm0.connect_to(&pm1.peer_info(), tcp::Tier::T2).await;
-    pm1.connect_to(&pm2.peer_info(), tcp::Tier::T2).await;
+    pm0.connect_to(&pm1.peer_info(), tcp::Tier::T2)
+        .await;
+    pm1.connect_to(&pm2.peer_info(), tcp::Tier::T2)
+        .await;
 
     let id0 = pm0.cfg.node_id();
     let id1 = pm1.cfg.node_id();
@@ -111,8 +116,10 @@ async fn three_nodes_star() {
     let pm1 = start_pm(clock.clock(), TestDB::new(), chain.make_config(rng), chain.clone()).await;
     let pm2 = start_pm(clock.clock(), TestDB::new(), chain.make_config(rng), chain.clone()).await;
 
-    pm0.connect_to(&pm1.peer_info(), tcp::Tier::T2).await;
-    pm1.connect_to(&pm2.peer_info(), tcp::Tier::T2).await;
+    pm0.connect_to(&pm1.peer_info(), tcp::Tier::T2)
+        .await;
+    pm1.connect_to(&pm2.peer_info(), tcp::Tier::T2)
+        .await;
 
     let id0 = pm0.cfg.node_id();
     let id1 = pm1.cfg.node_id();
@@ -138,7 +145,8 @@ async fn three_nodes_star() {
     .await;
 
     tracing::info!(target:"test", "connect {id0} and {id2}");
-    pm0.connect_to(&pm2.peer_info(), tcp::Tier::T2).await;
+    pm0.connect_to(&pm2.peer_info(), tcp::Tier::T2)
+        .await;
 
     tracing::info!(target:"test", "wait for {id0} routing table");
     pm0.wait_for_routing_table(&[
@@ -181,22 +189,30 @@ async fn join_components() {
     let id2 = pm2.cfg.node_id();
     let id3 = pm3.cfg.node_id();
 
-    pm0.connect_to(&pm1.peer_info(), tcp::Tier::T2).await;
-    pm2.connect_to(&pm3.peer_info(), tcp::Tier::T2).await;
+    pm0.connect_to(&pm1.peer_info(), tcp::Tier::T2)
+        .await;
+    pm2.connect_to(&pm3.peer_info(), tcp::Tier::T2)
+        .await;
 
     tracing::info!(target:"test", "wait for {id0} routing table");
-    pm0.wait_for_routing_table(&[(id1.clone(), vec![id1.clone()])]).await;
+    pm0.wait_for_routing_table(&[(id1.clone(), vec![id1.clone()])])
+        .await;
     tracing::info!(target:"test", "wait for {id1} routing table");
-    pm1.wait_for_routing_table(&[(id0.clone(), vec![id0.clone()])]).await;
+    pm1.wait_for_routing_table(&[(id0.clone(), vec![id0.clone()])])
+        .await;
 
     tracing::info!(target:"test", "wait for {id2} routing table");
-    pm2.wait_for_routing_table(&[(id3.clone(), vec![id3.clone()])]).await;
+    pm2.wait_for_routing_table(&[(id3.clone(), vec![id3.clone()])])
+        .await;
     tracing::info!(target:"test", "wait for {id3} routing table");
-    pm3.wait_for_routing_table(&[(id2.clone(), vec![id2.clone()])]).await;
+    pm3.wait_for_routing_table(&[(id2.clone(), vec![id2.clone()])])
+        .await;
 
     tracing::info!(target:"test", "join the two components into a square");
-    pm0.connect_to(&pm2.peer_info(), tcp::Tier::T2).await;
-    pm3.connect_to(&pm1.peer_info(), tcp::Tier::T2).await;
+    pm0.connect_to(&pm2.peer_info(), tcp::Tier::T2)
+        .await;
+    pm3.connect_to(&pm1.peer_info(), tcp::Tier::T2)
+        .await;
 
     tracing::info!(target:"test", "wait for {id0} routing table");
     pm0.wait_for_routing_table(&[
@@ -246,8 +262,10 @@ async fn simple_remove() {
     let pm1 = start_pm(clock.clock(), TestDB::new(), chain.make_config(rng), chain.clone()).await;
     let pm2 = start_pm(clock.clock(), TestDB::new(), chain.make_config(rng), chain.clone()).await;
 
-    pm0.connect_to(&pm1.peer_info(), tcp::Tier::T2).await;
-    pm1.connect_to(&pm2.peer_info(), tcp::Tier::T2).await;
+    pm0.connect_to(&pm1.peer_info(), tcp::Tier::T2)
+        .await;
+    pm1.connect_to(&pm2.peer_info(), tcp::Tier::T2)
+        .await;
 
     let id0 = pm0.cfg.node_id();
     let id1 = pm1.cfg.node_id();
@@ -282,33 +300,39 @@ async fn simple_remove() {
 }
 
 // Awaits until the expected ping is seen in the event stream.
-pub async fn wait_for_ping(events: &mut broadcast::Receiver<Event>, want_ping: Ping) {
+pub async fn wait_for_ping(
+    events: &mut broadcast::Receiver<Event>,
+    want_ping: Ping,
+) {
     events
         .recv_until(|ev| match ev {
-            Event::PeerManager(PME::Ping(ping)) => {
+            | Event::PeerManager(PME::Ping(ping)) => {
                 if ping == want_ping {
                     Some(())
                 } else {
                     None
                 }
             }
-            _ => None,
+            | _ => None,
         })
         .await;
 }
 
 // Awaits until the expected pong is seen in the event stream.
-pub async fn wait_for_pong(events: &mut broadcast::Receiver<Event>, want_pong: Pong) {
+pub async fn wait_for_pong(
+    events: &mut broadcast::Receiver<Event>,
+    want_pong: Pong,
+) {
     events
         .recv_until(|ev| match ev {
-            Event::PeerManager(PME::Pong(pong)) => {
+            | Event::PeerManager(PME::Pong(pong)) => {
                 if pong == want_pong {
                     Some(())
                 } else {
                     None
                 }
             }
-            _ => None,
+            | _ => None,
         })
         .await;
 }
@@ -317,8 +341,8 @@ pub async fn wait_for_pong(events: &mut broadcast::Receiver<Event>, want_pong: P
 pub async fn wait_for_message_dropped(events: &mut broadcast::Receiver<Event>) {
     events
         .recv_until(|ev| match ev {
-            Event::PeerManager(PME::RoutedMessageDropped) => Some(()),
-            _ => None,
+            | Event::PeerManager(PME::RoutedMessageDropped) => Some(()),
+            | _ => None,
         })
         .await;
 }
@@ -339,17 +363,20 @@ async fn ping_simple() {
     let id0 = pm0.cfg.node_id();
     let id1 = pm1.cfg.node_id();
 
-    pm0.connect_to(&pm1.peer_info(), tcp::Tier::T2).await;
+    pm0.connect_to(&pm1.peer_info(), tcp::Tier::T2)
+        .await;
 
     tracing::info!(target:"test", "wait for {id0} routing table");
-    pm0.wait_for_routing_table(&[(id1.clone(), vec![id1.clone()])]).await;
+    pm0.wait_for_routing_table(&[(id1.clone(), vec![id1.clone()])])
+        .await;
 
     // capture event streams before pinging
     let mut pm0_ev = pm0.events.from_now();
     let mut pm1_ev = pm1.events.from_now();
 
     tracing::info!(target:"test", "send ping from {id0} to {id1}");
-    pm0.send_ping(&clock.clock(), 0, id1.clone()).await;
+    pm0.send_ping(&clock.clock(), 0, id1.clone())
+        .await;
 
     tracing::info!(target:"test", "await ping at {id1}");
     wait_for_ping(&mut pm1_ev, Ping { nonce: 0, source: id0.clone() }).await;
@@ -380,8 +407,10 @@ async fn ping_jump() {
     let id2 = pm2.cfg.node_id();
 
     tracing::info!(target:"test", "connect nodes in a line");
-    pm0.connect_to(&pm1.peer_info(), tcp::Tier::T2).await;
-    pm1.connect_to(&pm2.peer_info(), tcp::Tier::T2).await;
+    pm0.connect_to(&pm1.peer_info(), tcp::Tier::T2)
+        .await;
+    pm1.connect_to(&pm2.peer_info(), tcp::Tier::T2)
+        .await;
 
     tracing::info!(target:"test", "wait for {id0} routing table");
     pm0.wait_for_routing_table(&[
@@ -407,7 +436,8 @@ async fn ping_jump() {
     let mut pm2_ev = pm2.events.from_now();
 
     tracing::info!(target:"test", "send ping from {id0} to {id2}");
-    pm0.send_ping(&clock.clock(), 0, id2.clone()).await;
+    pm0.send_ping(&clock.clock(), 0, id2.clone())
+        .await;
 
     tracing::info!(target:"test", "await ping at {id2}");
     wait_for_ping(&mut pm2_ev, Ping { nonce: 0, source: id0.clone() }).await;
@@ -437,8 +467,10 @@ async fn test_dont_drop_after_ttl() {
     let id2 = pm2.cfg.node_id();
 
     tracing::info!(target:"test", "connect nodes in a line");
-    pm0.connect_to(&pm1.peer_info(), tcp::Tier::T2).await;
-    pm1.connect_to(&pm2.peer_info(), tcp::Tier::T2).await;
+    pm0.connect_to(&pm1.peer_info(), tcp::Tier::T2)
+        .await;
+    pm1.connect_to(&pm2.peer_info(), tcp::Tier::T2)
+        .await;
 
     tracing::info!(target:"test", "wait for {id0} routing table");
     pm0.wait_for_routing_table(&[
@@ -464,7 +496,8 @@ async fn test_dont_drop_after_ttl() {
     let mut pm2_ev = pm2.events.from_now();
 
     tracing::info!(target:"test", "send ping from {id0} to {id2}");
-    pm0.send_ping(&clock.clock(), 0, id2.clone()).await;
+    pm0.send_ping(&clock.clock(), 0, id2.clone())
+        .await;
 
     tracing::info!(target:"test", "await ping at {id2}");
     wait_for_ping(&mut pm2_ev, Ping { nonce: 0, source: id0.clone() }).await;
@@ -494,8 +527,10 @@ async fn test_drop_after_ttl() {
     let id2 = pm2.cfg.node_id();
 
     tracing::info!(target:"test", "connect nodes in a line");
-    pm0.connect_to(&pm1.peer_info(), tcp::Tier::T2).await;
-    pm1.connect_to(&pm2.peer_info(), tcp::Tier::T2).await;
+    pm0.connect_to(&pm1.peer_info(), tcp::Tier::T2)
+        .await;
+    pm1.connect_to(&pm2.peer_info(), tcp::Tier::T2)
+        .await;
 
     tracing::info!(target:"test", "wait for {id0} routing table");
     pm0.wait_for_routing_table(&[
@@ -520,7 +555,8 @@ async fn test_drop_after_ttl() {
     let mut pm1_ev = pm1.events.from_now();
 
     tracing::info!(target:"test", "send ping from {id0} to {id2}");
-    pm0.send_ping(&clock.clock(), 0, id2.clone()).await;
+    pm0.send_ping(&clock.clock(), 0, id2.clone())
+        .await;
 
     tracing::info!(target:"test", "await message dropped at {id1}");
     wait_for_message_dropped(&mut pm1_ev).await;
@@ -545,8 +581,10 @@ async fn test_dropping_duplicate_messages() {
     let id2 = pm2.cfg.node_id();
 
     tracing::info!(target:"test", "connect nodes in a line");
-    pm0.connect_to(&pm1.peer_info(), tcp::Tier::T2).await;
-    pm1.connect_to(&pm2.peer_info(), tcp::Tier::T2).await;
+    pm0.connect_to(&pm1.peer_info(), tcp::Tier::T2)
+        .await;
+    pm1.connect_to(&pm2.peer_info(), tcp::Tier::T2)
+        .await;
 
     tracing::info!(target:"test", "wait for {id0} routing table");
     pm0.wait_for_routing_table(&[
@@ -574,20 +612,23 @@ async fn test_dropping_duplicate_messages() {
 
     // Send two identical messages. One will be dropped, because the delay between them was less than 50ms.
     tracing::info!(target:"test", "send ping from {id0} to {id2}");
-    pm0.send_ping(&clock.clock(), 0, id2.clone()).await;
+    pm0.send_ping(&clock.clock(), 0, id2.clone())
+        .await;
     tracing::info!(target:"test", "await ping at {id2}");
     wait_for_ping(&mut pm2_ev, Ping { nonce: 0, source: id0.clone() }).await;
     tracing::info!(target:"test", "await pong at {id0}");
     wait_for_pong(&mut pm0_ev, Pong { nonce: 0, source: id2.clone() }).await;
 
     tracing::info!(target:"test", "send ping from {id0} to {id2}");
-    pm0.send_ping(&clock.clock(), 0, id2.clone()).await;
+    pm0.send_ping(&clock.clock(), 0, id2.clone())
+        .await;
     tracing::info!(target:"test", "await message dropped at {id1}");
     wait_for_message_dropped(&mut pm1_ev).await;
 
     // Send two identical messages but with 300ms delay so they don't get dropped.
     tracing::info!(target:"test", "send ping from {id0} to {id2}");
-    pm0.send_ping(&clock.clock(), 1, id2.clone()).await;
+    pm0.send_ping(&clock.clock(), 1, id2.clone())
+        .await;
     tracing::info!(target:"test", "await ping at {id2}");
     wait_for_ping(&mut pm2_ev, Ping { nonce: 1, source: id0.clone() }).await;
     tracing::info!(target:"test", "await pong at {id0}");
@@ -596,7 +637,8 @@ async fn test_dropping_duplicate_messages() {
     clock.advance(DROP_DUPLICATED_MESSAGES_PERIOD + time::Duration::milliseconds(1));
 
     tracing::info!(target:"test", "send ping from {id0} to {id2}");
-    pm0.send_ping(&clock.clock(), 1, id2.clone()).await;
+    pm0.send_ping(&clock.clock(), 1, id2.clone())
+        .await;
     tracing::info!(target:"test", "await ping at {id2}");
     wait_for_ping(&mut pm2_ev, Ping { nonce: 1, source: id0.clone() }).await;
     tracing::info!(target:"test", "await pong at {id0}");
@@ -613,7 +655,7 @@ pub(crate) async fn wait_for_connection_closed(
 ) {
     events
         .recv_until(|ev| match ev {
-            Event::PeerManager(PME::ConnectionClosed(ConnectionClosedEvent {
+            | Event::PeerManager(PME::ConnectionClosed(ConnectionClosedEvent {
                 stream_id: _,
                 reason,
             })) => {
@@ -623,7 +665,7 @@ pub(crate) async fn wait_for_connection_closed(
                     None
                 }
             }
-            _ => None,
+            | _ => None,
         })
         .await;
 }
@@ -637,7 +679,9 @@ fn make_configs(
     num_boot_nodes: usize,
     enable_outbound: bool,
 ) -> Vec<NetworkConfig> {
-    let mut configs: Vec<_> = (0..num_nodes).map(|_i| chain.make_config(rng)).collect();
+    let mut configs: Vec<_> = (0..num_nodes)
+        .map(|_i| chain.make_config(rng))
+        .collect();
     let boot_nodes: Vec<_> = configs[0..num_boot_nodes]
         .iter()
         .map(|c| PeerInfo {
@@ -648,7 +692,10 @@ fn make_configs(
         .collect();
     for config in configs.iter_mut() {
         config.outbound_disabled = !enable_outbound;
-        config.peer_store.boot_nodes.clone_from(&boot_nodes);
+        config
+            .peer_store
+            .boot_nodes
+            .clone_from(&boot_nodes);
     }
     configs
 }
@@ -671,9 +718,11 @@ async fn from_boot_nodes() {
     let id1 = pm1.cfg.node_id();
 
     tracing::info!(target:"test", "wait for {id0} routing table");
-    pm0.wait_for_routing_table(&[(id1.clone(), vec![id1.clone()])]).await;
+    pm0.wait_for_routing_table(&[(id1.clone(), vec![id1.clone()])])
+        .await;
     tracing::info!(target:"test", "wait for {id1} routing table");
-    pm1.wait_for_routing_table(&[(id0.clone(), vec![id0.clone()])]).await;
+    pm1.wait_for_routing_table(&[(id0.clone(), vec![id0.clone()])])
+        .await;
 }
 
 // test node 0 blacklisting node 1
@@ -687,10 +736,11 @@ async fn blacklist_01() {
 
     tracing::info!(target:"test", "start two nodes with 0 blacklisting 1");
     let mut configs = make_configs(&chain, rng, 2, 2, true);
-    configs[0].peer_store.blacklist =
-        [blacklist::Entry::from_addr(**configs[1].node_addr.as_ref().unwrap())]
-            .into_iter()
-            .collect();
+    configs[0].peer_store.blacklist = [blacklist::Entry::from_addr(
+        **configs[1].node_addr.as_ref().unwrap(),
+    )]
+    .into_iter()
+    .collect();
 
     let pm0 = start_pm(clock.clock(), TestDB::new(), configs[0].clone(), chain.clone()).await;
     let pm1 = start_pm(clock.clock(), TestDB::new(), configs[1].clone(), chain.clone()).await;
@@ -722,10 +772,11 @@ async fn blacklist_10() {
 
     tracing::info!(target:"test", "start two nodes with 1 blacklisting 0");
     let mut configs = make_configs(&chain, rng, 2, 2, true);
-    configs[1].peer_store.blacklist =
-        [blacklist::Entry::from_addr(**configs[0].node_addr.as_ref().unwrap())]
-            .into_iter()
-            .collect();
+    configs[1].peer_store.blacklist = [blacklist::Entry::from_addr(
+        **configs[0].node_addr.as_ref().unwrap(),
+    )]
+    .into_iter()
+    .collect();
 
     let pm0 = start_pm(clock.clock(), TestDB::new(), configs[0].clone(), chain.clone()).await;
     let pm1 = start_pm(clock.clock(), TestDB::new(), configs[1].clone(), chain.clone()).await;
@@ -757,8 +808,11 @@ async fn blacklist_all() {
 
     tracing::info!(target:"test", "start two nodes with 0 blacklisting everything");
     let mut configs = make_configs(&chain, rng, 2, 2, true);
-    configs[0].peer_store.blacklist =
-        [blacklist::Entry::from_ip(Ipv6Addr::LOCALHOST.into())].into_iter().collect();
+    configs[0].peer_store.blacklist = [blacklist::Entry::from_ip(
+        Ipv6Addr::LOCALHOST.into(),
+    )]
+    .into_iter()
+    .collect();
 
     let pm0 = start_pm(clock.clock(), TestDB::new(), configs[0].clone(), chain.clone()).await;
     let pm1 = start_pm(clock.clock(), TestDB::new(), configs[1].clone(), chain.clone()).await;
@@ -805,9 +859,12 @@ async fn max_num_peers_limit() {
     let id1 = pm1.cfg.node_id();
     let id2 = pm2.cfg.node_id();
 
-    pm0.connect_to(&pm1.peer_info(), tcp::Tier::T2).await;
-    pm0.connect_to(&pm2.peer_info(), tcp::Tier::T2).await;
-    pm1.connect_to(&pm2.peer_info(), tcp::Tier::T2).await;
+    pm0.connect_to(&pm1.peer_info(), tcp::Tier::T2)
+        .await;
+    pm0.connect_to(&pm2.peer_info(), tcp::Tier::T2)
+        .await;
+    pm1.connect_to(&pm2.peer_info(), tcp::Tier::T2)
+        .await;
 
     tracing::info!(target:"test", "wait for {id0} routing table");
     pm0.wait_for_routing_table(&[
@@ -838,21 +895,24 @@ async fn max_num_peers_limit() {
     let id3 = pm3.cfg.node_id();
 
     tracing::info!(target:"test", "wait for {id0} to reject attempted connection");
-    pm3.send_outbound_connect(&pm0.peer_info(), tcp::Tier::T2).await;
+    pm3.send_outbound_connect(&pm0.peer_info(), tcp::Tier::T2)
+        .await;
     wait_for_connection_closed(
         &mut pm0_ev,
         ClosingReason::RejectedByPeerManager(RegisterPeerError::ConnectionLimitExceeded),
     )
     .await;
     tracing::info!(target:"test", "wait for {id1} to reject attempted connection");
-    pm3.send_outbound_connect(&pm1.peer_info(), tcp::Tier::T2).await;
+    pm3.send_outbound_connect(&pm1.peer_info(), tcp::Tier::T2)
+        .await;
     wait_for_connection_closed(
         &mut pm1_ev,
         ClosingReason::RejectedByPeerManager(RegisterPeerError::ConnectionLimitExceeded),
     )
     .await;
     tracing::info!(target:"test", "wait for {id2} to reject attempted connection");
-    pm3.send_outbound_connect(&pm2.peer_info(), tcp::Tier::T2).await;
+    pm3.send_outbound_connect(&pm2.peer_info(), tcp::Tier::T2)
+        .await;
     wait_for_connection_closed(
         &mut pm2_ev,
         ClosingReason::RejectedByPeerManager(RegisterPeerError::ConnectionLimitExceeded),
@@ -908,29 +968,31 @@ async fn ttl_and_num_hops() {
         .unwrap();
     let mut peer = peer::testonly::PeerHandle::start_endpoint(clock.clock(), cfg, stream).await;
     peer.complete_handshake().await;
-    pm.wait_for_routing_table(&[(peer.cfg.id(), vec![peer.cfg.id()])]).await;
+    pm.wait_for_routing_table(&[(peer.cfg.id(), vec![peer.cfg.id()])])
+        .await;
 
     for ttl in 0..5 {
         let msg = RoutedMessageBody::Ping(Ping { nonce: rng.gen(), source: peer.cfg.id() });
         let msg = Box::new(peer.routed_message(msg, peer.cfg.id(), ttl, Some(clock.now_utc())));
-        peer.send(PeerMessage::Routed(msg.clone())).await;
+        peer.send(PeerMessage::Routed(msg.clone()))
+            .await;
         // If TTL is <2, then the message will be dropped (at least 2 hops are required).
         if ttl < 2 {
             pm.events
                 .recv_until(|ev| match ev {
-                    Event::PeerManager(PME::RoutedMessageDropped) => Some(()),
-                    _ => None,
+                    | Event::PeerManager(PME::RoutedMessageDropped) => Some(()),
+                    | _ => None,
                 })
                 .await;
         } else {
             let got = peer
                 .events
                 .recv_until(|ev| match ev {
-                    peer::testonly::Event::Network(PME::MessageProcessed(
+                    | peer::testonly::Event::Network(PME::MessageProcessed(
                         tcp::Tier::T2,
                         PeerMessage::Routed(msg),
                     )) => Some(msg),
-                    _ => None,
+                    | _ => None,
                 })
                 .await;
             assert_eq!(msg.body, got.body);
@@ -983,7 +1045,7 @@ async fn repeated_data_in_sync_routing_table() {
         // SyncRoutingTable.
         while edges_got != edges_want || accounts_got != accounts_want {
             match peer.events.recv().await {
-                peer::testonly::Event::Network(PME::MessageProcessed(
+                | peer::testonly::Event::Network(PME::MessageProcessed(
                     tcp::Tier::T2,
                     PeerMessage::SyncRoutingTable(got),
                 )) => {
@@ -1005,7 +1067,7 @@ async fn repeated_data_in_sync_routing_table() {
                     }
                 }
                 // Ignore other messages.
-                _ => {}
+                | _ => {}
             }
         }
         // Add more data.
@@ -1038,10 +1100,14 @@ async fn square() {
     let pm1 = start_pm(clock.clock(), TestDB::new(), chain.make_config(rng), chain.clone()).await;
     let pm2 = start_pm(clock.clock(), TestDB::new(), chain.make_config(rng), chain.clone()).await;
     let pm3 = start_pm(clock.clock(), TestDB::new(), chain.make_config(rng), chain.clone()).await;
-    pm0.connect_to(&pm1.peer_info(), tcp::Tier::T2).await;
-    pm1.connect_to(&pm2.peer_info(), tcp::Tier::T2).await;
-    pm2.connect_to(&pm3.peer_info(), tcp::Tier::T2).await;
-    pm3.connect_to(&pm0.peer_info(), tcp::Tier::T2).await;
+    pm0.connect_to(&pm1.peer_info(), tcp::Tier::T2)
+        .await;
+    pm1.connect_to(&pm2.peer_info(), tcp::Tier::T2)
+        .await;
+    pm2.connect_to(&pm3.peer_info(), tcp::Tier::T2)
+        .await;
+    pm3.connect_to(&pm0.peer_info(), tcp::Tier::T2)
+        .await;
     let id0 = pm0.cfg.node_id();
     let id1 = pm1.cfg.node_id();
     let id2 = pm2.cfg.node_id();
@@ -1114,20 +1180,23 @@ async fn fix_local_edges() {
     conn.send(msg.clone()).await;
     events
         .recv_until(|ev| match ev {
-            Event::PeerManager(PME::MessageProcessed(tcp::Tier::T2, got)) if got == msg => Some(()),
-            _ => None,
+            | Event::PeerManager(PME::MessageProcessed(tcp::Tier::T2, got)) if got == msg => {
+                Some(())
+            }
+            | _ => None,
         })
         .await;
 
     tracing::info!(target:"test","waiting for fake edges to be fixed");
     let mut events = pm.events.from_now();
-    pm.fix_local_edges(&clock.clock(), time::Duration::ZERO).await;
+    pm.fix_local_edges(&clock.clock(), time::Duration::ZERO)
+        .await;
     // TODO(gprusak): make fix_local_edges await closing of the connections, so
     // that we don't have to wait for it explicitly here.
     events
         .recv_until(|ev| match ev {
-            Event::PeerManager(PME::ConnectionClosed { .. }) => Some(()),
-            _ => None,
+            | Event::PeerManager(PME::ConnectionClosed { .. }) => Some(()),
+            | _ => None,
         })
         .await;
 
@@ -1151,9 +1220,14 @@ async fn do_not_block_announce_account_broadcast() {
     tracing::info!(target:"test", "spawn 2 nodes and announce the account.");
     let pm0 = start_pm(clock.clock(), db0.clone(), chain.make_config(rng), chain.clone()).await;
     let pm1 = start_pm(clock.clock(), db1.clone(), chain.make_config(rng), chain.clone()).await;
-    pm1.connect_to(&pm0.peer_info(), tcp::Tier::T2).await;
+    pm1.connect_to(&pm0.peer_info(), tcp::Tier::T2)
+        .await;
     pm1.announce_account(aa.clone()).await;
-    assert_eq!(&aa.peer_id, &pm0.wait_for_account_owner(&aa.account_id).await);
+    assert_eq!(
+        &aa.peer_id,
+        &pm0.wait_for_account_owner(&aa.account_id)
+            .await
+    );
     drop(pm0);
     drop(pm1);
 
@@ -1163,10 +1237,16 @@ async fn do_not_block_announce_account_broadcast() {
     let pm0 = start_pm(clock.clock(), db0, chain.make_config(rng), chain.clone()).await;
     let pm1 = start_pm(clock.clock(), db1, chain.make_config(rng), chain.clone()).await;
     let pm2 = start_pm(clock.clock(), TestDB::new(), chain.make_config(rng), chain.clone()).await;
-    pm1.connect_to(&pm0.peer_info(), tcp::Tier::T2).await;
-    pm2.connect_to(&pm0.peer_info(), tcp::Tier::T2).await;
+    pm1.connect_to(&pm0.peer_info(), tcp::Tier::T2)
+        .await;
+    pm2.connect_to(&pm0.peer_info(), tcp::Tier::T2)
+        .await;
     pm1.announce_account(aa.clone()).await;
-    assert_eq!(&aa.peer_id, &pm2.wait_for_account_owner(&aa.account_id).await);
+    assert_eq!(
+        &aa.peer_id,
+        &pm2.wait_for_account_owner(&aa.account_id)
+            .await
+    );
 }
 
 /// Check that two archival nodes keep connected after network rebalance. Nodes 0 and 1 are archival nodes, others aren't.
@@ -1206,25 +1286,38 @@ async fn archival_node() {
     let mut pm0_ev = pm0.events.from_now();
 
     tracing::info!(target:"test", "connect node 2 to node 0");
-    pm2.send_outbound_connect(&pm0.peer_info(), tcp::Tier::T2).await;
+    pm2.send_outbound_connect(&pm0.peer_info(), tcp::Tier::T2)
+        .await;
     tracing::info!(target:"test", "connect node 3 to node 0");
-    pm3.send_outbound_connect(&pm0.peer_info(), tcp::Tier::T2).await;
+    pm3.send_outbound_connect(&pm0.peer_info(), tcp::Tier::T2)
+        .await;
 
     tracing::info!(target:"test", "connect node 4 to node 0 and wait for pm0 to close a connection");
-    pm4.send_outbound_connect(&pm0.peer_info(), tcp::Tier::T2).await;
+    pm4.send_outbound_connect(&pm0.peer_info(), tcp::Tier::T2)
+        .await;
     wait_for_connection_closed(&mut pm0_ev, ClosingReason::PeerManagerRequest).await;
 
     tracing::info!(target:"test", "connect node 1 to node 0 and wait for pm0 to close a connection");
-    pm1.send_outbound_connect(&pm0.peer_info(), tcp::Tier::T2).await;
+    pm1.send_outbound_connect(&pm0.peer_info(), tcp::Tier::T2)
+        .await;
     wait_for_connection_closed(&mut pm0_ev, ClosingReason::PeerManagerRequest).await;
 
     tracing::info!(target:"test", "check that node 0 and node 1 are still connected");
-    pm0.wait_for_direct_connection(id1.clone()).await;
+    pm0.wait_for_direct_connection(id1.clone())
+        .await;
 
     for _step in 0..10 {
         tracing::info!(target:"test", "[{_step}] select a node which node 0 is not connected to");
-        let pm0_connections: HashSet<PeerId> =
-            pm0.with_state(|s| async move { s.tier2.load().ready.keys().cloned().collect() }).await;
+        let pm0_connections: HashSet<PeerId> = pm0
+            .with_state(|s| async move {
+                s.tier2
+                    .load()
+                    .ready
+                    .keys()
+                    .cloned()
+                    .collect()
+            })
+            .await;
 
         let pms = [&pm2, &pm3, &pm4];
         let chosen = pms
@@ -1234,14 +1327,19 @@ async fn archival_node() {
             .unwrap();
 
         tracing::info!(target:"test", "[{_step}] wait for the chosen node to finish disconnecting from node 0");
-        chosen.wait_for_num_connected_peers(0).await;
+        chosen
+            .wait_for_num_connected_peers(0)
+            .await;
 
         tracing::info!(target:"test", "[{_step}] connect the chosen node to node 0 and wait for pm0 to close a connection");
-        chosen.send_outbound_connect(&pm0.peer_info(), tcp::Tier::T2).await;
+        chosen
+            .send_outbound_connect(&pm0.peer_info(), tcp::Tier::T2)
+            .await;
         wait_for_connection_closed(&mut pm0_ev, ClosingReason::PeerManagerRequest).await;
 
         tracing::info!(target:"test", "[{_step}] check that node 0 and node 1 are still connected");
-        pm0.wait_for_direct_connection(id1.clone()).await;
+        pm0.wait_for_direct_connection(id1.clone())
+            .await;
     }
 
     drop(pm0);
@@ -1258,10 +1356,10 @@ async fn wait_for_stream_closed(
 ) -> ClosingReason {
     events
         .recv_until(|ev| match ev {
-            Event::PeerManager(PME::ConnectionClosed(ev)) if ev.stream_id == stream_id => {
+            | Event::PeerManager(PME::ConnectionClosed(ev)) if ev.stream_id == stream_id => {
                 Some(ev.reason)
             }
-            _ => None,
+            | _ => None,
         })
         .await
 }
@@ -1281,11 +1379,14 @@ async fn connect_to_unbanned_peer() {
         start_pm(clock.clock(), TestDB::new(), chain.make_config(rng), chain.clone()).await;
 
     tracing::info!(target:"test", "pm0 connects to pm1");
-    let stream_id = pm0.connect_to(&pm1.peer_info(), tcp::Tier::T2).await;
+    let stream_id = pm0
+        .connect_to(&pm1.peer_info(), tcp::Tier::T2)
+        .await;
 
     tracing::info!(target:"test", "pm1 bans pm0");
     let ban_reason = ReasonForBan::BadBlock;
-    pm1.disconnect_and_ban(&clock.clock(), &pm0.cfg.node_id(), ban_reason).await;
+    pm1.disconnect_and_ban(&clock.clock(), &pm0.cfg.node_id(), ban_reason)
+        .await;
     wait_for_stream_closed(&mut pm0.events, stream_id).await;
     assert_eq!(
         ClosingReason::Ban(ban_reason),
@@ -1303,10 +1404,12 @@ async fn connect_to_unbanned_peer() {
     // cspell:words unbans
     tracing::info!(target:"test", "pm1 unbans pm0");
     clock.advance(pm1.cfg.peer_store.ban_window);
-    pm1.peer_store_update(&clock.clock()).await;
+    pm1.peer_store_update(&clock.clock())
+        .await;
 
     tracing::info!(target:"test", "pm0 reconnects to pm1");
-    pm0.connect_to(&pm1.peer_info(), tcp::Tier::T2).await;
+    pm0.connect_to(&pm1.peer_info(), tcp::Tier::T2)
+        .await;
 
     drop(pm0);
     drop(pm1);
@@ -1314,14 +1417,17 @@ async fn connect_to_unbanned_peer() {
 
 /// Awaits a DistanceVector message from a given `peer_id`
 #[cfg(feature = "distance_vector_routing")]
-async fn wait_for_distance_vector(events: &mut broadcast::Receiver<Event>, peer_id: PeerId) {
+async fn wait_for_distance_vector(
+    events: &mut broadcast::Receiver<Event>,
+    peer_id: PeerId,
+) {
     events
         .recv_until(|ev| match ev {
-            Event::PeerManager(PME::MessageProcessed(_, msg)) => match msg {
-                PeerMessage::DistanceVector(dv) if dv.root == peer_id => Some(()),
-                _ => None,
+            | Event::PeerManager(PME::MessageProcessed(_, msg)) => match msg {
+                | PeerMessage::DistanceVector(dv) if dv.root == peer_id => Some(()),
+                | _ => None,
             },
-            _ => None,
+            | _ => None,
         })
         .await
 }
@@ -1348,7 +1454,8 @@ async fn peer_connect_send_distance_vector() {
     let mut pm1_ev = pm1.events.from_now();
 
     tracing::info!(target:"test", "connect the nodes");
-    pm0.connect_to(&pm1.peer_info(), tcp::Tier::T2).await;
+    pm0.connect_to(&pm1.peer_info(), tcp::Tier::T2)
+        .await;
 
     wait_for_distance_vector(&mut pm0_ev, id1).await;
     wait_for_distance_vector(&mut pm1_ev, id0).await;

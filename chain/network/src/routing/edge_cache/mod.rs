@@ -102,13 +102,20 @@ impl EdgeCache {
     }
 
     /// Accepts a verified edge and updates the state of `verified_nonces`.
-    pub fn write_verified_nonce(&mut self, edge: &Edge) {
-        self.verified_nonces.insert(edge.key().into(), edge.nonce());
+    pub fn write_verified_nonce(
+        &mut self,
+        edge: &Edge,
+    ) {
+        self.verified_nonces
+            .insert(edge.key().into(), edge.nonce());
     }
 
     /// Accepts an edge. Returns true iff we already have a verified nonce
     /// for the edge's key which is at least as new as the edge's nonce.
-    pub fn has_edge_nonce_or_newer(&self, edge: &Edge) -> bool {
+    pub fn has_edge_nonce_or_newer(
+        &self,
+        edge: &Edge,
+    ) -> bool {
         self.verified_nonces
             .get(&edge.key().into())
             .is_some_and(|cached_nonce| cached_nonce >= &edge.nonce())
@@ -116,7 +123,10 @@ impl EdgeCache {
 
     /// Returns the u32 id associated with the given PeerId.
     /// Expects that an id was already assigned; will error otherwise.
-    pub(crate) fn get_id(&self, peer: &PeerId) -> u32 {
+    pub(crate) fn get_id(
+        &self,
+        peer: &PeerId,
+    ) -> u32 {
         *self.p2id.get(peer).unwrap()
     }
 
@@ -126,10 +136,13 @@ impl EdgeCache {
     }
 
     /// Returns the u32 id associated with the given PeerId, assigning one if necessary.
-    pub(crate) fn get_or_create_id(&mut self, peer: &PeerId) -> u32 {
+    pub(crate) fn get_or_create_id(
+        &mut self,
+        peer: &PeerId,
+    ) -> u32 {
         match self.p2id.entry(peer.clone()) {
-            Entry::Occupied(occupied) => *occupied.get(),
-            Entry::Vacant(vacant) => {
+            | Entry::Occupied(occupied) => *occupied.get(),
+            | Entry::Vacant(vacant) => {
                 let id = if let Some(id) = self.unused.pop() {
                     // If some unused id is available, take it
                     assert!(self.degree[id as usize] == 0);
@@ -149,7 +162,11 @@ impl EdgeCache {
 
     /// Iterates over all peers appearing in the given spanning tree,
     /// assigning ids to those which don't have one already.
-    pub(crate) fn create_ids_for_tree(&mut self, root: &PeerId, edges: &Vec<Edge>) {
+    pub(crate) fn create_ids_for_tree(
+        &mut self,
+        root: &PeerId,
+        edges: &Vec<Edge>,
+    ) {
         self.get_or_create_id(root);
 
         edges.iter().for_each(|edge| {
@@ -165,7 +182,8 @@ impl EdgeCache {
         assert!(self.get_local_node_id() == 0);
 
         // Erase entries from the `p2id` map
-        self.p2id.retain(|_, id| *id == 0 || self.degree[*id as usize] != 0);
+        self.p2id
+            .retain(|_, id| *id == 0 || self.degree[*id as usize] != 0);
 
         // Shrink max_id if possible
         let mut max_id = self.max_id();
@@ -185,7 +203,10 @@ impl EdgeCache {
 
     /// Called when storing an active edge.
     /// Increments the degrees for the connected peers, assigning ids if necessary.
-    fn increment_degrees_for_key(&mut self, key: &EdgeKey) {
+    fn increment_degrees_for_key(
+        &mut self,
+        key: &EdgeKey,
+    ) {
         let id0 = self.get_or_create_id(&key.peer0) as usize;
         let id1 = self.get_or_create_id(&key.peer1) as usize;
         self.degree[id0] += 1;
@@ -194,14 +215,20 @@ impl EdgeCache {
 
     /// Called when erasing an active edge.
     /// Decrements the degrees for the connected peers.
-    fn decrement_degrees_for_key(&mut self, key: &EdgeKey) {
+    fn decrement_degrees_for_key(
+        &mut self,
+        key: &EdgeKey,
+    ) {
         self.decrement_degree(&key.peer0);
         self.decrement_degree(&key.peer1);
     }
 
     /// Decrements the degree for the given peer.
     /// If the degree reaches 0, frees the peer's id for reuse.
-    fn decrement_degree(&mut self, peer_id: &PeerId) {
+    fn decrement_degree(
+        &mut self,
+        peer_id: &PeerId,
+    ) {
         let id = self.get_id(peer_id) as usize;
         assert!(self.degree[id] > 0);
         self.degree[id] -= 1;
@@ -216,9 +243,15 @@ impl EdgeCache {
 
     /// Inserts a copy of the given edge to `active_edges`.
     /// If it's the first copy, increments degrees for the incident nodes.
-    fn insert_active_edge(&mut self, edge: &Edge) {
-        let is_newly_active = match self.active_edges.entry(edge.key().into()) {
-            im::hashmap::Entry::Occupied(mut occupied) => {
+    fn insert_active_edge(
+        &mut self,
+        edge: &Edge,
+    ) {
+        let is_newly_active = match self
+            .active_edges
+            .entry(edge.key().into())
+        {
+            | im::hashmap::Entry::Occupied(mut occupied) => {
                 let val: &mut ActiveEdge = occupied.get_mut();
                 if edge.nonce() > val.edge.nonce() {
                     val.edge = edge.clone();
@@ -226,7 +259,7 @@ impl EdgeCache {
                 val.refcount += 1;
                 false
             }
-            im::hashmap::Entry::Vacant(vacant) => {
+            | im::hashmap::Entry::Vacant(vacant) => {
                 vacant.insert(ActiveEdge { edge: edge.clone(), refcount: 1 });
                 true
             }
@@ -238,9 +271,12 @@ impl EdgeCache {
 
     /// Removes an edge with the given EdgeKey from the active edge cache.
     /// If the last such edge is removed, decrements degrees for the incident nodes.
-    fn remove_active_edge(&mut self, key: &EdgeKey) {
+    fn remove_active_edge(
+        &mut self,
+        key: &EdgeKey,
+    ) {
         let is_newly_inactive = match self.active_edges.entry(key.clone()) {
-            im::hashmap::Entry::Occupied(mut occupied) => {
+            | im::hashmap::Entry::Occupied(mut occupied) => {
                 let val: &mut ActiveEdge = occupied.get_mut();
                 assert!(val.refcount > 0);
                 if val.refcount == 1 {
@@ -251,7 +287,7 @@ impl EdgeCache {
                     false
                 }
             }
-            im::hashmap::Entry::Vacant(_) => {
+            | im::hashmap::Entry::Vacant(_) => {
                 assert!(false);
                 false
             }
@@ -263,7 +299,11 @@ impl EdgeCache {
 
     /// Stores the key-value pair (peer_id, edges) in the EdgeCache's `active_trees` map, overwriting
     /// any previous entry for the same peer. Updates `active_edges` accordingly.
-    pub fn update_tree(&mut self, peer_id: &PeerId, tree: &Vec<Edge>) {
+    pub fn update_tree(
+        &mut self,
+        peer_id: &PeerId,
+        tree: &Vec<Edge>,
+    ) {
         // Insert the new edges before removing any old ones.
         // Nodes are pruned from the `p2id` mapping as soon as all edges incident with them are
         // removed. If we removed the edges in the old tree first, we might unlabel and relabel a
@@ -272,9 +312,15 @@ impl EdgeCache {
             self.insert_active_edge(edge);
         }
 
-        let edge_keys: Vec<EdgeKey> = tree.iter().map(|edge| edge.key().into()).collect();
+        let edge_keys: Vec<EdgeKey> = tree
+            .iter()
+            .map(|edge| edge.key().into())
+            .collect();
 
-        if let Some(old_edge_keys) = self.active_trees.insert(peer_id.clone(), edge_keys) {
+        if let Some(old_edge_keys) = self
+            .active_trees
+            .insert(peer_id.clone(), edge_keys)
+        {
             // If a previous tree was present, process removal of its edges
             for key in &old_edge_keys {
                 self.remove_active_edge(key);
@@ -287,7 +333,10 @@ impl EdgeCache {
     ///
     /// Returns None if no tree is stored.
     /// Returns None if for any edge in the tree, no nonce is available.
-    pub fn get_min_nonce(&mut self, peer_id: &PeerId) -> Option<u64> {
+    pub fn get_min_nonce(
+        &mut self,
+        peer_id: &PeerId,
+    ) -> Option<u64> {
         let edge_keys = self.active_trees.get(peer_id)?;
 
         let mut min_nonce: Option<u64> = None;
@@ -301,7 +350,10 @@ impl EdgeCache {
     }
 
     /// Removes the tree stored for the given peer, if there is one.
-    pub fn remove_tree(&mut self, peer_id: &PeerId) {
+    pub fn remove_tree(
+        &mut self,
+        peer_id: &PeerId,
+    ) {
         if let Some(edges) = self.active_trees.remove(peer_id) {
             for e in &edges {
                 self.remove_active_edge(e);
@@ -326,9 +378,13 @@ impl EdgeCache {
 
     /// Prunes entries with nonces older than `prune_nonces_older_than`
     /// from `verified_nonces`
-    pub fn prune_old_edges(&mut self, prune_nonces_older_than: u64) {
+    pub fn prune_old_edges(
+        &mut self,
+        prune_nonces_older_than: u64,
+    ) {
         // Drop any entries with old nonces from the verified_nonces cache
-        self.verified_nonces.retain(|_, nonce| nonce >= &prune_nonces_older_than);
+        self.verified_nonces
+            .retain(|_, nonce| nonce >= &prune_nonces_older_than);
     }
 
     /// Accepts a mapping over the set of reachable PeerIds in the network
@@ -339,7 +395,10 @@ impl EdgeCache {
     ///
     /// Returns None if the input is inconsistent with the state of the cache
     /// (reachability or distances are not consistent with the `active_edges`).
-    pub fn construct_spanning_tree(&self, distance: &HashMap<PeerId, u32>) -> Option<Vec<Edge>> {
+    pub fn construct_spanning_tree(
+        &self,
+        distance: &HashMap<PeerId, u32>,
+    ) -> Option<Vec<Edge>> {
         let mut edges = Vec::<Edge>::new();
         let mut has_edge = HashSet::<PeerId>::new();
 

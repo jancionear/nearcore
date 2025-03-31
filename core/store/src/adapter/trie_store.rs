@@ -36,7 +36,11 @@ impl TrieStoreAdapter {
     /// For this, it does extra read from `DBCol::StateShardUIdMapping`.
     ///
     /// For more details, see `get_key_from_shard_uid_and_hash()` docs.
-    pub fn get(&self, shard_uid: ShardUId, hash: &CryptoHash) -> Result<Arc<[u8]>, StorageError> {
+    pub fn get(
+        &self,
+        shard_uid: ShardUId,
+        hash: &CryptoHash,
+    ) -> Result<Arc<[u8]>, StorageError> {
         let key = get_key_from_shard_uid_and_hash(&self.store, shard_uid, hash);
         let val = self
             .store
@@ -98,7 +102,11 @@ impl<'a> TrieStoreUpdateAdapter<'a> {
         Self { store_update: StoreUpdateHolder::Reference(store_update) }
     }
 
-    fn get_key_from_shard_uid_and_hash(&self, shard_uid: ShardUId, hash: &CryptoHash) -> [u8; 40] {
+    fn get_key_from_shard_uid_and_hash(
+        &self,
+        shard_uid: ShardUId,
+        hash: &CryptoHash,
+    ) -> [u8; 40] {
         get_key_from_shard_uid_and_hash(&self.store_update.store, shard_uid, hash)
     }
 
@@ -109,12 +117,18 @@ impl<'a> TrieStoreUpdateAdapter<'a> {
         decrement: NonZero<u32>,
     ) {
         let key = self.get_key_from_shard_uid_and_hash(shard_uid, hash);
-        self.store_update.decrement_refcount_by(DBCol::State, key.as_ref(), decrement);
+        self.store_update
+            .decrement_refcount_by(DBCol::State, key.as_ref(), decrement);
     }
 
-    pub fn decrement_refcount(&mut self, shard_uid: ShardUId, hash: &CryptoHash) {
+    pub fn decrement_refcount(
+        &mut self,
+        shard_uid: ShardUId,
+        hash: &CryptoHash,
+    ) {
         let key = self.get_key_from_shard_uid_and_hash(shard_uid, hash);
-        self.store_update.decrement_refcount(DBCol::State, key.as_ref());
+        self.store_update
+            .decrement_refcount(DBCol::State, key.as_ref());
     }
 
     pub fn increment_refcount_by(
@@ -125,14 +139,23 @@ impl<'a> TrieStoreUpdateAdapter<'a> {
         increment: NonZero<u32>,
     ) {
         let key = self.get_key_from_shard_uid_and_hash(shard_uid, hash);
-        self.store_update.increment_refcount_by(DBCol::State, key.as_ref(), data, increment);
+        self.store_update
+            .increment_refcount_by(DBCol::State, key.as_ref(), data, increment);
     }
 
-    pub fn set_state_snapshot_hash(&mut self, hash: Option<CryptoHash>) {
+    pub fn set_state_snapshot_hash(
+        &mut self,
+        hash: Option<CryptoHash>,
+    ) {
         let key = STATE_SNAPSHOT_KEY;
         match hash {
-            Some(hash) => self.store_update.set_ser(DBCol::BlockMisc, key, &hash).unwrap(),
-            None => self.store_update.delete(DBCol::BlockMisc, key),
+            | Some(hash) => self
+                .store_update
+                .set_ser(DBCol::BlockMisc, key, &hash)
+                .unwrap(),
+            | None => self
+                .store_update
+                .delete(DBCol::BlockMisc, key),
         }
     }
 
@@ -143,7 +166,9 @@ impl<'a> TrieStoreUpdateAdapter<'a> {
         trie_changes: &TrieChanges,
     ) {
         let key = get_block_shard_uid(block_hash, &shard_uid);
-        self.store_update.set_ser(DBCol::TrieChanges, &key, trie_changes).unwrap();
+        self.store_update
+            .set_ser(DBCol::TrieChanges, &key, trie_changes)
+            .unwrap();
     }
 
     pub fn set_state_changes(
@@ -160,7 +185,11 @@ impl<'a> TrieStoreUpdateAdapter<'a> {
 
     /// Set the mapping from `child_shard_uid` to `parent_shard_uid`.
     /// Used by Resharding V3 for State mapping.
-    pub fn set_shard_uid_mapping(&mut self, child_shard_uid: ShardUId, parent_shard_uid: ShardUId) {
+    pub fn set_shard_uid_mapping(
+        &mut self,
+        child_shard_uid: ShardUId,
+        parent_shard_uid: ShardUId,
+    ) {
         self.store_update.set(
             DBCol::StateShardUIdMapping,
             child_shard_uid.to_bytes().as_ref(),
@@ -171,14 +200,19 @@ impl<'a> TrieStoreUpdateAdapter<'a> {
     /// Remove State of any shard that uses `shard_uid_db_key_prefix` as database key prefix.
     /// That is potentially State of any descendant of the shard with the given `ShardUId`.
     /// Use with caution, as it might potentially remove the State of a descendant shard that is still in use!
-    pub fn delete_shard_uid_prefixed_state(&mut self, shard_uid_db_key_prefix: ShardUId) {
+    pub fn delete_shard_uid_prefixed_state(
+        &mut self,
+        shard_uid_db_key_prefix: ShardUId,
+    ) {
         let key_from = shard_uid_db_key_prefix.to_bytes();
         let key_to = ShardUId::get_upper_bound_db_key(&key_from);
-        self.store_update.delete_range(DBCol::State, &key_from, &key_to);
+        self.store_update
+            .delete_range(DBCol::State, &key_from, &key_to);
     }
 
     pub fn delete_all_state(&mut self) {
-        self.store_update.delete_all(DBCol::State)
+        self.store_update
+            .delete_all(DBCol::State)
     }
 }
 
@@ -187,7 +221,10 @@ impl<'a> TrieStoreUpdateAdapter<'a> {
 ///
 /// It is kept out of `TrieStoreAdapter`, so that `TrieStoreUpdateAdapter` can use it without
 /// cloning `store` each time, see https://github.com/near/nearcore/pull/12232#discussion_r1804810508.
-pub fn get_shard_uid_mapping(store: &Store, child_shard_uid: ShardUId) -> ShardUId {
+pub fn get_shard_uid_mapping(
+    store: &Store,
+    child_shard_uid: ShardUId,
+) -> ShardUId {
     store
         .get_ser::<ShardUId>(DBCol::StateShardUIdMapping, &child_shard_uid.to_bytes())
         .unwrap_or_else(|_| {
@@ -227,16 +264,17 @@ mod tests {
     use crate::NodeStorage;
 
     const ONE: std::num::NonZeroU32 = match std::num::NonZeroU32::new(1) {
-        Some(num) => num,
-        None => panic!(),
+        | Some(num) => num,
+        | None => panic!(),
     };
 
     #[test]
     fn test_trie_store_adapter() {
         let (_tmp_dir, opener) = NodeStorage::test_opener();
         let store = TrieStoreAdapter::new(opener.open().unwrap().get_hot_store());
-        let shard_uids: Vec<ShardUId> =
-            (0..3).map(|i| ShardUId { version: 0, shard_id: i }).collect();
+        let shard_uids: Vec<ShardUId> = (0..3)
+            .map(|i| ShardUId { version: 0, shard_id: i })
+            .collect();
         let dummy_hash = CryptoHash::default();
 
         assert_matches!(
@@ -250,7 +288,12 @@ mod tests {
             store_update.increment_refcount_by(shard_uids[2], &dummy_hash, &[2], ONE);
             store_update.commit().unwrap();
         }
-        assert_eq!(*store.get(shard_uids[0], &dummy_hash).unwrap(), [0]);
+        assert_eq!(
+            *store
+                .get(shard_uids[0], &dummy_hash)
+                .unwrap(),
+            [0]
+        );
         {
             let mut store_update = store.store_update();
             store_update.delete_all_state();
@@ -287,8 +330,18 @@ mod tests {
             store_update.commit().unwrap();
         }
         // The data is now visible to both `parent_shard` and `child_shard`.
-        assert_eq!(*store.get(child_shard, &dummy_hash).unwrap(), [0]);
-        assert_eq!(*store.get(parent_shard, &dummy_hash).unwrap(), [0]);
+        assert_eq!(
+            *store
+                .get(child_shard, &dummy_hash)
+                .unwrap(),
+            [0]
+        );
+        assert_eq!(
+            *store
+                .get(parent_shard, &dummy_hash)
+                .unwrap(),
+            [0]
+        );
         // Remove the data using `parent_shard` UId.
         {
             let mut store_update = store.store_update();
@@ -311,8 +364,18 @@ mod tests {
             store_update.commit().unwrap();
         }
         // The data is now visible to both shards again.
-        assert_eq!(*store.get(child_shard, &dummy_hash).unwrap(), [0]);
-        assert_eq!(*store.get(parent_shard, &dummy_hash).unwrap(), [0]);
+        assert_eq!(
+            *store
+                .get(child_shard, &dummy_hash)
+                .unwrap(),
+            [0]
+        );
+        assert_eq!(
+            *store
+                .get(parent_shard, &dummy_hash)
+                .unwrap(),
+            [0]
+        );
         // Remove the data using `child_shard` UId.
         {
             let mut store_update = store.store_update();

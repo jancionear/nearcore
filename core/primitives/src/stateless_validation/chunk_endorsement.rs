@@ -40,8 +40,8 @@ impl ChunkEndorsement {
 
     pub fn chunk_production_key(&self) -> ChunkProductionKey {
         match self {
-            ChunkEndorsement::V1 => unreachable!("V1 chunk endorsement is deprecated"),
-            ChunkEndorsement::V2(v2) => ChunkProductionKey {
+            | ChunkEndorsement::V1 => unreachable!("V1 chunk endorsement is deprecated"),
+            | ChunkEndorsement::V2(v2) => ChunkProductionKey {
                 shard_id: v2.metadata.shard_id,
                 epoch_id: v2.metadata.epoch_id,
                 height_created: v2.metadata.height_created,
@@ -51,29 +51,32 @@ impl ChunkEndorsement {
 
     pub fn account_id(&self) -> &AccountId {
         match self {
-            ChunkEndorsement::V1 => unreachable!("V1 chunk endorsement is deprecated"),
-            ChunkEndorsement::V2(v2) => &v2.metadata.account_id,
+            | ChunkEndorsement::V1 => unreachable!("V1 chunk endorsement is deprecated"),
+            | ChunkEndorsement::V2(v2) => &v2.metadata.account_id,
         }
     }
 
     pub fn chunk_hash(&self) -> ChunkHash {
         match self {
-            ChunkEndorsement::V1 => unreachable!("V1 chunk endorsement is deprecated"),
-            ChunkEndorsement::V2(v2) => v2.inner.chunk_hash.clone(),
+            | ChunkEndorsement::V1 => unreachable!("V1 chunk endorsement is deprecated"),
+            | ChunkEndorsement::V2(v2) => v2.inner.chunk_hash.clone(),
         }
     }
 
     pub fn signature(&self) -> Signature {
         match self {
-            ChunkEndorsement::V1 => unreachable!("V1 chunk endorsement is deprecated"),
-            ChunkEndorsement::V2(v2) => v2.signature.clone(),
+            | ChunkEndorsement::V1 => unreachable!("V1 chunk endorsement is deprecated"),
+            | ChunkEndorsement::V2(v2) => v2.signature.clone(),
         }
     }
 
-    pub fn verify(&self, public_key: &PublicKey) -> bool {
+    pub fn verify(
+        &self,
+        public_key: &PublicKey,
+    ) -> bool {
         match self {
-            ChunkEndorsement::V1 => unreachable!("V1 chunk endorsement is deprecated"),
-            ChunkEndorsement::V2(v2) => v2.verify(public_key),
+            | ChunkEndorsement::V1 => unreachable!("V1 chunk endorsement is deprecated"),
+            | ChunkEndorsement::V2(v2) => v2.verify(public_key),
         }
     }
 
@@ -90,8 +93,8 @@ impl ChunkEndorsement {
     /// Returns the account ID of the chunk validator that generated this endorsement.
     pub fn validator_account(&self) -> &AccountId {
         match self {
-            ChunkEndorsement::V1 => unreachable!("V1 chunk endorsement is deprecated"),
-            ChunkEndorsement::V2(v2) => &v2.metadata.account_id,
+            | ChunkEndorsement::V1 => unreachable!("V1 chunk endorsement is deprecated"),
+            | ChunkEndorsement::V2(v2) => &v2.metadata.account_id,
         }
     }
 }
@@ -109,11 +112,17 @@ pub struct ChunkEndorsementV2 {
 }
 
 impl ChunkEndorsementV2 {
-    fn verify(&self, public_key: &PublicKey) -> bool {
+    fn verify(
+        &self,
+        public_key: &PublicKey,
+    ) -> bool {
         let inner = borsh::to_vec(&self.inner).unwrap();
         let metadata = borsh::to_vec(&self.metadata).unwrap();
-        self.signature.verify(&inner, public_key)
-            && self.metadata_signature.verify(&metadata, public_key)
+        self.signature
+            .verify(&inner, public_key)
+            && self
+                .metadata_signature
+                .verify(&metadata, public_key)
     }
 }
 

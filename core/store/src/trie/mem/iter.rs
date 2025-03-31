@@ -46,19 +46,19 @@ impl<'a, M: ArenaMemory> Crumb<'a, M> {
             return;
         }
         self.status = match (&self.status, &self.node) {
-            (_, None) => CrumbStatus::Exiting,
-            (&CrumbStatus::Entering, _) => CrumbStatus::At,
-            (&CrumbStatus::At, Some(MemTrieNodeView::Branch { .. })) => CrumbStatus::AtChild(0),
-            (&CrumbStatus::At, Some(MemTrieNodeView::BranchWithValue { .. })) => {
+            | (_, None) => CrumbStatus::Exiting,
+            | (&CrumbStatus::Entering, _) => CrumbStatus::At,
+            | (&CrumbStatus::At, Some(MemTrieNodeView::Branch { .. })) => CrumbStatus::AtChild(0),
+            | (&CrumbStatus::At, Some(MemTrieNodeView::BranchWithValue { .. })) => {
                 CrumbStatus::AtChild(0)
             }
-            (&CrumbStatus::AtChild(x), Some(MemTrieNodeView::Branch { .. })) if x < 15 => {
+            | (&CrumbStatus::AtChild(x), Some(MemTrieNodeView::Branch { .. })) if x < 15 => {
                 CrumbStatus::AtChild(x + 1)
             }
-            (&CrumbStatus::AtChild(x), Some(MemTrieNodeView::BranchWithValue { .. })) if x < 15 => {
+            | (&CrumbStatus::AtChild(x), Some(MemTrieNodeView::BranchWithValue { .. })) if x < 15 => {
                 CrumbStatus::AtChild(x + 1)
             }
-            _ => CrumbStatus::Exiting,
+            | _ => CrumbStatus::Exiting,
         }
     }
 }
@@ -85,14 +85,20 @@ pub struct MemTrieIterator<'a, M: ArenaMemory> {
 
 impl<'a, M: ArenaMemory> MemTrieIterator<'a, M> {
     /// Create a new iterator.
-    pub fn new(root: Option<MemTrieNodePtr<'a, M>>, trie: &'a Trie) -> Self {
+    pub fn new(
+        root: Option<MemTrieNodePtr<'a, M>>,
+        trie: &'a Trie,
+    ) -> Self {
         let mut r = MemTrieIterator { root, trie, trail: Vec::new(), key_nibbles: Vec::new() };
         r.descend_into_node(root);
         r
     }
 
     /// Position the iterator on the first element with key >= `key`.
-    pub fn seek_prefix<K: AsRef<[u8]>>(&mut self, key: K) {
+    pub fn seek_prefix<K: AsRef<[u8]>>(
+        &mut self,
+        key: K,
+    ) {
         self.seek_nibble_slice(NibbleSlice::new(key.as_ref()), true);
     }
 
@@ -126,16 +132,17 @@ impl<'a, M: ArenaMemory> MemTrieIterator<'a, M> {
             let Crumb { status, node, prefix_boundary } = self.trail.last_mut().unwrap();
             prev_prefix_boundary = prefix_boundary;
             match &node {
-                None => break,
-                Some(MemTrieNodeView::Leaf { extension, .. }) => {
+                | None => break,
+                | Some(MemTrieNodeView::Leaf { extension, .. }) => {
                     let existing_key = NibbleSlice::from_encoded(extension).0;
                     if !check_ext_key(&key, &existing_key) {
-                        self.key_nibbles.extend(existing_key.iter());
+                        self.key_nibbles
+                            .extend(existing_key.iter());
                         *status = CrumbStatus::Exiting;
                     }
                     break;
                 }
-                Some(MemTrieNodeView::Branch { children, .. })
+                | Some(MemTrieNodeView::Branch { children, .. })
                 | Some(MemTrieNodeView::BranchWithValue { children, .. }) => {
                     if key.is_empty() {
                         break;
@@ -151,17 +158,19 @@ impl<'a, M: ArenaMemory> MemTrieIterator<'a, M> {
                         break;
                     }
                 }
-                Some(MemTrieNodeView::Extension { extension, child, .. }) => {
+                | Some(MemTrieNodeView::Extension { extension, child, .. }) => {
                     let existing_key = NibbleSlice::from_encoded(extension).0;
                     if key.starts_with(&existing_key) {
                         key = key.mid(existing_key.len());
                         ptr = Some(*child);
                         *status = CrumbStatus::At;
-                        self.key_nibbles.extend(existing_key.iter());
+                        self.key_nibbles
+                            .extend(existing_key.iter());
                     } else {
                         if !check_ext_key(&key, &existing_key) {
                             *status = CrumbStatus::Exiting;
-                            self.key_nibbles.extend(existing_key.iter());
+                            self.key_nibbles
+                                .extend(existing_key.iter());
                         }
                         break;
                     }
@@ -174,17 +183,23 @@ impl<'a, M: ArenaMemory> MemTrieIterator<'a, M> {
     /// Fetches node by its ptr and adds it to the trail.
     ///
     /// The node is stored as the last [`Crumb`] in the trail.
-    fn descend_into_node(&mut self, ptr: Option<MemTrieNodePtr<'a, M>>) {
+    fn descend_into_node(
+        &mut self,
+        ptr: Option<MemTrieNodePtr<'a, M>>,
+    ) {
         let node = ptr.map(|ptr| {
             let view = ptr.view();
             if let Some(recorder) = &self.trie.recorder {
                 let raw_node_serialized =
                     borsh::to_vec(&view.to_raw_trie_node_with_size()).unwrap();
-                recorder.borrow_mut().record(&view.node_hash(), raw_node_serialized.into());
+                recorder
+                    .borrow_mut()
+                    .record(&view.node_hash(), raw_node_serialized.into());
             }
             view
         });
-        self.trail.push(Crumb { status: CrumbStatus::Entering, node, prefix_boundary: false });
+        self.trail
+            .push(Crumb { status: CrumbStatus::Entering, node, prefix_boundary: false });
     }
 
     fn key(&self) -> Vec<u8> {
@@ -200,51 +215,58 @@ impl<'a, M: ArenaMemory> MemTrieIterator<'a, M> {
         let last = self.trail.last_mut()?;
         last.increment();
         Some(match (last.status, &last.node) {
-            (CrumbStatus::Exiting, n) => {
+            | (CrumbStatus::Exiting, n) => {
                 match n {
-                    Some(MemTrieNodeView::Leaf { extension, .. })
+                    | Some(MemTrieNodeView::Leaf { extension, .. })
                     | Some(MemTrieNodeView::Extension { extension, .. }) => {
                         let existing_key = NibbleSlice::from_encoded(extension).0;
                         let l = self.key_nibbles.len();
-                        self.key_nibbles.truncate(l - existing_key.len());
+                        self.key_nibbles
+                            .truncate(l - existing_key.len());
                     }
-                    Some(MemTrieNodeView::Branch { .. })
+                    | Some(MemTrieNodeView::Branch { .. })
                     | Some(MemTrieNodeView::BranchWithValue { .. }) => {
                         self.key_nibbles.pop();
                     }
-                    _ => {}
+                    | _ => {}
                 }
                 IterStep::PopTrail
             }
-            (CrumbStatus::At, Some(MemTrieNodeView::BranchWithValue { value, .. })) => {
+            | (CrumbStatus::At, Some(MemTrieNodeView::BranchWithValue { value, .. })) => {
                 IterStep::Value(value.to_optimized_value_ref())
             }
-            (CrumbStatus::At, Some(MemTrieNodeView::Branch { .. })) => IterStep::Continue,
-            (CrumbStatus::At, Some(MemTrieNodeView::Leaf { extension, value })) => {
+            | (CrumbStatus::At, Some(MemTrieNodeView::Branch { .. })) => IterStep::Continue,
+            | (CrumbStatus::At, Some(MemTrieNodeView::Leaf { extension, value })) => {
                 let key = NibbleSlice::from_encoded(extension).0;
                 self.key_nibbles.extend(key.iter());
                 IterStep::Value(value.to_optimized_value_ref())
             }
-            (CrumbStatus::At, Some(MemTrieNodeView::Extension { extension, child, .. })) => {
+            | (CrumbStatus::At, Some(MemTrieNodeView::Extension { extension, child, .. })) => {
                 let key = NibbleSlice::from_encoded(extension).0;
                 self.key_nibbles.extend(key.iter());
                 IterStep::Descend(*child)
             }
-            (CrumbStatus::AtChild(i), Some(MemTrieNodeView::Branch { children, .. }))
-            | (CrumbStatus::AtChild(i), Some(MemTrieNodeView::BranchWithValue { children, .. })) => {
+            | (CrumbStatus::AtChild(i), Some(MemTrieNodeView::Branch { children, .. }))
+            | (
+                CrumbStatus::AtChild(i),
+                Some(MemTrieNodeView::BranchWithValue { children, .. }),
+            ) => {
                 if i == 0 {
                     self.key_nibbles.push(0);
                 }
                 if let Some(ref child) = children.get(i as usize) {
                     if i != 0 {
-                        *self.key_nibbles.last_mut().expect("Pushed child value before") = i;
+                        *self
+                            .key_nibbles
+                            .last_mut()
+                            .expect("Pushed child value before") = i;
                     }
                     IterStep::Descend(*child)
                 } else {
                     IterStep::Continue
                 }
             }
-            _ => panic!("Should never see Entering or AtChild without a Branch here."),
+            | _ => panic!("Should never see Entering or AtChild without a Branch here."),
         })
     }
 }
@@ -265,19 +287,21 @@ impl<'a, M: ArenaMemory> Iterator for MemTrieIterator<'a, M> {
             let iter_step = self.iter_step()?;
 
             match iter_step {
-                IterStep::Continue => {}
-                IterStep::PopTrail => {
+                | IterStep::Continue => {}
+                | IterStep::PopTrail => {
                     self.trail.pop();
                 }
-                IterStep::Descend(ptr) => {
+                | IterStep::Descend(ptr) => {
                     self.descend_into_node(Some(ptr));
                 }
-                IterStep::Value(value_ref) => {
+                | IterStep::Value(value_ref) => {
                     let value = self.trie.deref_optimized(&value_ref);
                     if let Ok(value) = &value {
                         if let Some(recorder) = &self.trie.recorder {
                             let value_hash = value_ref.into_value_ref().hash;
-                            recorder.borrow_mut().record(&value_hash, value.clone().into());
+                            recorder
+                                .borrow_mut()
+                                .record(&value_hash, value.clone().into());
                         }
                     }
                     return Some(value.map(|value| (self.key(), value)));

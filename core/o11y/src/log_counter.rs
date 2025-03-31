@@ -37,13 +37,16 @@ pub(crate) struct LogCounter {
 
 impl LogCounter {
     /// Increments a counter for every log message.
-    fn count_log(&self, level: &tracing::Level) {
+    fn count_log(
+        &self,
+        level: &tracing::Level,
+    ) {
         match level {
-            &tracing::Level::ERROR => self.error_metric.inc(),
-            &tracing::Level::WARN => self.warn_metric.inc(),
-            &tracing::Level::INFO => self.info_metric.inc(),
-            &tracing::Level::DEBUG => self.debug_metric.inc(),
-            &tracing::Level::TRACE => self.trace_metric.inc(),
+            | &tracing::Level::ERROR => self.error_metric.inc(),
+            | &tracing::Level::WARN => self.warn_metric.inc(),
+            | &tracing::Level::INFO => self.info_metric.inc(),
+            | &tracing::Level::DEBUG => self.debug_metric.inc(),
+            | &tracing::Level::TRACE => self.trace_metric.inc(),
         };
     }
 
@@ -56,7 +59,7 @@ impl LogCounter {
         line: Option<u32>,
     ) {
         match level {
-            &tracing::Level::ERROR | &tracing::Level::WARN | &tracing::Level::INFO => {
+            | &tracing::Level::ERROR | &tracing::Level::WARN | &tracing::Level::INFO => {
                 LOG_WITH_LOCATION_COUNTER
                     .with_label_values(&[
                         &level.as_str(),
@@ -68,7 +71,7 @@ impl LogCounter {
             }
             // Retaining LoC for low-severity messages can lead to excessive memory usage.
             // Therefore, only record LoC for high severity log messages.
-            _ => {}
+            | _ => {}
         };
     }
 }
@@ -89,7 +92,11 @@ impl<S> Layer<S> for LogCounter
 where
     S: tracing::Subscriber + for<'span> LookupSpan<'span> + Send + Sync,
 {
-    fn on_event(&self, event: &tracing::Event, _ctx: Context<S>) {
+    fn on_event(
+        &self,
+        event: &tracing::Event,
+        _ctx: Context<S>,
+    ) {
         let level = event.metadata().level();
         self.count_log(level);
 

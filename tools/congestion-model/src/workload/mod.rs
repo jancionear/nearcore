@@ -19,7 +19,10 @@ use crate::{Round, ShardId};
 /// execution.
 pub trait Producer {
     /// Set up initial state of the producer if necessary.
-    fn init(&mut self, shards: &[ShardId]);
+    fn init(
+        &mut self,
+        shards: &[ShardId],
+    );
 
     /// Create transactions for a round.
     fn produce_transactions(

@@ -6,7 +6,10 @@ use near_primitives::reed_solomon::{reed_solomon_num_data_parts, reed_solomon_pa
 pub const WITNESS_RATIO_DATA_PARTS: f64 = 0.6;
 pub const CONTRACT_DEPLOYS_RATIO_DATA_PARTS: f64 = 0.6;
 
-pub fn witness_part_length(encoded_witness_size: usize, total_parts: usize) -> usize {
+pub fn witness_part_length(
+    encoded_witness_size: usize,
+    total_parts: usize,
+) -> usize {
     reed_solomon_part_length(
         encoded_witness_size,
         reed_solomon_num_data_parts(total_parts, WITNESS_RATIO_DATA_PARTS),

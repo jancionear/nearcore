@@ -74,15 +74,15 @@ pub fn try_map_result<I: ParallelIterator, T: Send, E: Error + Send>(
     // while the right group contains errors. Collect them into two separate Vecs.
     let (outputs, errors): (Vec<T>, Vec<E>) = results_iter
         .map(|res| match res {
-            Ok(value) => Either::Left(value),
-            Err(error) => Either::Right(error),
+            | Ok(value) => Either::Left(value),
+            | Err(error) => Either::Right(error),
         })
         .collect();
 
     // Return the output and the first error (if there was any)
     match errors.into_iter().next() {
-        Some(first_error) => (outputs, Err(first_error)),
-        None => (outputs, Ok(())),
+        | Some(first_error) => (outputs, Err(first_error)),
+        | None => (outputs, Ok(())),
     }
 }
 

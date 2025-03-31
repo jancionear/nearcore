@@ -75,9 +75,13 @@ impl ChunkValidator {
         processing_done_tracker: Option<ProcessingDoneTracker>,
         signer: &Arc<ValidatorSigner>,
     ) -> Result<(), Error> {
-        let prev_block_hash = state_witness.chunk_header.prev_block_hash();
+        let prev_block_hash = state_witness
+            .chunk_header
+            .prev_block_hash();
         let shard_id = state_witness.chunk_header.shard_id();
-        let epoch_id = self.epoch_manager.get_epoch_id_from_prev_block(prev_block_hash)?;
+        let epoch_id = self
+            .epoch_manager
+            .get_epoch_id_from_prev_block(prev_block_hash)?;
         if epoch_id != state_witness.epoch_id {
             return Err(Error::InvalidChunkStateWitness(format!(
                 "Invalid EpochId {:?} for previous block {}, expected {:?}",
@@ -117,7 +121,7 @@ impl ChunkValidator {
                 last_header.height_included(),
                 &chunk_header,
             ) {
-                Ok(()) => {
+                | Ok(()) => {
                     send_chunk_endorsement_to_block_producers(
                         &chunk_header,
                         epoch_manager.as_ref(),
@@ -126,7 +130,7 @@ impl ChunkValidator {
                     );
                     return Ok(());
                 }
-                Err(err) => {
+                | Err(err) => {
                     tracing::error!(
                         target: "client",
                         ?err,
@@ -141,7 +145,9 @@ impl ChunkValidator {
         }
 
         let runtime_adapter = self.runtime_adapter.clone();
-        let cache = self.main_state_transition_result_cache.clone();
+        let cache = self
+            .main_state_transition_result_cache
+            .clone();
         let signer = signer.clone();
         self.validation_spawner.spawn("stateless_validation", move || {
             // processing_done_tracker must survive until the processing is finished.
@@ -185,8 +191,9 @@ pub(crate) fn send_chunk_endorsement_to_block_producers(
     signer: &ValidatorSigner,
     network_sender: &Sender<PeerManagerMessageRequest>,
 ) {
-    let epoch_id =
-        epoch_manager.get_epoch_id_from_prev_block(chunk_header.prev_block_hash()).unwrap();
+    let epoch_id = epoch_manager
+        .get_epoch_id_from_prev_block(chunk_header.prev_block_hash())
+        .unwrap();
 
     // Send the chunk endorsement to the next NUM_NEXT_BLOCK_PRODUCERS_TO_SEND_CHUNK_ENDORSEMENT block producers.
     // It's possible we may reach the end of the epoch, in which case, ignore the error from get_block_producer.
@@ -194,7 +201,11 @@ pub(crate) fn send_chunk_endorsement_to_block_producers(
     // thus we collect the unique set of account ids.
     let block_height = chunk_header.height_created();
     let block_producers = (0..NUM_NEXT_BLOCK_PRODUCERS_TO_SEND_CHUNK_ENDORSEMENT)
-        .map_while(|i| epoch_manager.get_block_producer(&epoch_id, block_height + i).ok())
+        .map_while(|i| {
+            epoch_manager
+                .get_block_producer(&epoch_id, block_height + i)
+                .ok()
+        })
         .unique()
         .collect_vec();
     assert!(!block_producers.is_empty());
@@ -249,26 +260,35 @@ impl Client {
         self.send_state_witness_ack(&witness, &signer);
 
         if self.config.save_latest_witnesses {
-            self.chain.chain_store.save_latest_chunk_state_witness(&witness)?;
+            self.chain
+                .chain_store
+                .save_latest_chunk_state_witness(&witness)?;
         }
 
-        match self.chain.get_block(witness.chunk_header.prev_block_hash()) {
-            Ok(block) => self.process_chunk_state_witness_with_prev_block(
+        match self
+            .chain
+            .get_block(witness.chunk_header.prev_block_hash())
+        {
+            | Ok(block) => self.process_chunk_state_witness_with_prev_block(
                 witness,
                 &block,
                 processing_done_tracker,
                 &signer,
             ),
-            Err(Error::DBNotFoundErr(_)) => {
+            | Err(Error::DBNotFoundErr(_)) => {
                 // Previous block isn't available at the moment, add this witness to the orphan pool.
                 self.handle_orphan_state_witness(witness, raw_witness_size)?;
                 Ok(())
             }
-            Err(err) => Err(err),
+            | Err(err) => Err(err),
         }
     }
 
-    fn send_state_witness_ack(&self, witness: &ChunkStateWitness, signer: &Arc<ValidatorSigner>) {
+    fn send_state_witness_ack(
+        &self,
+        witness: &ChunkStateWitness,
+        signer: &Arc<ValidatorSigner>,
+    ) {
         // In production PartialWitnessActor does not forward a state witness to the chunk producer that
         // produced the witness. However some tests bypass PartialWitnessActor, thus when a chunk producer
         // receives its own state witness, we log a warning instead of panicking.
@@ -281,12 +301,13 @@ impl Client {
             );
             return;
         }
-        self.network_adapter.send(PeerManagerMessageRequest::NetworkRequests(
-            NetworkRequests::ChunkStateWitnessAck(
-                witness.chunk_producer.clone(),
-                ChunkStateWitnessAck::new(witness),
-            ),
-        ));
+        self.network_adapter
+            .send(PeerManagerMessageRequest::NetworkRequests(
+                NetworkRequests::ChunkStateWitnessAck(
+                    witness.chunk_producer.clone(),
+                    ChunkStateWitnessAck::new(witness),
+                ),
+            ));
     }
 
     pub fn process_chunk_state_witness_with_prev_block(
@@ -304,11 +325,7 @@ impl Client {
             )));
         }
 
-        self.chunk_validator.start_validating_chunk(
-            witness,
-            &self.chain,
-            processing_done_tracker,
-            signer,
-        )
+        self.chunk_validator
+            .start_validating_chunk(witness, &self.chain, processing_done_tracker, signer)
     }
 }

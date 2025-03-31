@@ -12,12 +12,17 @@ use std::sync::Arc;
 pub struct TrieAccountingCacheSwitch(Arc<std::sync::atomic::AtomicBool>);
 
 impl TrieAccountingCacheSwitch {
-    pub fn set(&self, enabled: bool) {
-        self.0.store(enabled, std::sync::atomic::Ordering::Relaxed);
+    pub fn set(
+        &self,
+        enabled: bool,
+    ) {
+        self.0
+            .store(enabled, std::sync::atomic::Ordering::Relaxed);
     }
 
     pub fn enabled(&self) -> bool {
-        self.0.load(std::sync::atomic::Ordering::Relaxed)
+        self.0
+            .load(std::sync::atomic::Ordering::Relaxed)
     }
 }
 
@@ -83,7 +88,10 @@ impl TrieAccountingCache {
             let mut buffer = itoa::Buffer::new();
             let shard_id = buffer.format(shard_uid.shard_id);
 
-            let metrics_labels: [&str; 2] = [&shard_id, if is_view { "1" } else { "0" }];
+            let metrics_labels: [&str; 2] = [
+                &shard_id,
+                if is_view { "1" } else { "0" },
+            ];
             TrieAccountingCacheMetrics {
                 accounting_cache_hits: metrics::CHUNK_CACHE_HITS.with_label_values(&metrics_labels),
                 accounting_cache_misses: metrics::CHUNK_CACHE_MISSES
@@ -122,7 +130,9 @@ impl TrieAccountingCache {
             if self.enable.enabled() {
                 self.cache.insert(*hash, node.clone());
                 if let Some(metrics) = &self.metrics {
-                    metrics.accounting_cache_size.set(self.cache.len() as i64);
+                    metrics
+                        .accounting_cache_size
+                        .set(self.cache.len() as i64);
                 }
             }
             Ok(node)
@@ -131,7 +141,11 @@ impl TrieAccountingCache {
 
     /// Used to retroactively account for a node or value that was already accessed
     /// through other means (e.g. flat storage read).
-    pub fn retroactively_account(&mut self, hash: CryptoHash, data: Arc<[u8]>) {
+    pub fn retroactively_account(
+        &mut self,
+        hash: CryptoHash,
+        data: Arc<[u8]>,
+    ) {
         if self.cache.contains_key(&hash) {
             self.mem_read_nodes += 1;
         } else {
@@ -140,7 +154,9 @@ impl TrieAccountingCache {
         if self.enable.enabled() {
             self.cache.insert(hash, data);
             if let Some(metrics) = &self.metrics {
-                metrics.accounting_cache_size.set(self.cache.len() as i64);
+                metrics
+                    .accounting_cache_size
+                    .set(self.cache.len() as i64);
             }
         }
     }

@@ -16,7 +16,7 @@ use super::INDEXER;
 use near_epoch_manager::shard_tracker::ShardTracker;
 
 pub(crate) async fn fetch_status(
-    client: &Addr<near_client::ClientActor>,
+    client: &Addr<near_client::ClientActor>
 ) -> Result<near_primitives::views::StatusResponse, FailedToFetchData> {
     tracing::debug!(target: INDEXER, "Fetching status");
     client
@@ -112,8 +112,8 @@ pub(crate) async fn fetch_outcomes(
         let mut outcomes_with_receipts: Vec<IndexerExecutionOutcomeWithOptionalReceipt> = vec![];
         for outcome in shard_outcomes {
             let receipt = match fetch_receipt_by_id(&client, outcome.id).await {
-                Ok(res) => res,
-                Err(e) => {
+                | Ok(res) => res,
+                | Err(e) => {
                     warn!(
                         target: INDEXER,
                         "Unable to fetch Receipt with id {}. Skipping it in ExecutionOutcome \n {:#?}",

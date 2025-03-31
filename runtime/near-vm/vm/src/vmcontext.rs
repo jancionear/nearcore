@@ -39,7 +39,10 @@ impl VMFunctionEnvironment {
 }
 
 impl std::fmt::Debug for VMFunctionEnvironment {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut std::fmt::Formatter,
+    ) -> std::fmt::Result {
         f.debug_struct("VMFunctionEnvironment")
             .field("vmctx_or_hostenv", unsafe { &self.host_env })
             .finish()
@@ -47,13 +50,19 @@ impl std::fmt::Debug for VMFunctionEnvironment {
 }
 
 impl std::cmp::PartialEq for VMFunctionEnvironment {
-    fn eq(&self, rhs: &Self) -> bool {
+    fn eq(
+        &self,
+        rhs: &Self,
+    ) -> bool {
         unsafe { self.host_env as usize == rhs.host_env as usize }
     }
 }
 
 impl std::hash::Hash for VMFunctionEnvironment {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+    fn hash<H: std::hash::Hasher>(
+        &self,
+        state: &mut H,
+    ) {
         unsafe {
             self.vmctx.hash(state);
         }
@@ -396,9 +405,16 @@ impl VMMemoryDefinition {
     ///
     /// The memory is not copied atomically and is not synchronized: it's the
     /// caller's responsibility to synchronize.
-    pub(crate) unsafe fn memory_copy(&self, dst: u32, src: u32, len: u32) -> Result<(), Trap> {
+    pub(crate) unsafe fn memory_copy(
+        &self,
+        dst: u32,
+        src: u32,
+        len: u32,
+    ) -> Result<(), Trap> {
         // https://webassembly.github.io/reference-types/core/exec/instructions.html#exec-memory-copy
-        if src.checked_add(len).map_or(true, |n| usize::try_from(n).unwrap() > self.current_length)
+        if src
+            .checked_add(len)
+            .map_or(true, |n| usize::try_from(n).unwrap() > self.current_length)
             || dst
                 .checked_add(len)
                 .map_or(true, |m| usize::try_from(m).unwrap() > self.current_length)
@@ -428,8 +444,15 @@ impl VMMemoryDefinition {
     /// # Safety
     /// The memory is not filled atomically and is not synchronized: it's the
     /// caller's responsibility to synchronize.
-    pub(crate) unsafe fn memory_fill(&self, dst: u32, val: u32, len: u32) -> Result<(), Trap> {
-        if dst.checked_add(len).map_or(true, |m| usize::try_from(m).unwrap() > self.current_length)
+    pub(crate) unsafe fn memory_fill(
+        &self,
+        dst: u32,
+        val: u32,
+        len: u32,
+    ) -> Result<(), Trap> {
+        if dst
+            .checked_add(len)
+            .map_or(true, |m| usize::try_from(m).unwrap() > self.current_length)
         {
             return Err(Trap::lib(TrapCode::HeapAccessOutOfBounds));
         }
@@ -535,8 +558,13 @@ pub union VMGlobalDefinitionStorage {
 }
 
 impl fmt::Debug for VMGlobalDefinitionStorage {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("VMGlobalDefinitionStorage").field("bytes", unsafe { &self.bytes }).finish()
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
+        f.debug_struct("VMGlobalDefinitionStorage")
+            .field("bytes", unsafe { &self.bytes })
+            .finish()
     }
 }
 

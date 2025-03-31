@@ -10,14 +10,17 @@ where
     A: actix::Actor + actix::Handler<M>,
     A::Context: actix::dev::ToEnvelope<A, M>,
 {
-    fn send(&self, message: M) {
+    fn send(
+        &self,
+        message: M,
+    ) {
         match self.try_send(message) {
-            Ok(_) => {}
-            Err(err) => match err {
-                actix::dev::SendError::Full(message) => {
+            | Ok(_) => {}
+            | Err(err) => match err {
+                | actix::dev::SendError::Full(message) => {
                     self.do_send(message);
                 }
-                actix::dev::SendError::Closed(_) => {
+                | actix::dev::SendError::Closed(_) => {
                     near_o11y::tracing::warn!(
                         "Tried to send {} message to closed actor",
                         std::any::type_name::<M>()
@@ -37,15 +40,18 @@ where
     A: actix::Actor + actix::Handler<M>,
     A::Context: actix::dev::ToEnvelope<A, M>,
 {
-    fn send(&self, message: MessageWithCallback<M, M::Result>) {
+    fn send(
+        &self,
+        message: MessageWithCallback<M, M::Result>,
+    ) {
         let MessageWithCallback { message, callback: responder } = message;
         let future = self.send(message);
 
         let transformed_future = async move {
             match future.await {
-                Ok(result) => Ok(result),
-                Err(actix::MailboxError::Closed) => Err(AsyncSendError::Closed),
-                Err(actix::MailboxError::Timeout) => Err(AsyncSendError::Timeout),
+                | Ok(result) => Ok(result),
+                | Err(actix::MailboxError::Closed) => Err(AsyncSendError::Closed),
+                | Err(actix::MailboxError::Timeout) => Err(AsyncSendError::Timeout),
             }
         };
         responder(transformed_future.boxed());
@@ -94,7 +100,10 @@ where
     S: actix::Actor,
     actix::Addr<S>: CanSend<WithSpanContext<M>>,
 {
-    fn send(&self, message: M) {
+    fn send(
+        &self,
+        message: M,
+    ) {
         CanSend::send(&self.inner, message.with_span_context());
     }
 }
@@ -106,7 +115,10 @@ where
     S: actix::Actor,
     actix::Addr<S>: CanSend<MessageWithCallback<WithSpanContext<M>, M::Result>>,
 {
-    fn send(&self, message: MessageWithCallback<M, M::Result>) {
+    fn send(
+        &self,
+        message: MessageWithCallback<M, M::Result>,
+    ) {
         let MessageWithCallback { message, callback: responder } = message;
         CanSend::send(
             &self.inner,

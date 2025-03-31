@@ -137,28 +137,28 @@ pub type StateChangesKinds = Vec<StateChangeKind>;
 #[easy_ext::ext(StateChangesKindsExt)]
 impl StateChangesKinds {
     pub fn from_changes(
-        raw_changes: &mut dyn Iterator<Item = Result<RawStateChangesWithTrieKey, std::io::Error>>,
+        raw_changes: &mut dyn Iterator<Item = Result<RawStateChangesWithTrieKey, std::io::Error>>
     ) -> Result<StateChangesKinds, std::io::Error> {
         raw_changes
             .filter_map(|raw_change| {
                 let RawStateChangesWithTrieKey { trie_key, .. } = match raw_change {
-                    Ok(p) => p,
-                    Err(e) => return Some(Err(e)),
+                    | Ok(p) => p,
+                    | Err(e) => return Some(Err(e)),
                 };
                 match trie_key {
-                    TrieKey::Account { account_id } => {
+                    | TrieKey::Account { account_id } => {
                         Some(Ok(StateChangeKind::AccountTouched { account_id }))
                     }
-                    TrieKey::ContractCode { account_id } => {
+                    | TrieKey::ContractCode { account_id } => {
                         Some(Ok(StateChangeKind::ContractCodeTouched { account_id }))
                     }
-                    TrieKey::AccessKey { account_id, .. } => {
+                    | TrieKey::AccessKey { account_id, .. } => {
                         Some(Ok(StateChangeKind::AccessKeyTouched { account_id }))
                     }
-                    TrieKey::ContractData { account_id, .. } => {
+                    | TrieKey::ContractData { account_id, .. } => {
                         Some(Ok(StateChangeKind::DataTouched { account_id }))
                     }
-                    _ => None,
+                    | _ => None,
                 }
             })
             .collect()
@@ -252,7 +252,7 @@ pub enum StateChangeValue {
 impl StateChangeValue {
     pub fn affected_account_id(&self) -> &AccountId {
         match &self {
-            StateChangeValue::AccountUpdate { account_id, .. }
+            | StateChangeValue::AccountUpdate { account_id, .. }
             | StateChangeValue::AccountDeletion { account_id }
             | StateChangeValue::AccessKeyUpdate { account_id, .. }
             | StateChangeValue::AccessKeyDeletion { account_id, .. }
@@ -275,7 +275,7 @@ pub type StateChanges = Vec<StateChangeWithCause>;
 #[easy_ext::ext(StateChangesExt)]
 impl StateChanges {
     pub fn from_changes(
-        raw_changes: impl Iterator<Item = Result<RawStateChangesWithTrieKey, std::io::Error>>,
+        raw_changes: impl Iterator<Item = Result<RawStateChangesWithTrieKey, std::io::Error>>
     ) -> Result<StateChanges, std::io::Error> {
         let mut state_changes = Self::new();
 
@@ -283,7 +283,7 @@ impl StateChanges {
             let RawStateChangesWithTrieKey { trie_key, changes } = raw_change?;
 
             match trie_key {
-                TrieKey::Account { account_id } => state_changes.extend(changes.into_iter().map(
+                | TrieKey::Account { account_id } => state_changes.extend(changes.into_iter().map(
                     |RawStateChange { cause, data }| StateChangeWithCause {
                         cause,
                         value: if let Some(change_data) = data {
@@ -298,7 +298,7 @@ impl StateChanges {
                         },
                     },
                 )),
-                TrieKey::AccessKey { account_id, public_key } => {
+                | TrieKey::AccessKey { account_id, public_key } => {
                     state_changes.extend(changes.into_iter().map(
                         |RawStateChange { cause, data }| StateChangeWithCause {
                             cause,
@@ -318,23 +318,23 @@ impl StateChanges {
                         },
                     ))
                 }
-                TrieKey::ContractCode { account_id } => {
+                | TrieKey::ContractCode { account_id } => {
                     state_changes.extend(changes.into_iter().map(
                         |RawStateChange { cause, data }| StateChangeWithCause {
                             cause,
                             value: match data {
-                                Some(change_data) => StateChangeValue::ContractCodeUpdate {
+                                | Some(change_data) => StateChangeValue::ContractCodeUpdate {
                                     account_id: account_id.clone(),
                                     code: change_data,
                                 },
-                                None => StateChangeValue::ContractCodeDeletion {
+                                | None => StateChangeValue::ContractCodeDeletion {
                                     account_id: account_id.clone(),
                                 },
                             },
                         },
                     ));
                 }
-                TrieKey::ContractData { account_id, key } => {
+                | TrieKey::ContractData { account_id, key } => {
                     state_changes.extend(changes.into_iter().map(
                         |RawStateChange { cause, data }| StateChangeWithCause {
                             cause,
@@ -354,29 +354,27 @@ impl StateChanges {
                     ));
                 }
                 // The next variants considered as unnecessary as too low level
-                TrieKey::ReceivedData { .. } => {}
-                TrieKey::PostponedReceiptId { .. } => {}
-                TrieKey::PendingDataCount { .. } => {}
-                TrieKey::PostponedReceipt { .. } => {}
-                TrieKey::DelayedReceiptIndices => {}
-                TrieKey::DelayedReceipt { .. } => {}
-                TrieKey::PromiseYieldIndices => {}
-                TrieKey::PromiseYieldTimeout { .. } => {}
-                TrieKey::PromiseYieldReceipt { .. } => {}
-                TrieKey::BufferedReceiptIndices => {}
-                TrieKey::BufferedReceipt { .. } => {}
-                TrieKey::BandwidthSchedulerState => {}
-                TrieKey::BufferedReceiptGroupsQueueData { .. } => {}
-                TrieKey::BufferedReceiptGroupsQueueItem { .. } => {}
-                // Global contract code is not a part of account, so ignoring it as well.
-                TrieKey::GlobalContractCode { .. } => {}
+                | TrieKey::ReceivedData { .. } => {}
+                | TrieKey::PostponedReceiptId { .. } => {}
+                | TrieKey::PendingDataCount { .. } => {}
+                | TrieKey::PostponedReceipt { .. } => {}
+                | TrieKey::DelayedReceiptIndices => {}
+                | TrieKey::DelayedReceipt { .. } => {}
+                | TrieKey::PromiseYieldIndices => {}
+                | TrieKey::PromiseYieldTimeout { .. } => {}
+                | TrieKey::PromiseYieldReceipt { .. } => {}
+                | TrieKey::BufferedReceiptIndices => {}
+                | TrieKey::BufferedReceipt { .. } => {}
+                | TrieKey::BandwidthSchedulerState => {}
+                | TrieKey::BufferedReceiptGroupsQueueData { .. } => {}
+                | TrieKey::BufferedReceiptGroupsQueueItem { .. } => {}
             }
         }
 
         Ok(state_changes)
     }
     pub fn from_account_changes(
-        raw_changes: impl Iterator<Item = Result<RawStateChangesWithTrieKey, std::io::Error>>,
+        raw_changes: impl Iterator<Item = Result<RawStateChangesWithTrieKey, std::io::Error>>
     ) -> Result<StateChanges, std::io::Error> {
         let state_changes = Self::from_changes(raw_changes)?;
 
@@ -393,7 +391,7 @@ impl StateChanges {
     }
 
     pub fn from_access_key_changes(
-        raw_changes: impl Iterator<Item = Result<RawStateChangesWithTrieKey, std::io::Error>>,
+        raw_changes: impl Iterator<Item = Result<RawStateChangesWithTrieKey, std::io::Error>>
     ) -> Result<StateChanges, std::io::Error> {
         let state_changes = Self::from_changes(raw_changes)?;
 
@@ -410,7 +408,7 @@ impl StateChanges {
     }
 
     pub fn from_contract_code_changes(
-        raw_changes: impl Iterator<Item = Result<RawStateChangesWithTrieKey, std::io::Error>>,
+        raw_changes: impl Iterator<Item = Result<RawStateChangesWithTrieKey, std::io::Error>>
     ) -> Result<StateChanges, std::io::Error> {
         let state_changes = Self::from_changes(raw_changes)?;
 
@@ -427,7 +425,7 @@ impl StateChanges {
     }
 
     pub fn from_data_changes(
-        raw_changes: impl Iterator<Item = Result<RawStateChangesWithTrieKey, std::io::Error>>,
+        raw_changes: impl Iterator<Item = Result<RawStateChangesWithTrieKey, std::io::Error>>
     ) -> Result<StateChanges, std::io::Error> {
         let state_changes = Self::from_changes(raw_changes)?;
 
@@ -571,10 +569,12 @@ pub mod validator_stake {
         fn next(&mut self) -> Option<Self::Item> {
             if self.curr_index < self.len {
                 let item = match self.collection {
-                    ValidatorStakeIterSource::V1(collection) => {
+                    | ValidatorStakeIterSource::V1(collection) => {
                         ValidatorStake::V1(collection[self.curr_index].clone())
                     }
-                    ValidatorStakeIterSource::V2(collection) => collection[self.curr_index].clone(),
+                    | ValidatorStakeIterSource::V2(collection) => {
+                        collection[self.curr_index].clone()
+                    }
                 };
                 self.curr_index += 1;
                 Some(item)
@@ -590,11 +590,19 @@ pub mod validator_stake {
     }
 
     impl ValidatorStake {
-        pub fn new_v1(account_id: AccountId, public_key: PublicKey, stake: Balance) -> Self {
+        pub fn new_v1(
+            account_id: AccountId,
+            public_key: PublicKey,
+            stake: Balance,
+        ) -> Self {
             Self::V1(ValidatorStakeV1 { account_id, public_key, stake })
         }
 
-        pub fn new(account_id: AccountId, public_key: PublicKey, stake: Balance) -> Self {
+        pub fn new(
+            account_id: AccountId,
+            public_key: PublicKey,
+            stake: Balance,
+        ) -> Self {
             Self::new_v1(account_id, public_key, stake)
         }
 
@@ -604,67 +612,70 @@ pub mod validator_stake {
 
         pub fn into_v1(self) -> ValidatorStakeV1 {
             match self {
-                Self::V1(v1) => v1,
+                | Self::V1(v1) => v1,
             }
         }
 
         #[inline]
         pub fn account_and_stake(self) -> (AccountId, Balance) {
             match self {
-                Self::V1(v1) => (v1.account_id, v1.stake),
+                | Self::V1(v1) => (v1.account_id, v1.stake),
             }
         }
 
         #[inline]
         pub fn destructure(self) -> (AccountId, PublicKey, Balance) {
             match self {
-                Self::V1(v1) => (v1.account_id, v1.public_key, v1.stake),
+                | Self::V1(v1) => (v1.account_id, v1.public_key, v1.stake),
             }
         }
 
         #[inline]
         pub fn take_account_id(self) -> AccountId {
             match self {
-                Self::V1(v1) => v1.account_id,
+                | Self::V1(v1) => v1.account_id,
             }
         }
 
         #[inline]
         pub fn account_id(&self) -> &AccountId {
             match self {
-                Self::V1(v1) => &v1.account_id,
+                | Self::V1(v1) => &v1.account_id,
             }
         }
 
         #[inline]
         pub fn take_public_key(self) -> PublicKey {
             match self {
-                Self::V1(v1) => v1.public_key,
+                | Self::V1(v1) => v1.public_key,
             }
         }
 
         #[inline]
         pub fn public_key(&self) -> &PublicKey {
             match self {
-                Self::V1(v1) => &v1.public_key,
+                | Self::V1(v1) => &v1.public_key,
             }
         }
 
         #[inline]
         pub fn stake(&self) -> Balance {
             match self {
-                Self::V1(v1) => v1.stake,
+                | Self::V1(v1) => v1.stake,
             }
         }
 
         #[inline]
         pub fn stake_mut(&mut self) -> &mut Balance {
             match self {
-                Self::V1(v1) => &mut v1.stake,
+                | Self::V1(v1) => &mut v1.stake,
             }
         }
 
-        pub fn get_approval_stake(&self, is_next_epoch: bool) -> ApprovalStake {
+        pub fn get_approval_stake(
+            &self,
+            is_next_epoch: bool,
+        ) -> ApprovalStake {
             ApprovalStake {
                 account_id: self.account_id().clone(),
                 public_key: self.public_key().clone(),
@@ -693,7 +704,10 @@ pub mod validator_stake {
         /// # Panics
         ///
         /// Panics if the number of mandates overflows `u16`.
-        pub fn num_mandates(&self, stake_per_mandate: Balance) -> u16 {
+        pub fn num_mandates(
+            &self,
+            stake_per_mandate: Balance,
+        ) -> u16 {
             // Integer division in Rust returns the floor as described here
             // https://doc.rust-lang.org/std/primitive.u64.html#method.div_euclid
             u16::try_from(self.stake() / stake_per_mandate)
@@ -713,7 +727,10 @@ pub mod validator_stake {
         ///
         /// Let `V` be a validator with stake of 12. If `stake_per_mandate` equals 5 then the weight
         /// of `V`'s partial mandate is `12 % 5 = 2`.
-        pub fn partial_mandate_weight(&self, stake_per_mandate: Balance) -> Balance {
+        pub fn partial_mandate_weight(
+            &self,
+            stake_per_mandate: Balance,
+        ) -> Balance {
             self.stake() % stake_per_mandate
         }
     }
@@ -890,98 +907,98 @@ pub mod chunk_extra {
         #[inline]
         pub fn outcome_root(&self) -> &StateRoot {
             match self {
-                Self::V1(v1) => &v1.outcome_root,
-                Self::V2(v2) => &v2.outcome_root,
-                Self::V3(v3) => &v3.outcome_root,
-                Self::V4(v4) => &v4.outcome_root,
+                | Self::V1(v1) => &v1.outcome_root,
+                | Self::V2(v2) => &v2.outcome_root,
+                | Self::V3(v3) => &v3.outcome_root,
+                | Self::V4(v4) => &v4.outcome_root,
             }
         }
 
         #[inline]
         pub fn state_root(&self) -> &StateRoot {
             match self {
-                Self::V1(v1) => &v1.state_root,
-                Self::V2(v2) => &v2.state_root,
-                Self::V3(v3) => &v3.state_root,
-                Self::V4(v4) => &v4.state_root,
+                | Self::V1(v1) => &v1.state_root,
+                | Self::V2(v2) => &v2.state_root,
+                | Self::V3(v3) => &v3.state_root,
+                | Self::V4(v4) => &v4.state_root,
             }
         }
 
         #[inline]
         pub fn state_root_mut(&mut self) -> &mut StateRoot {
             match self {
-                Self::V1(v1) => &mut v1.state_root,
-                Self::V2(v2) => &mut v2.state_root,
-                Self::V3(v3) => &mut v3.state_root,
-                Self::V4(v4) => &mut v4.state_root,
+                | Self::V1(v1) => &mut v1.state_root,
+                | Self::V2(v2) => &mut v2.state_root,
+                | Self::V3(v3) => &mut v3.state_root,
+                | Self::V4(v4) => &mut v4.state_root,
             }
         }
 
         #[inline]
         pub fn validator_proposals(&self) -> ValidatorStakeIter {
             match self {
-                Self::V1(v1) => ValidatorStakeIter::v1(&v1.validator_proposals),
-                Self::V2(v2) => ValidatorStakeIter::new(&v2.validator_proposals),
-                Self::V3(v3) => ValidatorStakeIter::new(&v3.validator_proposals),
-                Self::V4(v4) => ValidatorStakeIter::new(&v4.validator_proposals),
+                | Self::V1(v1) => ValidatorStakeIter::v1(&v1.validator_proposals),
+                | Self::V2(v2) => ValidatorStakeIter::new(&v2.validator_proposals),
+                | Self::V3(v3) => ValidatorStakeIter::new(&v3.validator_proposals),
+                | Self::V4(v4) => ValidatorStakeIter::new(&v4.validator_proposals),
             }
         }
 
         #[inline]
         pub fn gas_limit(&self) -> Gas {
             match self {
-                Self::V1(v1) => v1.gas_limit,
-                Self::V2(v2) => v2.gas_limit,
-                Self::V3(v3) => v3.gas_limit,
-                Self::V4(v4) => v4.gas_limit,
+                | Self::V1(v1) => v1.gas_limit,
+                | Self::V2(v2) => v2.gas_limit,
+                | Self::V3(v3) => v3.gas_limit,
+                | Self::V4(v4) => v4.gas_limit,
             }
         }
 
         #[inline]
         pub fn gas_used(&self) -> Gas {
             match self {
-                Self::V1(v1) => v1.gas_used,
-                Self::V2(v2) => v2.gas_used,
-                Self::V3(v3) => v3.gas_used,
-                Self::V4(v4) => v4.gas_used,
+                | Self::V1(v1) => v1.gas_used,
+                | Self::V2(v2) => v2.gas_used,
+                | Self::V3(v3) => v3.gas_used,
+                | Self::V4(v4) => v4.gas_used,
             }
         }
 
         #[inline]
         pub fn balance_burnt(&self) -> Balance {
             match self {
-                Self::V1(v1) => v1.balance_burnt,
-                Self::V2(v2) => v2.balance_burnt,
-                Self::V3(v3) => v3.balance_burnt,
-                Self::V4(v4) => v4.balance_burnt,
+                | Self::V1(v1) => v1.balance_burnt,
+                | Self::V2(v2) => v2.balance_burnt,
+                | Self::V3(v3) => v3.balance_burnt,
+                | Self::V4(v4) => v4.balance_burnt,
             }
         }
 
         #[inline]
         pub fn congestion_info(&self) -> Option<CongestionInfo> {
             match self {
-                Self::V1(_) => None,
-                Self::V2(_) => None,
-                Self::V3(v3) => v3.congestion_info.into(),
-                Self::V4(v4) => v4.congestion_info.into(),
+                | Self::V1(_) => None,
+                | Self::V2(_) => None,
+                | Self::V3(v3) => v3.congestion_info.into(),
+                | Self::V4(v4) => v4.congestion_info.into(),
             }
         }
 
         #[inline]
         pub fn congestion_info_mut(&mut self) -> Option<&mut CongestionInfo> {
             match self {
-                Self::V1(_) => None,
-                Self::V2(_) => None,
-                Self::V3(v3) => Some(&mut v3.congestion_info),
-                Self::V4(v4) => Some(&mut v4.congestion_info),
+                | Self::V1(_) => None,
+                | Self::V2(_) => None,
+                | Self::V3(v3) => Some(&mut v3.congestion_info),
+                | Self::V4(v4) => Some(&mut v4.congestion_info),
             }
         }
 
         #[inline]
         pub fn bandwidth_requests(&self) -> Option<&BandwidthRequests> {
             match self {
-                Self::V1(_) | Self::V2(_) | Self::V3(_) => None,
-                Self::V4(extra) => Some(&extra.bandwidth_requests),
+                | Self::V1(_) | Self::V2(_) | Self::V3(_) => None,
+                | Self::V4(extra) => Some(&extra.bandwidth_requests),
             }
         }
     }
@@ -1073,7 +1090,10 @@ pub struct ValidatorStats {
 impl ValidatorStats {
     /// Compare stats with threshold which is an expected percentage from 0 to
     /// 100.
-    pub fn less_than(&self, threshold: u8) -> bool {
+    pub fn less_than(
+        &self,
+        threshold: u8,
+    ) -> bool {
         self.produced * 100 < u64::from(threshold) * self.expected
     }
 }
@@ -1093,19 +1113,22 @@ pub enum EpochReference {
 }
 
 impl serde::Serialize for EpochReference {
-    fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
+    fn serialize<S>(
+        &self,
+        s: S,
+    ) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
         // cspell:words newtype
         match self {
-            EpochReference::EpochId(epoch_id) => {
+            | EpochReference::EpochId(epoch_id) => {
                 s.serialize_newtype_variant("EpochReference", 0, "epoch_id", epoch_id)
             }
-            EpochReference::BlockId(block_id) => {
+            | EpochReference::BlockId(block_id) => {
                 s.serialize_newtype_variant("EpochReference", 1, "block_id", block_id)
             }
-            EpochReference::Latest => {
+            | EpochReference::Latest => {
                 s.serialize_newtype_variant("EpochReference", 2, "latest", &())
             }
         }
@@ -1183,12 +1206,18 @@ pub trait EpochInfoProvider: Send + Sync {
         last_block_hash: &CryptoHash,
     ) -> Result<Balance, EpochError>;
 
-    fn minimum_stake(&self, prev_block_hash: &CryptoHash) -> Result<Balance, EpochError>;
+    fn minimum_stake(
+        &self,
+        prev_block_hash: &CryptoHash,
+    ) -> Result<Balance, EpochError>;
 
     /// Get the chain_id of the chain this epoch belongs to
     fn chain_id(&self) -> String;
 
-    fn shard_layout(&self, epoch_id: &EpochId) -> Result<ShardLayout, EpochError>;
+    fn shard_layout(
+        &self,
+        epoch_id: &EpochId,
+    ) -> Result<ShardLayout, EpochError>;
 }
 
 /// Mode of the trie cache.

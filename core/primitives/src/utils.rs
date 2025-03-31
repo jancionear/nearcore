@@ -9,7 +9,6 @@ use near_primitives_core::types::BlockHeight;
 use near_primitives_core::version::ProtocolFeature;
 use serde;
 
-use crate::block::BlockHeader;
 use crate::hash::{hash, CryptoHash};
 use crate::transaction::SignedTransaction;
 use crate::types::{NumSeats, NumShards, ShardId};
@@ -110,7 +109,8 @@ impl<T> MaybeValidated<T> {
             Ok(true)
         } else {
             let res = validator(&self.payload);
-            self.validated.set(*res.as_ref().unwrap_or(&false));
+            self.validated
+                .set(*res.as_ref().unwrap_or(&false));
             res
         }
     }
@@ -127,7 +127,10 @@ impl<T> MaybeValidated<T> {
     /// let value = MaybeValidated::from(42);
     /// assert_eq!("42", value.map(|v| v.to_string()).into_inner());
     /// ```
-    pub fn map<U, F: FnOnce(T) -> U>(self, validator: F) -> MaybeValidated<U> {
+    pub fn map<U, F: FnOnce(T) -> U>(
+        self,
+        validator: F,
+    ) -> MaybeValidated<U> {
         MaybeValidated { validated: self.validated, payload: validator(self.payload) }
     }
 
@@ -181,7 +184,10 @@ impl<T: Sized> Deref for MaybeValidated<T> {
     }
 }
 
-pub fn get_block_shard_id(block_hash: &CryptoHash, shard_id: ShardId) -> Vec<u8> {
+pub fn get_block_shard_id(
+    block_hash: &CryptoHash,
+    shard_id: ShardId,
+) -> Vec<u8> {
     let mut res = Vec::with_capacity(40);
     res.extend_from_slice(block_hash.as_ref());
     res.extend_from_slice(&shard_id.to_le_bytes());
@@ -189,7 +195,7 @@ pub fn get_block_shard_id(block_hash: &CryptoHash, shard_id: ShardId) -> Vec<u8>
 }
 
 pub fn get_block_shard_id_rev(
-    key: &[u8],
+    key: &[u8]
 ) -> Result<(CryptoHash, ShardId), Box<dyn std::error::Error + Send + Sync>> {
     if key.len() != 40 {
         return Err(
@@ -202,7 +208,10 @@ pub fn get_block_shard_id_rev(
     Ok((block_hash, shard_id))
 }
 
-pub fn get_outcome_id_block_hash(outcome_id: &CryptoHash, block_hash: &CryptoHash) -> Vec<u8> {
+pub fn get_outcome_id_block_hash(
+    outcome_id: &CryptoHash,
+    block_hash: &CryptoHash,
+) -> Vec<u8> {
     let mut res = Vec::with_capacity(64);
     res.extend_from_slice(outcome_id.as_ref());
     res.extend_from_slice(block_hash.as_ref());
@@ -360,7 +369,10 @@ fn create_hash_upgradable(
 }
 
 /// Deprecated. Please use `create_hash_upgradable`
-fn create_nonce_with_nonce(base: &CryptoHash, salt: u64) -> CryptoHash {
+fn create_nonce_with_nonce(
+    base: &CryptoHash,
+    salt: u64,
+) -> CryptoHash {
     let mut nonce: Vec<u8> = base.as_ref().to_owned();
     nonce.extend(index_to_bytes(salt));
     hash(&nonce)
@@ -375,10 +387,13 @@ pub fn index_to_bytes(index: u64) -> [u8; 8] {
 pub struct DisplayOption<T>(pub Option<T>);
 
 impl<T: fmt::Display> fmt::Display for DisplayOption<T> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
         match self.0 {
-            Some(ref v) => write!(f, "Some({})", v),
-            None => write!(f, "None"),
+            | Some(ref v) => write!(f, "Some({})", v),
+            | None => write!(f, "None"),
         }
     }
 }
@@ -439,13 +454,18 @@ pub fn to_timestamp(time: DateTime<chrono::Utc>) -> u64 {
 }
 
 /// Compute number of seats per shard for given total number of seats and number of shards.
-pub fn get_num_seats_per_shard(num_shards: NumShards, num_seats: NumSeats) -> Vec<NumSeats> {
+pub fn get_num_seats_per_shard(
+    num_shards: NumShards,
+    num_seats: NumSeats,
+) -> Vec<NumSeats> {
     (0..num_shards)
         .map(|shard_id| {
-            let remainder =
-                num_seats.checked_rem(num_shards).expect("num_shards ≠ 0 is guaranteed here");
-            let quotient =
-                num_seats.checked_div(num_shards).expect("num_shards ≠ 0 is guaranteed here");
+            let remainder = num_seats
+                .checked_rem(num_shards)
+                .expect("num_shards ≠ 0 is guaranteed here");
+            let quotient = num_seats
+                .checked_div(num_shards)
+                .expect("num_shards ≠ 0 is guaranteed here");
             let num = quotient
                 .checked_add(if shard_id < remainder { 1 } else { 0 })
                 .expect("overflow is impossible here");
@@ -460,7 +480,10 @@ pub fn generate_random_string(len: usize) -> String {
     use rand::distributions::Alphanumeric;
     use rand::{thread_rng, Rng};
 
-    let bytes = thread_rng().sample_iter(&Alphanumeric).take(len).collect();
+    let bytes = thread_rng()
+        .sample_iter(&Alphanumeric)
+        .take(len)
+        .collect();
     String::from_utf8(bytes).unwrap()
 }
 
@@ -470,7 +493,10 @@ impl<'a, T> fmt::Display for Serializable<'a, T>
 where
     T: serde::Serialize,
 {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
         write!(f, "{:?}", serde_json::to_string(&self.0).unwrap())
     }
 }
@@ -491,9 +517,14 @@ where
 /// From `near-account-id` version `1.0.0-alpha.2`, `is_implicit` returns true for ETH-implicit accounts.
 /// This function is a wrapper for `is_implicit` method so that we can easily differentiate its behavior
 /// based on whether ETH-implicit accounts are enabled.
-pub fn account_is_implicit(account_id: &AccountId, eth_implicit_accounts_enabled: bool) -> bool {
+pub fn account_is_implicit(
+    account_id: &AccountId,
+    eth_implicit_accounts_enabled: bool,
+) -> bool {
     if eth_implicit_accounts_enabled {
-        account_id.get_account_type().is_implicit()
+        account_id
+            .get_account_type()
+            .is_implicit()
     } else {
         account_id.get_account_type() == AccountType::NearImplicitAccount
     }
@@ -510,31 +541,9 @@ pub fn derive_near_implicit_account_id(public_key: &ED25519PublicKey) -> Account
 pub fn derive_eth_implicit_account_id(public_key: &Secp256K1PublicKey) -> AccountId {
     use sha3::Digest;
     let pk_hash = sha3::Keccak256::digest(&public_key);
-    format!("0x{}", hex::encode(&pk_hash[12..32])).parse().unwrap()
-}
-
-/// Returns the block metadata used to create an optimistic block.
-pub fn get_block_metadata(
-    prev_block_header: &BlockHeader,
-    signer: &crate::validator_signer::ValidatorSigner,
-    clock: near_time::Clock,
-    sandbox_delta_time: Option<near_time::Duration>,
-) -> (u64, near_crypto::vrf::Value, near_crypto::vrf::Proof, CryptoHash) {
-    let now = clock.now_utc().unix_timestamp_nanos() as u64;
-    #[cfg(feature = "sandbox")]
-    let now = now + sandbox_delta_time.unwrap().whole_nanoseconds() as u64;
-    #[cfg(not(feature = "sandbox"))]
-    debug_assert!(sandbox_delta_time.is_none());
-    let time = if now <= prev_block_header.raw_timestamp() {
-        prev_block_header.raw_timestamp() + 1
-    } else {
-        now
-    };
-
-    let (vrf_value, vrf_proof) =
-        signer.compute_vrf_with_proof(prev_block_header.random_value().as_ref());
-    let random_value = hash(vrf_value.0.as_ref());
-    (time, vrf_value, vrf_proof, random_value)
+    format!("0x{}", hex::encode(&pk_hash[12..32]))
+        .parse()
+        .unwrap()
 }
 
 #[cfg(test)]
@@ -547,7 +556,9 @@ mod tests {
     fn test_derive_near_implicit_account_id() {
         let public_key = PublicKey::from_seed(KeyType::ED25519, "test");
         let expected: AccountId =
-            "bb4dc639b212e075a751685b26bdcea5920a504181ff2910e8549742127092a0".parse().unwrap();
+            "bb4dc639b212e075a751685b26bdcea5920a504181ff2910e8549742127092a0"
+                .parse()
+                .unwrap();
         let account_id = derive_near_implicit_account_id(public_key.unwrap_as_ed25519());
         assert_eq!(account_id, expected);
     }
@@ -555,7 +566,9 @@ mod tests {
     #[test]
     fn test_derive_eth_implicit_account_id() {
         let public_key = PublicKey::from_seed(KeyType::SECP256K1, "test");
-        let expected: AccountId = "0x96791e923f8cf697ad9c3290f2c9059f0231b24c".parse().unwrap();
+        let expected: AccountId = "0x96791e923f8cf697ad9c3290f2c9059f0231b24c"
+            .parse()
+            .unwrap();
         let account_id = derive_eth_implicit_account_id(public_key.unwrap_as_secp256k1());
         assert_eq!(account_id, expected);
     }

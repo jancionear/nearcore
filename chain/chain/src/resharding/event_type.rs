@@ -32,7 +32,10 @@ pub struct ReshardingSplitShardParams {
 
 impl ReshardingSplitShardParams {
     pub fn children_shards(&self) -> Vec<ShardUId> {
-        vec![self.left_child_shard, self.right_child_shard]
+        vec![
+            self.left_child_shard,
+            self.right_child_shard,
+        ]
     }
 }
 
@@ -57,10 +60,10 @@ impl ReshardingEventType {
 
         // Resharding V3 supports shard layout V2 onwards.
         let (shards_split_map, boundary_accounts) = match next_shard_layout {
-            ShardLayout::V0(_) | ShardLayout::V1(_) => {
+            | ShardLayout::V0(_) | ShardLayout::V1(_) => {
                 return log_and_error("unsupported shard layout!");
             }
-            ShardLayout::V2(layout) => {
+            | ShardLayout::V2(layout) => {
                 let Some(shards_split_map) = layout.shards_split_map() else {
                     return log_and_error("ShardLayoutV2 must have a shards_split_map!");
                 };
@@ -73,8 +76,8 @@ impl ReshardingEventType {
         // Look for a shard having exactly two children, to detect a split.
         for (parent_id, children_ids) in shards_split_map {
             match children_ids.len() {
-                1 => {}
-                2 => {
+                | 1 => {}
+                | 2 => {
                     if event.is_some() {
                         return log_and_error("can't perform two reshardings at the same time!");
                     }
@@ -107,7 +110,7 @@ impl ReshardingEventType {
                         resharding_block,
                     }));
                 }
-                _ => {
+                | _ => {
                     return log_and_error(&format!(
                         "invalid number of children for shard {parent_id}"
                     ));
@@ -156,8 +159,14 @@ mod tests {
         #[allow(deprecated)]
         let layout_v0 = ShardLayout::v0(1, 0);
         #[allow(deprecated)]
-        let layout_v1 =
-            ShardLayout::v1(vec!["ccc".parse().unwrap(), "kkk".parse().unwrap()], None, 1);
+        let layout_v1 = ShardLayout::v1(
+            vec![
+                "ccc".parse().unwrap(),
+                "kkk".parse().unwrap(),
+            ],
+            None,
+            1,
+        );
         assert!(ReshardingEventType::from_shard_layout(&layout_v0, block).is_err());
         assert!(ReshardingEventType::from_shard_layout(&layout_v1, block).is_err());
 
@@ -190,7 +199,11 @@ mod tests {
         // Double split shard is not ok.
         let shards_split_map = BTreeMap::from([(s0, vec![s2, s3]), (s1, vec![s4, s5])]);
         let layout = ShardLayout::v2(
-            vec![account!("ff"), account!("pp"), account!("ss")],
+            vec![
+                account!("ff"),
+                account!("pp"),
+                account!("ss"),
+            ],
             vec![s2, s3, s4, s5],
             Some(shards_split_map),
         );

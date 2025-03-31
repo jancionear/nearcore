@@ -1,6 +1,6 @@
 use assert_matches::assert_matches;
 
-use near_async::futures::ActixFutureSpawner;
+use near_async::futures::ActixArbiterHandleFutureSpawner;
 use near_async::time::{Clock, Duration};
 use near_chain::near_chain_primitives::error::QueryError;
 use near_chain::{ChainGenesis, ChainStoreAccess, Provenance};
@@ -31,7 +31,13 @@ use std::sync::Arc;
 fn slow_test_state_dump() {
     init_test_logger();
 
-    let mut genesis = Genesis::test(vec!["test0".parse().unwrap(), "test1".parse().unwrap()], 1);
+    let mut genesis = Genesis::test(
+        vec![
+            "test0".parse().unwrap(),
+            "test1".parse().unwrap(),
+        ],
+        1,
+    );
     genesis.config.epoch_length = 25;
 
     let mut env = TestEnv::builder(&genesis.config)
@@ -46,7 +52,10 @@ fn slow_test_state_dump() {
     let runtime = env.clients[0].runtime_adapter.clone();
     let shard_tracker = chain.shard_tracker.clone();
     let mut config = env.clients[0].config.clone();
-    let root_dir = tempfile::Builder::new().prefix("state_dump").tempdir().unwrap();
+    let root_dir = tempfile::Builder::new()
+        .prefix("state_dump")
+        .tempdir()
+        .unwrap();
     config.state_sync.dump = Some(DumpConfig {
         location: Filesystem { root_dir: root_dir.path().to_path_buf() },
         restart_dump_for_shards: None,
@@ -58,6 +67,8 @@ fn slow_test_state_dump() {
         Some(Arc::new(EmptyValidatorSigner::new("test0".parse().unwrap()))),
         "validator_signer",
     );
+
+    let arbiter = actix::Arbiter::new();
     let mut state_sync_dumper = StateSyncDumper {
         clock: Clock::real(),
         client_config: config,
@@ -66,38 +77,46 @@ fn slow_test_state_dump() {
         shard_tracker,
         runtime,
         validator,
-        dump_future_runner: StateSyncDumper::arbiter_dump_future_runner(),
-        future_spawner: Arc::new(ActixFutureSpawner),
+        future_spawner: Arc::new(ActixArbiterHandleFutureSpawner(arbiter.handle())),
         handle: None,
     };
     state_sync_dumper.start().unwrap();
 
     const MAX_HEIGHT: BlockHeight = 37;
     for i in 1..=MAX_HEIGHT {
-        let block = env.clients[0].produce_block(i as u64).unwrap().unwrap();
+        let block = env.clients[0]
+            .produce_block(i as u64)
+            .unwrap()
+            .unwrap();
         env.process_block(0, block, Provenance::PRODUCED);
     }
     let head = &env.clients[0].chain.head().unwrap();
     let epoch_id = head.clone().epoch_id;
-    let epoch_info = epoch_manager.get_epoch_info(&epoch_id).unwrap();
+    let epoch_info = epoch_manager
+        .get_epoch_info(&epoch_id)
+        .unwrap();
     let epoch_height = epoch_info.epoch_height();
 
     for attempt in 0.. {
         let mut all_parts_present = true;
 
-        let shard_ids = epoch_manager.shard_ids(&epoch_id).unwrap();
+        let shard_ids = epoch_manager
+            .shard_ids(&epoch_id)
+            .unwrap();
         assert_ne!(shard_ids.len(), 0);
 
         for shard_id in shard_ids {
             let num_parts = 1;
             for part_id in 0..num_parts {
-                let path = root_dir.path().join(external_storage_location(
-                    "unittest",
-                    &epoch_id,
-                    epoch_height,
-                    shard_id,
-                    &StateFileType::StatePart { part_id, num_parts },
-                ));
+                let path = root_dir
+                    .path()
+                    .join(external_storage_location(
+                        "unittest",
+                        &epoch_id,
+                        epoch_height,
+                        shard_id,
+                        &StateFileType::StatePart { part_id, num_parts },
+                    ));
                 if std::fs::read(&path).is_err() {
                     tracing::info!("Missing {:?}", path);
                     all_parts_present = false;
@@ -148,7 +167,10 @@ fn run_state_sync_with_dumped_parts(
         Some(Arc::new(InMemoryValidatorSigner::from_signer(signer.clone()))),
         "validator_signer",
     );
-    let genesis_block = env.clients[0].chain.get_block_by_height(0).unwrap();
+    let genesis_block = env.clients[0]
+        .chain
+        .get_block_by_height(0)
+        .unwrap();
     let genesis_hash = *genesis_block.hash();
 
     let mut blocks = vec![];
@@ -157,13 +179,17 @@ fn run_state_sync_with_dumped_parts(
     let runtime = env.clients[0].runtime_adapter.clone();
     let shard_tracker = chain.shard_tracker.clone();
     let mut config = env.clients[0].config.clone();
-    let root_dir = tempfile::Builder::new().prefix("state_dump").tempdir().unwrap();
+    let root_dir = tempfile::Builder::new()
+        .prefix("state_dump")
+        .tempdir()
+        .unwrap();
     config.state_sync.dump = Some(DumpConfig {
         location: Filesystem { root_dir: root_dir.path().to_path_buf() },
         restart_dump_for_shards: None,
         iteration_delay: Some(Duration::ZERO),
         credentials_file: None,
     });
+    let arbiter = actix::Arbiter::new();
     let mut state_sync_dumper = StateSyncDumper {
         clock: Clock::real(),
         client_config: config.clone(),
@@ -172,8 +198,7 @@ fn run_state_sync_with_dumped_parts(
         shard_tracker,
         runtime,
         validator,
-        dump_future_runner: StateSyncDumper::arbiter_dump_future_runner(),
-        future_spawner: Arc::new(ActixFutureSpawner),
+        future_spawner: Arc::new(ActixArbiterHandleFutureSpawner(arbiter.handle())),
         handle: None,
     };
     state_sync_dumper.start().unwrap();
@@ -199,7 +224,10 @@ fn run_state_sync_with_dumped_parts(
             );
             assert_eq!(env.clients[0].process_tx(tx, false, false), ProcessTxResponse::ValidTx);
         }
-        let block = env.clients[0].produce_block(i).unwrap().unwrap();
+        let block = env.clients[0]
+            .produce_block(i)
+            .unwrap()
+            .unwrap();
         blocks.push(block.clone());
         env.process_block(0, block.clone(), Provenance::PRODUCED);
         env.process_block(1, block.clone(), Provenance::NONE);
@@ -207,7 +235,10 @@ fn run_state_sync_with_dumped_parts(
 
     // check that the new account exists
     let head = env.clients[0].chain.head().unwrap();
-    let head_block = env.clients[0].chain.get_block(&head.last_block_hash).unwrap();
+    let head_block = env.clients[0]
+        .chain
+        .get_block(&head.last_block_hash)
+        .unwrap();
     let shard_uid = ShardUId::single_shard();
     let shard_id = shard_uid.shard_id();
     let response = env.clients[0]
@@ -225,9 +256,15 @@ fn run_state_sync_with_dumped_parts(
         .unwrap();
     assert_matches!(response.kind, QueryResponseKind::ViewAccount(_));
 
-    let header = env.clients[0].chain.get_block_header(&head.last_block_hash).unwrap();
+    let header = env.clients[0]
+        .chain
+        .get_block_header(&head.last_block_hash)
+        .unwrap();
     let final_block_hash = header.last_final_block();
-    let final_block_header = env.clients[0].chain.get_block_header(final_block_hash).unwrap();
+    let final_block_header = env.clients[0]
+        .chain
+        .get_block_header(final_block_hash)
+        .unwrap();
 
     tracing::info!(
         dump_node_head_height,
@@ -243,31 +280,46 @@ fn run_state_sync_with_dumped_parts(
     }
 
     let epoch_id = *final_block_header.epoch_id();
-    let epoch_info = epoch_manager.get_epoch_info(&epoch_id).unwrap();
+    let epoch_info = epoch_manager
+        .get_epoch_info(&epoch_id)
+        .unwrap();
     let epoch_height = epoch_info.epoch_height();
 
-    let sync_hash = env.clients[0].chain.get_sync_hash(final_block_hash).unwrap().unwrap();
-    assert!(env.clients[0].chain.check_sync_hash_validity(&sync_hash).unwrap());
-    let state_sync_header =
-        env.clients[0].chain.get_state_response_header(shard_id, sync_hash).unwrap();
+    let sync_hash = env.clients[0]
+        .chain
+        .get_sync_hash(final_block_hash)
+        .unwrap()
+        .unwrap();
+    assert!(env.clients[0]
+        .chain
+        .check_sync_hash_validity(&sync_hash)
+        .unwrap());
+    let state_sync_header = env.clients[0]
+        .chain
+        .get_state_response_header(shard_id, sync_hash)
+        .unwrap();
     let state_root = state_sync_header.chunk_prev_state_root();
     let num_parts = state_sync_header.num_state_parts();
 
     for attempt in 0.. {
         let mut all_parts_present = true;
 
-        let shard_ids = epoch_manager.shard_ids(&epoch_id).unwrap();
+        let shard_ids = epoch_manager
+            .shard_ids(&epoch_id)
+            .unwrap();
         assert_ne!(shard_ids.len(), 0);
 
         for shard_id in shard_ids {
             for part_id in 0..num_parts {
-                let path = root_dir.path().join(external_storage_location(
-                    &config.chain_id,
-                    &epoch_id,
-                    epoch_height,
-                    shard_id,
-                    &StateFileType::StatePart { part_id, num_parts },
-                ));
+                let path = root_dir
+                    .path()
+                    .join(external_storage_location(
+                        &config.chain_id,
+                        &epoch_id,
+                        epoch_height,
+                        shard_id,
+                        &StateFileType::StatePart { part_id, num_parts },
+                    ));
                 if std::fs::read(&path).is_err() {
                     tracing::info!("dumping node: Missing {:?}", path);
                     all_parts_present = false;
@@ -287,7 +339,10 @@ fn run_state_sync_with_dumped_parts(
 
     // Simulate state sync by reading the dumped parts from the external storage and applying them to the other node
     tracing::info!("syncing node: simulating state sync..");
-    env.clients[1].chain.set_state_header(shard_id, sync_hash, state_sync_header).unwrap();
+    env.clients[1]
+        .chain
+        .set_state_header(shard_id, sync_hash, state_sync_header)
+        .unwrap();
     let runtime_client_1 = Arc::clone(&env.clients[1].runtime_adapter);
     let mut store_update = runtime_client_1.store().store_update();
     assert!(runtime_client_1
@@ -300,24 +355,35 @@ fn run_state_sync_with_dumped_parts(
     store_update.commit().unwrap();
     let shard_id = ShardId::new(0);
     for part_id in 0..num_parts {
-        let path = root_dir.path().join(external_storage_location(
-            &config.chain_id,
-            &epoch_id,
-            epoch_height,
-            shard_id,
-            &StateFileType::StatePart { part_id, num_parts },
-        ));
+        let path = root_dir
+            .path()
+            .join(external_storage_location(
+                &config.chain_id,
+                &epoch_id,
+                epoch_height,
+                shard_id,
+                &StateFileType::StatePart { part_id, num_parts },
+            ));
         let part = std::fs::read(&path).expect("Part file not found. It should exist");
         let part_id = PartId::new(part_id, num_parts);
         runtime_client_1
             .apply_state_part(shard_id, &state_root, part_id, &part, &epoch_id)
             .unwrap();
     }
-    env.clients[1].chain.set_state_finalize(shard_id, sync_hash).unwrap();
+    env.clients[1]
+        .chain
+        .set_state_finalize(shard_id, sync_hash)
+        .unwrap();
     tracing::info!("syncing node: state sync finished.");
 
-    let synced_block = env.clients[1].chain.get_block(&sync_hash).unwrap();
-    let synced_block_header = env.clients[1].chain.get_block_header(&sync_hash).unwrap();
+    let synced_block = env.clients[1]
+        .chain
+        .get_block(&sync_hash)
+        .unwrap();
+    let synced_block_header = env.clients[1]
+        .chain
+        .get_block_header(&sync_hash)
+        .unwrap();
     let synced_block_tip = Tip::from_header(&synced_block_header);
     let response = env.clients[1].runtime_adapter.query(
         ShardUId::single_shard(),
@@ -340,8 +406,14 @@ fn run_state_sync_with_dumped_parts(
 
         // Check that inlined flat state values remain inlined.
         {
-            let store0 = env.clients[0].chain.chain_store().store();
-            let store1 = env.clients[1].chain.chain_store().store();
+            let store0 = env.clients[0]
+                .chain
+                .chain_store()
+                .store();
+            let store1 = env.clients[1]
+                .chain
+                .chain_store()
+                .store();
             let (num_inlined_before, num_ref_before) = count_flat_state_value_kinds(&store0);
             let (num_inlined_after, num_ref_after) = count_flat_state_value_kinds(&store1);
             // Nothing new created, number of flat state values should be identical.
@@ -359,8 +431,14 @@ fn run_state_sync_with_dumped_parts(
 
         // Check that inlined flat state values remain inlined.
         {
-            let store0 = env.clients[0].chain.chain_store().store();
-            let store1 = env.clients[1].chain.chain_store().store();
+            let store0 = env.clients[0]
+                .chain
+                .chain_store()
+                .store();
+            let store1 = env.clients[1]
+                .chain
+                .chain_store()
+                .store();
             let (num_inlined_before, _num_ref_before) = count_flat_state_value_kinds(&store0);
             let (num_inlined_after, _num_ref_after) = count_flat_state_value_kinds(&store1);
             // Created a new entry, but inlined values should stay inlinedNothing new created, number of flat state values should be identical.
@@ -413,15 +491,18 @@ fn slow_test_state_sync_with_dumped_parts_4_final() {
 fn count_flat_state_value_kinds(store: &Store) -> (u64, u64) {
     let mut num_inlined_values = 0;
     let mut num_ref_values = 0;
-    for item in store.flat_store().iter(ShardUId::single_shard()) {
+    for item in store
+        .flat_store()
+        .iter(ShardUId::single_shard())
+    {
         match item {
-            Ok((_, FlatStateValue::Ref(_))) => {
+            | Ok((_, FlatStateValue::Ref(_))) => {
                 num_ref_values += 1;
             }
-            Ok((_, FlatStateValue::Inlined(_))) => {
+            | Ok((_, FlatStateValue::Inlined(_))) => {
                 num_inlined_values += 1;
             }
-            _ => {}
+            | _ => {}
         }
     }
     (num_inlined_values, num_ref_values)

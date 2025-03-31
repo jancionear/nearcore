@@ -20,9 +20,14 @@ const PREDECESSOR_ACCOUNT_ID: &str = "carol";
 
 pub(crate) fn test_vm_config() -> near_parameters::vm::Config {
     let store = RuntimeConfigStore::test();
-    let config = store.get_config(PROTOCOL_VERSION).wasm_config.clone();
+    let config = store
+        .get_config(PROTOCOL_VERSION)
+        .wasm_config
+        .clone();
     near_parameters::vm::Config {
-        vm_kind: config.vm_kind.replace_with_wasmtime_if_unsupported(),
+        vm_kind: config
+            .vm_kind
+            .replace_with_wasmtime_if_unsupported(),
         ..near_parameters::vm::Config::clone(&config)
     }
 }
@@ -46,7 +51,10 @@ pub(crate) fn with_vm_variants(
     run(VMKind::Wasmer2);
 
     #[cfg(all(feature = "near_vm", target_arch = "x86_64"))]
-    if cfg.limit_config.contract_prepare_version == near_parameters::vm::ContractPrepareVersion::V2
+    if cfg
+        .limit_config
+        .contract_prepare_version
+        == near_parameters::vm::ContractPrepareVersion::V2
     {
         run(VMKind::NearVm);
     }

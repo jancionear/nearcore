@@ -52,7 +52,10 @@ impl EntitySerializerData {
         EntitySerializerData { output: EntityDataStruct::new() }
     }
 
-    pub fn serializer<'a>(&'a mut self, key: String) -> EntitySerializer<'a> {
+    pub fn serializer<'a>(
+        &'a mut self,
+        key: String,
+    ) -> EntitySerializer<'a> {
         EntitySerializer { parent: &mut self.output, key }
     }
 }
@@ -60,7 +63,10 @@ impl EntitySerializerData {
 impl<'a> EntitySerializer<'a> {
     /// Creates a child struct serializer that when committed will commit a
     /// struct value to self.
-    pub fn child_struct(self, outer_key: Option<String>) -> EntitySerializerStruct<'a> {
+    pub fn child_struct(
+        self,
+        outer_key: Option<String>,
+    ) -> EntitySerializerStruct<'a> {
         EntitySerializerStruct {
             parent: self,
             children: EntityDataStruct::new(),
@@ -69,8 +75,13 @@ impl<'a> EntitySerializer<'a> {
         }
     }
 
-    pub fn commit(self, value: EntityDataValue) {
-        self.parent.entries.push(EntityDataEntry { name: self.key, value });
+    pub fn commit(
+        self,
+        value: EntityDataValue,
+    ) {
+        self.parent
+            .entries
+            .push(EntityDataEntry { name: self.key, value });
     }
 }
 
@@ -89,7 +100,10 @@ impl<'a> EntitySerializerStruct<'a> {
 
     /// Prepares to serialize a child struct field.
     /// The element is added to children when the returned serializer commits.
-    pub fn child<'b>(&'b mut self, key: String) -> EntitySerializer<'b>
+    pub fn child<'b>(
+        &'b mut self,
+        key: String,
+    ) -> EntitySerializer<'b>
     where
         'a: 'b,
     {
@@ -99,12 +113,12 @@ impl<'a> EntitySerializerStruct<'a> {
     pub fn commit(self) {
         let value = EntityDataValue::Struct(self.children.into());
         match self.outer_key {
-            Some(outer_key) => {
-                self.parent.commit(EntityDataValue::Struct(Box::new(EntityDataStruct {
+            | Some(outer_key) => self
+                .parent
+                .commit(EntityDataValue::Struct(Box::new(EntityDataStruct {
                     entries: vec![EntityDataEntry { name: outer_key, value }],
-                })))
-            }
-            None => self.parent.commit(value),
+                }))),
+            | None => self.parent.commit(value),
         }
     }
 }
@@ -122,82 +136,130 @@ impl<'a> Serializer for EntitySerializer<'a> {
     type SerializeStruct = EntitySerializerStruct<'a>;
     type SerializeStructVariant = EntitySerializerStruct<'a>;
 
-    fn serialize_bool(self, v: bool) -> Result<Self::Ok, Self::Error> {
+    fn serialize_bool(
+        self,
+        v: bool,
+    ) -> Result<Self::Ok, Self::Error> {
         self.commit(EntityDataValue::String(format!("{}", v)));
         Ok(())
     }
 
-    fn serialize_i8(self, v: i8) -> Result<Self::Ok, Self::Error> {
+    fn serialize_i8(
+        self,
+        v: i8,
+    ) -> Result<Self::Ok, Self::Error> {
         self.commit(EntityDataValue::String(format!("{}", v)));
         Ok(())
     }
 
-    fn serialize_i16(self, v: i16) -> Result<Self::Ok, Self::Error> {
+    fn serialize_i16(
+        self,
+        v: i16,
+    ) -> Result<Self::Ok, Self::Error> {
         self.commit(EntityDataValue::String(format!("{}", v)));
         Ok(())
     }
 
-    fn serialize_i32(self, v: i32) -> Result<Self::Ok, Self::Error> {
+    fn serialize_i32(
+        self,
+        v: i32,
+    ) -> Result<Self::Ok, Self::Error> {
         self.commit(EntityDataValue::String(format!("{}", v)));
         Ok(())
     }
 
-    fn serialize_i64(self, v: i64) -> Result<Self::Ok, Self::Error> {
+    fn serialize_i64(
+        self,
+        v: i64,
+    ) -> Result<Self::Ok, Self::Error> {
         self.commit(EntityDataValue::String(format!("{}", v)));
         Ok(())
     }
 
-    fn serialize_i128(self, v: i128) -> Result<Self::Ok, Self::Error> {
+    fn serialize_i128(
+        self,
+        v: i128,
+    ) -> Result<Self::Ok, Self::Error> {
         self.commit(EntityDataValue::String(format!("{}", v)));
         Ok(())
     }
 
-    fn serialize_u8(self, v: u8) -> Result<Self::Ok, Self::Error> {
+    fn serialize_u8(
+        self,
+        v: u8,
+    ) -> Result<Self::Ok, Self::Error> {
         self.commit(EntityDataValue::String(format!("{}", v)));
         Ok(())
     }
 
-    fn serialize_u16(self, v: u16) -> Result<Self::Ok, Self::Error> {
+    fn serialize_u16(
+        self,
+        v: u16,
+    ) -> Result<Self::Ok, Self::Error> {
         self.commit(EntityDataValue::String(format!("{}", v)));
         Ok(())
     }
 
-    fn serialize_u32(self, v: u32) -> Result<Self::Ok, Self::Error> {
+    fn serialize_u32(
+        self,
+        v: u32,
+    ) -> Result<Self::Ok, Self::Error> {
         self.commit(EntityDataValue::String(format!("{}", v)));
         Ok(())
     }
 
-    fn serialize_u64(self, v: u64) -> Result<Self::Ok, Self::Error> {
+    fn serialize_u64(
+        self,
+        v: u64,
+    ) -> Result<Self::Ok, Self::Error> {
         self.commit(EntityDataValue::String(format!("{}", v)));
         Ok(())
     }
 
-    fn serialize_u128(self, v: u128) -> Result<Self::Ok, Self::Error> {
+    fn serialize_u128(
+        self,
+        v: u128,
+    ) -> Result<Self::Ok, Self::Error> {
         self.commit(EntityDataValue::String(format!("{}", v)));
         Ok(())
     }
 
-    fn serialize_f32(self, v: f32) -> Result<Self::Ok, Self::Error> {
+    fn serialize_f32(
+        self,
+        v: f32,
+    ) -> Result<Self::Ok, Self::Error> {
         self.commit(EntityDataValue::String(format!("{}", v)));
         Ok(())
     }
 
-    fn serialize_f64(self, v: f64) -> Result<Self::Ok, Self::Error> {
+    fn serialize_f64(
+        self,
+        v: f64,
+    ) -> Result<Self::Ok, Self::Error> {
         self.commit(EntityDataValue::String(format!("{}", v)));
         Ok(())
     }
 
-    fn serialize_char(self, v: char) -> Result<Self::Ok, Self::Error> {
+    fn serialize_char(
+        self,
+        v: char,
+    ) -> Result<Self::Ok, Self::Error> {
         self.commit(EntityDataValue::String(format!("{}", v)));
         Ok(())
     }
 
-    fn serialize_str(self, v: &str) -> Result<Self::Ok, Self::Error> {
+    fn serialize_str(
+        self,
+        v: &str,
+    ) -> Result<Self::Ok, Self::Error> {
         self.commit(EntityDataValue::String(format!("{}", v)));
         Ok(())
     }
 
-    fn serialize_bytes(self, v: &[u8]) -> Result<Self::Ok, Self::Error> {
+    fn serialize_bytes(
+        self,
+        v: &[u8],
+    ) -> Result<Self::Ok, Self::Error> {
         self.commit(EntityDataValue::String(hex::encode(v)));
         Ok(())
     }
@@ -207,7 +269,10 @@ impl<'a> Serializer for EntitySerializer<'a> {
         Ok(())
     }
 
-    fn serialize_some<T>(self, value: &T) -> Result<Self::Ok, Self::Error>
+    fn serialize_some<T>(
+        self,
+        value: &T,
+    ) -> Result<Self::Ok, Self::Error>
     where
         T: Serialize + ?Sized,
     {
@@ -220,7 +285,10 @@ impl<'a> Serializer for EntitySerializer<'a> {
         Ok(())
     }
 
-    fn serialize_unit_struct(self, _name: &'static str) -> Result<Self::Ok, Self::Error> {
+    fn serialize_unit_struct(
+        self,
+        _name: &'static str,
+    ) -> Result<Self::Ok, Self::Error> {
         self.serialize_unit()
     }
 
@@ -257,16 +325,24 @@ impl<'a> Serializer for EntitySerializer<'a> {
         T: Serialize + ?Sized,
     {
         let mut child = self.child_struct(None);
-        value.serialize(child.child(variant.to_owned())).unwrap();
+        value
+            .serialize(child.child(variant.to_owned()))
+            .unwrap();
         child.commit();
         Ok(())
     }
 
-    fn serialize_seq(self, _len: Option<usize>) -> Result<Self::SerializeSeq, Self::Error> {
+    fn serialize_seq(
+        self,
+        _len: Option<usize>,
+    ) -> Result<Self::SerializeSeq, Self::Error> {
         Ok(self.child_struct(None))
     }
 
-    fn serialize_tuple(self, _len: usize) -> Result<Self::SerializeTuple, Self::Error> {
+    fn serialize_tuple(
+        self,
+        _len: usize,
+    ) -> Result<Self::SerializeTuple, Self::Error> {
         Ok(self.child_struct(None))
     }
 
@@ -288,7 +364,10 @@ impl<'a> Serializer for EntitySerializer<'a> {
         Ok(self.child_struct(Some(variant.to_owned())))
     }
 
-    fn serialize_map(self, _len: Option<usize>) -> Result<Self::SerializeMap, Self::Error> {
+    fn serialize_map(
+        self,
+        _len: Option<usize>,
+    ) -> Result<Self::SerializeMap, Self::Error> {
         Ok(self.child_struct(None))
     }
 
@@ -315,7 +394,10 @@ impl<'a> SerializeSeq for EntitySerializerStruct<'a> {
     type Ok = ();
     type Error = std::fmt::Error;
 
-    fn serialize_element<T>(&mut self, value: &T) -> Result<(), Self::Error>
+    fn serialize_element<T>(
+        &mut self,
+        value: &T,
+    ) -> Result<(), Self::Error>
     where
         T: Serialize + ?Sized,
     {
@@ -334,18 +416,32 @@ impl<'a> SerializeMap for EntitySerializerStruct<'a> {
 
     type Error = std::fmt::Error;
 
-    fn serialize_entry<K, V>(&mut self, key: &K, value: &V) -> Result<(), Self::Error>
+    fn serialize_entry<K, V>(
+        &mut self,
+        key: &K,
+        value: &V,
+    ) -> Result<(), Self::Error>
     where
         K: Serialize + ?Sized,
         V: Serialize + ?Sized,
     {
         let mut key_data = EntitySerializerData::new();
-        key.serialize(key_data.serializer("".to_owned())).unwrap();
-        let key = match key_data.output.entries.into_iter().next().unwrap().value {
-            EntityDataValue::String(key_str) => key_str,
-            EntityDataValue::Struct(_) => "invalid_key_type".to_owned(),
+        key.serialize(key_data.serializer("".to_owned()))
+            .unwrap();
+        let key = match key_data
+            .output
+            .entries
+            .into_iter()
+            .next()
+            .unwrap()
+            .value
+        {
+            | EntityDataValue::String(key_str) => key_str,
+            | EntityDataValue::Struct(_) => "invalid_key_type".to_owned(),
         };
-        value.serialize(self.child(key)).unwrap();
+        value
+            .serialize(self.child(key))
+            .unwrap();
         Ok(())
     }
 
@@ -354,14 +450,20 @@ impl<'a> SerializeMap for EntitySerializerStruct<'a> {
         Ok(())
     }
 
-    fn serialize_key<T>(&mut self, _key: &T) -> Result<(), Self::Error>
+    fn serialize_key<T>(
+        &mut self,
+        _key: &T,
+    ) -> Result<(), Self::Error>
     where
         T: Serialize + ?Sized,
     {
         unreachable!()
     }
 
-    fn serialize_value<T>(&mut self, _value: &T) -> Result<(), Self::Error>
+    fn serialize_value<T>(
+        &mut self,
+        _value: &T,
+    ) -> Result<(), Self::Error>
     where
         T: Serialize + ?Sized,
     {
@@ -374,11 +476,17 @@ impl<'a> SerializeStruct for EntitySerializerStruct<'a> {
 
     type Error = std::fmt::Error;
 
-    fn serialize_field<T>(&mut self, key: &'static str, value: &T) -> Result<(), Self::Error>
+    fn serialize_field<T>(
+        &mut self,
+        key: &'static str,
+        value: &T,
+    ) -> Result<(), Self::Error>
     where
         T: Serialize + ?Sized,
     {
-        value.serialize(self.child(key.to_owned())).unwrap();
+        value
+            .serialize(self.child(key.to_owned()))
+            .unwrap();
         Ok(())
     }
 
@@ -393,7 +501,10 @@ impl<'a> SerializeTuple for EntitySerializerStruct<'a> {
 
     type Error = std::fmt::Error;
 
-    fn serialize_element<T>(&mut self, value: &T) -> Result<(), Self::Error>
+    fn serialize_element<T>(
+        &mut self,
+        value: &T,
+    ) -> Result<(), Self::Error>
     where
         T: Serialize + ?Sized,
     {
@@ -412,7 +523,10 @@ impl<'a> SerializeTupleStruct for EntitySerializerStruct<'a> {
 
     type Error = std::fmt::Error;
 
-    fn serialize_field<T>(&mut self, value: &T) -> Result<(), Self::Error>
+    fn serialize_field<T>(
+        &mut self,
+        value: &T,
+    ) -> Result<(), Self::Error>
     where
         T: Serialize + ?Sized,
     {
@@ -431,7 +545,10 @@ impl<'a> SerializeTupleVariant for EntitySerializerStruct<'a> {
 
     type Error = std::fmt::Error;
 
-    fn serialize_field<T>(&mut self, value: &T) -> Result<(), Self::Error>
+    fn serialize_field<T>(
+        &mut self,
+        value: &T,
+    ) -> Result<(), Self::Error>
     where
         T: Serialize + ?Sized,
     {
@@ -450,11 +567,17 @@ impl<'a> SerializeStructVariant for EntitySerializerStruct<'a> {
 
     type Error = std::fmt::Error;
 
-    fn serialize_field<T>(&mut self, key: &'static str, value: &T) -> Result<(), Self::Error>
+    fn serialize_field<T>(
+        &mut self,
+        key: &'static str,
+        value: &T,
+    ) -> Result<(), Self::Error>
     where
         T: Serialize + ?Sized,
     {
-        value.serialize(self.child(key.to_owned())).unwrap();
+        value
+            .serialize(self.child(key.to_owned()))
+            .unwrap();
         Ok(())
     }
     fn end(self) -> Result<Self::Ok, Self::Error> {
@@ -470,8 +593,15 @@ where
     T: Serialize + ?Sized,
 {
     let mut data = EntitySerializerData::new();
-    value.serialize(data.serializer(String::new())).unwrap();
-    data.output.entries.into_iter().next().unwrap().value
+    value
+        .serialize(data.serializer(String::new()))
+        .unwrap();
+    data.output
+        .entries
+        .into_iter()
+        .next()
+        .unwrap()
+        .value
 }
 
 #[cfg(test)]
@@ -539,7 +669,11 @@ mod tests {
     fn test_serialize_vecs() {
         assert_eq!(
             serialize_entity(&vec![1, 2, 3]),
-            tree(vec![("0", val("1")), ("1", val("2")), ("2", val("3"))])
+            tree(vec![
+                ("0", val("1")),
+                ("1", val("2")),
+                ("2", val("3"))
+            ])
         );
 
         #[derive(Serialize)]
@@ -548,7 +682,10 @@ mod tests {
         }
         assert_eq!(
             serialize_entity(&vec![A { x: 1 }, A { x: 2 }]),
-            tree(vec![("0", tree(vec![("x", val("1"))])), ("1", tree(vec![("x", val("2"))])),])
+            tree(vec![
+                ("0", tree(vec![("x", val("1"))])),
+                ("1", tree(vec![("x", val("2"))])),
+            ])
         );
     }
 
@@ -556,7 +693,11 @@ mod tests {
     fn test_serialize_tuples() {
         assert_eq!(
             serialize_entity(&(1, 2, 3)),
-            tree(vec![("0", val("1")), ("1", val("2")), ("2", val("3"))])
+            tree(vec![
+                ("0", val("1")),
+                ("1", val("2")),
+                ("2", val("3"))
+            ])
         );
     }
 

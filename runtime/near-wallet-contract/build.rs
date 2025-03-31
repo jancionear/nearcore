@@ -68,7 +68,11 @@ fn build_contract(
 
     // Update the chain id before building
     std::fs::write(&chain_id_path, chain_id.to_string().into_bytes())?;
-    docker_build(absolute_dir.to_str().expect("path should be valid UTF-8"))?;
+    docker_build(
+        absolute_dir
+            .to_str()
+            .expect("path should be valid UTF-8"),
+    )?;
 
     // Restore chain id file to original value after building
     std::fs::write(&chain_id_path, chain_id_content)?;
@@ -105,11 +109,13 @@ fn docker_build(host_path: &str) -> anyhow::Result<()> {
             "./docker-entrypoint.sh",
         ])
         .status();
-    status.with_context(|| format!("Failed to run command `{cmd:?}`")).and_then(|status| {
-        if status.success() {
-            Ok(())
-        } else {
-            Err(anyhow!("Command `{cmd:?}` exited with non-zero status: {status:?}"))
-        }
-    })
+    status
+        .with_context(|| format!("Failed to run command `{cmd:?}`"))
+        .and_then(|status| {
+            if status.success() {
+                Ok(())
+            } else {
+                Err(anyhow!("Command `{cmd:?}` exited with non-zero status: {status:?}"))
+            }
+        })
 }

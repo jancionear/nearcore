@@ -31,24 +31,28 @@ fn ultra_slow_test_track_shards() {
             let bh = *last_block_hash.read().unwrap();
             if let Some(block_hash) = bh {
                 let msg = GetChunk::BlockHash(block_hash, ShardId::new(3));
-                let res = view_client.send(msg.with_span_context()).await;
+                let res = view_client
+                    .send(msg.with_span_context())
+                    .await;
                 match &res {
-                    Ok(Ok(_)) => {
+                    | Ok(Ok(_)) => {
                         return ControlFlow::Break(());
                     }
-                    _ => {
+                    | _ => {
                         return ControlFlow::Continue(());
                     }
                 }
             } else {
                 let last_block_hash1 = last_block_hash.clone();
-                let res = view_client.send(GetBlock::latest().with_span_context()).await;
+                let res = view_client
+                    .send(GetBlock::latest().with_span_context())
+                    .await;
                 match &res {
-                    Ok(Ok(b)) if b.header.height > 10 => {
+                    | Ok(Ok(b)) if b.header.height > 10 => {
                         *last_block_hash1.write().unwrap() = Some(b.header.hash);
                     }
-                    Err(_) => return ControlFlow::Continue(()),
-                    _ => {}
+                    | Err(_) => return ControlFlow::Continue(()),
+                    | _ => {}
                 };
                 ControlFlow::Continue(())
             }

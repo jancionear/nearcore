@@ -30,7 +30,10 @@ pub struct ChunkEndorsementTracker {
 }
 
 impl ChunkEndorsementTracker {
-    pub fn new(epoch_manager: Arc<dyn EpochManagerAdapter>, store: Store) -> Self {
+    pub fn new(
+        epoch_manager: Arc<dyn EpochManagerAdapter>,
+        store: Store,
+    ) -> Self {
         Self {
             epoch_manager,
             store,
@@ -48,7 +51,11 @@ impl ChunkEndorsementTracker {
         // Check if we have already received chunk endorsement from this validator.
         let key = endorsement.chunk_production_key();
         let account_id = endorsement.account_id();
-        if self.chunk_endorsements.peek(&key).is_some_and(|entry| entry.contains_key(account_id)) {
+        if self
+            .chunk_endorsements
+            .peek(&key)
+            .is_some_and(|entry| entry.contains_key(account_id))
+        {
             tracing::debug!(target: "client", ?endorsement, "Already received chunk endorsement.");
             return Ok(());
         }
@@ -68,9 +75,12 @@ impl ChunkEndorsementTracker {
         chunk_header: &ShardChunkHeader,
     ) -> Result<ChunkEndorsementsState, Error> {
         let shard_id = chunk_header.shard_id();
-        let epoch_id =
-            self.epoch_manager.get_epoch_id_from_prev_block(chunk_header.prev_block_hash())?;
-        let protocol_version = self.epoch_manager.get_epoch_protocol_version(&epoch_id)?;
+        let epoch_id = self
+            .epoch_manager
+            .get_epoch_id_from_prev_block(chunk_header.prev_block_hash())?;
+        let protocol_version = self
+            .epoch_manager
+            .get_epoch_protocol_version(&epoch_id)?;
         if !ProtocolFeature::StatelessValidation.enabled(protocol_version) {
             // Return an endorsed empty array of chunk endorsements for older protocol versions.
             return Ok(ChunkEndorsementsState {
@@ -82,11 +92,13 @@ impl ChunkEndorsementTracker {
         let height_created = chunk_header.height_created();
         let key = ChunkProductionKey { shard_id, epoch_id, height_created };
 
-        let chunk_validator_assignments = self.epoch_manager.get_chunk_validator_assignments(
-            &epoch_id,
-            chunk_header.shard_id(),
-            chunk_header.height_created(),
-        )?;
+        let chunk_validator_assignments = self
+            .epoch_manager
+            .get_chunk_validator_assignments(
+                &epoch_id,
+                chunk_header.shard_id(),
+                chunk_header.height_created(),
+            )?;
 
         // Get the chunk_endorsements for the chunk from our cache.
         // Note that these chunk endorsements are already validated as part of process_chunk_endorsement.
@@ -94,7 +106,9 @@ impl ChunkEndorsementTracker {
         //    1. The chunk endorsements are from valid chunk_validator for this chunk.
         //    2. The chunk endorsements signatures are valid.
         //    3. We still need to validate if the chunk_hash matches the chunk_header.chunk_hash()
-        let entry = self.chunk_endorsements.get_or_insert(key, || HashMap::new());
+        let entry = self
+            .chunk_endorsements
+            .get_or_insert(key, || HashMap::new());
         let validator_signatures = entry
             .into_iter()
             .filter(|(_, (chunk_hash, _))| chunk_hash == &chunk_header.chunk_hash())

@@ -8,11 +8,29 @@ use crate::Client;
 
 // TODO: This would be a good starting point for turning this into a test util.
 pub trait ClientQueries {
-    fn client_index_tracking_account(&self, account: &AccountId) -> usize;
-    fn runtime_query(&self, account: &AccountId, query: QueryRequest) -> QueryResponse;
-    fn query_balance(&self, account: &AccountId) -> Balance;
-    fn view_call(&self, account: &AccountId, method: &str, args: &[u8]) -> Vec<u8>;
-    fn tx_outcome(&self, tx_hash: CryptoHash) -> FinalExecutionOutcomeView;
+    fn client_index_tracking_account(
+        &self,
+        account: &AccountId,
+    ) -> usize;
+    fn runtime_query(
+        &self,
+        account: &AccountId,
+        query: QueryRequest,
+    ) -> QueryResponse;
+    fn query_balance(
+        &self,
+        account: &AccountId,
+    ) -> Balance;
+    fn view_call(
+        &self,
+        account: &AccountId,
+        method: &str,
+        args: &[u8],
+    ) -> Vec<u8>;
+    fn tx_outcome(
+        &self,
+        tx_hash: CryptoHash,
+    ) -> FinalExecutionOutcomeView;
     fn tracked_shards_for_each_client(&self) -> Vec<Vec<ShardId>>;
 }
 
@@ -20,11 +38,16 @@ impl<Data> ClientQueries for Vec<Data>
 where
     Data: AsRef<Client>,
 {
-    fn client_index_tracking_account(&self, account_id: &AccountId) -> usize {
+    fn client_index_tracking_account(
+        &self,
+        account_id: &AccountId,
+    ) -> usize {
         let client: &Client = self[0].as_ref();
         let head = client.chain.head().unwrap();
-        let shard_id =
-            client.epoch_manager.account_id_to_shard_id(&account_id, &head.epoch_id).unwrap();
+        let shard_id = client
+            .epoch_manager
+            .account_id_to_shard_id(&account_id, &head.epoch_id)
+            .unwrap();
 
         for i in 0..self.len() {
             let client: &Client = self[i].as_ref();
@@ -41,16 +64,33 @@ where
         panic!("No client tracks shard {}", shard_id);
     }
 
-    fn runtime_query(&self, account_id: &AccountId, query: QueryRequest) -> QueryResponse {
+    fn runtime_query(
+        &self,
+        account_id: &AccountId,
+        query: QueryRequest,
+    ) -> QueryResponse {
         let client_index = self.client_index_tracking_account(account_id);
         let client: &Client = self[client_index].as_ref();
         let head = client.chain.head().unwrap();
-        let last_block = client.chain.get_block(&head.last_block_hash).unwrap();
-        let shard_id =
-            client.epoch_manager.account_id_to_shard_id(&account_id, &head.epoch_id).unwrap();
-        let shard_uid = client.epoch_manager.shard_id_to_uid(shard_id, &head.epoch_id).unwrap();
-        let shard_layout = client.epoch_manager.get_shard_layout(&head.epoch_id).unwrap();
-        let shard_index = shard_layout.get_shard_index(shard_id).unwrap();
+        let last_block = client
+            .chain
+            .get_block(&head.last_block_hash)
+            .unwrap();
+        let shard_id = client
+            .epoch_manager
+            .account_id_to_shard_id(&account_id, &head.epoch_id)
+            .unwrap();
+        let shard_uid = client
+            .epoch_manager
+            .shard_id_to_uid(shard_id, &head.epoch_id)
+            .unwrap();
+        let shard_layout = client
+            .epoch_manager
+            .get_shard_layout(&head.epoch_id)
+            .unwrap();
+        let shard_index = shard_layout
+            .get_shard_index(shard_id)
+            .unwrap();
         let last_chunk_header = &last_block.chunks()[shard_index];
 
         client
@@ -68,7 +108,10 @@ where
             .unwrap()
     }
 
-    fn query_balance(&self, account_id: &AccountId) -> Balance {
+    fn query_balance(
+        &self,
+        account_id: &AccountId,
+    ) -> Balance {
         let response = self.runtime_query(
             account_id,
             QueryRequest::ViewAccount { account_id: account_id.clone() },
@@ -80,7 +123,12 @@ where
         }
     }
 
-    fn view_call(&self, account_id: &AccountId, method: &str, args: &[u8]) -> Vec<u8> {
+    fn view_call(
+        &self,
+        account_id: &AccountId,
+        method: &str,
+        args: &[u8],
+    ) -> Vec<u8> {
         let response = self.runtime_query(
             account_id,
             QueryRequest::CallFunction {
@@ -96,16 +144,25 @@ where
         }
     }
 
-    fn tx_outcome(&self, tx_hash: CryptoHash) -> FinalExecutionOutcomeView {
+    fn tx_outcome(
+        &self,
+        tx_hash: CryptoHash,
+    ) -> FinalExecutionOutcomeView {
         // TODO: this does not work yet with single-shard tracking.
         let client: &Client = self[0].as_ref();
-        client.chain.get_final_transaction_result(&tx_hash).unwrap()
+        client
+            .chain
+            .get_final_transaction_result(&tx_hash)
+            .unwrap()
     }
 
     fn tracked_shards_for_each_client(&self) -> Vec<Vec<ShardId>> {
         let client: &Client = self[0].as_ref();
         let head = client.chain.head().unwrap();
-        let all_shard_ids = client.epoch_manager.shard_ids(&head.epoch_id).unwrap();
+        let all_shard_ids = client
+            .epoch_manager
+            .shard_ids(&head.epoch_id)
+            .unwrap();
 
         let mut ret = Vec::new();
         for i in 0..self.len() {

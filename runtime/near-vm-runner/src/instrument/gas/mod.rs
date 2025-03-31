@@ -12,7 +12,10 @@ use std::{cmp::min, mem};
 
 use super::rules::{self, Rules};
 
-pub fn update_call_index(instructions: &mut elements::Instructions, inserted_index: u32) {
+pub fn update_call_index(
+    instructions: &mut elements::Instructions,
+    inserted_index: u32,
+) {
     use parity_wasm::elements::Instruction::*;
     for instruction in instructions.elements_mut().iter_mut() {
         if let Call(call_index) = instruction {
@@ -92,7 +95,11 @@ impl Counter {
     }
 
     /// Open a new control block. The cursor is the position of the first instruction in the block.
-    fn begin_control_block(&mut self, cursor: usize, is_loop: bool) {
+    fn begin_control_block(
+        &mut self,
+        cursor: usize,
+        is_loop: bool,
+    ) {
         let index = self.stack.len();
         self.stack.push(ControlBlock {
             lowest_forward_br_target: index,
@@ -103,7 +110,10 @@ impl Counter {
 
     /// Close the last control block. The cursor is the position of the final (pseudo-)instruction
     /// in the block.
-    fn finalize_control_block(&mut self, cursor: usize) -> Result<(), ()> {
+    fn finalize_control_block(
+        &mut self,
+        cursor: usize,
+    ) -> Result<(), ()> {
         // This either finalizes the active metered block or merges its cost into the active
         // metered block in the previous control block on the stack.
         self.finalize_metered_block(cursor)?;
@@ -138,7 +148,10 @@ impl Counter {
     /// Finalize the current active metered block.
     ///
     /// Finalized blocks have final cost which will not change later.
-    fn finalize_metered_block(&mut self, cursor: usize) -> Result<(), ()> {
+    fn finalize_metered_block(
+        &mut self,
+        cursor: usize,
+    ) -> Result<(), ()> {
         let closing_metered_block = {
             let control_block = self.stack.last_mut().ok_or(())?;
             mem::replace(
@@ -166,7 +179,8 @@ impl Counter {
         }
 
         if closing_metered_block.cost > 0 {
-            self.finalized_blocks.push(closing_metered_block);
+            self.finalized_blocks
+                .push(closing_metered_block);
         }
         Ok(())
     }
@@ -175,7 +189,11 @@ impl Counter {
     /// instruction in the program. The indices are the stack positions of the target control
     /// blocks. Recall that the index is 0 for a `return` and relatively indexed from the top of
     /// the stack by the label of `br`, `br_if`, and `br_table` instructions.
-    fn branch(&mut self, cursor: usize, indices: &[usize]) -> Result<(), ()> {
+    fn branch(
+        &mut self,
+        cursor: usize,
+        indices: &[usize],
+    ) -> Result<(), ()> {
         self.finalize_metered_block(cursor)?;
 
         // Update the lowest_forward_br_target of the current control block.
@@ -208,14 +226,23 @@ impl Counter {
     }
 
     /// Increment the cost of the current block by the specified value.
-    fn increment(&mut self, val: u32) -> Result<(), ()> {
+    fn increment(
+        &mut self,
+        val: u32,
+    ) -> Result<(), ()> {
         let top_block = self.active_metered_block()?;
-        top_block.cost = top_block.cost.checked_add(val).ok_or(())?;
+        top_block.cost = top_block
+            .cost
+            .checked_add(val)
+            .ok_or(())?;
         Ok(())
     }
 }
 
-fn inject_grow_counter(instructions: &mut elements::Instructions, grow_counter_func: u32) -> usize {
+fn inject_grow_counter(
+    instructions: &mut elements::Instructions,
+    grow_counter_func: u32,
+) -> usize {
     use parity_wasm::elements::Instruction::*;
     let mut counter = 0;
     for instruction in instructions.elements_mut() {
@@ -236,8 +263,8 @@ fn add_grow_counter<R: Rules>(
     use rules::MemoryGrowCost;
 
     let cost = match rules.memory_grow_cost() {
-        None => return module,
-        Some(MemoryGrowCost::Linear(val)) => val.get(),
+        | None => return module,
+        | Some(MemoryGrowCost::Linear(val)) => val.get(),
     };
 
     let mut b = builder::from_module(module);
@@ -278,44 +305,54 @@ pub(crate) fn determine_metered_blocks<R: Rules>(
 
     for cursor in 0..instructions.elements().len() {
         let instruction = &instructions.elements()[cursor];
-        let instruction_cost = rules.instruction_cost(instruction).ok_or(())?;
+        let instruction_cost = rules
+            .instruction_cost(instruction)
+            .ok_or(())?;
         match instruction {
-            Block(_) => {
+            | Block(_) => {
                 counter.increment(instruction_cost)?;
 
                 // Begin new block. The cost of the following opcodes until `end` or `else` will
                 // be included into this block. The start position is set to that of the previous
                 // active metered block to signal that they should be merged in order to reduce
                 // unnecessary metering instructions.
-                let top_block_start_pos = counter.active_metered_block()?.start_pos;
+                let top_block_start_pos = counter
+                    .active_metered_block()?
+                    .start_pos;
                 counter.begin_control_block(top_block_start_pos, false);
             }
-            If(_) => {
+            | If(_) => {
                 counter.increment(instruction_cost)?;
                 counter.begin_control_block(cursor + 1, false);
             }
-            Loop(_) => {
+            | Loop(_) => {
                 counter.increment(instruction_cost)?;
                 counter.begin_control_block(cursor + 1, true);
             }
-            End => {
+            | End => {
                 counter.finalize_control_block(cursor)?;
             }
-            Else => {
+            | Else => {
                 counter.finalize_metered_block(cursor)?;
             }
-            Br(label) | BrIf(label) => {
+            | Br(label) | BrIf(label) => {
                 counter.increment(instruction_cost)?;
 
                 // Label is a relative index into the control stack.
-                let active_index = counter.active_control_block_index().ok_or(())?;
-                let target_index = active_index.checked_sub(*label as usize).ok_or(())?;
+                let active_index = counter
+                    .active_control_block_index()
+                    .ok_or(())?;
+                let target_index = active_index
+                    .checked_sub(*label as usize)
+                    .ok_or(())?;
                 counter.branch(cursor, &[target_index])?;
             }
-            BrTable(br_table_data) => {
+            | BrTable(br_table_data) => {
                 counter.increment(instruction_cost)?;
 
-                let active_index = counter.active_control_block_index().ok_or(())?;
+                let active_index = counter
+                    .active_control_block_index()
+                    .ok_or(())?;
                 let target_indices = [br_table_data.default]
                     .iter()
                     .chain(br_table_data.table.iter())
@@ -324,18 +361,20 @@ pub(crate) fn determine_metered_blocks<R: Rules>(
                     .ok_or(())?;
                 counter.branch(cursor, &target_indices)?;
             }
-            Return => {
+            | Return => {
                 counter.increment(instruction_cost)?;
                 counter.branch(cursor, &[0])?;
             }
-            _ => {
+            | _ => {
                 // An ordinal non control flow instruction increments the cost of the current block.
                 counter.increment(instruction_cost)?;
             }
         }
     }
 
-    counter.finalized_blocks.sort_unstable_by_key(|block| block.start_pos);
+    counter
+        .finalized_blocks
+        .sort_unstable_by_key(|block| block.start_pos);
     Ok(counter.finalized_blocks)
 }
 
@@ -434,11 +473,19 @@ pub fn inject_gas_counter<R: Rules>(
 ) -> Result<elements::Module, elements::Module> {
     // Injecting gas counting external
     let mut mbuilder = builder::from_module(module);
-    let import_sig =
-        mbuilder.push_signature(builder::signature().with_param(ValueType::I32).build_sig());
+    let import_sig = mbuilder.push_signature(
+        builder::signature()
+            .with_param(ValueType::I32)
+            .build_sig(),
+    );
 
     mbuilder.push_import(
-        builder::import().module(gas_module_name).field("gas").external().func(import_sig).build(),
+        builder::import()
+            .module(gas_module_name)
+            .field("gas")
+            .external()
+            .func(import_sig)
+            .build(),
     );
 
     // back to plain module
@@ -455,7 +502,7 @@ pub fn inject_gas_counter<R: Rules>(
     // Updating calling addresses (all calls to function index >= `gas_func` should be incremented)
     for section in module.sections_mut() {
         match section {
-            elements::Section::Code(code_section) => {
+            | elements::Section::Code(code_section) => {
                 for func_body in code_section.bodies_mut() {
                     update_call_index(func_body.code_mut(), gas_func);
                     if inject_counter(func_body.code_mut(), rules, gas_func).is_err() {
@@ -469,7 +516,7 @@ pub fn inject_gas_counter<R: Rules>(
                     }
                 }
             }
-            elements::Section::Export(export_section) => {
+            | elements::Section::Export(export_section) => {
                 for export in export_section.entries_mut() {
                     if let elements::Internal::Function(func_index) = export.internal_mut() {
                         if *func_index >= gas_func {
@@ -478,7 +525,7 @@ pub fn inject_gas_counter<R: Rules>(
                     }
                 }
             }
-            elements::Section::Element(elements_section) => {
+            | elements::Section::Element(elements_section) => {
                 // Note that we do not need to check the element type referenced because in the
                 // WebAssembly 1.0 spec, the only allowed element type is funcref.
                 for segment in elements_section.entries_mut() {
@@ -490,12 +537,12 @@ pub fn inject_gas_counter<R: Rules>(
                     }
                 }
             }
-            elements::Section::Start(start_idx) => {
+            | elements::Section::Start(start_idx) => {
                 if *start_idx >= gas_func {
                     *start_idx += 1
                 }
             }
-            _ => {}
+            | _ => {}
         }
     }
 
@@ -552,11 +599,25 @@ mod tests {
 
         assert_eq!(
             get_function_body(&injected_module, 0).unwrap(),
-            &[I32Const(2), Call(0), GetGlobal(0), Call(2), End][..]
+            &[
+                I32Const(2),
+                Call(0),
+                GetGlobal(0),
+                Call(2),
+                End
+            ][..]
         );
         assert_eq!(
             get_function_body(&injected_module, 1).unwrap(),
-            &[GetLocal(0), GetLocal(0), I32Const(10000), I32Mul, Call(0), GrowMemory(0), End][..]
+            &[
+                GetLocal(0),
+                GetLocal(0),
+                I32Const(10000),
+                I32Mul,
+                Call(0),
+                GrowMemory(0),
+                End
+            ][..]
         );
 
         let binary = serialize(injected_module).expect("serialization failed");
@@ -588,7 +649,13 @@ mod tests {
 
         assert_eq!(
             get_function_body(&injected_module, 0).unwrap(),
-            &[I32Const(2), Call(0), GetGlobal(0), GrowMemory(0), End][..]
+            &[
+                I32Const(2),
+                Call(0),
+                GetGlobal(0),
+                GrowMemory(0),
+                End
+            ][..]
         );
 
         assert_eq!(injected_module.functions_space(), 2);

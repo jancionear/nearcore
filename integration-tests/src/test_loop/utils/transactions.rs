@@ -67,7 +67,11 @@ pub fn get_next_nonce(
     let signer: Signer = create_user_test_signer(&account_id);
     let clients = node_datas
         .iter()
-        .map(|data| &test_loop_data.get(&data.client_sender.actor_handle()).client)
+        .map(|data| {
+            &test_loop_data
+                .get(&data.client_sender.actor_handle())
+                .client
+        })
         .collect_vec();
     let response = clients.runtime_query(
         account_id,
@@ -98,7 +102,12 @@ pub(crate) fn execute_money_transfers(
 ) -> Result<(), BalanceMismatchError> {
     let clients = node_data
         .iter()
-        .map(|data| &test_loop.data.get(&data.client_sender.actor_handle()).client)
+        .map(|data| {
+            &test_loop
+                .data
+                .get(&data.client_sender.actor_handle())
+                .client
+        })
         .collect_vec();
     let mut balances = accounts
         .iter()
@@ -122,7 +131,11 @@ pub(crate) fn execute_money_transfers(
             move |data| {
                 let clients = node_data
                     .iter()
-                    .map(|test_data| &data.get(&test_data.client_sender.actor_handle()).client)
+                    .map(|test_data| {
+                        &data
+                            .get(&test_data.client_sender.actor_handle())
+                            .client
+                    })
                     .collect_vec();
 
                 let anchor_hash = get_anchor_hash(&clients);
@@ -138,7 +151,9 @@ pub(crate) fn execute_money_transfers(
                 );
                 let process_tx_request =
                     ProcessTxRequest { transaction: tx, is_forwarded: false, check_only: false };
-                node_data[i % num_clients].client_sender.send(process_tx_request);
+                node_data[i % num_clients]
+                    .client_sender
+                    .send(process_tx_request);
             },
         );
     }
@@ -149,7 +164,12 @@ pub(crate) fn execute_money_transfers(
 
     let clients = node_data
         .iter()
-        .map(|data| &test_loop.data.get(&data.client_sender.actor_handle()).client)
+        .map(|data| {
+            &test_loop
+                .data
+                .get(&data.client_sender.actor_handle())
+                .client
+        })
         .collect_vec();
     for account in accounts {
         let expected = *balances.get(account).unwrap();
@@ -171,7 +191,8 @@ pub fn do_create_account(
     tracing::info!(target: "test", "Creating account.");
     let nonce = get_next_nonce(&env.test_loop.data, &env.datas, originator);
     let tx = create_account(env, rpc_id, originator, new_account_id, amount, nonce);
-    env.test_loop.run_for(Duration::seconds(5));
+    env.test_loop
+        .run_for(Duration::seconds(5));
     check_txs(&env.test_loop.data, &env.datas, rpc_id, &[tx]);
 }
 
@@ -183,7 +204,8 @@ pub fn do_delete_account(
 ) {
     tracing::info!(target: "test", "Deleting account.");
     let tx = delete_account(&env.test_loop.data, &env.datas, rpc_id, account_id, beneficiary_id);
-    env.test_loop.run_for(Duration::seconds(5));
+    env.test_loop
+        .run_for(Duration::seconds(5));
     check_txs(&env.test_loop.data, &env.datas, rpc_id, &[tx]);
 }
 
@@ -196,7 +218,8 @@ pub fn do_deploy_contract(
     tracing::info!(target: "test", "Deploying contract.");
     let nonce = get_next_nonce(&env.test_loop.data, &env.datas, contract_id);
     let tx = deploy_contract(&mut env.test_loop, &env.datas, rpc_id, contract_id, code, nonce);
-    env.test_loop.run_for(Duration::seconds(2));
+    env.test_loop
+        .run_for(Duration::seconds(2));
     check_txs(&env.test_loop.data, &env.datas, rpc_id, &[tx]);
 }
 
@@ -220,7 +243,8 @@ pub fn do_call_contract(
         args,
         nonce,
     );
-    env.test_loop.run_for(Duration::seconds(2));
+    env.test_loop
+        .run_for(Duration::seconds(2));
     check_txs(&env.test_loop.data, &env.datas, rpc_id, &[tx]);
 }
 
@@ -341,7 +365,11 @@ pub fn call_contract(
 
 /// Submit a transaction to the rpc node with the given account id.
 /// Doesn't wait for the result, it must be requested separately.
-pub fn submit_tx(node_datas: &[TestData], rpc_id: &AccountId, tx: SignedTransaction) {
+pub fn submit_tx(
+    node_datas: &[TestData],
+    rpc_id: &AccountId,
+    tx: SignedTransaction,
+) {
     let process_tx_request =
         ProcessTxRequest { transaction: tx, is_forwarded: false, check_only: false };
 
@@ -365,8 +393,12 @@ pub fn check_txs(
     let rpc = rpc_client(test_loop_data, node_datas, rpc_id);
 
     for &tx in txs {
-        let tx_outcome = rpc.chain.get_partial_transaction_result(&tx);
-        let status = tx_outcome.as_ref().map(|o| o.status.clone());
+        let tx_outcome = rpc
+            .chain
+            .get_partial_transaction_result(&tx);
+        let status = tx_outcome
+            .as_ref()
+            .map(|o| o.status.clone());
         let status = status.unwrap();
         tracing::info!(target: "test", ?tx, ?status, "transaction status");
         assert_matches!(status, FinalExecutionStatus::SuccessValue(_));
@@ -386,10 +418,17 @@ fn rpc_client<'a>(
 }
 
 /// Finds a block that all clients have on their chain and return its hash.
-pub fn get_shared_block_hash(node_datas: &[TestData], test_loop_data: &TestLoopData) -> CryptoHash {
+pub fn get_shared_block_hash(
+    node_datas: &[TestData],
+    test_loop_data: &TestLoopData,
+) -> CryptoHash {
     let clients = node_datas
         .iter()
-        .map(|data| &test_loop_data.get(&data.client_sender.actor_handle()).client)
+        .map(|data| {
+            &test_loop_data
+                .get(&data.client_sender.actor_handle())
+                .client
+        })
         .collect_vec();
 
     let (_, block_hash) = clients
@@ -415,8 +454,8 @@ pub fn run_tx(
     let tx_res = execute_tx(test_loop, rpc_id, tx, node_datas, maximum_duration).unwrap();
     assert_matches!(tx_res.status, FinalExecutionStatus::SuccessValue(_));
     match tx_res.status {
-        FinalExecutionStatus::SuccessValue(res) => res,
-        _ => unreachable!(),
+        | FinalExecutionStatus::SuccessValue(res) => res,
+        | _ => unreachable!(),
     }
 }
 
@@ -428,19 +467,28 @@ pub fn run_txs_parallel(
     node_datas: &[TestData],
     maximum_duration: Duration,
 ) {
-    let mut tx_runners = txs.into_iter().map(|tx| TransactionRunner::new(tx, true)).collect_vec();
+    let mut tx_runners = txs
+        .into_iter()
+        .map(|tx| TransactionRunner::new(tx, true))
+        .collect_vec();
 
     let client_sender = &node_datas[0].client_sender;
     let future_spawner = test_loop.future_spawner();
 
     test_loop.run_until(
         |tl_data| {
-            let client = &tl_data.get(&node_datas[0].client_sender.actor_handle()).client;
+            let client = &tl_data
+                .get(
+                    &node_datas[0]
+                        .client_sender
+                        .actor_handle(),
+                )
+                .client;
             let mut all_ready = true;
             for runner in tx_runners.iter_mut() {
                 match runner.poll_assert_success(client_sender, client, &future_spawner) {
-                    Poll::Pending => all_ready = false,
-                    Poll::Ready(_) => {}
+                    | Poll::Pending => all_ready = false,
+                    | Poll::Ready(_) => {}
                 }
             }
 
@@ -468,10 +516,12 @@ pub fn execute_tx(
     let mut res = None;
     test_loop.run_until(
         |tl_data| {
-            let client = &tl_data.get(&client_sender.actor_handle()).client;
+            let client = &tl_data
+                .get(&client_sender.actor_handle())
+                .client;
             match tx_runner.poll(client_sender, client, &future_spawner) {
-                Poll::Pending => false,
-                Poll::Ready(tx_res) => {
+                | Poll::Pending => false,
+                | Poll::Ready(tx_res) => {
                     res = Some(tx_res);
                     true
                 }
@@ -485,13 +535,17 @@ pub fn execute_tx(
 
 /// Creates account ids for the given number of accounts.
 pub fn make_accounts(num_accounts: usize) -> Vec<AccountId> {
-    let accounts = (0..num_accounts).map(|i| make_account(i)).collect_vec();
+    let accounts = (0..num_accounts)
+        .map(|i| make_account(i))
+        .collect_vec();
     accounts
 }
 
 /// Creates an account id to be contained at the given index.
 pub fn make_account(index: usize) -> AccountId {
-    format!("account{}", index).parse().unwrap()
+    format!("account{}", index)
+        .parse()
+        .unwrap()
 }
 
 /// Runs a transaction until completion.
@@ -510,9 +564,12 @@ impl TransactionRunner {
     /// the transaction will be sent on the first call to `poll`.
     /// If `retry_when_congested` is true, the runner will retry the transaction if it's rejected
     /// because of shard congestion.
-    pub fn new(transaction: SignedTransaction, retry_when_congested: bool) -> Self {
+    pub fn new(
+        transaction: SignedTransaction,
+        retry_when_congested: bool,
+    ) -> Self {
         Self {
-            transaction: transaction,
+            transaction,
             tx_sent: false,
             process_tx_result: Arc::new(Mutex::new(None)),
             retry_when_congested,
@@ -545,8 +602,8 @@ impl TransactionRunner {
 
         if let Some(tx_processing_res) = self.get_tx_processing_res() {
             match tx_processing_res {
-                TxProcessingResult::Ok => {} // Initial processing was successful.
-                TxProcessingResult::Congested(invalid_tx_err) => {
+                | TxProcessingResult::Ok => {} // Initial processing was successful.
+                | TxProcessingResult::Congested(invalid_tx_err) => {
                     if self.retry_when_congested {
                         // Transaction was rejected because of congestion, retry it.
                         self.send_tx(client_sender, future_spawner);
@@ -555,7 +612,7 @@ impl TransactionRunner {
                         return Poll::Ready(Err(invalid_tx_err));
                     }
                 }
-                TxProcessingResult::Invalid(invalid_tx_err) => {
+                | TxProcessingResult::Invalid(invalid_tx_err) => {
                     // Invalid transaction.
                     self.final_result = Some(Err(invalid_tx_err.clone()));
                     return Poll::Ready(Err(invalid_tx_err));
@@ -563,8 +620,9 @@ impl TransactionRunner {
             }
         }
 
-        if let Ok(final_res) =
-            client.chain.get_final_transaction_result(&self.transaction.get_hash())
+        if let Ok(final_res) = client
+            .chain
+            .get_final_transaction_result(&self.transaction.get_hash())
         {
             // Transaction execution is finished, save and return the final result.
             self.final_result = Some(Ok(final_res.clone()));
@@ -583,14 +641,14 @@ impl TransactionRunner {
         future_spawner: &TestLoopFutureSpawner,
     ) -> Poll<Vec<u8>> {
         let final_res = match self.poll(client_sender, client, future_spawner) {
-            Poll::Pending => return Poll::Pending,
-            Poll::Ready(final_res) => final_res,
+            | Poll::Pending => return Poll::Pending,
+            | Poll::Ready(final_res) => final_res,
         };
         assert_matches!(final_res, Ok(_));
         let status = final_res.unwrap().status;
         match status {
-            FinalExecutionStatus::SuccessValue(res) => Poll::Ready(res),
-            _ => panic!("Transaction failed: {:?}", status),
+            | FinalExecutionStatus::SuccessValue(res) => Poll::Ready(res),
+            | _ => panic!("Transaction failed: {:?}", status),
         }
     }
 
@@ -618,10 +676,14 @@ impl TransactionRunner {
 
     /// Get result of initial processing, if the result is already available.
     fn get_tx_processing_res(&mut self) -> Option<TxProcessingResult> {
-        let processing_response_res = self.process_tx_result.lock().unwrap().take()?;
+        let processing_response_res = self
+            .process_tx_result
+            .lock()
+            .unwrap()
+            .take()?;
         let process_tx_response = match processing_response_res {
-            Ok(process_tx_response) => process_tx_response,
-            Err(AsyncSendError::Closed)
+            | Ok(process_tx_response) => process_tx_response,
+            | Err(AsyncSendError::Closed)
             | Err(AsyncSendError::Timeout)
             | Err(AsyncSendError::Dropped) => {
                 tracing::warn!(
@@ -674,11 +736,18 @@ pub fn store_and_submit_tx(
 
 /// Checks status of the provided transactions. Panics if transaction result is an error.
 /// Removes transactions that finished successfully from the list.
-pub fn check_txs_remove_successful(txs: &Cell<Vec<(CryptoHash, BlockHeight)>>, client: &Client) {
+pub fn check_txs_remove_successful(
+    txs: &Cell<Vec<(CryptoHash, BlockHeight)>>,
+    client: &Client,
+) {
     let mut unfinished_txs = Vec::new();
     for (tx_hash, tx_height) in txs.take() {
-        let tx_outcome = client.chain.get_final_transaction_result(&tx_hash);
-        let status = tx_outcome.as_ref().map(|o| o.status.clone());
+        let tx_outcome = client
+            .chain
+            .get_final_transaction_result(&tx_hash);
+        let status = tx_outcome
+            .as_ref()
+            .map(|o| o.status.clone());
         tracing::debug!(target: "test", ?tx_height, ?tx_hash, ?status, "transaction status");
         match status {
             Ok(FinalExecutionStatus::SuccessValue(_)) => continue, // Transaction finished successfully, remove it.

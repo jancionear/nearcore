@@ -27,7 +27,10 @@ static LOCALNET: WalletContract =
 
 /// Get wallet contract code for different Near chains.
 pub fn wallet_contract(code_hash: CryptoHash) -> Option<Arc<ContractCode>> {
-    fn check(code_hash: &CryptoHash, contract: &WalletContract) -> Option<Arc<ContractCode>> {
+    fn check(
+        code_hash: &CryptoHash,
+        contract: &WalletContract,
+    ) -> Option<Arc<ContractCode>> {
         let magic_bytes = contract.magic_bytes();
         if code_hash == magic_bytes.hash() {
             Some(contract.read_contract())
@@ -56,15 +59,15 @@ pub fn wallet_contract_magic_bytes(
     protocol_version: ProtocolVersion,
 ) -> Arc<ContractCode> {
     match chain_id {
-        chains::MAINNET => MAINNET.magic_bytes(),
-        chains::TESTNET => {
+        | chains::MAINNET => MAINNET.magic_bytes(),
+        | chains::TESTNET => {
             if protocol_version < NEW_WALLET_CONTRACT_VERSION {
                 OLD_TESTNET.magic_bytes()
             } else {
                 TESTNET.magic_bytes()
             }
         }
-        _ => LOCALNET.magic_bytes(),
+        | _ => LOCALNET.magic_bytes(),
     }
 }
 
@@ -105,7 +108,9 @@ impl WalletContract {
     }
 
     fn read_contract(&self) -> Arc<ContractCode> {
-        self.contract.get_or_init(|| Arc::new(ContractCode::new(self.code.to_vec(), None))).clone()
+        self.contract
+            .get_or_init(|| Arc::new(ContractCode::new(self.code.to_vec(), None)))
+            .clone()
     }
 
     fn magic_bytes(&self) -> Arc<ContractCode> {

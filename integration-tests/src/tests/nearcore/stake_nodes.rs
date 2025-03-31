@@ -48,14 +48,27 @@ fn init_test_staking(
 ) -> Vec<TestNode> {
     init_integration_logger();
 
-    let seeds = (0..num_node_seats).map(|i| format!("near.{}", i)).collect::<Vec<_>>();
-    let mut genesis =
-        Genesis::test(seeds.iter().map(|s| s.parse().unwrap()).collect(), num_validator_seats);
+    let seeds = (0..num_node_seats)
+        .map(|i| format!("near.{}", i))
+        .collect::<Vec<_>>();
+    let mut genesis = Genesis::test(
+        seeds
+            .iter()
+            .map(|s| s.parse().unwrap())
+            .collect(),
+        num_validator_seats,
+    );
     genesis.config.epoch_length = epoch_length;
     genesis.config.num_block_producer_seats = num_node_seats;
-    genesis.config.block_producer_kickout_threshold = 20;
-    genesis.config.chunk_producer_kickout_threshold = 20;
-    genesis.config.chunk_validator_only_kickout_threshold = 20;
+    genesis
+        .config
+        .block_producer_kickout_threshold = 20;
+    genesis
+        .config
+        .chunk_producer_kickout_threshold = 20;
+    genesis
+        .config
+        .chunk_validator_only_kickout_threshold = 20;
     genesis.config.minimum_stake_divisor = minimum_stake_divisor;
     if !enable_rewards {
         genesis.config.max_inflation_rate = Ratio::from_integer(0);
@@ -71,14 +84,19 @@ fn init_test_staking(
         );
         // Disable state snapshots, because they don't work with epochs that are too short.
         // And they are not needed in these tests.
-        config.config.store.state_snapshot_enabled = state_snapshot_enabled;
+        config
+            .config
+            .store
+            .state_snapshot_enabled = state_snapshot_enabled;
         if track_all_shards {
             config.config.tracked_shards = vec![ShardId::new(0)];
             config.client_config.tracked_shards = vec![ShardId::new(0)];
         }
         if i != 0 {
-            config.network_config.peer_store.boot_nodes =
-                convert_boot_nodes(vec![("near.0", *first_node)]);
+            config
+                .network_config
+                .peer_store
+                .boot_nodes = convert_boot_nodes(vec![("near.0", *first_node)]);
         }
         config.client_config.min_num_peers = num_node_seats as usize - 1;
         config
@@ -89,7 +107,9 @@ fn init_test_staking(
             let genesis_hash = genesis_hash(&config.genesis);
             let nearcore::NearNode { client, view_client, .. } =
                 start_with_config(paths[i], config.clone()).expect("start_with_config");
-            let account_id = format!("near.{}", i).parse::<AccountId>().unwrap();
+            let account_id = format!("near.{}", i)
+                .parse::<AccountId>()
+                .unwrap();
             let signer = Arc::new(InMemorySigner::test_signer(&account_id));
             TestNode { account_id, signer, config, client, view_client, genesis_hash }
         })
@@ -104,12 +124,17 @@ fn ultra_slow_test_stake_nodes() {
         let num_nodes = 2;
         let dirs = (0..num_nodes)
             .map(|i| {
-                tempfile::Builder::new().prefix(&format!("stake_node_{}", i)).tempdir().unwrap()
+                tempfile::Builder::new()
+                    .prefix(&format!("stake_node_{}", i))
+                    .tempdir()
+                    .unwrap()
             })
             .collect::<Vec<_>>();
         run_actix(async {
             let test_nodes = init_test_staking(
-                dirs.iter().map(|dir| dir.path()).collect::<Vec<_>>(),
+                dirs.iter()
+                    .map(|dir| dir.path())
+                    .collect::<Vec<_>>(),
                 num_nodes,
                 1,
                 10,
@@ -125,7 +150,12 @@ fn ultra_slow_test_stake_nodes() {
                 // &*test_nodes[1].config.block_producer.as_ref().unwrap().signer,
                 &(*test_nodes[1].signer),
                 TESTING_INIT_STAKE,
-                test_nodes[1].config.validator_signer.get().unwrap().public_key(),
+                test_nodes[1]
+                    .config
+                    .validator_signer
+                    .get()
+                    .unwrap()
+                    .public_key(),
                 test_nodes[1].genesis_hash,
             );
             actix::spawn(
@@ -194,7 +224,9 @@ fn ultra_slow_test_validator_kickout() {
             .collect::<Vec<_>>();
         run_actix(async {
             let test_nodes = init_test_staking(
-                dirs.iter().map(|dir| dir.path()).collect::<Vec<_>>(),
+                dirs.iter()
+                    .map(|dir| dir.path())
+                    .collect::<Vec<_>>(),
                 num_nodes,
                 4,
                 15,
@@ -213,7 +245,12 @@ fn ultra_slow_test_validator_kickout() {
                     test_node.account_id.clone(),
                     &*signer,
                     stake,
-                    test_node.config.validator_signer.get().unwrap().public_key(),
+                    test_node
+                        .config
+                        .validator_signer
+                        .get()
+                        .unwrap()
+                        .public_key(),
                     test_node.genesis_hash,
                 )
             });
@@ -235,8 +272,11 @@ fn ultra_slow_test_validator_kickout() {
                 );
             }
 
-            let finalized_mark: Arc<Vec<_>> =
-                Arc::new((0..num_nodes).map(|_| Arc::new(AtomicBool::new(false))).collect());
+            let finalized_mark: Arc<Vec<_>> = Arc::new(
+                (0..num_nodes)
+                    .map(|_| Arc::new(AtomicBool::new(false)))
+                    .collect(),
+            );
 
             WaitOrTimeoutActor::new(
                 Box::new(move |_ctx| {
@@ -265,14 +305,16 @@ fn ultra_slow_test_validator_kickout() {
                                     Query::new(
                                         BlockReference::latest(),
                                         QueryRequest::ViewAccount {
-                                            account_id: test_nodes[i as usize].account_id.clone(),
+                                            account_id: test_nodes[i as usize]
+                                                .account_id
+                                                .clone(),
                                         },
                                     )
                                     .with_span_context(),
                                 );
                                 let actor =
                                     actor.then(move |res| match res.unwrap().unwrap().kind {
-                                        QueryResponseKind::ViewAccount(result) => {
+                                        | QueryResponseKind::ViewAccount(result) => {
                                             if result.locked == 0
                                                 || result.amount == TESTING_INIT_BALANCE
                                             {
@@ -280,7 +322,7 @@ fn ultra_slow_test_validator_kickout() {
                                             }
                                             future::ready(())
                                         }
-                                        _ => panic!("wrong return result"),
+                                        | _ => panic!("wrong return result"),
                                     });
                                 actix::spawn(actor);
                             }
@@ -291,14 +333,16 @@ fn ultra_slow_test_validator_kickout() {
                                     Query::new(
                                         BlockReference::latest(),
                                         QueryRequest::ViewAccount {
-                                            account_id: test_nodes[i as usize].account_id.clone(),
+                                            account_id: test_nodes[i as usize]
+                                                .account_id
+                                                .clone(),
                                         },
                                     )
                                     .with_span_context(),
                                 );
                                 let actor =
                                     actor.then(move |res| match res.unwrap().unwrap().kind {
-                                        QueryResponseKind::ViewAccount(result) => {
+                                        | QueryResponseKind::ViewAccount(result) => {
                                             assert_eq!(result.locked, TESTING_INIT_STAKE);
                                             assert_eq!(
                                                 result.amount,
@@ -307,12 +351,15 @@ fn ultra_slow_test_validator_kickout() {
                                             mark.store(true, Ordering::SeqCst);
                                             future::ready(())
                                         }
-                                        _ => panic!("wrong return result"),
+                                        | _ => panic!("wrong return result"),
                                     });
                                 actix::spawn(actor);
                             }
 
-                            if finalized_mark1.iter().all(|mark| mark.load(Ordering::SeqCst)) {
+                            if finalized_mark1
+                                .iter()
+                                .all(|mark| mark.load(Ordering::SeqCst))
+                            {
                                 System::current().stop();
                             }
                         }
@@ -339,12 +386,17 @@ fn ultra_slow_test_validator_join() {
         let num_nodes = 4;
         let dirs = (0..num_nodes)
             .map(|i| {
-                tempfile::Builder::new().prefix(&format!("validator_join_{}", i)).tempdir().unwrap()
+                tempfile::Builder::new()
+                    .prefix(&format!("validator_join_{}", i))
+                    .tempdir()
+                    .unwrap()
             })
             .collect::<Vec<_>>();
         run_actix(async {
             let test_nodes = init_test_staking(
-                dirs.iter().map(|dir| dir.path()).collect::<Vec<_>>(),
+                dirs.iter()
+                    .map(|dir| dir.path())
+                    .collect::<Vec<_>>(),
                 num_nodes,
                 2,
                 30,
@@ -359,7 +411,12 @@ fn ultra_slow_test_validator_join() {
                 test_nodes[1].account_id.clone(),
                 &*signer,
                 0,
-                test_nodes[1].config.validator_signer.get().unwrap().public_key(),
+                test_nodes[1]
+                    .config
+                    .validator_signer
+                    .get()
+                    .unwrap()
+                    .public_key(),
                 test_nodes[1].genesis_hash,
             );
 
@@ -369,7 +426,12 @@ fn ultra_slow_test_validator_join() {
                 test_nodes[2].account_id.clone(),
                 &*signer,
                 TESTING_INIT_STAKE,
-                test_nodes[2].config.validator_signer.get().unwrap().public_key(),
+                test_nodes[2]
+                    .config
+                    .validator_signer
+                    .get()
+                    .unwrap()
+                    .public_key(),
                 test_nodes[2].genesis_hash,
             );
 
@@ -437,13 +499,13 @@ fn ultra_slow_test_validator_join() {
                                 .with_span_context(),
                             );
                             let actor = actor.then(move |res| match res.unwrap().unwrap().kind {
-                                QueryResponseKind::ViewAccount(result) => {
+                                | QueryResponseKind::ViewAccount(result) => {
                                     if result.locked == 0 {
                                         done1_copy2.store(true, Ordering::SeqCst);
                                     }
                                     future::ready(())
                                 }
-                                _ => panic!("wrong return result"),
+                                | _ => panic!("wrong return result"),
                             });
                             actix::spawn(actor);
                             let actor = test_node1.view_client.send(
@@ -456,14 +518,14 @@ fn ultra_slow_test_validator_join() {
                                 .with_span_context(),
                             );
                             let actor = actor.then(move |res| match res.unwrap().unwrap().kind {
-                                QueryResponseKind::ViewAccount(result) => {
+                                | QueryResponseKind::ViewAccount(result) => {
                                     if result.locked == TESTING_INIT_STAKE {
                                         done2_copy2.store(true, Ordering::SeqCst);
                                     }
 
                                     future::ready(())
                                 }
-                                _ => panic!("wrong return result"),
+                                | _ => panic!("wrong return result"),
                             });
                             actix::spawn(actor);
                         }
@@ -491,13 +553,18 @@ fn ultra_slow_test_inflation() {
         let num_nodes = 1;
         let dirs = (0..num_nodes)
             .map(|i| {
-                tempfile::Builder::new().prefix(&format!("stake_node_{}", i)).tempdir().unwrap()
+                tempfile::Builder::new()
+                    .prefix(&format!("stake_node_{}", i))
+                    .tempdir()
+                    .unwrap()
             })
             .collect::<Vec<_>>();
         let epoch_length = 10;
         run_actix(async {
             let test_nodes = init_test_staking(
-                dirs.iter().map(|dir| dir.path()).collect::<Vec<_>>(),
+                dirs.iter()
+                    .map(|dir| dir.path())
+                    .collect::<Vec<_>>(),
                 num_nodes,
                 1,
                 epoch_length,
@@ -506,8 +573,16 @@ fn ultra_slow_test_inflation() {
                 false,
                 false,
             );
-            let initial_total_supply = test_nodes[0].config.genesis.config.total_supply;
-            let max_inflation_rate = test_nodes[0].config.genesis.config.max_inflation_rate;
+            let initial_total_supply = test_nodes[0]
+                .config
+                .genesis
+                .config
+                .total_supply;
+            let max_inflation_rate = test_nodes[0]
+                .config
+                .genesis
+                .config
+                .max_inflation_rate;
 
             let (done1, done2) =
                 (Arc::new(AtomicBool::new(false)), Arc::new(AtomicBool::new(false)));

@@ -37,7 +37,7 @@ impl BandwidthRequests {
     }
 
     pub fn default_for_protocol_version(
-        protocol_version: ProtocolVersion,
+        protocol_version: ProtocolVersion
     ) -> Option<BandwidthRequests> {
         if ProtocolFeature::BandwidthScheduler.enabled(protocol_version) {
             Some(BandwidthRequests::empty())
@@ -102,9 +102,11 @@ impl BandwidthRequest {
         let mut cur_value_idx: usize = 0;
         for receipt_size_res in receipt_sizes {
             let receipt_size = receipt_size_res?;
-            total_size = total_size.checked_add(receipt_size).expect(
-                "Total size of receipts doesn't fit in u64, are there exabytes of receipts?",
-            );
+            total_size = total_size
+                .checked_add(receipt_size)
+                .expect(
+                    "Total size of receipts doesn't fit in u64, are there exabytes of receipts?",
+                );
 
             if total_size <= params.base_bandwidth {
                 continue;
@@ -148,7 +150,12 @@ pub struct BandwidthRequestValues {
 /// interpolate(100, 200, 0, 10) = 100
 /// interpolate(100, 200, 5, 10) = 150
 /// interpolate(100, 200, 10, 10) = 200
-fn interpolate(min: u64, max: u64, i: u64, n: u64) -> u64 {
+fn interpolate(
+    min: u64,
+    max: u64,
+    i: u64,
+    n: u64,
+) -> u64 {
     min + (max - min) * i / n
 }
 
@@ -160,10 +167,14 @@ impl BandwidthRequestValues {
         // TODO(bandwidth_scheduler) - consider using exponential interpolation.
         let mut values = [0; BANDWIDTH_REQUEST_VALUES_NUM];
 
-        let values_len: u64 =
-            values.len().try_into().expect("Converting usize to u64 shouldn't fail");
+        let values_len: u64 = values
+            .len()
+            .try_into()
+            .expect("Converting usize to u64 shouldn't fail");
         for i in 0..values.len() {
-            let i_u64: u64 = i.try_into().expect("Converting usize to u64 shouldn't fail");
+            let i_u64: u64 = i
+                .try_into()
+                .expect("Converting usize to u64 shouldn't fail");
 
             values[i] =
                 interpolate(params.base_bandwidth, params.max_single_grant, i_u64 + 1, values_len);
@@ -197,7 +208,10 @@ const _: () = assert!(
 );
 
 impl std::fmt::Debug for BandwidthRequestBitmap {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+    ) -> std::fmt::Result {
         write!(f, "BandwidthRequestBitmap(")?;
         for i in 0..self.len() {
             if self.get_bit(i) {
@@ -215,14 +229,21 @@ impl BandwidthRequestBitmap {
         BandwidthRequestBitmap { data: [0u8; BANDWIDTH_REQUEST_BITMAP_SIZE] }
     }
 
-    pub fn get_bit(&self, idx: usize) -> bool {
+    pub fn get_bit(
+        &self,
+        idx: usize,
+    ) -> bool {
         assert!(idx < self.len());
 
         let bit_slice = BitSlice::<_, Lsb0>::from_slice(self.data.as_slice());
         *bit_slice.get(idx).unwrap()
     }
 
-    pub fn set_bit(&mut self, idx: usize, val: bool) {
+    pub fn set_bit(
+        &mut self,
+        idx: usize,
+        val: bool,
+    ) {
         assert!(idx < self.len());
 
         let bit_slice = BitSlice::<_, Lsb0>::from_slice_mut(self.data.as_mut_slice());
@@ -304,7 +325,10 @@ pub struct BandwidthSchedulerParams {
 
 impl BandwidthSchedulerParams {
     /// Calculate values of scheduler params based on the current configuration
-    pub fn new(num_shards: NonZeroU64, runtime_config: &RuntimeConfig) -> BandwidthSchedulerParams {
+    pub fn new(
+        num_shards: NonZeroU64,
+        runtime_config: &RuntimeConfig,
+    ) -> BandwidthSchedulerParams {
         let scheduler_config = runtime_config.bandwidth_scheduler_config;
 
         Self::calculate(
@@ -312,7 +336,10 @@ impl BandwidthSchedulerParams {
             scheduler_config.max_single_grant,
             scheduler_config.max_allowance,
             scheduler_config.max_base_bandwidth,
-            runtime_config.wasm_config.limit_config.max_receipt_size,
+            runtime_config
+                .wasm_config
+                .limit_config
+                .max_receipt_size,
             num_shards.get(),
         )
     }
@@ -394,8 +421,13 @@ mod tests {
         let mut runtime_config = RuntimeConfig::test();
 
         // wasm_config is in Arc, need to clone, modify and set new Arc to modify parameter
-        let mut wasm_config = runtime_config.wasm_config.deref().clone();
-        wasm_config.limit_config.max_receipt_size = max_receipt_size;
+        let mut wasm_config = runtime_config
+            .wasm_config
+            .deref()
+            .clone();
+        wasm_config
+            .limit_config
+            .max_receipt_size = max_receipt_size;
         runtime_config.wasm_config = Arc::new(wasm_config);
 
         runtime_config
@@ -403,7 +435,10 @@ mod tests {
 
     /// Ensure that a maximum size receipt can still be sent after granting everyone
     /// base bandwidth without going over the max_shard_bandwidth limit.
-    fn assert_max_size_can_get_through(params: &BandwidthSchedulerParams, num_shards: u64) {
+    fn assert_max_size_can_get_through(
+        params: &BandwidthSchedulerParams,
+        num_shards: u64,
+    ) {
         assert!(
             (num_shards - 1) * params.base_bandwidth + params.max_receipt_size
                 <= params.max_shard_bandwidth
@@ -508,17 +543,20 @@ mod tests {
     // Make a bandwidth request to shard 0 with a bitmap which has ones at the specified indices.
     fn make_request_with_ones(ones_indexes: &[usize]) -> BandwidthRequest {
         let mut req = BandwidthRequest {
-            to_shard: ShardUId::single_shard().shard_id().into(),
+            to_shard: ShardUId::single_shard()
+                .shard_id()
+                .into(),
             requested_values_bitmap: BandwidthRequestBitmap::new(),
         };
         for i in ones_indexes {
-            req.requested_values_bitmap.set_bit(*i, true);
+            req.requested_values_bitmap
+                .set_bit(*i, true);
         }
         req
     }
 
     fn make_sizes_iter<'a>(
-        sizes: &'a [u64],
+        sizes: &'a [u64]
     ) -> impl Iterator<Item = Result<u64, std::convert::Infallible>> + 'a {
         sizes.iter().map(|&size| Ok(size))
     }
@@ -546,18 +584,42 @@ mod tests {
 
         // Receipts with total size smaller than base_bandwidth don't need a bandwidth request.
         let below_base_bandwidth_receipts = [10_000, 20, 999, 2362, 3343, 232, 22];
-        assert!(below_base_bandwidth_receipts.iter().sum::<u64>() < params.base_bandwidth);
+        assert!(
+            below_base_bandwidth_receipts
+                .iter()
+                .sum::<u64>()
+                < params.base_bandwidth
+        );
         assert_eq!(get_request(&below_base_bandwidth_receipts), None);
 
         // Receipts with total size equal to base_bandwidth don't need a bandwidth_request
-        let equal_to_base_bandwidth_receipts = [10_000, 20_000, params.base_bandwidth - 30_000];
-        assert_eq!(equal_to_base_bandwidth_receipts.iter().sum::<u64>(), params.base_bandwidth);
+        let equal_to_base_bandwidth_receipts = [
+            10_000,
+            20_000,
+            params.base_bandwidth - 30_000,
+        ];
+        assert_eq!(
+            equal_to_base_bandwidth_receipts
+                .iter()
+                .sum::<u64>(),
+            params.base_bandwidth
+        );
         assert_eq!(get_request(&equal_to_base_bandwidth_receipts), None);
 
         // Receipts with total size barely larger than base_bandwidth need a bandwidth request.
         // Only the first bit in the bitmap should be set to 1.
-        let above_base_bandwidth_receipts = [10_000, 20_000, params.base_bandwidth - 30_000, 1];
-        assert_eq!(above_base_bandwidth_receipts.iter().sum::<u64>(), params.base_bandwidth + 1);
+        let above_base_bandwidth_receipts = [
+            10_000,
+            20_000,
+            params.base_bandwidth - 30_000,
+            1,
+        ];
+        assert_eq!(
+            above_base_bandwidth_receipts
+                .iter()
+                .sum::<u64>(),
+            params.base_bandwidth + 1
+        );
         assert_eq!(get_request(&above_base_bandwidth_receipts), Some(make_request_with_ones(&[0])));
 
         // A single receipt which is slightly larger than base_bandwidth needs a bandwidth request.
@@ -579,8 +641,10 @@ mod tests {
 
         // A single max size receipt should have the corresponding value set to one.
         let max_size_receipt = [max_receipt_size];
-        let max_size_receipt_value_idx =
-            values.iter().position(|v| *v == max_receipt_size).unwrap();
+        let max_size_receipt_value_idx = values
+            .iter()
+            .position(|v| *v == max_receipt_size)
+            .unwrap();
         assert_eq!(
             get_request(&max_size_receipt),
             Some(make_request_with_ones(&[max_size_receipt_value_idx]))
@@ -597,8 +661,16 @@ mod tests {
 
         // A ton of small receipts should cause all bits to be set to one.
         // 10_000 receipts, each with size 1000. More than a shard can send out at a single height.
-        let lots_of_small_receipts: Vec<u64> = (0..10_000).into_iter().map(|_| 1_000).collect();
-        assert!(lots_of_small_receipts.iter().sum::<u64>() > params.max_shard_bandwidth);
+        let lots_of_small_receipts: Vec<u64> = (0..10_000)
+            .into_iter()
+            .map(|_| 1_000)
+            .collect();
+        assert!(
+            lots_of_small_receipts
+                .iter()
+                .sum::<u64>()
+                > params.max_shard_bandwidth
+        );
         let all_bitmap_indices: Vec<usize> = (0..BANDWIDTH_REQUEST_VALUES_NUM).collect();
         assert_eq!(
             get_request(&lots_of_small_receipts),
@@ -646,7 +718,9 @@ mod tests {
         params: &BandwidthSchedulerParams,
     ) -> Option<BandwidthRequest> {
         let mut request = BandwidthRequest {
-            to_shard: ShardUId::single_shard().shard_id().into(),
+            to_shard: ShardUId::single_shard()
+                .shard_id()
+                .into(),
             requested_values_bitmap: BandwidthRequestBitmap::new(),
         };
         let values = BandwidthRequestValues::new(params).values;
@@ -657,13 +731,18 @@ mod tests {
 
             for i in 0..values.len() {
                 if values[i] >= total_size {
-                    request.requested_values_bitmap.set_bit(i, true);
+                    request
+                        .requested_values_bitmap
+                        .set_bit(i, true);
                     break;
                 }
             }
         }
 
-        if request.requested_values_bitmap.is_all_zeros() {
+        if request
+            .requested_values_bitmap
+            .is_all_zeros()
+        {
             return None;
         }
 

@@ -14,7 +14,10 @@ pub(crate) struct CorruptStateSnapshotCommand {
 }
 
 impl CorruptStateSnapshotCommand {
-    pub(crate) fn run(&self, home: &PathBuf) -> anyhow::Result<()> {
+    pub(crate) fn run(
+        &self,
+        home: &PathBuf,
+    ) -> anyhow::Result<()> {
         let store = open_state_snapshot(home, near_store::Mode::ReadWrite)?.flat_store();
         let flat_storage_manager = FlatStorageManager::new(store.clone());
 
@@ -22,10 +25,10 @@ impl CorruptStateSnapshotCommand {
         // TODO(resharding) automatically detect the shard version
         let shard_layout = match self.shard_layout_version {
             #[allow(deprecated)]
-            0 => ShardLayout::v0(1, 0),
-            1 => ShardLayout::get_simple_nightshade_layout(),
-            2 => ShardLayout::get_simple_nightshade_layout_v2(),
-            _ => {
+            | 0 => ShardLayout::v0(1, 0),
+            | 1 => ShardLayout::get_simple_nightshade_layout(),
+            | 2 => ShardLayout::get_simple_nightshade_layout_v2(),
+            | _ => {
                 return Err(anyhow!(
                     "Unsupported shard layout version! {}",
                     self.shard_layout_version

@@ -44,7 +44,10 @@ fn slow_test_repro_1183() {
                 "test4".parse().unwrap(),
             ]])
             .validator_groups(2);
-        let validators = vs.all_block_producers().cloned().collect::<Vec<_>>();
+        let validators = vs
+            .all_block_producers()
+            .cloned()
+            .collect::<Vec<_>>();
         let key_pairs = vec![
             PeerInfo::random(),
             PeerInfo::random(),
@@ -114,21 +117,23 @@ fn slow_test_repro_1183() {
                             // cast ShardId to ShardIndex.
                             let shard_id = account_id_to_shard_id(&from, 4);
                             let shard_index: ShardIndex = shard_id.into();
-                            connectors1.write().unwrap()[shard_index].client_actor.do_send(
-                                ProcessTxRequest {
-                                    transaction: SignedTransaction::send_money(
-                                        block.header().height() * 16 + nonce_delta,
-                                        from.clone(),
-                                        to,
-                                        &InMemorySigner::test_signer(&from),
-                                        1,
-                                        *block.header().prev_hash(),
-                                    ),
-                                    is_forwarded: false,
-                                    check_only: false,
-                                }
-                                .with_span_context(),
-                            );
+                            connectors1.write().unwrap()[shard_index]
+                                .client_actor
+                                .do_send(
+                                    ProcessTxRequest {
+                                        transaction: SignedTransaction::send_money(
+                                            block.header().height() * 16 + nonce_delta,
+                                            from.clone(),
+                                            to,
+                                            &InMemorySigner::test_signer(&from),
+                                            1,
+                                            *block.header().prev_hash(),
+                                        ),
+                                        is_forwarded: false,
+                                        check_only: false,
+                                    }
+                                    .with_span_context(),
+                                );
                             nonce_delta += 1
                         }
                     }
@@ -166,14 +171,20 @@ fn slow_test_repro_1183() {
 #[test]
 fn slow_test_sync_from_archival_node() {
     init_test_logger();
-    let vs = ValidatorSchedule::new().num_shards(4).block_producers_per_epoch(vec![vec![
-        "test1".parse().unwrap(),
-        "test2".parse().unwrap(),
-        "test3".parse().unwrap(),
-        "test4".parse().unwrap(),
-    ]]);
-    let key_pairs =
-        vec![PeerInfo::random(), PeerInfo::random(), PeerInfo::random(), PeerInfo::random()];
+    let vs = ValidatorSchedule::new()
+        .num_shards(4)
+        .block_producers_per_epoch(vec![vec![
+            "test1".parse().unwrap(),
+            "test2".parse().unwrap(),
+            "test3".parse().unwrap(),
+            "test4".parse().unwrap(),
+        ]]);
+    let key_pairs = vec![
+        PeerInfo::random(),
+        PeerInfo::random(),
+        PeerInfo::random(),
+        PeerInfo::random(),
+    ];
     let largest_height = Arc::new(RwLock::new(0));
     let blocks = Arc::new(RwLock::new(HashMap::new()));
     let epoch_length = 4;
@@ -208,7 +219,7 @@ fn slow_test_sync_from_archival_node() {
                     }
                     if *largest_height.read().unwrap() <= 30 {
                         match msg {
-                            NetworkRequests::Block { block } => {
+                            | NetworkRequests::Block { block } => {
                                 for (i, actor_handles) in conns.iter().enumerate() {
                                     if i != 3 {
                                         actor_handles.client_actor.do_send(
@@ -222,11 +233,14 @@ fn slow_test_sync_from_archival_node() {
                                     }
                                 }
                                 if block.header().height() <= 10 {
-                                    blocks.write().unwrap().insert(*block.hash(), block.clone());
+                                    blocks
+                                        .write()
+                                        .unwrap()
+                                        .insert(*block.hash(), block.clone());
                                 }
                                 (NetworkResponses::NoResponse.into(), false)
                             }
-                            NetworkRequests::Approval { approval_message } => {
+                            | NetworkRequests::Approval { approval_message } => {
                                 for (i, actor_handles) in conns.into_iter().enumerate() {
                                     if i != 3 {
                                         actor_handles.client_actor.do_send(
@@ -240,7 +254,7 @@ fn slow_test_sync_from_archival_node() {
                                 }
                                 (NetworkResponses::NoResponse.into(), false)
                             }
-                            _ => (NetworkResponses::NoResponse.into(), true),
+                            | _ => (NetworkResponses::NoResponse.into(), true),
                         }
                     } else {
                         if block_counter > 10 {
@@ -257,13 +271,13 @@ fn slow_test_sync_from_archival_node() {
                             );
                         }
                         match msg {
-                            NetworkRequests::Block { block } => {
+                            | NetworkRequests::Block { block } => {
                                 if block.header().height() <= 10 {
                                     block_counter += 1;
                                 }
                                 (NetworkResponses::NoResponse.into(), true)
                             }
-                            _ => (NetworkResponses::NoResponse.into(), true),
+                            | _ => (NetworkResponses::NoResponse.into(), true),
                         }
                     }
                 },
@@ -278,7 +292,10 @@ fn slow_test_long_gap_between_blocks() {
     init_test_logger();
     let vs = ValidatorSchedule::new()
         .num_shards(2)
-        .block_producers_per_epoch(vec![vec!["test1".parse().unwrap(), "test2".parse().unwrap()]]);
+        .block_producers_per_epoch(vec![vec![
+            "test1".parse().unwrap(),
+            "test2".parse().unwrap(),
+        ]]);
     let key_pairs = vec![PeerInfo::random(), PeerInfo::random()];
     let epoch_length = 1000;
     let target_height = 600;
@@ -303,7 +320,7 @@ fn slow_test_long_gap_between_blocks() {
                       msg: &PeerManagerMessageRequest|
                       -> (PeerManagerMessageResponse, bool) {
                     match msg.as_network_requests_ref() {
-                        NetworkRequests::Approval { approval_message } => {
+                        | NetworkRequests::Approval { approval_message } => {
                             let actor = conns[1]
                                 .view_client_actor
                                 .send(GetBlock::latest().with_span_context());
@@ -325,7 +342,7 @@ fn slow_test_long_gap_between_blocks() {
                                 }
                             }
                         }
-                        _ => (NetworkResponses::NoResponse.into(), true),
+                        | _ => (NetworkResponses::NoResponse.into(), true),
                     }
                 },
             ),

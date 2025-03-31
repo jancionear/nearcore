@@ -153,7 +153,10 @@ pub unsafe extern "C" fn near_vm_memory32_grow(
     let instance = (&*vmctx).instance();
     let memory_index = LocalMemoryIndex::from_u32(memory_index);
 
-    instance.memory_grow(memory_index, delta).map(|pages| pages.0).unwrap_or(u32::max_value())
+    instance
+        .memory_grow(memory_index, delta)
+        .map(|pages| pages.0)
+        .unwrap_or(u32::max_value())
 }
 
 /// Implementation of memory.grow for imported 32-bit memories.
@@ -182,7 +185,10 @@ pub unsafe extern "C" fn near_vm_imported_memory32_grow(
 ///
 /// `vmctx` must be dereferenceable.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn near_vm_memory32_size(vmctx: *mut VMContext, memory_index: u32) -> u32 {
+pub unsafe extern "C" fn near_vm_memory32_size(
+    vmctx: *mut VMContext,
+    memory_index: u32,
+) -> u32 {
     let instance = (&*vmctx).instance();
     let memory_index = LocalMemoryIndex::from_u32(memory_index);
 
@@ -202,7 +208,9 @@ pub unsafe extern "C" fn near_vm_imported_memory32_size(
     let instance = (&*vmctx).instance();
     let memory_index = MemoryIndex::from_u32(memory_index);
 
-    instance.imported_memory_size(memory_index).0
+    instance
+        .imported_memory_size(memory_index)
+        .0
 }
 
 /// Implementation of `table.copy`.
@@ -274,9 +282,9 @@ pub unsafe extern "C" fn near_vm_table_fill(
         let table_index = TableIndex::from_u32(table_index);
         let instance = (&*vmctx).instance();
         let elem = match instance.get_table(table_index).ty().ty {
-            Type::ExternRef => TableElement::ExternRef(item.extern_ref.into()),
-            Type::FuncRef => TableElement::FuncRef(item.func_ref),
-            _ => panic!("Unrecognized table type: does not contain references"),
+            | Type::ExternRef => TableElement::ExternRef(item.extern_ref.into()),
+            | Type::FuncRef => TableElement::FuncRef(item.func_ref),
+            | _ => panic!("Unrecognized table type: does not contain references"),
         };
 
         instance.table_fill(table_index, start_idx, elem, len)
@@ -292,7 +300,10 @@ pub unsafe extern "C" fn near_vm_table_fill(
 ///
 /// `vmctx` must be dereferenceable.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn near_vm_table_size(vmctx: *mut VMContext, table_index: u32) -> u32 {
+pub unsafe extern "C" fn near_vm_table_size(
+    vmctx: *mut VMContext,
+    table_index: u32,
+) -> u32 {
     let instance = (&*vmctx).instance();
     let table_index = LocalTableIndex::from_u32(table_index);
 
@@ -331,8 +342,8 @@ pub unsafe extern "C" fn near_vm_table_get(
 
     // TODO: type checking, maybe have specialized accessors
     match instance.table_get(table_index, elem_index) {
-        Some(table_ref) => table_ref.into(),
-        None => raise_lib_trap(Trap::lib(TrapCode::TableAccessOutOfBounds)),
+        | Some(table_ref) => table_ref.into(),
+        | None => raise_lib_trap(Trap::lib(TrapCode::TableAccessOutOfBounds)),
     }
 }
 
@@ -352,8 +363,8 @@ pub unsafe extern "C" fn near_vm_imported_table_get(
 
     // TODO: type checking, maybe have specialized accessors
     match instance.imported_table_get(table_index, elem_index) {
-        Some(table_ref) => table_ref.into(),
-        None => raise_lib_trap(Trap::lib(TrapCode::TableAccessOutOfBounds)),
+        | Some(table_ref) => table_ref.into(),
+        | None => raise_lib_trap(Trap::lib(TrapCode::TableAccessOutOfBounds)),
     }
 }
 
@@ -374,11 +385,19 @@ pub unsafe extern "C" fn near_vm_table_set(
 ) {
     let instance = (&*vmctx).instance();
     let table_index = TableIndex::from_u32(table_index);
-    if let Ok(local_table) = instance.artifact.import_counts().local_table_index(table_index) {
-        let elem = match instance.get_local_table(local_table).ty().ty {
-            Type::ExternRef => TableElement::ExternRef(value.extern_ref.into()),
-            Type::FuncRef => TableElement::FuncRef(value.func_ref),
-            _ => panic!("Unrecognized table type: does not contain references"),
+    if let Ok(local_table) = instance
+        .artifact
+        .import_counts()
+        .local_table_index(table_index)
+    {
+        let elem = match instance
+            .get_local_table(local_table)
+            .ty()
+            .ty
+        {
+            | Type::ExternRef => TableElement::ExternRef(value.extern_ref.into()),
+            | Type::FuncRef => TableElement::FuncRef(value.func_ref),
+            | _ => panic!("Unrecognized table type: does not contain references"),
         };
         // TODO: type checking, maybe have specialized accessors
         let result = instance.table_set(local_table, elem_index, elem);
@@ -404,10 +423,14 @@ pub unsafe extern "C" fn near_vm_imported_table_set(
 ) {
     let instance = (&*vmctx).instance();
     let table_index = TableIndex::from_u32(table_index);
-    let elem = match instance.get_foreign_table(table_index).ty().ty {
-        Type::ExternRef => TableElement::ExternRef(value.extern_ref.into()),
-        Type::FuncRef => TableElement::FuncRef(value.func_ref),
-        _ => panic!("Unrecognized table type: does not contain references"),
+    let elem = match instance
+        .get_foreign_table(table_index)
+        .ty()
+        .ty
+    {
+        | Type::ExternRef => TableElement::ExternRef(value.extern_ref.into()),
+        | Type::FuncRef => TableElement::FuncRef(value.func_ref),
+        | _ => panic!("Unrecognized table type: does not contain references"),
     };
     let result = instance.imported_table_set(table_index, elem_index, elem);
     if let Err(trap) = result {
@@ -429,12 +452,18 @@ pub unsafe extern "C" fn near_vm_table_grow(
 ) -> u32 {
     let instance = (&*vmctx).instance();
     let table_index = LocalTableIndex::from_u32(table_index);
-    let init_value = match instance.get_local_table(table_index).ty().ty {
-        Type::ExternRef => TableElement::ExternRef(init_value.extern_ref.into()),
-        Type::FuncRef => TableElement::FuncRef(init_value.func_ref),
-        _ => panic!("Unrecognized table type: does not contain references"),
+    let init_value = match instance
+        .get_local_table(table_index)
+        .ty()
+        .ty
+    {
+        | Type::ExternRef => TableElement::ExternRef(init_value.extern_ref.into()),
+        | Type::FuncRef => TableElement::FuncRef(init_value.func_ref),
+        | _ => panic!("Unrecognized table type: does not contain references"),
     };
-    instance.table_grow(table_index, delta, init_value).unwrap_or(u32::max_value())
+    instance
+        .table_grow(table_index, delta, init_value)
+        .unwrap_or(u32::max_value())
 }
 
 /// Implementation of `table.grow` for imported tables.
@@ -452,12 +481,14 @@ pub unsafe extern "C" fn near_vm_imported_table_grow(
     let instance = (&*vmctx).instance();
     let table_index = TableIndex::from_u32(table_index);
     let init_value = match instance.get_table(table_index).ty().ty {
-        Type::ExternRef => TableElement::ExternRef(init_value.extern_ref.into()),
-        Type::FuncRef => TableElement::FuncRef(init_value.func_ref),
-        _ => panic!("Unrecognized table type: does not contain references"),
+        | Type::ExternRef => TableElement::ExternRef(init_value.extern_ref.into()),
+        | Type::FuncRef => TableElement::FuncRef(init_value.func_ref),
+        | _ => panic!("Unrecognized table type: does not contain references"),
     };
 
-    instance.imported_table_grow(table_index, delta, init_value).unwrap_or(u32::max_value())
+    instance
+        .imported_table_grow(table_index, delta, init_value)
+        .unwrap_or(u32::max_value())
 }
 
 /// Implementation of `func.ref`.
@@ -466,11 +497,16 @@ pub unsafe extern "C" fn near_vm_imported_table_grow(
 ///
 /// `vmctx` must be dereferenceable.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn near_vm_func_ref(vmctx: *mut VMContext, function_index: u32) -> VMFuncRef {
+pub unsafe extern "C" fn near_vm_func_ref(
+    vmctx: *mut VMContext,
+    function_index: u32,
+) -> VMFuncRef {
     let instance = (&*vmctx).instance();
     let function_index = FunctionIndex::from_u32(function_index);
 
-    instance.func_ref(function_index).unwrap()
+    instance
+        .func_ref(function_index)
+        .unwrap()
 }
 
 /// Implementation of externref increment
@@ -504,7 +540,10 @@ pub unsafe extern "C" fn near_vm_externref_dec(mut externref: VMExternRef) {
 ///
 /// `vmctx` must be dereferenceable.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn near_vm_elem_drop(vmctx: *mut VMContext, elem_index: u32) {
+pub unsafe extern "C" fn near_vm_elem_drop(
+    vmctx: *mut VMContext,
+    elem_index: u32,
+) {
     let elem_index = ElemIndex::from_u32(elem_index);
     let instance = (&*vmctx).instance();
     instance.elem_drop(elem_index);
@@ -633,7 +672,10 @@ pub unsafe extern "C" fn near_vm_memory32_init(
 ///
 /// `vmctx` must be dereferenceable.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn near_vm_data_drop(vmctx: *mut VMContext, data_index: u32) {
+pub unsafe extern "C" fn near_vm_data_drop(
+    vmctx: *mut VMContext,
+    data_index: u32,
+) {
     let data_index = DataIndex::from_u32(data_index);
     let instance = (&*vmctx).instance();
     instance.data_drop(data_index)
@@ -766,85 +808,88 @@ impl LibCall {
     /// The function pointer to a libcall
     pub fn function_pointer(self) -> usize {
         match self {
-            Self::CeilF32 => near_vm_f32_ceil as usize,
-            Self::CeilF64 => near_vm_f64_ceil as usize,
-            Self::FloorF32 => near_vm_f32_floor as usize,
-            Self::FloorF64 => near_vm_f64_floor as usize,
-            Self::NearestF32 => near_vm_f32_nearest as usize,
-            Self::NearestF64 => near_vm_f64_nearest as usize,
-            Self::TruncF32 => near_vm_f32_trunc as usize,
-            Self::TruncF64 => near_vm_f64_trunc as usize,
-            Self::Memory32Size => near_vm_memory32_size as usize,
-            Self::ImportedMemory32Size => near_vm_imported_memory32_size as usize,
-            Self::TableCopy => near_vm_table_copy as usize,
-            Self::TableInit => near_vm_table_init as usize,
-            Self::TableFill => near_vm_table_fill as usize,
-            Self::TableSize => near_vm_table_size as usize,
-            Self::ImportedTableSize => near_vm_imported_table_size as usize,
-            Self::TableGet => near_vm_table_get as usize,
-            Self::ImportedTableGet => near_vm_imported_table_get as usize,
-            Self::TableSet => near_vm_table_set as usize,
-            Self::ImportedTableSet => near_vm_imported_table_set as usize,
-            Self::TableGrow => near_vm_table_grow as usize,
-            Self::ImportedTableGrow => near_vm_imported_table_grow as usize,
-            Self::FuncRef => near_vm_func_ref as usize,
-            Self::ElemDrop => near_vm_elem_drop as usize,
-            Self::Memory32Copy => near_vm_memory32_copy as usize,
-            Self::ImportedMemory32Copy => near_vm_imported_memory32_copy as usize,
-            Self::Memory32Fill => near_vm_memory32_fill as usize,
-            Self::ImportedMemory32Fill => near_vm_memory32_fill as usize,
-            Self::Memory32Init => near_vm_memory32_init as usize,
-            Self::DataDrop => near_vm_data_drop as usize,
-            Self::Probestack => near_vm_probestack as usize,
-            Self::RaiseTrap => near_vm_raise_trap as usize,
+            | Self::CeilF32 => near_vm_f32_ceil as usize,
+            | Self::CeilF64 => near_vm_f64_ceil as usize,
+            | Self::FloorF32 => near_vm_f32_floor as usize,
+            | Self::FloorF64 => near_vm_f64_floor as usize,
+            | Self::NearestF32 => near_vm_f32_nearest as usize,
+            | Self::NearestF64 => near_vm_f64_nearest as usize,
+            | Self::TruncF32 => near_vm_f32_trunc as usize,
+            | Self::TruncF64 => near_vm_f64_trunc as usize,
+            | Self::Memory32Size => near_vm_memory32_size as usize,
+            | Self::ImportedMemory32Size => near_vm_imported_memory32_size as usize,
+            | Self::TableCopy => near_vm_table_copy as usize,
+            | Self::TableInit => near_vm_table_init as usize,
+            | Self::TableFill => near_vm_table_fill as usize,
+            | Self::TableSize => near_vm_table_size as usize,
+            | Self::ImportedTableSize => near_vm_imported_table_size as usize,
+            | Self::TableGet => near_vm_table_get as usize,
+            | Self::ImportedTableGet => near_vm_imported_table_get as usize,
+            | Self::TableSet => near_vm_table_set as usize,
+            | Self::ImportedTableSet => near_vm_imported_table_set as usize,
+            | Self::TableGrow => near_vm_table_grow as usize,
+            | Self::ImportedTableGrow => near_vm_imported_table_grow as usize,
+            | Self::FuncRef => near_vm_func_ref as usize,
+            | Self::ElemDrop => near_vm_elem_drop as usize,
+            | Self::Memory32Copy => near_vm_memory32_copy as usize,
+            | Self::ImportedMemory32Copy => near_vm_imported_memory32_copy as usize,
+            | Self::Memory32Fill => near_vm_memory32_fill as usize,
+            | Self::ImportedMemory32Fill => near_vm_memory32_fill as usize,
+            | Self::Memory32Init => near_vm_memory32_init as usize,
+            | Self::DataDrop => near_vm_data_drop as usize,
+            | Self::Probestack => near_vm_probestack as usize,
+            | Self::RaiseTrap => near_vm_raise_trap as usize,
         }
     }
 
     /// Return the function name associated to the libcall.
     pub fn to_function_name(&self) -> &str {
         match self {
-            Self::CeilF32 => "near_vm_f32_ceil",
-            Self::CeilF64 => "near_vm_f64_ceil",
-            Self::FloorF32 => "near_vm_f32_floor",
-            Self::FloorF64 => "near_vm_f64_floor",
-            Self::NearestF32 => "near_vm_f32_nearest",
-            Self::NearestF64 => "near_vm_f64_nearest",
-            Self::TruncF32 => "near_vm_f32_trunc",
-            Self::TruncF64 => "near_vm_f64_trunc",
-            Self::Memory32Size => "near_vm_memory32_size",
-            Self::ImportedMemory32Size => "near_vm_imported_memory32_size",
-            Self::TableCopy => "near_vm_table_copy",
-            Self::TableInit => "near_vm_table_init",
-            Self::TableFill => "near_vm_table_fill",
-            Self::TableSize => "near_vm_table_size",
-            Self::ImportedTableSize => "near_vm_imported_table_size",
-            Self::TableGet => "near_vm_table_get",
-            Self::ImportedTableGet => "near_vm_imported_table_get",
-            Self::TableSet => "near_vm_table_set",
-            Self::ImportedTableSet => "near_vm_imported_table_set",
-            Self::TableGrow => "near_vm_table_grow",
-            Self::ImportedTableGrow => "near_vm_imported_table_grow",
-            Self::FuncRef => "near_vm_func_ref",
-            Self::ElemDrop => "near_vm_elem_drop",
-            Self::Memory32Copy => "near_vm_memory32_copy",
-            Self::ImportedMemory32Copy => "near_vm_imported_memory32_copy",
-            Self::Memory32Fill => "near_vm_memory32_fill",
-            Self::ImportedMemory32Fill => "near_vm_imported_memory32_fill",
-            Self::Memory32Init => "near_vm_memory32_init",
-            Self::DataDrop => "near_vm_data_drop",
-            Self::RaiseTrap => "near_vm_raise_trap",
+            | Self::CeilF32 => "near_vm_f32_ceil",
+            | Self::CeilF64 => "near_vm_f64_ceil",
+            | Self::FloorF32 => "near_vm_f32_floor",
+            | Self::FloorF64 => "near_vm_f64_floor",
+            | Self::NearestF32 => "near_vm_f32_nearest",
+            | Self::NearestF64 => "near_vm_f64_nearest",
+            | Self::TruncF32 => "near_vm_f32_trunc",
+            | Self::TruncF64 => "near_vm_f64_trunc",
+            | Self::Memory32Size => "near_vm_memory32_size",
+            | Self::ImportedMemory32Size => "near_vm_imported_memory32_size",
+            | Self::TableCopy => "near_vm_table_copy",
+            | Self::TableInit => "near_vm_table_init",
+            | Self::TableFill => "near_vm_table_fill",
+            | Self::TableSize => "near_vm_table_size",
+            | Self::ImportedTableSize => "near_vm_imported_table_size",
+            | Self::TableGet => "near_vm_table_get",
+            | Self::ImportedTableGet => "near_vm_imported_table_get",
+            | Self::TableSet => "near_vm_table_set",
+            | Self::ImportedTableSet => "near_vm_imported_table_set",
+            | Self::TableGrow => "near_vm_table_grow",
+            | Self::ImportedTableGrow => "near_vm_imported_table_grow",
+            | Self::FuncRef => "near_vm_func_ref",
+            | Self::ElemDrop => "near_vm_elem_drop",
+            | Self::Memory32Copy => "near_vm_memory32_copy",
+            | Self::ImportedMemory32Copy => "near_vm_imported_memory32_copy",
+            | Self::Memory32Fill => "near_vm_memory32_fill",
+            | Self::ImportedMemory32Fill => "near_vm_imported_memory32_fill",
+            | Self::Memory32Init => "near_vm_memory32_init",
+            | Self::DataDrop => "near_vm_data_drop",
+            | Self::RaiseTrap => "near_vm_raise_trap",
             // We have to do this because macOS requires a leading `_` and it's not
             // a normal function, it's a static variable, so we have to do it manually.
             #[cfg(target_vendor = "apple")]
-            Self::Probestack => "_near_vm_probestack",
+            | Self::Probestack => "_near_vm_probestack",
             #[cfg(not(target_vendor = "apple"))]
-            Self::Probestack => "near_vm_probestack",
+            | Self::Probestack => "near_vm_probestack",
         }
     }
 }
 
 impl fmt::Display for LibCall {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter,
+    ) -> fmt::Result {
         fmt::Debug::fmt(self, f)
     }
 }

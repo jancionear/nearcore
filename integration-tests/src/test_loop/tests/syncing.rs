@@ -27,14 +27,24 @@ fn slow_test_sync_from_genesis() {
     init_test_logger();
     let builder = TestLoopBuilder::new();
 
-    let accounts =
-        (0..100).map(|i| format!("account{}", i).parse().unwrap()).collect::<Vec<AccountId>>();
-    let clients = accounts.iter().take(NUM_CLIENTS).cloned().collect_vec();
+    let accounts = (0..100)
+        .map(|i| format!("account{}", i).parse().unwrap())
+        .collect::<Vec<AccountId>>();
+    let clients = accounts
+        .iter()
+        .take(NUM_CLIENTS)
+        .cloned()
+        .collect_vec();
 
     let epoch_length = 10;
     let shard_layout = ShardLayout::simple_v1(&["account3", "account5", "account7"]);
-    let validators_spec =
-        ValidatorsSpec::desired_roles(&clients.iter().map(|t| t.as_str()).collect_vec(), &[]);
+    let validators_spec = ValidatorsSpec::desired_roles(
+        &clients
+            .iter()
+            .map(|t| t.as_str())
+            .collect_vec(),
+        &[],
+    );
 
     let (genesis, epoch_config_store) = build_genesis_and_epoch_config_store(
         GenesisAndEpochConfigParams {
@@ -44,7 +54,11 @@ fn slow_test_sync_from_genesis() {
             validators_spec,
             accounts: &accounts,
         },
-        |genesis_builder| genesis_builder.genesis_height(10000).transaction_validity_period(1000),
+        |genesis_builder| {
+            genesis_builder
+                .genesis_height(10000)
+                .transaction_validity_period(1000)
+        },
         |epoch_config_builder| {
             epoch_config_builder.shuffle_shard_assignment_for_chunk_producers(true)
         },
@@ -59,7 +73,12 @@ fn slow_test_sync_from_genesis() {
     let first_epoch_tracked_shards = {
         let clients = node_datas
             .iter()
-            .map(|data| &test_loop.data.get(&data.client_sender.actor_handle()).client)
+            .map(|data| {
+                &test_loop
+                    .data
+                    .get(&data.client_sender.actor_handle())
+                    .client
+            })
             .collect_vec();
         clients.tracked_shards_for_each_client()
     };
@@ -68,10 +87,19 @@ fn slow_test_sync_from_genesis() {
     execute_money_transfers(&mut test_loop, &node_datas, &accounts).unwrap();
 
     // Make sure the chain progresses for several epochs.
-    let client_handle = node_datas[0].client_sender.actor_handle();
+    let client_handle = node_datas[0]
+        .client_sender
+        .actor_handle();
     test_loop.run_until(
         |test_loop_data| {
-            test_loop_data.get(&client_handle).client.chain.head().unwrap().height > 10050
+            test_loop_data
+                .get(&client_handle)
+                .client
+                .chain
+                .head()
+                .unwrap()
+                .height
+                > 10050
         },
         Duration::seconds(50),
     );
@@ -101,7 +129,11 @@ fn slow_test_sync_from_genesis() {
 
     tracing::info!("Starting new TestLoopEnv with new node");
 
-    let clients = accounts.iter().take(NUM_CLIENTS + 1).cloned().collect_vec();
+    let clients = accounts
+        .iter()
+        .take(NUM_CLIENTS + 1)
+        .cloned()
+        .collect_vec();
 
     let TestLoopEnv { mut test_loop, datas: node_datas, tempdir } = TestLoopBuilder::new()
         .genesis(genesis.clone())
@@ -116,7 +148,15 @@ fn slow_test_sync_from_genesis() {
     // the networking layer is completely mocked out. So in order to allow the new node to sync, we
     // need to manually propagate the network info to the new node. In this case we'll tell the new
     // node that node 0 is available to sync from.
-    let chain0 = &test_loop.data.get(&node_datas[0].client_sender.actor_handle()).client.chain;
+    let chain0 = &test_loop
+        .data
+        .get(
+            &node_datas[0]
+                .client_sender
+                .actor_handle(),
+        )
+        .client
+        .chain;
     let peer_info = HighestHeightPeerInfo {
         archival: false,
         genesis_id: GenesisId { chain_id: genesis.config.chain_id, hash: *chain0.genesis().hash() },
@@ -129,23 +169,38 @@ fn slow_test_sync_from_genesis() {
             id: node_datas[0].peer_id.clone(),
         },
     };
-    node_datas[NUM_CLIENTS].client_sender.send(SetNetworkInfo(NetworkInfo {
-        connected_peers: Vec::new(),
-        highest_height_peers: vec![peer_info], // only this field matters.
-        known_producers: vec![],
-        num_connected_peers: 0,
-        peer_max_count: 0,
-        received_bytes_per_sec: 0,
-        sent_bytes_per_sec: 0,
-        tier1_accounts_data: Vec::new(),
-        tier1_accounts_keys: Vec::new(),
-        tier1_connections: Vec::new(),
-    }));
+    node_datas[NUM_CLIENTS]
+        .client_sender
+        .send(SetNetworkInfo(NetworkInfo {
+            connected_peers: Vec::new(),
+            highest_height_peers: vec![peer_info], // only this field matters.
+            known_producers: vec![],
+            num_connected_peers: 0,
+            peer_max_count: 0,
+            received_bytes_per_sec: 0,
+            sent_bytes_per_sec: 0,
+            tier1_accounts_data: Vec::new(),
+            tier1_accounts_keys: Vec::new(),
+            tier1_connections: Vec::new(),
+        }));
 
     // Check that the new node will reach a high height as well.
-    let new_node = node_datas.last().unwrap().client_sender.actor_handle();
+    let new_node = node_datas
+        .last()
+        .unwrap()
+        .client_sender
+        .actor_handle();
     test_loop.run_until(
-        |test_loop_data| test_loop_data.get(&new_node).client.chain.head().unwrap().height > 10050,
+        |test_loop_data| {
+            test_loop_data
+                .get(&new_node)
+                .client
+                .chain
+                .head()
+                .unwrap()
+                .height
+                > 10050
+        },
         Duration::seconds(20),
     );
     TestLoopEnv { test_loop, datas: node_datas, tempdir }

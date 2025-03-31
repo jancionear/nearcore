@@ -83,7 +83,9 @@ impl Genesis {
             total_supply: get_initial_supply(&records),
             max_inflation_rate: MAX_INFLATION_RATE,
             num_blocks_per_year: NUM_BLOCKS_PER_YEAR,
-            protocol_treasury_account: PROTOCOL_TREASURY_ACCOUNT.parse().unwrap(),
+            protocol_treasury_account: PROTOCOL_TREASURY_ACCOUNT
+                .parse()
+                .unwrap(),
             transaction_validity_period: TRANSACTION_VALIDITY_PERIOD,
             gas_limit: INITIAL_GAS_LIMIT,
             gas_price_adjustment_rate: GAS_PRICE_ADJUSTMENT_RATE,
@@ -121,7 +123,10 @@ impl Genesis {
         Genesis::new(config, records.into()).unwrap()
     }
 
-    pub fn test(accounts: Vec<AccountId>, num_validator_seats: NumSeats) -> Self {
+    pub fn test(
+        accounts: Vec<AccountId>,
+        num_validator_seats: NumSeats,
+    ) -> Self {
         Self::test_with_seeds(
             Clock::real(),
             accounts,
@@ -164,10 +169,16 @@ impl Genesis {
 }
 
 pub fn add_protocol_account(records: &mut Vec<StateRecord>) {
-    let signer = InMemorySigner::test_signer(&PROTOCOL_TREASURY_ACCOUNT.parse().unwrap());
+    let signer = InMemorySigner::test_signer(
+        &PROTOCOL_TREASURY_ACCOUNT
+            .parse()
+            .unwrap(),
+    );
     add_account_with_key(
         records,
-        PROTOCOL_TREASURY_ACCOUNT.parse().unwrap(),
+        PROTOCOL_TREASURY_ACCOUNT
+            .parse()
+            .unwrap(),
         &signer.public_key(),
         TESTING_INIT_BALANCE,
         0,

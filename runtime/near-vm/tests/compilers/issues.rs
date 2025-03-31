@@ -19,7 +19,10 @@ impl WasmerEnv for Env {}
 fn issue_2329(mut config: crate::Config) -> Result<()> {
     let store = config.store();
 
-    fn read_memory(env: &Env, guest_ptr: u32) -> u32 {
+    fn read_memory(
+        env: &Env,
+        guest_ptr: u32,
+    ) -> u32 {
         dbg!(env.memory.get_ref());
         dbg!(guest_ptr);
         0
@@ -67,7 +70,10 @@ fn issue_2329(mut config: crate::Config) -> Result<()> {
     };
     let instance =
         Instance::new_with_config(&module, InstanceConfig::with_stack_limit(1000000), &imports)?;
-    instance.lookup_function("read_memory").unwrap().call(&[])?;
+    instance
+        .lookup_function("read_memory")
+        .unwrap()
+        .call(&[])?;
     Ok(())
 }
 

@@ -77,7 +77,10 @@ impl TelemetryActor {
 
 impl Handler<TelemetryEvent> for TelemetryActor {
     #[perf]
-    fn handle(&mut self, msg: TelemetryEvent) {
+    fn handle(
+        &mut self,
+        msg: TelemetryEvent,
+    ) {
         tracing::debug!(target: "telemetry", ?msg);
         let now = Instant::now();
         if now - self.last_telemetry_update < self.config.reporting_interval {
@@ -105,7 +108,9 @@ impl Handler<TelemetryEvent> for TelemetryActor {
                         } else {
                             "ok"
                         };
-                        metrics::TELEMETRY_RESULT.with_label_values(&[result]).inc();
+                        metrics::TELEMETRY_RESULT
+                            .with_label_values(&[result])
+                            .inc();
                     }),
             );
         }

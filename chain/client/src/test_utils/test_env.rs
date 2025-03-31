@@ -92,15 +92,33 @@ impl TestEnv {
     /// Process a given block in the client with index `id`.
     /// Simulate the block processing logic in `Client`, i.e, it would run catchup and then process accepted blocks and possibly produce chunks.
     /// Runs garbage collection manually
-    pub fn process_block(&mut self, id: usize, block: Block, provenance: Provenance) {
-        self.clients[id].process_block_test(MaybeValidated::from(block), provenance).unwrap();
+    pub fn process_block(
+        &mut self,
+        id: usize,
+        block: Block,
+        provenance: Provenance,
+    ) {
+        self.clients[id]
+            .process_block_test(MaybeValidated::from(block), provenance)
+            .unwrap();
         // runs gc
-        let runtime_adapter = self.clients[id].chain.runtime_adapter.clone();
-        let epoch_manager = self.clients[id].chain.epoch_manager.clone();
-        let shard_tracker = self.clients[id].chain.shard_tracker.clone();
+        let runtime_adapter = self.clients[id]
+            .chain
+            .runtime_adapter
+            .clone();
+        let epoch_manager = self.clients[id]
+            .chain
+            .epoch_manager
+            .clone();
+        let shard_tracker = self.clients[id]
+            .chain
+            .shard_tracker
+            .clone();
         let gc_config = self.clients[id].config.gc.clone();
         let signer = self.clients[id].validator_signer.get();
-        let me = signer.as_ref().map(|signer| signer.validator_id());
+        let me = signer
+            .as_ref()
+            .map(|signer| signer.validator_id());
 
         // A RPC node should do regular garbage collection.
         if !self.clients[id].config.archive {
@@ -114,7 +132,10 @@ impl TestEnv {
             // on the hot storage. In order to determine if split storage is enabled
             // *and* that the migration to split storage is finished we can check
             // the store kind. It's only set to hot after the migration is finished.
-            let store = self.clients[0].chain.chain_store().store();
+            let store = self.clients[0]
+                .chain
+                .chain_store()
+                .store();
             let kind = store.get_db_kind().unwrap();
             if kind == Some(DbKind::Hot) {
                 self.clients[id]
@@ -137,27 +158,48 @@ impl TestEnv {
 
     /// Produces block by given client, which may kick off chunk production.
     /// This means that transactions added before this call will be included in the next block produced by this validator.
-    pub fn produce_block(&mut self, id: usize, height: BlockHeight) {
-        let block = self.clients[id].produce_block(height).unwrap();
+    pub fn produce_block(
+        &mut self,
+        id: usize,
+        height: BlockHeight,
+    ) {
+        let block = self.clients[id]
+            .produce_block(height)
+            .unwrap();
         self.process_block(id, block.unwrap(), Provenance::PRODUCED);
     }
 
     // Produces block by the client that is the block producer for the given height.
-    pub fn produce_block_simple(&mut self, height: BlockHeight) {
+    pub fn produce_block_simple(
+        &mut self,
+        height: BlockHeight,
+    ) {
         let client = &self.clients[0];
 
         let tip = client.chain.head().unwrap();
         let parent_hash = tip.last_block_hash;
-        let epoch_id = client.epoch_manager.get_epoch_id_from_prev_block(&parent_hash).unwrap();
-        let block_producer = client.epoch_manager.get_block_producer(&epoch_id, height).unwrap();
+        let epoch_id = client
+            .epoch_manager
+            .get_epoch_id_from_prev_block(&parent_hash)
+            .unwrap();
+        let block_producer = client
+            .epoch_manager
+            .get_block_producer(&epoch_id, height)
+            .unwrap();
 
         for id in 0..self.clients.len() {
-            let validator_signer = self.clients[id].validator_signer.get().unwrap();
+            let validator_signer = self.clients[id]
+                .validator_signer
+                .get()
+                .unwrap();
             let validator_id = validator_signer.validator_id().clone();
             if validator_id != block_producer {
                 continue;
             }
-            let block = self.clients[id].produce_block(height).unwrap().unwrap();
+            let block = self.clients[id]
+                .produce_block(height)
+                .unwrap()
+                .unwrap();
             self.process_block(id, block, Provenance::PRODUCED);
             return;
         }
@@ -174,18 +216,29 @@ impl TestEnv {
     /// Implementation is rather crude and just hijacks our logging
     /// infrastructure. Hopefully this is good enough, but, if it isn't, we can
     /// add something more robust.
-    pub fn pause_block_processing(&mut self, capture: &mut TracingCapture, block: &CryptoHash) {
+    pub fn pause_block_processing(
+        &mut self,
+        capture: &mut TracingCapture,
+        block: &CryptoHash,
+    ) {
         let paused_blocks = Arc::clone(&self.paused_blocks);
-        paused_blocks.lock().unwrap().insert(*block, Arc::new(OnceCell::new()));
+        paused_blocks
+            .lock()
+            .unwrap()
+            .insert(*block, Arc::new(OnceCell::new()));
         capture.set_callback(move |msg| {
             if msg.starts_with("do_apply_chunks") {
-                let cell = paused_blocks.lock().unwrap().iter().find_map(|(block_hash, cell)| {
-                    if msg.contains(&format!("block_hash={block_hash}")) {
-                        Some(Arc::clone(cell))
-                    } else {
-                        None
-                    }
-                });
+                let cell = paused_blocks
+                    .lock()
+                    .unwrap()
+                    .iter()
+                    .find_map(|(block_hash, cell)| {
+                        if msg.contains(&format!("block_hash={block_hash}")) {
+                            Some(Arc::clone(cell))
+                        } else {
+                            None
+                        }
+                    });
                 if let Some(cell) = cell {
                     cell.wait();
                 }
@@ -194,22 +247,37 @@ impl TestEnv {
     }
 
     /// See `pause_block_processing`.
-    pub fn resume_block_processing(&mut self, block: &CryptoHash) {
+    pub fn resume_block_processing(
+        &mut self,
+        block: &CryptoHash,
+    ) {
         let mut paused_blocks = self.paused_blocks.lock().unwrap();
         let cell = paused_blocks.remove(block).unwrap();
         let _ = cell.set(());
     }
 
-    pub fn contains_client(&self, account_id: &AccountId) -> bool {
-        self.account_indices.contains(account_id)
+    pub fn contains_client(
+        &self,
+        account_id: &AccountId,
+    ) -> bool {
+        self.account_indices
+            .contains(account_id)
     }
 
-    pub fn client(&mut self, account_id: &AccountId) -> &mut Client {
-        self.account_indices.lookup_mut(&mut self.clients, account_id)
+    pub fn client(
+        &mut self,
+        account_id: &AccountId,
+    ) -> &mut Client {
+        self.account_indices
+            .lookup_mut(&mut self.clients, account_id)
     }
 
-    pub fn shards_manager(&self, account: &AccountId) -> &SynchronousShardsManagerAdapter {
-        self.account_indices.lookup(&self.shards_manager_adapters, account)
+    pub fn shards_manager(
+        &self,
+        account: &AccountId,
+    ) -> &SynchronousShardsManagerAdapter {
+        self.account_indices
+            .lookup(&self.shards_manager_adapters, account)
     }
 
     pub fn process_partial_encoded_chunks(&mut self) {
@@ -225,13 +293,13 @@ impl TestEnv {
                     tracing::debug_span!(target: "test", "process_partial_encoded_chunks", client=i).entered();
 
                 keep_going |= network_adapter.handle_filtered(|request| match request {
-                    PeerManagerMessageRequest::NetworkRequests(
+                    | PeerManagerMessageRequest::NetworkRequests(
                         NetworkRequests::PartialEncodedChunkRequest { .. },
                     ) => {
                         self.process_partial_encoded_chunk_request(i, request);
                         None
                     }
-                    PeerManagerMessageRequest::NetworkRequests(
+                    | PeerManagerMessageRequest::NetworkRequests(
                         NetworkRequests::PartialEncodedChunkMessage {
                             account_id,
                             partial_encoded_chunk,
@@ -242,20 +310,22 @@ impl TestEnv {
                         let message = ShardsManagerRequestFromNetwork::ProcessPartialEncodedChunk(
                             partial_encoded_chunk,
                         );
-                        self.shards_manager(&account_id).send(message);
+                        self.shards_manager(&account_id)
+                            .send(message);
                         None
                     }
-                    PeerManagerMessageRequest::NetworkRequests(
+                    | PeerManagerMessageRequest::NetworkRequests(
                         NetworkRequests::PartialEncodedChunkForward { account_id, forward },
                     ) => {
                         let message =
                             ShardsManagerRequestFromNetwork::ProcessPartialEncodedChunkForward(
                                 forward,
                             );
-                        self.shards_manager(&account_id).send(message);
+                        self.shards_manager(&account_id)
+                            .send(message);
                         None
                     }
-                    _ => Some(request),
+                    | _ => Some(request),
                 });
             }
         }
@@ -263,7 +333,10 @@ impl TestEnv {
 
     /// Process all PartialEncodedChunkRequests in the network queue for a client
     /// `id`: id for the client
-    pub fn process_partial_encoded_chunks_requests(&mut self, id: usize) {
+    pub fn process_partial_encoded_chunks_requests(
+        &mut self,
+        id: usize,
+    ) {
         while let Some(request) = self.network_adapters[id].pop() {
             self.process_partial_encoded_chunk_request(id, request);
         }
@@ -279,7 +352,9 @@ impl TestEnv {
             NetworkRequests::PartialEncodedChunkRequest { target, request, .. },
         ) = request
         {
-            let target_id = self.account_indices.index(&target.account_id.unwrap());
+            let target_id = self
+                .account_indices
+                .index(&target.account_id.unwrap());
             let response = self.get_partial_encoded_chunk_response(target_id, request);
             tracing::info!("Got response for PartialEncodedChunkRequest: {:?}", response);
             if let Some(response) = response {
@@ -308,13 +383,13 @@ impl TestEnv {
         );
         let response = self.network_adapters[id].pop_most_recent();
         match response {
-            Some(PeerManagerMessageRequest::NetworkRequests(
+            | Some(PeerManagerMessageRequest::NetworkRequests(
                 NetworkRequests::PartialEncodedChunkResponse { route_back: _, response },
             )) => return Some(response),
-            Some(response) => {
+            | Some(response) => {
                 self.network_adapters[id].put_back_most_recent(response);
             }
-            None => {}
+            | None => {}
         }
 
         panic!(
@@ -323,18 +398,21 @@ impl TestEnv {
         );
     }
 
-    pub fn process_shards_manager_responses(&mut self, id: usize) -> bool {
+    pub fn process_shards_manager_responses(
+        &mut self,
+        id: usize,
+    ) -> bool {
         let mut any_processed = false;
         while let Some(msg) = self.client_adapters[id].pop() {
             match msg {
-                ShardsManagerResponse::ChunkCompleted { partial_chunk, shard_chunk } => {
+                | ShardsManagerResponse::ChunkCompleted { partial_chunk, shard_chunk } => {
                     let signer = self.clients[id].validator_signer.get();
                     self.clients[id].on_chunk_completed(partial_chunk, shard_chunk, None, &signer);
                 }
-                ShardsManagerResponse::InvalidChunk(encoded_chunk) => {
+                | ShardsManagerResponse::InvalidChunk(encoded_chunk) => {
                     self.clients[id].on_invalid_chunk(encoded_chunk);
                 }
-                ShardsManagerResponse::ChunkHeaderReadyForInclusion {
+                | ShardsManagerResponse::ChunkHeaderReadyForInclusion {
                     chunk_header,
                     chunk_producer,
                 } => {
@@ -348,23 +426,36 @@ impl TestEnv {
         any_processed
     }
 
-    pub fn process_shards_manager_responses_and_finish_processing_blocks(&mut self, idx: usize) {
+    pub fn process_shards_manager_responses_and_finish_processing_blocks(
+        &mut self,
+        idx: usize,
+    ) {
         let _span =
             tracing::debug_span!(target: "test", "process_shards_manager", client=idx).entered();
 
         loop {
             self.process_shards_manager_responses(idx);
-            if self.clients[idx].finish_blocks_in_processing().is_empty() {
+            if self.clients[idx]
+                .finish_blocks_in_processing()
+                .is_empty()
+            {
                 return;
             }
         }
     }
 
     fn found_differing_post_state_root_due_to_state_transitions(
-        witness: &ChunkStateWitness,
+        witness: &ChunkStateWitness
     ) -> bool {
-        let mut post_state_roots = HashSet::from([witness.main_state_transition.post_state_root]);
-        post_state_roots.extend(witness.implicit_transitions.iter().map(|t| t.post_state_root));
+        let mut post_state_roots = HashSet::from([witness
+            .main_state_transition
+            .post_state_root]);
+        post_state_roots.extend(
+            witness
+                .implicit_transitions
+                .iter()
+                .map(|t| t.post_state_root),
+        );
         post_state_roots.len() >= 2
     }
 
@@ -387,10 +478,15 @@ impl TestEnv {
         // But we go directly from processing DistributeStateWitnessRequest to sending it to all the chunk validators.
         // Validation of state witness is done in the partial_witness_actor which should be tested by test_loop.
         let partial_witness_adapters = self.partial_witness_adapters.clone();
-        for (client_idx, partial_witness_adapter) in partial_witness_adapters.iter().enumerate() {
+        for (client_idx, partial_witness_adapter) in partial_witness_adapters
+            .iter()
+            .enumerate()
+        {
             while let Some(request) = partial_witness_adapter.pop_distribution_request() {
                 let DistributeStateWitnessRequest { state_witness, .. } = request;
-                let raw_witness_size = borsh::to_vec(&state_witness).unwrap().len();
+                let raw_witness_size = borsh::to_vec(&state_witness)
+                    .unwrap()
+                    .len();
                 let key = state_witness.chunk_production_key();
                 let chunk_validators = self.clients[client_idx]
                     .epoch_manager
@@ -436,7 +532,10 @@ impl TestEnv {
         output
     }
 
-    pub fn propagate_chunk_endorsements(&mut self, allow_errors: bool) {
+    pub fn propagate_chunk_endorsements(
+        &mut self,
+        allow_errors: bool,
+    ) {
         // Clone the Vec to satisfy the borrow checker.
         let network_adapters = self.network_adapters.clone();
         for network_adapter in network_adapters {
@@ -464,7 +563,10 @@ impl TestEnv {
         }
     }
 
-    pub fn propagate_chunk_state_witnesses_and_endorsements(&mut self, allow_errors: bool) {
+    pub fn propagate_chunk_state_witnesses_and_endorsements(
+        &mut self,
+        allow_errors: bool,
+    ) {
         self.propagate_chunk_state_witnesses(allow_errors);
         self.propagate_chunk_endorsements(allow_errors);
     }
@@ -483,12 +585,12 @@ impl TestEnv {
         loop {
             network_adapter.handle_filtered(|request| {
                 match &request {
-                    PeerManagerMessageRequest::NetworkRequests(
+                    | PeerManagerMessageRequest::NetworkRequests(
                         NetworkRequests::ChunkEndorsement(_, endorsement),
                     ) => {
                         endorsement_found = endorsement.chunk_hash() == *chunk_hash;
                     }
-                    _ => {}
+                    | _ => {}
                 };
                 Some(request)
             });
@@ -506,7 +608,10 @@ impl TestEnv {
         }
     }
 
-    pub fn send_money(&mut self, id: usize) -> ProcessTxResponse {
+    pub fn send_money(
+        &mut self,
+        id: usize,
+    ) -> ProcessTxResponse {
         let account_id = self.get_client_id(0);
         let signer = InMemorySigner::test_signer(&account_id);
         let tx = SignedTransaction::send_money(
@@ -515,7 +620,11 @@ impl TestEnv {
             account_id,
             &signer,
             100,
-            self.clients[id].chain.head().unwrap().last_block_hash,
+            self.clients[id]
+                .chain
+                .head()
+                .unwrap()
+                .last_block_hash,
         );
         self.clients[id].process_tx(tx, false, false)
     }
@@ -532,11 +641,18 @@ impl TestEnv {
             .epoch_manager
             .get_epoch_id_from_prev_block(&tip.last_block_hash)
             .unwrap();
-        let block_producer =
-            self.clients[0].epoch_manager.get_block_producer(&epoch_id, tip.height).unwrap();
+        let block_producer = self.clients[0]
+            .epoch_manager
+            .get_block_producer(&epoch_id, tip.height)
+            .unwrap();
 
-        let mut block = self.clients[0].produce_block(tip.height + 1).unwrap().unwrap();
-        block.mut_header().resign(&create_test_signer(block_producer.as_str()));
+        let mut block = self.clients[0]
+            .produce_block(tip.height + 1)
+            .unwrap()
+            .unwrap();
+        block
+            .mut_header()
+            .resign(&create_test_signer(block_producer.as_str()));
 
         let _ = self.clients[0]
             .process_block_test_no_produce_chunk(block.into(), Provenance::NONE)
@@ -549,18 +665,37 @@ impl TestEnv {
 
     pub fn get_head_protocol_version(&self) -> ProtocolVersion {
         let tip = self.clients[0].chain.head().unwrap();
-        self.clients[0].epoch_manager.get_epoch_protocol_version(&tip.epoch_id).unwrap()
+        self.clients[0]
+            .epoch_manager
+            .get_epoch_protocol_version(&tip.epoch_id)
+            .unwrap()
     }
 
-    pub fn query_account(&mut self, account_id: AccountId) -> AccountView {
+    pub fn query_account(
+        &mut self,
+        account_id: AccountId,
+    ) -> AccountView {
         let client = &self.clients[0];
         let head = client.chain.head().unwrap();
-        let last_block = client.chain.get_block(&head.last_block_hash).unwrap();
-        let shard_id =
-            client.epoch_manager.account_id_to_shard_id(&account_id, &head.epoch_id).unwrap();
-        let shard_layout = client.epoch_manager.get_shard_layout(&head.epoch_id).unwrap();
-        let shard_index = shard_layout.get_shard_index(shard_id).unwrap();
-        let shard_uid = client.epoch_manager.shard_id_to_uid(shard_id, &head.epoch_id).unwrap();
+        let last_block = client
+            .chain
+            .get_block(&head.last_block_hash)
+            .unwrap();
+        let shard_id = client
+            .epoch_manager
+            .account_id_to_shard_id(&account_id, &head.epoch_id)
+            .unwrap();
+        let shard_layout = client
+            .epoch_manager
+            .get_shard_layout(&head.epoch_id)
+            .unwrap();
+        let shard_index = shard_layout
+            .get_shard_index(shard_id)
+            .unwrap();
+        let shard_uid = client
+            .epoch_manager
+            .shard_id_to_uid(shard_id, &head.epoch_id)
+            .unwrap();
         let last_chunk_header = &last_block.chunks()[shard_index];
 
         for i in 0..self.clients.len() {
@@ -587,8 +722,8 @@ impl TestEnv {
                     )
                     .unwrap();
                 match response.kind {
-                    QueryResponseKind::ViewAccount(account_view) => return account_view,
-                    _ => panic!("Wrong return value"),
+                    | QueryResponseKind::ViewAccount(account_view) => return account_view,
+                    | _ => panic!("Wrong return value"),
                 }
             }
         }
@@ -596,9 +731,15 @@ impl TestEnv {
     }
 
     /// Passes the given query to the runtime adapter using the current head and returns a result.
-    pub fn query_view(&mut self, request: QueryRequest) -> Result<QueryResponse, QueryError> {
+    pub fn query_view(
+        &mut self,
+        request: QueryRequest,
+    ) -> Result<QueryResponse, QueryError> {
         let head = self.clients[0].chain.head().unwrap();
-        let head_block = self.clients[0].chain.get_block(&head.last_block_hash).unwrap();
+        let head_block = self.clients[0]
+            .chain
+            .get_block(&head.last_block_hash)
+            .unwrap();
         self.clients[0].runtime_adapter.query(
             ShardUId::single_shard(),
             &head_block.chunks()[0].prev_state_root(),
@@ -611,15 +752,31 @@ impl TestEnv {
         )
     }
 
-    pub fn query_state(&mut self, account_id: AccountId) -> Vec<StateItem> {
+    pub fn query_state(
+        &mut self,
+        account_id: AccountId,
+    ) -> Vec<StateItem> {
         let client = &self.clients[0];
         let head = client.chain.head().unwrap();
-        let last_block = client.chain.get_block(&head.last_block_hash).unwrap();
-        let shard_id =
-            client.epoch_manager.account_id_to_shard_id(&account_id, &head.epoch_id).unwrap();
-        let shard_uid = client.epoch_manager.shard_id_to_uid(shard_id, &head.epoch_id).unwrap();
-        let shard_layout = client.epoch_manager.get_shard_layout(&head.epoch_id).unwrap();
-        let shard_index = shard_layout.get_shard_index(shard_id).unwrap();
+        let last_block = client
+            .chain
+            .get_block(&head.last_block_hash)
+            .unwrap();
+        let shard_id = client
+            .epoch_manager
+            .account_id_to_shard_id(&account_id, &head.epoch_id)
+            .unwrap();
+        let shard_uid = client
+            .epoch_manager
+            .shard_id_to_uid(shard_id, &head.epoch_id)
+            .unwrap();
+        let shard_layout = client
+            .epoch_manager
+            .get_shard_layout(&head.epoch_id)
+            .unwrap();
+        let shard_index = shard_layout
+            .get_shard_index(shard_id)
+            .unwrap();
         let last_chunk_header = &last_block.chunks()[shard_index];
         let response = client
             .runtime_adapter
@@ -639,12 +796,15 @@ impl TestEnv {
             )
             .unwrap();
         match response.kind {
-            QueryResponseKind::ViewState(view_state_result) => view_state_result.values,
-            _ => panic!("Wrong return value"),
+            | QueryResponseKind::ViewState(view_state_result) => view_state_result.values,
+            | _ => panic!("Wrong return value"),
         }
     }
 
-    pub fn query_balance(&mut self, account_id: AccountId) -> Balance {
+    pub fn query_balance(
+        &mut self,
+        account_id: AccountId,
+    ) -> Balance {
         self.query_account(account_id).amount
     }
 
@@ -654,11 +814,14 @@ impl TestEnv {
     /// doesn't work because `KeyValueRuntime` misses info about new epochs in
     /// memory caches.
     /// Though, it seems that it is not necessary for current use cases.
-    pub fn restart(&mut self, idx: usize) {
+    pub fn restart(
+        &mut self,
+        idx: usize,
+    ) {
         let account_id = self.get_client_id(idx);
         let rng_seed = match self.seeds.get(&account_id) {
-            Some(seed) => *seed,
-            None => TEST_SEED,
+            | Some(seed) => *seed,
+            | None => TEST_SEED,
         };
         let vs = ValidatorSchedule::new().block_producers_per_epoch(vec![self.validators.clone()]);
         let num_validator_seats = vs.all_block_producers().count() as NumSeats;
@@ -666,45 +829,73 @@ impl TestEnv {
             self.clock.clone(),
             num_validator_seats,
             false,
-            self.network_adapters[idx].clone().as_multi_sender(),
+            self.network_adapters[idx]
+                .clone()
+                .as_multi_sender(),
             self.shards_manager_adapters[idx].clone(),
             self.chain_genesis.clone(),
             self.clients[idx].epoch_manager.clone(),
             self.clients[idx].shard_tracker.clone(),
-            self.clients[idx].runtime_adapter.clone(),
+            self.clients[idx]
+                .runtime_adapter
+                .clone(),
             rng_seed,
             self.archive,
             self.save_trie_changes,
             None,
-            self.clients[idx].partial_witness_adapter.clone(),
-            self.clients[idx].validator_signer.get().unwrap(),
-            self.clients[idx].resharding_sender.clone(),
+            self.clients[idx]
+                .partial_witness_adapter
+                .clone(),
+            self.clients[idx]
+                .validator_signer
+                .get()
+                .unwrap(),
+            self.clients[idx]
+                .resharding_sender
+                .clone(),
         )
     }
 
     /// Returns an [`AccountId`] used by a client at given index.  More
     /// specifically, returns validator id of the client’s validator signer.
-    pub fn get_client_id(&self, idx: usize) -> AccountId {
+    pub fn get_client_id(
+        &self,
+        idx: usize,
+    ) -> AccountId {
         let validator_signer = self.clients[idx].validator_signer.get();
-        validator_signer.unwrap().validator_id().clone()
+        validator_signer
+            .unwrap()
+            .validator_id()
+            .clone()
     }
 
     /// Returns the index of client with the given [`AccountId`].
-    pub fn get_client_index(&self, account_id: &AccountId) -> usize {
+    pub fn get_client_index(
+        &self,
+        account_id: &AccountId,
+    ) -> usize {
         self.account_indices.index(account_id)
     }
 
     /// Get block producer responsible for producing the block at height head.height + height_offset.
     /// Doesn't handle epoch boundaries with height_offset > 1. With offsets bigger than one,
     /// the function assumes that the epoch doesn't change after head.height + 1.
-    pub fn get_block_producer_at_offset(&self, head: &Tip, height_offset: u64) -> AccountId {
+    pub fn get_block_producer_at_offset(
+        &self,
+        head: &Tip,
+        height_offset: u64,
+    ) -> AccountId {
         let client = &self.clients[0];
         let epoch_manager = &client.epoch_manager;
         let parent_hash = &head.last_block_hash;
-        let epoch_id = epoch_manager.get_epoch_id_from_prev_block(parent_hash).unwrap();
+        let epoch_id = epoch_manager
+            .get_epoch_id_from_prev_block(parent_hash)
+            .unwrap();
         let height = head.height + height_offset;
 
-        epoch_manager.get_block_producer(&epoch_id, height).unwrap()
+        epoch_manager
+            .get_block_producer(&epoch_id, height)
+            .unwrap()
     }
 
     /// Get chunk producer responsible for producing the chunk at height head.height + height_offset.
@@ -719,7 +910,9 @@ impl TestEnv {
         let client = &self.clients[0];
         let epoch_manager = &client.epoch_manager;
         let parent_hash = &head.last_block_hash;
-        let epoch_id = epoch_manager.get_epoch_id_from_prev_block(parent_hash).unwrap();
+        let epoch_id = epoch_manager
+            .get_epoch_id_from_prev_block(parent_hash)
+            .unwrap();
         let height = head.height + height_offset;
 
         epoch_manager
@@ -732,8 +925,16 @@ impl TestEnv {
             .take_account_id()
     }
 
-    pub fn get_runtime_config(&self, idx: usize, epoch_id: EpochId) -> RuntimeConfig {
-        self.clients[idx].runtime_adapter.get_protocol_config(&epoch_id).unwrap().runtime_config
+    pub fn get_runtime_config(
+        &self,
+        idx: usize,
+        epoch_id: EpochId,
+    ) -> RuntimeConfig {
+        self.clients[idx]
+            .runtime_adapter
+            .get_protocol_config(&epoch_id)
+            .unwrap()
+            .runtime_config
     }
 
     /// Create and sign transaction ready for execution.
@@ -779,14 +980,20 @@ impl TestEnv {
             max_block_height: tip.height + 100,
             public_key: inner_signer.public_key(),
         };
-        let signature = inner_signer.sign(delegate_action.get_nep461_hash().as_bytes());
+        let signature = inner_signer.sign(
+            delegate_action
+                .get_nep461_hash()
+                .as_bytes(),
+        );
         let signed_delegate_action = SignedDelegateAction { delegate_action, signature };
         SignedTransaction::from_actions(
             relayer_nonce,
             relayer,
             sender,
             &relayer_signer,
-            vec![Action::Delegate(Box::new(signed_delegate_action))],
+            vec![Action::Delegate(Box::new(
+                signed_delegate_action,
+            ))],
             tip.last_block_hash,
             0,
         )
@@ -801,17 +1008,20 @@ impl TestEnv {
         let response = self.clients[0].process_tx(tx, false, false);
         // Check if the transaction got rejected
         match response {
-            ProcessTxResponse::NoResponse
+            | ProcessTxResponse::NoResponse
             | ProcessTxResponse::RequestRouted
             | ProcessTxResponse::ValidTx => (),
-            ProcessTxResponse::InvalidTx(e) => return Err(e),
-            ProcessTxResponse::DoesNotTrackShard => panic!("test setup is buggy"),
+            | ProcessTxResponse::InvalidTx(e) => return Err(e),
+            | ProcessTxResponse::DoesNotTrackShard => panic!("test setup is buggy"),
         }
         let max_iters = 100;
         let tip = self.clients[0].chain.head().unwrap();
         for i in 0..max_iters {
             self.produce_block_simple(tip.height + i + 1);
-            if let Ok(outcome) = self.clients[0].chain.get_final_transaction_result(&tx_hash) {
+            if let Ok(outcome) = self.clients[0]
+                .chain
+                .get_final_transaction_result(&tx_hash)
+            {
                 return Ok(outcome);
             }
         }
@@ -823,14 +1033,19 @@ impl TestEnv {
     /// This function assumes that account has been deployed and that
     /// `InMemorySigner::from_seed` produces a valid signer that has it's key
     /// deployed already.
-    pub fn call_main(&mut self, account: &AccountId) -> FinalExecutionOutcomeView {
+    pub fn call_main(
+        &mut self,
+        account: &AccountId,
+    ) -> FinalExecutionOutcomeView {
         let signer = InMemorySigner::test_signer(&account);
-        let actions = vec![Action::FunctionCall(Box::new(FunctionCallAction {
-            method_name: "main".to_string(),
-            args: vec![],
-            gas: 3 * 10u64.pow(14),
-            deposit: 0,
-        }))];
+        let actions = vec![Action::FunctionCall(Box::new(
+            FunctionCallAction {
+                method_name: "main".to_string(),
+                args: vec![],
+                gas: 3 * 10u64.pow(14),
+                deposit: 0,
+            },
+        ))];
         let tx = self.tx_from_actions(actions, &signer, signer.get_account_id());
         self.execute_tx(tx).unwrap()
     }
@@ -848,19 +1063,28 @@ impl TestEnv {
         }
     }
 
-    pub fn print_block_summary(&self, height: u64) {
+    pub fn print_block_summary(
+        &self,
+        height: u64,
+    ) {
         let client = &self.clients[0];
         let block = client.chain.get_block_by_height(height);
         let block = match block {
-            Ok(block) => block,
-            Err(err) => {
+            | Ok(block) => block,
+            | Err(err) => {
                 tracing::info!(target: "test", ?err, "Block {}: missing", height);
                 return;
             }
         };
         let prev_hash = block.header().prev_hash();
-        let epoch_id = client.epoch_manager.get_epoch_id_from_prev_block(prev_hash).unwrap();
-        let protocol_version = client.epoch_manager.get_epoch_protocol_version(&epoch_id).unwrap();
+        let epoch_id = client
+            .epoch_manager
+            .get_epoch_id_from_prev_block(prev_hash)
+            .unwrap();
+        let protocol_version = client
+            .epoch_manager
+            .get_epoch_protocol_version(&epoch_id)
+            .unwrap();
         let latest_protocol_version = block.header().latest_protocol_version();
 
         let block_hash = block.hash();
@@ -885,19 +1109,33 @@ impl Drop for TestEnv {
 pub(crate) struct AccountIndices(pub(crate) HashMap<AccountId, usize>);
 
 impl AccountIndices {
-    pub fn index(&self, account_id: &AccountId) -> usize {
+    pub fn index(
+        &self,
+        account_id: &AccountId,
+    ) -> usize {
         self.0[account_id]
     }
 
-    pub fn contains(&self, account_id: &AccountId) -> bool {
+    pub fn contains(
+        &self,
+        account_id: &AccountId,
+    ) -> bool {
         self.0.contains_key(account_id)
     }
 
-    pub fn lookup<'a, T>(&self, container: &'a [T], account_id: &AccountId) -> &'a T {
+    pub fn lookup<'a, T>(
+        &self,
+        container: &'a [T],
+        account_id: &AccountId,
+    ) -> &'a T {
         &container[self.0[account_id]]
     }
 
-    pub fn lookup_mut<'a, T>(&self, container: &'a mut [T], account_id: &AccountId) -> &'a mut T {
+    pub fn lookup_mut<'a, T>(
+        &self,
+        container: &'a mut [T],
+        account_id: &AccountId,
+    ) -> &'a mut T {
         &mut container[self.0[account_id]]
     }
 }

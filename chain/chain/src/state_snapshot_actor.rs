@@ -14,13 +14,12 @@ use std::sync::Arc;
 
 /// Runs tasks related to state snapshots.
 /// There are three main handlers in StateSnapshotActor and they are called in sequence
-/// 1. [`DeleteAndMaybeCreateSnapshotRequest`]: deletes a snapshot and optionally calls CreateSnapshotRequest.
+/// 1. [`DeleteSnapshotRequest`]: deletes a snapshot.
 /// 2. [`CreateSnapshotRequest`]: creates a new snapshot.
 pub struct StateSnapshotActor {
     flat_storage_manager: FlatStorageManager,
     network_adapter: PeerManagerAdapter,
     tries: ShardTries,
-    self_sender: StateSnapshotSenderForStateSnapshot,
 }
 
 impl Actor for StateSnapshotActor {}
@@ -30,18 +29,14 @@ impl StateSnapshotActor {
         flat_storage_manager: FlatStorageManager,
         network_adapter: PeerManagerAdapter,
         tries: ShardTries,
-        self_sender: StateSnapshotSenderForStateSnapshot,
     ) -> Self {
-        Self { flat_storage_manager, network_adapter, tries, self_sender }
+        Self { flat_storage_manager, network_adapter, tries }
     }
 }
 
 #[derive(actix::Message, Debug)]
 #[rtype(result = "()")]
-pub struct DeleteAndMaybeCreateSnapshotRequest {
-    /// Optionally send request to create a new snapshot after deleting any existing snapshots.
-    create_snapshot_request: Option<CreateSnapshotRequest>,
-}
+pub struct DeleteSnapshotRequest {}
 
 #[derive(actix::Message)]
 #[rtype(result = "()")]
@@ -59,7 +54,10 @@ pub struct CreateSnapshotRequest {
 }
 
 impl std::fmt::Debug for CreateSnapshotRequest {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+    ) -> std::fmt::Result {
         f.debug_struct("CreateSnapshotRequest")
             .field("block_hash", self.block.hash())
             .field("prev_block_hash", &self.prev_block_hash)
@@ -67,27 +65,25 @@ impl std::fmt::Debug for CreateSnapshotRequest {
             .field("epoch_height", &self.epoch_height)
             .field(
                 "shard_uids",
-                &self.shard_indexes_and_uids.iter().map(|(_index, uid)| uid).collect::<Vec<_>>(),
+                &self
+                    .shard_indexes_and_uids
+                    .iter()
+                    .map(|(_index, uid)| uid)
+                    .collect::<Vec<_>>(),
             )
             .finish()
     }
 }
 
 impl StateSnapshotActor {
-    pub fn handle_delete_and_maybe_create_snapshot_request(
+    pub fn handle_delete_snapshot_request(
         &mut self,
-        msg: DeleteAndMaybeCreateSnapshotRequest,
+        msg: DeleteSnapshotRequest,
     ) {
         tracing::debug!(target: "state_snapshot", ?msg);
 
         // We don't need to acquire any locks on flat storage or snapshot.
-        let DeleteAndMaybeCreateSnapshotRequest { create_snapshot_request } = msg;
         self.tries.delete_state_snapshot();
-
-        // Optionally send a create_snapshot_request after deletion
-        if let Some(create_snapshot_request) = create_snapshot_request {
-            self.self_sender.send(create_snapshot_request);
-        }
     }
 
     /// Returns true if we shouldn't yet try to create a snapshot because a flat storage resharding
@@ -97,9 +93,12 @@ impl StateSnapshotActor {
         min_chunk_prev_height: BlockHeight,
         shard_indexes_and_uids: &[(ShardIndex, ShardUId)],
     ) -> anyhow::Result<bool> {
-        let shard_uids = shard_indexes_and_uids.iter().map(|(_idx, uid)| *uid);
-        let Some(min_height) =
-            self.flat_storage_manager.resharding_catchup_height_reached(shard_uids)?
+        let shard_uids = shard_indexes_and_uids
+            .iter()
+            .map(|(_idx, uid)| *uid);
+        let Some(min_height) = self
+            .flat_storage_manager
+            .resharding_catchup_height_reached(shard_uids)?
         else {
             // No flat storage split + catchup is in progress, ok to proceed
             return Ok(false);
@@ -121,12 +120,21 @@ impl StateSnapshotActor {
         msg: CreateSnapshotRequest,
         ctx: &mut dyn DelayedActionRunner<Self>,
     ) {
+        if let Some(last_requested_hash) = self
+            .flat_storage_manager
+            .snapshot_hash_wanted()
+        {
+            if last_requested_hash != msg.prev_block_hash {
+                tracing::info!(target: "state_snapshot", ?msg, %last_requested_hash, "Skipping state snapshot in favor of more recent request");
+                return;
+            }
+        }
         let should_wait = match self.should_wait_for_resharding_split(
             msg.min_chunk_prev_height,
             &msg.shard_indexes_and_uids,
         ) {
-            Ok(s) => s,
-            Err(err) => {
+            | Ok(s) => s,
+            | Err(err) => {
                 tracing::error!(target: "state_snapshot", ?err, "State Snapshot Actor failed to check resharding status. Not making snapshot");
                 return;
             }
@@ -153,46 +161,59 @@ impl StateSnapshotActor {
             block,
             ..
         } = msg;
+
+        self.tries.delete_state_snapshot();
         let res =
-            self.tries.create_state_snapshot(prev_block_hash, &shard_indexes_and_uids, &block);
+            self.tries
+                .create_state_snapshot(prev_block_hash, &shard_indexes_and_uids, &block);
 
         // Unlocking flat state head can be done asynchronously in state_snapshot_actor.
         // The next flat storage update will bring flat storage to latest head.
-        // TODO(resharding): check what happens if two calls to want_snapshot() are made before this point,
-        // which can happen with short epochs if a state snapshot takes longer than the rest of the epoch to complete.
         // TODO(resharding): this can actually be called sooner, just after the rocksdb checkpoint is made.
-        self.flat_storage_manager.snapshot_taken();
+        self.flat_storage_manager
+            .snapshot_taken(&prev_block_hash);
         match res {
-            Ok(res_shard_uids) => {
+            | Ok(res_shard_uids) => {
                 let Some(res_shard_uids) = res_shard_uids else {
                     return;
                 };
 
-                self.network_adapter.send(PeerManagerMessageRequest::NetworkRequests(
-                    NetworkRequests::SnapshotHostInfo {
-                        sync_hash: prev_block_hash,
-                        epoch_height,
-                        shards: res_shard_uids.iter().map(|uid| uid.shard_id.into()).collect(),
-                    },
-                ));
+                self.network_adapter
+                    .send(PeerManagerMessageRequest::NetworkRequests(
+                        NetworkRequests::SnapshotHostInfo {
+                            sync_hash: prev_block_hash,
+                            epoch_height,
+                            shards: res_shard_uids
+                                .iter()
+                                .map(|uid| uid.shard_id.into())
+                                .collect(),
+                        },
+                    ));
             }
-            Err(err) => {
+            | Err(err) => {
                 tracing::error!(target: "state_snapshot", ?err, "State snapshot creation failed")
             }
         }
     }
 }
 
-impl Handler<DeleteAndMaybeCreateSnapshotRequest> for StateSnapshotActor {
+impl Handler<DeleteSnapshotRequest> for StateSnapshotActor {
     #[perf]
-    fn handle(&mut self, msg: DeleteAndMaybeCreateSnapshotRequest) {
-        self.handle_delete_and_maybe_create_snapshot_request(msg)
+    fn handle(
+        &mut self,
+        msg: DeleteSnapshotRequest,
+    ) {
+        self.handle_delete_snapshot_request(msg)
     }
 }
 
 impl HandlerWithContext<CreateSnapshotRequest> for StateSnapshotActor {
     #[perf]
-    fn handle(&mut self, msg: CreateSnapshotRequest, ctx: &mut dyn DelayedActionRunner<Self>) {
+    fn handle(
+        &mut self,
+        msg: CreateSnapshotRequest,
+        ctx: &mut dyn DelayedActionRunner<Self>,
+    ) {
         self.handle_create_snapshot_request(msg, ctx)
     }
 }
@@ -203,7 +224,10 @@ pub struct StateSnapshotSenderForStateSnapshot {
 }
 
 #[derive(Clone, MultiSend, MultiSenderFrom)]
-pub struct StateSnapshotSenderForClient(Sender<DeleteAndMaybeCreateSnapshotRequest>);
+pub struct StateSnapshotSenderForClient {
+    delete_snapshot: Sender<DeleteSnapshotRequest>,
+    create_snapshot: Sender<CreateSnapshotRequest>,
+}
 
 type MakeSnapshotCallback = Arc<
     dyn Fn(CryptoHash, BlockHeight, EpochHeight, Vec<(ShardIndex, ShardUId)>, Block) -> ()
@@ -235,11 +259,11 @@ pub fn get_make_snapshot_callback(
             target: "state_snapshot",
             ?prev_block_hash,
             ?shard_indexes_and_uids,
-            "make_snapshot_callback sends `DeleteAndMaybeCreateSnapshotRequest` to state_snapshot_addr");
+            "make_snapshot_callback sends `CreateSnapshotRequest` to state_snapshot_addr");
             // We need to stop flat head updates synchronously in the client thread.
             // Async update in state_snapshot_actor can potentially lead to flat head progressing beyond prev_block_hash
             // This also prevents post-resharding flat storage catchup from advancing past `prev_block_hash`
-            flat_storage_manager.want_snapshot(min_chunk_prev_height);
+            flat_storage_manager.want_snapshot(prev_block_hash, min_chunk_prev_height);
             let create_snapshot_request = CreateSnapshotRequest {
                 prev_block_hash,
                 min_chunk_prev_height,
@@ -247,21 +271,19 @@ pub fn get_make_snapshot_callback(
                 shard_indexes_and_uids,
                 block,
             };
-            sender.send(DeleteAndMaybeCreateSnapshotRequest {
-                create_snapshot_request: Some(create_snapshot_request),
-            });
+            sender.send(create_snapshot_request);
         },
     )
 }
 
 /// Sends a request to delete a state snapshot.
 pub fn get_delete_snapshot_callback(
-    sender: StateSnapshotSenderForClient,
+    sender: StateSnapshotSenderForClient
 ) -> DeleteSnapshotCallback {
     Arc::new(move || {
         tracing::info!(
             target: "state_snapshot",
-            "delete_snapshot_callback sends `DeleteAndMaybeCreateSnapshotRequest` to state_snapshot_addr");
-        sender.send(DeleteAndMaybeCreateSnapshotRequest { create_snapshot_request: None });
+            "delete_snapshot_callback sends `DeleteSnapshotRequest` to state_snapshot_addr");
+        sender.send(DeleteSnapshotRequest {});
     })
 }

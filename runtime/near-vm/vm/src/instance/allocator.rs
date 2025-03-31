@@ -68,7 +68,7 @@ impl InstanceAllocator {
     ///
     /// [`InstanceHandle::new`]: super::InstanceHandle::new
     pub fn new(
-        offsets: VMOffsets,
+        offsets: VMOffsets
     ) -> (Self, Vec<NonNull<VMMemoryDefinition>>, Vec<NonNull<VMTableDefinition>>) {
         let instance_layout = Self::instance_layout(&offsets);
 
@@ -129,7 +129,9 @@ impl InstanceAllocator {
         let base_ptr = ptr.add(mem::size_of::<Instance>());
 
         for i in 0..num_memories {
-            let mem_offset = self.offsets.vmctx_vmmemory_definition(LocalMemoryIndex::new(i));
+            let mem_offset = self
+                .offsets
+                .vmctx_vmmemory_definition(LocalMemoryIndex::new(i));
             let mem_offset = usize::try_from(mem_offset).unwrap();
 
             let new_ptr = NonNull::new_unchecked(base_ptr.add(mem_offset));
@@ -161,7 +163,9 @@ impl InstanceAllocator {
         let base_ptr = ptr.add(std::mem::size_of::<Instance>());
 
         for i in 0..num_tables {
-            let table_offset = self.offsets.vmctx_vmtable_definition(LocalTableIndex::new(i));
+            let table_offset = self
+                .offsets
+                .vmctx_vmtable_definition(LocalTableIndex::new(i));
             let table_offset = usize::try_from(table_offset).unwrap();
 
             let new_ptr = NonNull::new_unchecked(base_ptr.add(table_offset));
@@ -173,7 +177,10 @@ impl InstanceAllocator {
 
     /// Finish preparing by writing the [`Instance`] into memory, and
     /// consume this `InstanceAllocator`.
-    pub(crate) fn write_instance(mut self, instance: Instance) -> InstanceRef {
+    pub(crate) fn write_instance(
+        mut self,
+        instance: Instance,
+    ) -> InstanceRef {
         // Prevent the old state's drop logic from being called as we
         // transition into the new state.
         self.consumed = true;

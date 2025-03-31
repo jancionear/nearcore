@@ -21,7 +21,10 @@ pub enum Error {
 impl std::error::Error for Error {}
 
 impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+    ) -> Result<(), fmt::Error> {
         write!(f, "{:?}", self)
     }
 }

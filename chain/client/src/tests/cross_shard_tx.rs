@@ -41,9 +41,16 @@ fn test_keyvalue_runtime_balances() {
                 "test4".parse().unwrap(),
             ]])
             .validator_groups(2);
-        let validators = vs.all_block_producers().cloned().collect::<Vec<_>>();
-        let key_pairs =
-            vec![PeerInfo::random(), PeerInfo::random(), PeerInfo::random(), PeerInfo::random()];
+        let validators = vs
+            .all_block_producers()
+            .cloned()
+            .collect::<Vec<_>>();
+        let key_pairs = vec![
+            PeerInfo::random(),
+            PeerInfo::random(),
+            PeerInfo::random(),
+            PeerInfo::random(),
+        ];
         let (conn, _) = setup_mock_all_validators(
             Clock::real(),
             vs,
@@ -125,7 +132,7 @@ fn send_tx(
             )
             .then(move |x| {
                 match x.unwrap() {
-                    ProcessTxResponse::NoResponse | ProcessTxResponse::RequestRouted => {
+                    | ProcessTxResponse::NoResponse | ProcessTxResponse::RequestRouted => {
                         assert_eq!(num_validators, 24);
                         send_tx(
                             num_validators,
@@ -138,10 +145,10 @@ fn send_tx(
                             block_hash,
                         );
                     }
-                    ProcessTxResponse::ValidTx => {
+                    | ProcessTxResponse::ValidTx => {
                         println!("Transaction was received by validator {:?}", connector_ordinal);
                     }
-                    other @ _ => {
+                    | other @ _ => {
                         println!(
                             "Transaction was rejected with an unexpected outcome: {:?}",
                             other
@@ -175,8 +182,8 @@ fn test_cross_shard_tx_callback(
     let res = res.unwrap();
 
     let query_response = match res {
-        Ok(query_response) => query_response,
-        Err(e) => {
+        | Ok(query_response) => query_response,
+        | Err(e) => {
             println!("Query failed with {:?}", e);
             *presumable_epoch.write().unwrap() += 1;
             let connectors_ = connectors.write().unwrap();
@@ -448,13 +455,22 @@ fn test_cross_shard_tx_common(
                     ]]
                     .iter()
                 }
-                .map(|l| l.iter().map(|account_id| account_id.parse().unwrap()).collect())
+                .map(|l| {
+                    l.iter()
+                        .map(|account_id| account_id.parse().unwrap())
+                        .collect()
+                })
                 .collect(),
             )
             .validator_groups(4);
-        let validators = vs.all_block_producers().cloned().collect::<Vec<_>>();
+        let validators = vs
+            .all_block_producers()
+            .cloned()
+            .collect::<Vec<_>>();
 
-        let key_pairs = (0..32).map(|_| PeerInfo::random()).collect::<Vec<_>>();
+        let key_pairs = (0..32)
+            .map(|_| PeerInfo::random())
+            .collect::<Vec<_>>();
         let balances = Arc::new(RwLock::new(vec![]));
         let observed_balances = Arc::new(RwLock::new(vec![]));
         let presumable_epoch = Arc::new(RwLock::new(0usize));
@@ -479,7 +495,12 @@ fn test_cross_shard_tx_common(
         let genesis_block = {
             let block_reference = BlockReference::BlockId(BlockId::Height(0));
             let msg = near_client_primitives::types::GetBlock(block_reference);
-            conn[0].view_client_actor.send(msg.with_span_context()).await.unwrap().unwrap()
+            conn[0]
+                .view_client_actor
+                .send(msg.with_span_context())
+                .await
+                .unwrap()
+                .unwrap()
         };
         *connectors.write().unwrap() = conn;
         let block_hash = genesis_block.header.hash;

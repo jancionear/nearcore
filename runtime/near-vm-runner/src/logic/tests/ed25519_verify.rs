@@ -57,21 +57,27 @@ fn check_ed25519_verify(
     let mut logic = logic_builder.build();
 
     let signature_ptr = if signature_len == u64::MAX {
-        logic.wrapped_internal_write_register(1, &signature).unwrap();
+        logic
+            .wrapped_internal_write_register(1, &signature)
+            .unwrap();
         1
     } else {
         logic.internal_mem_write(signature).ptr
     };
 
     let message_ptr = if message_len == u64::MAX {
-        logic.wrapped_internal_write_register(2, &message).unwrap();
+        logic
+            .wrapped_internal_write_register(2, &message)
+            .unwrap();
         2
     } else {
         logic.internal_mem_write(message).ptr
     };
 
     let public_key_ptr = if public_key_len == u64::MAX {
-        logic.wrapped_internal_write_register(3, &public_key).unwrap();
+        logic
+            .wrapped_internal_write_register(3, &public_key)
+            .unwrap();
         3
     } else {
         logic.internal_mem_write(public_key).ptr

@@ -20,7 +20,10 @@ impl<T> Sink<T> {
         Self(None)
     }
 
-    pub fn push(&self, t: T) {
+    pub fn push(
+        &self,
+        t: T,
+    ) {
         if let Some(f) = &self.0 {
             f(t)
         }
@@ -32,10 +35,13 @@ impl<T> Sink<T> {
 }
 
 impl<T: 'static + std::fmt::Debug + Send> Sink<T> {
-    pub fn compose<U>(&self, f: impl Send + Sync + 'static + Fn(U) -> T) -> Sink<U> {
+    pub fn compose<U>(
+        &self,
+        f: impl Send + Sync + 'static + Fn(U) -> T,
+    ) -> Sink<U> {
         match self.0.clone() {
-            None => Sink::null(),
-            Some(s) => Sink::new(Box::new(move |u| s(f(u)))),
+            | None => Sink::null(),
+            | Some(s) => Sink::new(Box::new(move |u| s(f(u)))),
         }
     }
 }

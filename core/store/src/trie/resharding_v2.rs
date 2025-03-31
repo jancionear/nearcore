@@ -57,7 +57,10 @@ impl ShardTries {
         let mut changes_by_shard: HashMap<_, Vec<_>> = HashMap::new();
         for (raw_key, value) in values.into_iter() {
             if let Some(new_shard_uid) = key_to_shard_id(&raw_key)? {
-                changes_by_shard.entry(new_shard_uid).or_default().push((raw_key, value));
+                changes_by_shard
+                    .entry(new_shard_uid)
+                    .or_default()
+                    .push((raw_key, value));
             }
         }
         let mut new_state_roots = state_roots.clone();
@@ -66,8 +69,9 @@ impl ShardTries {
             FlatStateChanges::from_raw_key_value(&changes)
                 .apply_to_flat_state(&mut store_update.flat_store_update(), shard_uid);
             // Here we assume that state_roots contains shard_uid, the caller of this method will guarantee that.
-            let trie_changes =
-                self.get_trie_for_shard(shard_uid, state_roots[&shard_uid]).update(changes)?;
+            let trie_changes = self
+                .get_trie_for_shard(shard_uid, state_roots[&shard_uid])
+                .update(changes)?;
             let state_root = self.apply_all(&trie_changes, shard_uid, &mut store_update);
             new_state_roots.insert(shard_uid, state_root);
         }
@@ -159,15 +163,20 @@ fn apply_delayed_receipts_to_children_states_impl(
         }
         // we already checked that new_shard_uid is in trie_updates and delayed_receipts_indices
         // so we can safely unwrap here
-        let delayed_receipts_indices =
-            delayed_receipts_indices_by_shard.get_mut(&new_shard_uid).unwrap();
+        let delayed_receipts_indices = delayed_receipts_indices_by_shard
+            .get_mut(&new_shard_uid)
+            .unwrap();
         set(
-            trie_updates.get_mut(&new_shard_uid).unwrap(),
+            trie_updates
+                .get_mut(&new_shard_uid)
+                .unwrap(),
             TrieKey::DelayedReceipt { index: delayed_receipts_indices.next_available_index },
             receipt,
         );
-        delayed_receipts_indices.next_available_index =
-            delayed_receipts_indices.next_available_index.checked_add(1).ok_or_else(|| {
+        delayed_receipts_indices.next_available_index = delayed_receipts_indices
+            .next_available_index
+            .checked_add(1)
+            .ok_or_else(|| {
                 StorageError::StorageInconsistentState(
                     "Next available index for delayed receipt exceeded the integer limit"
                         .to_string(),
@@ -186,10 +195,13 @@ fn apply_delayed_receipts_to_children_states_impl(
             );
             return Err(StorageError::StorageInconsistentState(err));
         }
-        let delayed_receipts_indices =
-            delayed_receipts_indices_by_shard.get_mut(&new_shard_uid).unwrap();
+        let delayed_receipts_indices = delayed_receipts_indices_by_shard
+            .get_mut(&new_shard_uid)
+            .unwrap();
 
-        let trie_update = trie_updates.get_mut(&new_shard_uid).unwrap();
+        let trie_update = trie_updates
+            .get_mut(&new_shard_uid)
+            .unwrap();
         let trie_key = TrieKey::DelayedReceipt { index: delayed_receipts_indices.first_index };
 
         let stored_receipt = get::<Receipt>(trie_update, &trie_key)?
@@ -205,7 +217,9 @@ fn apply_delayed_receipts_to_children_states_impl(
         set(
             trie_update,
             TrieKey::DelayedReceiptIndices,
-            delayed_receipts_indices_by_shard.get(shard_uid).unwrap(),
+            delayed_receipts_indices_by_shard
+                .get(shard_uid)
+                .unwrap(),
         );
         // StateChangeCause should always be Resharding for processing resharding.
         // We do not want to commit the state_changes from resharding as they are already handled while
@@ -239,14 +253,20 @@ fn apply_promise_yield_timeouts_to_children_states_impl(
         }
         // we already checked that new_shard_uid is in trie_updates and
         // promise_yield_indices_by_shard so we can safely unwrap here
-        let promise_yield_indices = promise_yield_indices_by_shard.get_mut(&new_shard_uid).unwrap();
+        let promise_yield_indices = promise_yield_indices_by_shard
+            .get_mut(&new_shard_uid)
+            .unwrap();
         set(
-            trie_updates.get_mut(&new_shard_uid).unwrap(),
+            trie_updates
+                .get_mut(&new_shard_uid)
+                .unwrap(),
             TrieKey::PromiseYieldTimeout { index: promise_yield_indices.next_available_index },
             timeout,
         );
-        promise_yield_indices.next_available_index =
-            promise_yield_indices.next_available_index.checked_add(1).ok_or_else(|| {
+        promise_yield_indices.next_available_index = promise_yield_indices
+            .next_available_index
+            .checked_add(1)
+            .ok_or_else(|| {
                 StorageError::StorageInconsistentState(
                     "Next available index for PromiseYield timeout exceeded the integer limit"
                         .to_string(),
@@ -265,9 +285,13 @@ fn apply_promise_yield_timeouts_to_children_states_impl(
             );
             return Err(StorageError::StorageInconsistentState(err));
         }
-        let promise_yield_indices = promise_yield_indices_by_shard.get_mut(&new_shard_uid).unwrap();
+        let promise_yield_indices = promise_yield_indices_by_shard
+            .get_mut(&new_shard_uid)
+            .unwrap();
 
-        let trie_update = trie_updates.get_mut(&new_shard_uid).unwrap();
+        let trie_update = trie_updates
+            .get_mut(&new_shard_uid)
+            .unwrap();
         let trie_key = TrieKey::PromiseYieldTimeout { index: promise_yield_indices.first_index };
 
         let stored_timeout = get::<PromiseYieldTimeout>(trie_update, &trie_key)?
@@ -283,7 +307,9 @@ fn apply_promise_yield_timeouts_to_children_states_impl(
         set(
             trie_update,
             TrieKey::PromiseYieldIndices,
-            promise_yield_indices_by_shard.get(shard_uid).unwrap(),
+            promise_yield_indices_by_shard
+                .get(shard_uid)
+                .unwrap(),
         );
         // StateChangeCause should always be Resharding for processing resharding.
         // We do not want to commit the state_changes from resharding as they are already handled while
@@ -435,12 +461,19 @@ mod tests {
 
                 // check that the 4 tries combined to the orig trie
                 let trie = tries.get_trie_for_shard(ShardUId::single_shard(), state_root);
-                let trie_items: HashMap<_, _> =
-                    trie.disk_iter().unwrap().map(Result::unwrap).collect();
+                let trie_items: HashMap<_, _> = trie
+                    .disk_iter()
+                    .unwrap()
+                    .map(Result::unwrap)
+                    .collect();
                 let mut combined_trie_items: HashMap<Vec<u8>, Vec<u8>> = HashMap::new();
                 for (shard_uid, state_root) in state_roots.iter() {
                     let trie = tries.get_view_trie_for_shard(*shard_uid, *state_root);
-                    combined_trie_items.extend(trie.disk_iter().unwrap().map(Result::unwrap));
+                    combined_trie_items.extend(
+                        trie.disk_iter()
+                            .unwrap()
+                            .map(Result::unwrap),
+                    );
                 }
                 assert_eq!(trie_items, combined_trie_items);
             }
@@ -465,7 +498,10 @@ mod tests {
             delayed_receipt_indices.next_available_index = all_receipts.len() as u64;
             set(&mut trie_update, TrieKey::DelayedReceiptIndices, &delayed_receipt_indices);
             trie_update.commit(StateChangeCause::ReshardingV2);
-            let trie_changes = trie_update.finalize().unwrap().trie_changes;
+            let trie_changes = trie_update
+                .finalize()
+                .unwrap()
+                .trie_changes;
             let mut store_update = tries.store_update();
             let state_root =
                 tries.apply_all(&trie_changes, ShardUId::single_shard(), &mut store_update);
@@ -520,7 +556,10 @@ mod tests {
             promise_yield_indices.next_available_index = all_timeouts.len() as u64;
             set(&mut trie_update, TrieKey::PromiseYieldIndices, &promise_yield_indices);
             trie_update.commit(StateChangeCause::ReshardingV2);
-            let trie_changes = trie_update.finalize().unwrap().trie_changes;
+            let trie_changes = trie_update
+                .finalize()
+                .unwrap()
+                .trie_changes;
             let mut store_update = tries.store_update();
             let state_root =
                 tries.apply_all(&trie_changes, ShardUId::single_shard(), &mut store_update);
@@ -573,8 +612,9 @@ mod tests {
             account_id_to_shard_id,
         )
         .unwrap();
-        let (state_update, new_state_roots) =
-            tries.finalize_and_apply_trie_updates(trie_updates).unwrap();
+        let (state_update, new_state_roots) = tries
+            .finalize_and_apply_trie_updates(trie_updates)
+            .unwrap();
         state_update.commit().unwrap();
 
         let receipts_by_shard: HashMap<_, _> = new_state_roots
@@ -585,11 +625,16 @@ mod tests {
             })
             .collect();
 
-        let mut expected_receipts_by_shard: HashMap<_, _> =
-            state_roots.iter().map(|(shard_uid, _)| (shard_uid, vec![])).collect();
+        let mut expected_receipts_by_shard: HashMap<_, _> = state_roots
+            .iter()
+            .map(|(shard_uid, _)| (shard_uid, vec![]))
+            .collect();
         for receipt in expected_all_receipts {
             let shard_uid = account_id_to_shard_id(receipt.receiver_id());
-            expected_receipts_by_shard.get_mut(&shard_uid).unwrap().push(receipt.clone());
+            expected_receipts_by_shard
+                .get_mut(&shard_uid)
+                .unwrap()
+                .push(receipt.clone());
         }
         assert_eq!(expected_receipts_by_shard, receipts_by_shard);
 
@@ -647,8 +692,9 @@ mod tests {
             account_id_to_shard_id,
         )
         .unwrap();
-        let (state_update, new_state_roots) =
-            tries.finalize_and_apply_trie_updates(trie_updates).unwrap();
+        let (state_update, new_state_roots) = tries
+            .finalize_and_apply_trie_updates(trie_updates)
+            .unwrap();
         state_update.commit().unwrap();
 
         let timeouts_by_shard: HashMap<_, _> = new_state_roots
@@ -659,11 +705,16 @@ mod tests {
             })
             .collect();
 
-        let mut expected_timeouts_by_shard: HashMap<_, _> =
-            state_roots.iter().map(|(shard_uid, _)| (shard_uid, vec![])).collect();
+        let mut expected_timeouts_by_shard: HashMap<_, _> = state_roots
+            .iter()
+            .map(|(shard_uid, _)| (shard_uid, vec![]))
+            .collect();
         for timeout in expected_all_timeouts {
             let shard_uid = account_id_to_shard_id(&timeout.account_id);
-            expected_timeouts_by_shard.get_mut(&shard_uid).unwrap().push(timeout.clone());
+            expected_timeouts_by_shard
+                .get_mut(&shard_uid)
+                .unwrap()
+                .push(timeout.clone());
         }
         assert_eq!(expected_timeouts_by_shard, timeouts_by_shard);
 

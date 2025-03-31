@@ -8,7 +8,9 @@ use std::sync::Arc;
 use tokio::io::AsyncWriteExt;
 
 fn in_tokio(f: impl Future<Output = ()>) {
-    tokio::runtime::Runtime::new().unwrap().block_on(f)
+    tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(f)
 }
 
 async fn random_handshake_connect(input: &[u8]) {
@@ -27,21 +29,30 @@ async fn random_handshake_connect(input: &[u8]) {
     )
     .await;
     let fuzzer_peer_config = chain.make_config(&mut rng);
-    let mut fuzzer_peer = pm.start_inbound(chain.clone(), fuzzer_peer_config.clone()).await;
-    let _ = fuzzer_peer.stream.stream.write_all(input).await; // ignore failures, eg. connection closed
+    let mut fuzzer_peer = pm
+        .start_inbound(chain.clone(), fuzzer_peer_config.clone())
+        .await;
+    let _ = fuzzer_peer
+        .stream
+        .stream
+        .write_all(input)
+        .await; // ignore failures, eg. connection closed
     pm.events
         .recv_until(|ev| match ev {
-            Event::PeerManager(PME::HandshakeCompleted(_)) => {
+            | Event::PeerManager(PME::HandshakeCompleted(_)) => {
                 // TODO: should remove this panic, but for now let’s keep it until the fuzzer actually
                 // hits it: it will prove that the fuzzer is actually able to generate interesting inputs.
                 panic!("Fuzzer did find a valid handshake");
             }
-            Event::PeerManager(PME::ConnectionClosed(_)) => Some(()),
-            _ => None,
+            | Event::PeerManager(PME::ConnectionClosed(_)) => Some(()),
+            | _ => None,
         })
         .await;
     pm.check_consistency().await;
-    crate::tcp::RESERVED_LISTENER_ADDRS.lock().unwrap().clear();
+    crate::tcp::RESERVED_LISTENER_ADDRS
+        .lock()
+        .unwrap()
+        .clear();
 }
 
 #[test]

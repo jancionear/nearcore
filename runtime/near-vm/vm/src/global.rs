@@ -67,18 +67,21 @@ impl Global {
     // TODO(reftypes): the `&dyn Any` here for `Store` is a work-around for the fact
     // that `Store` is defined in `API` when we need it earlier. Ideally this should
     // be removed.
-    pub fn get<T: WasmValueType>(&self, store: &dyn std::any::Any) -> Value<T> {
+    pub fn get<T: WasmValueType>(
+        &self,
+        store: &dyn std::any::Any,
+    ) -> Value<T> {
         let _global_guard = self.lock.lock().unwrap();
         unsafe {
             let definition = &*self.vm_global_definition.get();
             match self.ty().ty {
-                Type::I32 => Value::I32(definition.to_i32()),
-                Type::I64 => Value::I64(definition.to_i64()),
-                Type::F32 => Value::F32(definition.to_f32()),
-                Type::F64 => Value::F64(definition.to_f64()),
-                Type::V128 => Value::V128(definition.to_u128()),
-                Type::ExternRef => Value::ExternRef(definition.to_externref().into()),
-                Type::FuncRef => {
+                | Type::I32 => Value::I32(definition.to_i32()),
+                | Type::I64 => Value::I64(definition.to_i64()),
+                | Type::F32 => Value::F32(definition.to_f32()),
+                | Type::F64 => Value::F64(definition.to_f64()),
+                | Type::V128 => Value::V128(definition.to_u128()),
+                | Type::ExternRef => Value::ExternRef(definition.to_externref().into()),
+                | Type::FuncRef => {
                     let p = definition.to_u128() as i128;
                     if p as usize == 0 {
                         Value::FuncRef(None)
@@ -95,7 +98,10 @@ impl Global {
     ///
     /// # Safety
     /// The caller should check that the `val` comes from the same store as this global.
-    pub unsafe fn set<T: WasmValueType>(&self, val: Value<T>) -> Result<(), GlobalError> {
+    pub unsafe fn set<T: WasmValueType>(
+        &self,
+        val: Value<T>,
+    ) -> Result<(), GlobalError> {
         let _global_guard = self.lock.lock().unwrap();
         if self.ty().mutability != Mutability::Var {
             return Err(GlobalError::ImmutableGlobalCannotBeSet);
@@ -112,22 +118,25 @@ impl Global {
     /// The caller should check that the `val` comes from the same store as this global.
     /// The caller should also ensure that this global is synchronized. Otherwise, use
     /// `set` instead.
-    pub unsafe fn set_unchecked<T: WasmValueType>(&self, val: Value<T>) -> Result<(), GlobalError> {
+    pub unsafe fn set_unchecked<T: WasmValueType>(
+        &self,
+        val: Value<T>,
+    ) -> Result<(), GlobalError> {
         // ideally we'd use atomics for the global value rather than needing to lock it
         let definition = &mut *self.vm_global_definition.get();
         match val {
-            Value::I32(i) => *definition.as_i32_mut() = i,
-            Value::I64(i) => *definition.as_i64_mut() = i,
-            Value::F32(f) => *definition.as_f32_mut() = f,
-            Value::F64(f) => *definition.as_f64_mut() = f,
-            Value::V128(x) => *definition.as_bytes_mut() = x.to_ne_bytes(),
-            Value::ExternRef(r) => {
+            | Value::I32(i) => *definition.as_i32_mut() = i,
+            | Value::I64(i) => *definition.as_i64_mut() = i,
+            | Value::F32(f) => *definition.as_f32_mut() = f,
+            | Value::F64(f) => *definition.as_f64_mut() = f,
+            | Value::V128(x) => *definition.as_bytes_mut() = x.to_ne_bytes(),
+            | Value::ExternRef(r) => {
                 let extern_ref = definition.as_externref_mut();
                 extern_ref.ref_drop();
                 *extern_ref = r.into()
             }
-            Value::FuncRef(None) => *definition.as_u128_mut() = 0,
-            Value::FuncRef(Some(r)) => {
+            | Value::FuncRef(None) => *definition.as_u128_mut() = 0,
+            | Value::FuncRef(Some(r)) => {
                 r.write_value_to(definition.as_u128_mut() as *mut u128 as *mut i128)
             }
         }

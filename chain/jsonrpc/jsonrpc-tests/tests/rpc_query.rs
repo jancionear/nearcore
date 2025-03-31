@@ -25,7 +25,10 @@ use near_jsonrpc_tests::{self as test_utils, test_with_client};
 #[test]
 fn test_block_by_id_height() {
     test_with_client!(test_utils::NodeType::NonValidator, client, async move {
-        let block = client.block_by_id(BlockId::Height(0)).await.unwrap();
+        let block = client
+            .block_by_id(BlockId::Height(0))
+            .await
+            .unwrap();
         assert_eq!(block.author, "test1");
         assert_eq!(block.header.height, 0);
         assert_eq!(block.header.epoch_id.0.as_ref(), &[0; 32]);
@@ -44,8 +47,14 @@ fn test_block_by_id_height() {
 #[test]
 fn test_block_by_id_hash() {
     test_with_client!(test_utils::NodeType::NonValidator, client, async move {
-        let block = client.block_by_id(BlockId::Height(0)).await.unwrap();
-        let same_block = client.block_by_id(BlockId::Hash(block.header.hash)).await.unwrap();
+        let block = client
+            .block_by_id(BlockId::Height(0))
+            .await
+            .unwrap();
+        let same_block = client
+            .block_by_id(BlockId::Hash(block.header.hash))
+            .await
+            .unwrap();
         assert_eq!(block.header.height, 0);
         assert_eq!(same_block.header.height, 0);
     });
@@ -55,22 +64,33 @@ fn test_block_by_id_hash() {
 #[test]
 fn test_block_query() {
     test_with_client!(test_utils::NodeType::NonValidator, client, async move {
-        let block_response1 =
-            client.block(BlockReference::BlockId(BlockId::Height(0))).await.unwrap();
+        let block_response1 = client
+            .block(BlockReference::BlockId(BlockId::Height(0)))
+            .await
+            .unwrap();
         let block_response2 = client
             .block(BlockReference::BlockId(BlockId::Hash(block_response1.header.hash)))
             .await
             .unwrap();
-        let block_response3 = client.block(BlockReference::latest()).await.unwrap();
-        let block_response4 =
-            client.block(BlockReference::SyncCheckpoint(SyncCheckpoint::Genesis)).await.unwrap();
+        let block_response3 = client
+            .block(BlockReference::latest())
+            .await
+            .unwrap();
+        let block_response4 = client
+            .block(BlockReference::SyncCheckpoint(SyncCheckpoint::Genesis))
+            .await
+            .unwrap();
         let block_response5 = client
             .block(BlockReference::SyncCheckpoint(SyncCheckpoint::EarliestAvailable))
             .await
             .unwrap();
-        for block in
-            &[block_response1, block_response2, block_response3, block_response4, block_response5]
-        {
+        for block in &[
+            block_response1,
+            block_response2,
+            block_response3,
+            block_response4,
+            block_response5,
+        ] {
             assert_eq!(block.author, "test1");
             assert_eq!(block.header.height, 0);
             assert_eq!(block.header.epoch_id.as_ref(), &[0; 32]);
@@ -90,27 +110,60 @@ fn test_block_query() {
 #[test]
 fn test_chunk_by_hash() {
     test_with_client!(test_utils::NodeType::NonValidator, client, async move {
-        let chunk =
-            client.chunk(ChunkId::BlockShardId(BlockId::Height(0), ShardId::new(0))).await.unwrap();
+        let chunk = client
+            .chunk(ChunkId::BlockShardId(BlockId::Height(0), ShardId::new(0)))
+            .await
+            .unwrap();
         assert_eq!(chunk.author, "test1");
         assert_eq!(chunk.header.balance_burnt, 0);
         assert_eq!(chunk.header.chunk_hash.as_ref().len(), 32);
         assert_eq!(chunk.header.encoded_length, 8);
-        assert_eq!(chunk.header.encoded_merkle_root.as_ref().len(), 32);
+        assert_eq!(
+            chunk
+                .header
+                .encoded_merkle_root
+                .as_ref()
+                .len(),
+            32
+        );
         assert_eq!(chunk.header.gas_limit, 1000000);
         assert_eq!(chunk.header.gas_used, 0);
         assert_eq!(chunk.header.height_created, 0);
         assert_eq!(chunk.header.height_included, 0);
-        assert_eq!(chunk.header.outgoing_receipts_root.as_ref().len(), 32);
-        assert_eq!(chunk.header.prev_block_hash.as_ref().len(), 32);
-        assert_eq!(chunk.header.prev_state_root.as_ref().len(), 32);
+        assert_eq!(
+            chunk
+                .header
+                .outgoing_receipts_root
+                .as_ref()
+                .len(),
+            32
+        );
+        assert_eq!(
+            chunk
+                .header
+                .prev_block_hash
+                .as_ref()
+                .len(),
+            32
+        );
+        assert_eq!(
+            chunk
+                .header
+                .prev_state_root
+                .as_ref()
+                .len(),
+            32
+        );
         assert_eq!(chunk.header.rent_paid, 0);
         assert_eq!(chunk.header.shard_id, ShardId::new(0));
         assert!(if let Signature::ED25519(_) = chunk.header.signature { true } else { false });
         assert_eq!(chunk.header.tx_root.as_ref(), &[0; 32]);
         assert_eq!(chunk.header.validator_proposals, vec![]);
         assert_eq!(chunk.header.validator_reward, 0);
-        let same_chunk = client.chunk(ChunkId::Hash(chunk.header.chunk_hash)).await.unwrap();
+        let same_chunk = client
+            .chunk(ChunkId::Hash(chunk.header.chunk_hash))
+            .await
+            .unwrap();
         assert_eq!(chunk.header.chunk_hash, same_chunk.header.chunk_hash);
     });
 }
@@ -119,11 +172,12 @@ fn test_chunk_by_hash() {
 #[test]
 fn test_chunk_invalid_shard_id() {
     test_with_client!(test_utils::NodeType::NonValidator, client, async move {
-        let chunk =
-            client.chunk(ChunkId::BlockShardId(BlockId::Height(0), ShardId::new(100))).await;
+        let chunk = client
+            .chunk(ChunkId::BlockShardId(BlockId::Height(0), ShardId::new(100)))
+            .await;
         match chunk {
-            Ok(_) => panic!("should result in an error"),
-            Err(e) => {
+            | Ok(_) => panic!("should result in an error"),
+            | Err(e) => {
                 let s = serde_json::to_string(&e.data.unwrap()).unwrap();
                 assert!(s.starts_with("\"Shard id 100 does not exist"));
             }
@@ -137,8 +191,10 @@ fn test_query_by_path_account() {
     test_with_client!(test_utils::NodeType::NonValidator, client, async move {
         let status = client.status().await.unwrap();
         let block_hash = status.sync_info.latest_block_hash;
-        let query_response =
-            client.query_by_path("account/test".to_string(), "".to_string()).await.unwrap();
+        let query_response = client
+            .query_by_path("account/test".to_string(), "".to_string())
+            .await
+            .unwrap();
         assert_eq!(query_response.block_height, 0);
         assert_eq!(query_response.block_hash, block_hash);
         let account_info = if let QueryResponseKind::ViewAccount(account) = query_response.kind {
@@ -181,7 +237,13 @@ fn test_query_account() {
             })
             .await
             .unwrap();
-        for query_response in [query_response_1, query_response_2, query_response_3].iter() {
+        for query_response in [
+            query_response_1,
+            query_response_2,
+            query_response_3,
+        ]
+        .iter()
+        {
             assert_eq!(query_response.block_height, 0);
             assert_eq!(query_response.block_hash, block_hash);
             let account_info = if let QueryResponseKind::ViewAccount(ref account) =
@@ -204,8 +266,10 @@ fn test_query_account() {
 #[test]
 fn test_query_by_path_access_keys() {
     test_with_client!(test_utils::NodeType::NonValidator, client, async move {
-        let query_response =
-            client.query_by_path("access_key/test".to_string(), "".to_string()).await.unwrap();
+        let query_response = client
+            .query_by_path("access_key/test".to_string(), "".to_string())
+            .await
+            .unwrap();
         assert_eq!(query_response.block_height, 0);
         let access_keys = if let QueryResponseKind::AccessKeyList(access_keys) = query_response.kind
         {
@@ -457,7 +521,10 @@ fn test_validators_ordered() {
             .await
             .unwrap();
         assert_eq!(
-            validators.into_iter().map(|v| v.take_account_id()).collect::<Vec<_>>(),
+            validators
+                .into_iter()
+                .map(|v| v.take_account_id())
+                .collect::<Vec<_>>(),
             vec!["test1"]
         )
     });
@@ -468,15 +535,26 @@ fn test_validators_ordered() {
 #[test]
 fn test_genesis_config() {
     test_with_client!(test_utils::NodeType::NonValidator, client, async move {
-        let genesis_config = client.EXPERIMENTAL_genesis_config().await.unwrap();
+        let genesis_config = client
+            .EXPERIMENTAL_genesis_config()
+            .await
+            .unwrap();
         if !cfg!(feature = "nightly_protocol") {
             assert_eq!(
-                genesis_config["protocol_version"].as_u64().unwrap(),
+                genesis_config["protocol_version"]
+                    .as_u64()
+                    .unwrap(),
                 near_primitives::version::PROTOCOL_VERSION as u64
             );
         }
-        assert!(!genesis_config["chain_id"].as_str().unwrap().is_empty());
-        assert!(!genesis_config.as_object().unwrap().contains_key("records"));
+        assert!(!genesis_config["chain_id"]
+            .as_str()
+            .unwrap()
+            .is_empty());
+        assert!(!genesis_config
+            .as_object()
+            .unwrap()
+            .contains_key("records"));
     });
 }
 
@@ -484,7 +562,10 @@ fn test_genesis_config() {
 #[test]
 fn test_gas_price_by_height() {
     test_with_client!(test_utils::NodeType::NonValidator, client, async move {
-        let gas_price = client.gas_price(Some(BlockId::Height(0))).await.unwrap();
+        let gas_price = client
+            .gas_price(Some(BlockId::Height(0)))
+            .await
+            .unwrap();
         assert!(gas_price.gas_price > 0);
     });
 }
@@ -493,8 +574,14 @@ fn test_gas_price_by_height() {
 #[test]
 fn test_gas_price_by_hash() {
     test_with_client!(test_utils::NodeType::NonValidator, client, async move {
-        let block = client.block(BlockReference::BlockId(BlockId::Height(0))).await.unwrap();
-        let gas_price = client.gas_price(Some(BlockId::Hash(block.header.hash))).await.unwrap();
+        let block = client
+            .block(BlockReference::BlockId(BlockId::Height(0)))
+            .await
+            .unwrap();
+        let gas_price = client
+            .gas_price(Some(BlockId::Hash(block.header.hash)))
+            .await
+            .unwrap();
         assert!(gas_price.gas_price > 0);
     });
 }
@@ -643,21 +730,52 @@ fn test_get_chunk_with_object_in_params() {
         assert_eq!(chunk.header.balance_burnt, 0);
         assert_eq!(chunk.header.chunk_hash.as_ref().len(), 32);
         assert_eq!(chunk.header.encoded_length, 8);
-        assert_eq!(chunk.header.encoded_merkle_root.as_ref().len(), 32);
+        assert_eq!(
+            chunk
+                .header
+                .encoded_merkle_root
+                .as_ref()
+                .len(),
+            32
+        );
         assert_eq!(chunk.header.gas_limit, 1000000);
         assert_eq!(chunk.header.gas_used, 0);
         assert_eq!(chunk.header.height_created, 0);
         assert_eq!(chunk.header.height_included, 0);
-        assert_eq!(chunk.header.outgoing_receipts_root.as_ref().len(), 32);
-        assert_eq!(chunk.header.prev_block_hash.as_ref().len(), 32);
-        assert_eq!(chunk.header.prev_state_root.as_ref().len(), 32);
+        assert_eq!(
+            chunk
+                .header
+                .outgoing_receipts_root
+                .as_ref()
+                .len(),
+            32
+        );
+        assert_eq!(
+            chunk
+                .header
+                .prev_block_hash
+                .as_ref()
+                .len(),
+            32
+        );
+        assert_eq!(
+            chunk
+                .header
+                .prev_state_root
+                .as_ref()
+                .len(),
+            32
+        );
         assert_eq!(chunk.header.rent_paid, 0);
         assert_eq!(chunk.header.shard_id, ShardId::new(0));
         assert!(if let Signature::ED25519(_) = chunk.header.signature { true } else { false });
         assert_eq!(chunk.header.tx_root.as_ref(), &[0; 32]);
         assert_eq!(chunk.header.validator_proposals, vec![]);
         assert_eq!(chunk.header.validator_reward, 0);
-        let same_chunk = client.chunk(ChunkId::Hash(chunk.header.chunk_hash)).await.unwrap();
+        let same_chunk = client
+            .chunk(ChunkId::Hash(chunk.header.chunk_hash))
+            .await
+            .unwrap();
         assert_eq!(chunk.header.chunk_hash, same_chunk.header.chunk_hash);
     });
 }

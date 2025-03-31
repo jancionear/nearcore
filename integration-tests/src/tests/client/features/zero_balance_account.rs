@@ -17,9 +17,15 @@ use node_runtime::ZERO_BALANCE_ACCOUNT_STORAGE_LIMIT;
 use std::sync::Arc;
 
 /// Assert that an account exists and has zero balance
-fn assert_zero_balance_account(env: &TestEnv, account_id: &AccountId) {
+fn assert_zero_balance_account(
+    env: &TestEnv,
+    account_id: &AccountId,
+) {
     let head = env.clients[0].chain.head().unwrap();
-    let head_block = env.clients[0].chain.get_block(&head.last_block_hash).unwrap();
+    let head_block = env.clients[0]
+        .chain
+        .get_block(&head.last_block_hash)
+        .unwrap();
     let response = env.clients[0]
         .runtime_adapter
         .query(
@@ -34,11 +40,11 @@ fn assert_zero_balance_account(env: &TestEnv, account_id: &AccountId) {
         )
         .unwrap();
     match response.kind {
-        QueryResponseKind::ViewAccount(view) => {
+        | QueryResponseKind::ViewAccount(view) => {
             assert_eq!(view.amount, 0);
             assert!(view.storage_usage <= ZERO_BALANCE_ACCOUNT_STORAGE_LIMIT)
         }
-        _ => panic!("wrong query response"),
+        | _ => panic!("wrong query response"),
     }
 }
 
@@ -47,11 +53,22 @@ fn assert_zero_balance_account(env: &TestEnv, account_id: &AccountId) {
 #[test]
 fn test_zero_balance_account_creation() {
     let epoch_length = 1000;
-    let mut genesis = Genesis::test(vec!["test0".parse().unwrap(), "test1".parse().unwrap()], 1);
+    let mut genesis = Genesis::test(
+        vec![
+            "test0".parse().unwrap(),
+            "test1".parse().unwrap(),
+        ],
+        1,
+    );
     genesis.config.epoch_length = epoch_length;
     genesis.config.protocol_version = ProtocolFeature::ZeroBalanceAccount.protocol_version();
-    let mut env = TestEnv::builder(&genesis.config).nightshade_runtimes(&genesis).build();
-    let genesis_block = env.clients[0].chain.get_block_by_height(0).unwrap();
+    let mut env = TestEnv::builder(&genesis.config)
+        .nightshade_runtimes(&genesis)
+        .build();
+    let genesis_block = env.clients[0]
+        .chain
+        .get_block_by_height(0)
+        .unwrap();
 
     let new_account_id: AccountId = "hello.test0".parse().unwrap();
     let signer0_account_id: AccountId = "test0".parse().unwrap();
@@ -99,7 +116,10 @@ fn test_zero_balance_account_creation() {
     for i in 5..10 {
         env.produce_block(0, i);
     }
-    let outcome = env.clients[0].chain.get_final_transaction_result(&tx_hash).unwrap();
+    let outcome = env.clients[0]
+        .chain
+        .get_final_transaction_result(&tx_hash)
+        .unwrap();
     assert_matches!(
         outcome.status,
         FinalExecutionStatus::Failure(TxExecutionError::ActionError(ActionError {
@@ -115,7 +135,13 @@ fn test_zero_balance_account_creation() {
 #[test]
 fn test_zero_balance_account_add_key() {
     let epoch_length = 1000;
-    let mut genesis = Genesis::test(vec!["test0".parse().unwrap(), "test1".parse().unwrap()], 1);
+    let mut genesis = Genesis::test(
+        vec![
+            "test0".parse().unwrap(),
+            "test1".parse().unwrap(),
+        ],
+        1,
+    );
     genesis.config.epoch_length = epoch_length;
     genesis.config.protocol_version = ProtocolFeature::ZeroBalanceAccount.protocol_version();
     // create free runtime config for transaction costs to make it easier to assert
@@ -133,7 +159,10 @@ fn test_zero_balance_account_add_key() {
     let mut env = TestEnv::builder(&genesis.config)
         .nightshade_runtimes_with_runtime_config_store(&genesis, vec![runtime_config_store])
         .build();
-    let genesis_block = env.clients[0].chain.get_block_by_height(0).unwrap();
+    let genesis_block = env.clients[0]
+        .chain
+        .get_block_by_height(0)
+        .unwrap();
 
     let new_account_id: AccountId = "hello.test0".parse().unwrap();
     let signer0_account_id: AccountId = "test0".parse().unwrap();
@@ -221,9 +250,9 @@ fn test_zero_balance_account_add_key() {
         new_account_id.clone(),
         new_account_id.clone(),
         &new_signer,
-        vec![Action::DeleteKey(Box::new(DeleteKeyAction {
-            public_key: keys.last().unwrap().clone(),
-        }))],
+        vec![Action::DeleteKey(Box::new(
+            DeleteKeyAction { public_key: keys.last().unwrap().clone() },
+        ))],
         *genesis_block.hash(),
         0,
     );
@@ -247,11 +276,22 @@ fn test_zero_balance_account_upgrade() {
     std::env::set_var("NEAR_TESTS_PROTOCOL_UPGRADE_OVERRIDE", "now");
 
     let epoch_length = 5;
-    let mut genesis = Genesis::test(vec!["test0".parse().unwrap(), "test1".parse().unwrap()], 1);
+    let mut genesis = Genesis::test(
+        vec![
+            "test0".parse().unwrap(),
+            "test1".parse().unwrap(),
+        ],
+        1,
+    );
     genesis.config.epoch_length = epoch_length;
     genesis.config.protocol_version = ProtocolFeature::ZeroBalanceAccount.protocol_version() - 1;
-    let mut env = TestEnv::builder(&genesis.config).nightshade_runtimes(&genesis).build();
-    let genesis_block = env.clients[0].chain.get_block_by_height(0).unwrap();
+    let mut env = TestEnv::builder(&genesis.config)
+        .nightshade_runtimes(&genesis)
+        .build();
+    let genesis_block = env.clients[0]
+        .chain
+        .get_block_by_height(0)
+        .unwrap();
 
     let new_account_id: AccountId = "hello.test0".parse().unwrap();
     let signer0_account_id: AccountId = "test0".parse().unwrap();
@@ -276,7 +316,10 @@ fn test_zero_balance_account_upgrade() {
     for i in 1..12 {
         env.produce_block(0, i);
     }
-    let outcome = env.clients[0].chain.get_final_transaction_result(&first_tx_hash).unwrap();
+    let outcome = env.clients[0]
+        .chain
+        .get_final_transaction_result(&first_tx_hash)
+        .unwrap();
     assert_matches!(
         outcome.status,
         FinalExecutionStatus::Failure(TxExecutionError::ActionError(ActionError {
@@ -302,7 +345,10 @@ fn test_zero_balance_account_upgrade() {
     for i in 12..20 {
         env.produce_block(0, i);
     }
-    let outcome = env.clients[0].chain.get_final_transaction_result(&second_tx_hash).unwrap();
+    let outcome = env.clients[0]
+        .chain
+        .get_final_transaction_result(&second_tx_hash)
+        .unwrap();
     assert_matches!(outcome.status, FinalExecutionStatus::SuccessValue(_));
 }
 
@@ -337,8 +383,14 @@ fn test_storage_usage_components() {
 
     let config_store = RuntimeConfigStore::new(None);
     let config = config_store.get_config(PROTOCOL_VERSION);
-    let account_overhead = config.fees.storage_usage_config.num_bytes_account as usize;
-    let record_overhead = config.fees.storage_usage_config.num_extra_bytes_record as usize;
+    let account_overhead = config
+        .fees
+        .storage_usage_config
+        .num_bytes_account as usize;
+    let record_overhead = config
+        .fees
+        .storage_usage_config
+        .num_extra_bytes_record as usize;
     // The NEP proposes to fit 4 full access keys + 2 fn access keys in a zero balance account
     let full_access =
         PUBLIC_KEY_STORAGE_USAGE + FULL_ACCESS_PERMISSION_STORAGE_USAGE + record_overhead;

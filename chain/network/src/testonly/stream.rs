@@ -13,7 +13,10 @@ pub struct Stream {
 }
 
 impl Stream {
-    pub fn new(force_encoding: Option<Encoding>, stream: tcp::Stream) -> Self {
+    pub fn new(
+        force_encoding: Option<Encoding>,
+        stream: tcp::Stream,
+    ) -> Self {
         Self { stream, force_encoding, protocol_buffers_supported: false }
     }
 
@@ -32,7 +35,10 @@ impl Stream {
             let n = self.stream.stream.read_u32_le().await? as usize;
             let mut buf = BytesMut::new();
             buf.resize(n, 0);
-            self.stream.stream.read_exact(&mut buf[..]).await?;
+            self.stream
+                .stream
+                .read_exact(&mut buf[..])
+                .await?;
             for enc in [Encoding::Proto, Encoding::Borsh] {
                 if let Ok(msg) = PeerMessage::deserialize(enc, &buf[..]) {
                     // If deserialize() succeeded but we expected different encoding, ignore the
@@ -51,18 +57,39 @@ impl Stream {
         }
     }
 
-    pub async fn write(&mut self, msg: &PeerMessage) {
+    pub async fn write(
+        &mut self,
+        msg: &PeerMessage,
+    ) {
         if let Some(enc) = self.encoding() {
-            self.write_encoded(&msg.serialize(enc)).await;
+            self.write_encoded(&msg.serialize(enc))
+                .await;
         } else {
-            self.write_encoded(&msg.serialize(Encoding::Proto)).await;
-            self.write_encoded(&msg.serialize(Encoding::Borsh)).await;
+            self.write_encoded(&msg.serialize(Encoding::Proto))
+                .await;
+            self.write_encoded(&msg.serialize(Encoding::Borsh))
+                .await;
         }
     }
 
-    async fn write_encoded(&mut self, msg: &[u8]) {
-        self.stream.stream.write_u32_le(msg.len() as u32).await.unwrap();
-        self.stream.stream.write_all(msg).await.unwrap();
-        self.stream.stream.flush().await.unwrap();
+    async fn write_encoded(
+        &mut self,
+        msg: &[u8],
+    ) {
+        self.stream
+            .stream
+            .write_u32_le(msg.len() as u32)
+            .await
+            .unwrap();
+        self.stream
+            .stream
+            .write_all(msg)
+            .await
+            .unwrap();
+        self.stream
+            .stream
+            .flush()
+            .await
+            .unwrap();
     }
 }

@@ -44,40 +44,49 @@ impl Clock {
     /// Current time according to the monotone clock.
     pub fn now(&self) -> Instant {
         match &self.0 {
-            ClockInner::Real => Instant::now(),
-            ClockInner::Fake(fake) => fake.now(),
+            | ClockInner::Real => Instant::now(),
+            | ClockInner::Fake(fake) => fake.now(),
         }
     }
 
     /// Current time according to the system/walltime clock.
     pub fn now_utc(&self) -> Utc {
         match &self.0 {
-            ClockInner::Real => Utc::now_utc(),
-            ClockInner::Fake(fake) => fake.now_utc(),
+            | ClockInner::Real => Utc::now_utc(),
+            | ClockInner::Fake(fake) => fake.now_utc(),
         }
     }
 
     /// Cancellable.
-    pub async fn sleep_until_deadline(&self, t: Deadline) {
+    pub async fn sleep_until_deadline(
+        &self,
+        t: Deadline,
+    ) {
         match t {
-            Deadline::Infinite => std::future::pending().await,
-            Deadline::Finite(t) => self.sleep_until(t).await,
+            | Deadline::Infinite => std::future::pending().await,
+            | Deadline::Finite(t) => self.sleep_until(t).await,
         }
     }
 
     /// Cancellable.
-    pub async fn sleep_until(&self, t: Instant) {
+    pub async fn sleep_until(
+        &self,
+        t: Instant,
+    ) {
         match &self.0 {
-            ClockInner::Real => tokio::time::sleep_until(t.into()).await,
-            ClockInner::Fake(fake) => fake.sleep_until(t).await,
+            | ClockInner::Real => tokio::time::sleep_until(t.into()).await,
+            | ClockInner::Fake(fake) => fake.sleep_until(t).await,
         }
     }
 
     /// Cancellable.
-    pub async fn sleep(&self, d: Duration) {
+    pub async fn sleep(
+        &self,
+        d: Duration,
+    ) {
         match &self.0 {
-            ClockInner::Real => tokio::time::sleep(d.try_into().unwrap()).await,
-            ClockInner::Fake(fake) => fake.sleep(d).await,
+            | ClockInner::Real => tokio::time::sleep(d.try_into().unwrap()).await,
+            | ClockInner::Fake(fake) => fake.sleep(d).await,
         }
     }
 }
@@ -97,13 +106,19 @@ struct ClockWaiterInHeap {
 }
 
 impl PartialEq for ClockWaiterInHeap {
-    fn eq(&self, other: &Self) -> bool {
+    fn eq(
+        &self,
+        other: &Self,
+    ) -> bool {
         self.deadline == other.deadline
     }
 }
 
 impl PartialOrd for ClockWaiterInHeap {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+    fn partial_cmp(
+        &self,
+        other: &Self,
+    ) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
@@ -111,7 +126,10 @@ impl PartialOrd for ClockWaiterInHeap {
 impl Eq for ClockWaiterInHeap {}
 
 impl Ord for ClockWaiterInHeap {
-    fn cmp(&self, other: &Self) -> Ordering {
+    fn cmp(
+        &self,
+        other: &Self,
+    ) -> Ordering {
         other.deadline.cmp(&self.deadline)
     }
 }
@@ -127,7 +145,10 @@ impl FakeClockInner {
     pub fn now_utc(&mut self) -> Utc {
         self.utc
     }
-    pub fn advance(&mut self, d: Duration) {
+    pub fn advance(
+        &mut self,
+        d: Duration,
+    ) {
         assert!(d >= Duration::ZERO);
         if d == Duration::ZERO {
             return;
@@ -136,13 +157,21 @@ impl FakeClockInner {
         self.utc += d;
         while let Some(earliest_waiter) = self.waiters.peek() {
             if earliest_waiter.deadline <= self.instant {
-                self.waiters.pop().unwrap().waker.send(()).ok();
+                self.waiters
+                    .pop()
+                    .unwrap()
+                    .waker
+                    .send(())
+                    .ok();
             } else {
                 break;
             }
         }
     }
-    pub fn advance_until(&mut self, t: Instant) {
+    pub fn advance_until(
+        &mut self,
+        t: Instant,
+    ) {
         let by = t.signed_duration_since(self.now());
         self.advance(by);
     }
@@ -167,21 +196,33 @@ impl FakeClock {
     pub fn now_utc(&self) -> Utc {
         self.0.lock().unwrap().now_utc()
     }
-    pub fn advance(&self, d: Duration) {
+    pub fn advance(
+        &self,
+        d: Duration,
+    ) {
         self.0.lock().unwrap().advance(d);
     }
-    pub fn advance_until(&self, t: Instant) {
+    pub fn advance_until(
+        &self,
+        t: Instant,
+    ) {
         self.0.lock().unwrap().advance_until(t);
     }
     pub fn clock(&self) -> Clock {
         Clock(ClockInner::Fake(self.clone()))
     }
-    pub fn set_utc(&self, utc: Utc) {
+    pub fn set_utc(
+        &self,
+        utc: Utc,
+    ) {
         self.0.lock().unwrap().utc = utc;
     }
 
     /// Cancel-safe.
-    pub async fn sleep(&self, d: Duration) {
+    pub async fn sleep(
+        &self,
+        d: Duration,
+    ) {
         if d <= Duration::ZERO {
             return;
         }
@@ -196,7 +237,10 @@ impl FakeClock {
     }
 
     /// Cancel-safe.
-    pub async fn sleep_until(&self, t: Instant) {
+    pub async fn sleep_until(
+        &self,
+        t: Instant,
+    ) {
         let receiver = {
             let mut inner = self.0.lock().unwrap();
             if inner.now() >= t {
@@ -215,7 +259,10 @@ impl FakeClock {
     /// waiting on the clock to advance.
     pub fn first_waiter(&self) -> Option<Instant> {
         let inner = self.0.lock().unwrap();
-        inner.waiters.peek().map(|waiter| waiter.deadline)
+        inner
+            .waiters
+            .peek()
+            .map(|waiter| waiter.deadline)
     }
 }
 
@@ -233,12 +280,18 @@ pub struct Interval {
 }
 
 impl Interval {
-    pub fn new(next: Instant, period: time::Duration) -> Self {
+    pub fn new(
+        next: Instant,
+        period: time::Duration,
+    ) -> Self {
         Self { next, period }
     }
 
     /// Cancel-safe.
-    pub async fn tick(&mut self, clock: &Clock) {
+    pub async fn tick(
+        &mut self,
+        clock: &Clock,
+    ) {
         clock.sleep_until(self.next).await;
         let now = clock.now();
         // Implementation of `tokio::time::MissedTickBehavior::Skip`.
@@ -246,18 +299,20 @@ impl Interval {
         // for details. In essence, if more than `period` of time passes between consecutive
         // calls to tick, then the second tick completes immediately and the next one will be
         // aligned to the original schedule.
-        self.next = now.add_signed(self.period).sub_signed(Duration::nanoseconds(
-            ((now.signed_duration_since(self.next)).whole_nanoseconds()
-                % self.period.whole_nanoseconds())
-            .try_into()
-            // This operation is practically guaranteed not to
-            // fail, as in order for it to fail, `period` would
-            // have to be longer than `now - timeout`, and both
-            // would have to be longer than 584 years.
-            //
-            // If it did fail, there's not a good way to pass
-            // the error along to the user, so we just panic.
-            .expect("too much time has elapsed since the interval was supposed to tick"),
-        ));
+        self.next = now
+            .add_signed(self.period)
+            .sub_signed(Duration::nanoseconds(
+                ((now.signed_duration_since(self.next)).whole_nanoseconds()
+                    % self.period.whole_nanoseconds())
+                .try_into()
+                // This operation is practically guaranteed not to
+                // fail, as in order for it to fail, `period` would
+                // have to be longer than `now - timeout`, and both
+                // would have to be longer than 584 years.
+                //
+                // If it did fail, there's not a good way to pass
+                // the error along to the user, so we just panic.
+                .expect("too much time has elapsed since the interval was supposed to tick"),
+            ));
     }
 }

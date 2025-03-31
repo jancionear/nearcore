@@ -48,7 +48,10 @@ pub trait CompilerConfig {
     ///
     /// NaN canonicalization is useful when trying to run WebAssembly
     /// deterministically across different architectures.
-    fn canonicalize_nans(&mut self, _enable: bool) {
+    fn canonicalize_nans(
+        &mut self,
+        _enable: bool,
+    ) {
         // By default we do nothing, each backend will need to customize this
         // in case they create an IR that they can verify.
     }
@@ -57,7 +60,10 @@ pub trait CompilerConfig {
     fn compiler(self: Box<Self>) -> Box<dyn Compiler>;
 
     /// Gets the default features for this compiler in the given target
-    fn default_features_for_target(&self, _target: &Target) -> Features {
+    fn default_features_for_target(
+        &self,
+        _target: &Target,
+    ) -> Features {
         Features::default()
     }
 }
@@ -101,7 +107,9 @@ pub trait Compiler: Send {
             memory_control: false,
         };
         let mut validator = Validator::new_with_features(wasm_features);
-        validator.validate_all(data).map_err(|e| CompileError::Validate(format!("{}", e)))?;
+        validator
+            .validate_all(data)
+            .map_err(|e| CompileError::Validate(format!("{}", e)))?;
         Ok(())
     }
 
@@ -155,10 +163,16 @@ pub enum Symbol {
 /// This trait facilitates symbol name lookups in a native object file.
 pub trait SymbolRegistry: Send + Sync {
     /// Given a `Symbol` it returns the name for that symbol in the object file
-    fn symbol_to_name(&self, symbol: Symbol) -> String;
+    fn symbol_to_name(
+        &self,
+        symbol: Symbol,
+    ) -> String;
 
     /// Given a name it returns the `Symbol` for that name in the object file
     ///
     /// This function is the inverse of [`SymbolRegistry::symbol_to_name`]
-    fn name_to_symbol(&self, name: &str) -> Option<Symbol>;
+    fn name_to_symbol(
+        &self,
+        name: &str,
+    ) -> Option<Symbol>;
 }

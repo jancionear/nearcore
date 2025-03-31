@@ -26,13 +26,25 @@ mod traffic_light;
 /// the same code on each shard.
 pub trait CongestionStrategy {
     /// Initial state and register all necessary queues for one shard.
-    fn init(&mut self, id: ShardId, other_shards: &[ShardId], queue_factory: &mut dyn QueueFactory);
+    fn init(
+        &mut self,
+        id: ShardId,
+        other_shards: &[ShardId],
+        queue_factory: &mut dyn QueueFactory,
+    );
 
     /// Decide which receipts to execute, which to delay, and which to forward.
-    fn compute_chunk(&mut self, ctx: &mut ChunkExecutionContext);
+    fn compute_chunk(
+        &mut self,
+        ctx: &mut ChunkExecutionContext,
+    );
 }
 
 /// Use this to create queues.
 pub trait QueueFactory {
-    fn register_queue(&mut self, to: ShardId, name: &str) -> QueueId;
+    fn register_queue(
+        &mut self,
+        to: ShardId,
+        name: &str,
+    ) -> QueueId;
 }

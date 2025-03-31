@@ -34,11 +34,19 @@ impl FlatStoreAdapter {
         FlatStoreUpdateAdapter { store_update: StoreUpdateHolder::Owned(self.store.store_update()) }
     }
 
-    pub fn exists(&self, shard_uid: ShardUId, key: &[u8]) -> Result<bool, FlatStorageError> {
+    pub fn exists(
+        &self,
+        shard_uid: ShardUId,
+        key: &[u8],
+    ) -> Result<bool, FlatStorageError> {
         let db_key = encode_flat_state_db_key(shard_uid, key);
-        self.store.exists(DBCol::FlatState, &db_key).map_err(|err| {
-            FlatStorageError::StorageInternalError(format!("failed to read FlatState value: {err}"))
-        })
+        self.store
+            .exists(DBCol::FlatState, &db_key)
+            .map_err(|err| {
+                FlatStorageError::StorageInternalError(format!(
+                    "failed to read FlatState value: {err}"
+                ))
+            })
     }
 
     pub fn get(
@@ -47,9 +55,13 @@ impl FlatStoreAdapter {
         key: &[u8],
     ) -> Result<Option<FlatStateValue>, FlatStorageError> {
         let db_key = encode_flat_state_db_key(shard_uid, key);
-        self.store.get_ser(DBCol::FlatState, &db_key).map_err(|err| {
-            FlatStorageError::StorageInternalError(format!("failed to read FlatState value: {err}"))
-        })
+        self.store
+            .get_ser(DBCol::FlatState, &db_key)
+            .map_err(|err| {
+                FlatStorageError::StorageInternalError(format!(
+                    "failed to read FlatState value: {err}"
+                ))
+            })
     }
 
     pub fn get_flat_storage_status(
@@ -72,13 +84,13 @@ impl FlatStoreAdapter {
         block_hash: CryptoHash,
     ) -> Result<Option<FlatStateChanges>, FlatStorageError> {
         let key = KeyForFlatStateDelta { shard_uid, block_hash };
-        self.store.get_ser::<FlatStateChanges>(DBCol::FlatStateChanges, &key.to_bytes()).map_err(
-            |err| {
+        self.store
+            .get_ser::<FlatStateChanges>(DBCol::FlatStateChanges, &key.to_bytes())
+            .map_err(|err| {
                 FlatStorageError::StorageInternalError(format!(
                     "failed to read delta changes for {key:?}: {err}"
                 ))
-            },
-        )
+            })
     }
 
     pub fn get_all_deltas_metadata(
@@ -88,11 +100,12 @@ impl FlatStoreAdapter {
         self.store
             .iter_prefix_ser(DBCol::FlatStateDeltaMetadata, &shard_uid.to_bytes())
             .map(|res| {
-                res.map(|(_, value)| value).map_err(|err| {
-                    FlatStorageError::StorageInternalError(format!(
-                        "failed to read delta metadata: {err}"
-                    ))
-                })
+                res.map(|(_, value)| value)
+                    .map_err(|err| {
+                        FlatStorageError::StorageInternalError(format!(
+                            "failed to read delta metadata: {err}"
+                        ))
+                    })
             })
             .collect()
     }
@@ -104,19 +117,21 @@ impl FlatStoreAdapter {
         prev_hash: CryptoHash,
     ) -> Result<Option<BlockWithChangesInfo>, FlatStorageError> {
         let key = KeyForFlatStateDelta { shard_uid, block_hash: prev_hash }.to_bytes();
-        let prev_delta_metadata: Option<FlatStateDeltaMetadata> =
-            self.store.get_ser(DBCol::FlatStateDeltaMetadata, &key).map_err(|err| {
+        let prev_delta_metadata: Option<FlatStateDeltaMetadata> = self
+            .store
+            .get_ser(DBCol::FlatStateDeltaMetadata, &key)
+            .map_err(|err| {
                 FlatStorageError::StorageInternalError(format!(
                     "failed to read delta metadata for {key:?}: {err}"
                 ))
             })?;
 
         let prev_block_with_changes = match prev_delta_metadata {
-            None => {
+            | None => {
                 // DeltaMetadata not found, which means the prev block is the flat head.
                 let flat_storage_status = self.get_flat_storage_status(shard_uid)?;
                 match flat_storage_status {
-                    FlatStorageStatus::Ready(FlatStorageReadyStatus { flat_head }) => {
+                    | FlatStorageStatus::Ready(FlatStorageReadyStatus { flat_head }) => {
                         if flat_head.hash == prev_hash {
                             Some(BlockWithChangesInfo { hash: prev_hash, height: flat_head.height })
                         } else {
@@ -125,16 +140,20 @@ impl FlatStoreAdapter {
                         }
                     }
                     // Don't do any performance optimizations while flat storage is not ready.
-                    _ => None,
+                    | _ => None,
                 }
             }
-            Some(metadata) => {
+            | Some(metadata) => {
                 // If the prev block contains `prev_block_with_changes`, then use that value.
                 // Otherwise reference the prev block.
-                Some(metadata.prev_block_with_changes.unwrap_or(BlockWithChangesInfo {
-                    hash: metadata.block.hash,
-                    height: metadata.block.height,
-                }))
+                Some(
+                    metadata
+                        .prev_block_with_changes
+                        .unwrap_or(BlockWithChangesInfo {
+                            hash: metadata.block.hash,
+                            height: metadata.block.height,
+                        }),
+                )
             }
         };
         Ok(prev_block_with_changes)
@@ -143,7 +162,10 @@ impl FlatStoreAdapter {
     /// Returns iterator over entire range of flat storage entries.
     /// It reads data only from `FlatState` column which represents the state at
     /// flat storage head. Reads only committed changes.
-    pub fn iter<'a>(&'a self, shard_uid: ShardUId) -> FlatStateIterator<'a> {
+    pub fn iter<'a>(
+        &'a self,
+        shard_uid: ShardUId,
+    ) -> FlatStateIterator<'a> {
         self.iter_range(shard_uid, None, None)
     }
 
@@ -159,21 +181,21 @@ impl FlatStoreAdapter {
         // If left direction is unbounded, encoded `shard_uid` serves as the
         // smallest possible key in DB for the shard.
         let db_key_from = match from {
-            Some(from) => encode_flat_state_db_key(shard_uid, from),
-            None => shard_uid.to_bytes().to_vec(),
+            | Some(from) => encode_flat_state_db_key(shard_uid, from),
+            | None => shard_uid.to_bytes().to_vec(),
         };
         // If right direction is unbounded, `ShardUId::get_upper_bound_db_key` serves as
         // the key which is strictly bigger than all keys in DB for this shard and
         // still doesn't include keys from other shards.
         let db_key_to = match to {
-            Some(to) => encode_flat_state_db_key(shard_uid, to),
-            None => ShardUId::get_upper_bound_db_key(&shard_uid.to_bytes()).to_vec(),
+            | Some(to) => encode_flat_state_db_key(shard_uid, to),
+            | None => ShardUId::get_upper_bound_db_key(&shard_uid.to_bytes()).to_vec(),
         };
         let iter = self
             .store
             .iter_range(DBCol::FlatState, Some(&db_key_from), Some(&db_key_to))
             .map(|result| match result {
-                Ok((key, value)) => Ok((
+                | Ok((key, value)) => Ok((
                     decode_flat_state_db_key(&key)
                         .map_err(|err| {
                             FlatStorageError::StorageInternalError(format!(
@@ -187,7 +209,7 @@ impl FlatStoreAdapter {
                         ))
                     })?,
                 )),
-                Err(err) => Err(FlatStorageError::StorageInternalError(format!(
+                | Err(err) => Err(FlatStorageError::StorageInternalError(format!(
                     "FlatState iterator error: {err}"
                 ))),
             });
@@ -223,32 +245,54 @@ impl<'a> FlatStoreUpdateAdapter<'a> {
         Self { store_update: StoreUpdateHolder::Reference(store_update) }
     }
 
-    pub fn set(&mut self, shard_uid: ShardUId, key: Vec<u8>, value: Option<FlatStateValue>) {
+    pub fn set(
+        &mut self,
+        shard_uid: ShardUId,
+        key: Vec<u8>,
+        value: Option<FlatStateValue>,
+    ) {
         let db_key = encode_flat_state_db_key(shard_uid, &key);
         match value {
-            Some(value) => self
+            | Some(value) => self
                 .store_update
                 .set_ser(DBCol::FlatState, &db_key, &value)
                 .expect("Borsh should not have failed here"),
-            None => self.store_update.delete(DBCol::FlatState, &db_key),
+            | None => self
+                .store_update
+                .delete(DBCol::FlatState, &db_key),
         }
     }
 
-    pub fn remove_all_values(&mut self, shard_uid: ShardUId) {
+    pub fn remove_all_values(
+        &mut self,
+        shard_uid: ShardUId,
+    ) {
         self.remove_range_by_shard_uid(shard_uid, DBCol::FlatState);
     }
 
-    pub fn set_flat_storage_status(&mut self, shard_uid: ShardUId, status: FlatStorageStatus) {
+    pub fn set_flat_storage_status(
+        &mut self,
+        shard_uid: ShardUId,
+        status: FlatStorageStatus,
+    ) {
         self.store_update
             .set_ser(DBCol::FlatStorageStatus, &shard_uid.to_bytes(), &status)
             .expect("Borsh should not have failed here")
     }
 
-    pub fn remove_status(&mut self, shard_uid: ShardUId) {
-        self.store_update.delete(DBCol::FlatStorageStatus, &shard_uid.to_bytes());
+    pub fn remove_status(
+        &mut self,
+        shard_uid: ShardUId,
+    ) {
+        self.store_update
+            .delete(DBCol::FlatStorageStatus, &shard_uid.to_bytes());
     }
 
-    pub fn set_delta(&mut self, shard_uid: ShardUId, delta: &FlatStateDelta) {
+    pub fn set_delta(
+        &mut self,
+        shard_uid: ShardUId,
+        delta: &FlatStateDelta,
+    ) {
         let key =
             KeyForFlatStateDelta { shard_uid, block_hash: delta.metadata.block.hash }.to_bytes();
         self.store_update
@@ -259,34 +303,54 @@ impl<'a> FlatStoreUpdateAdapter<'a> {
             .expect("Borsh should not have failed here");
     }
 
-    pub fn remove_delta(&mut self, shard_uid: ShardUId, block_hash: CryptoHash) {
+    pub fn remove_delta(
+        &mut self,
+        shard_uid: ShardUId,
+        block_hash: CryptoHash,
+    ) {
         let key = KeyForFlatStateDelta { shard_uid, block_hash }.to_bytes();
-        self.store_update.delete(DBCol::FlatStateChanges, &key);
-        self.store_update.delete(DBCol::FlatStateDeltaMetadata, &key);
+        self.store_update
+            .delete(DBCol::FlatStateChanges, &key);
+        self.store_update
+            .delete(DBCol::FlatStateDeltaMetadata, &key);
     }
 
-    pub fn remove_all_deltas(&mut self, shard_uid: ShardUId) {
+    pub fn remove_all_deltas(
+        &mut self,
+        shard_uid: ShardUId,
+    ) {
         self.remove_range_by_shard_uid(shard_uid, DBCol::FlatStateChanges);
         self.remove_range_by_shard_uid(shard_uid, DBCol::FlatStateDeltaMetadata);
     }
 
     /// Removes flat storage in its entirety for a shard: deltas, values and status.
-    pub fn remove_flat_storage(&mut self, shard_uid: ShardUId) {
+    pub fn remove_flat_storage(
+        &mut self,
+        shard_uid: ShardUId,
+    ) {
         self.remove_all_deltas(shard_uid);
         self.remove_all_values(shard_uid);
         self.remove_status(shard_uid);
     }
 
     // helper
-    fn remove_range_by_shard_uid(&mut self, shard_uid: ShardUId, col: DBCol) {
+    fn remove_range_by_shard_uid(
+        &mut self,
+        shard_uid: ShardUId,
+        col: DBCol,
+    ) {
         assert!(col != DBCol::State, "can't range delete State column");
         let key_from = shard_uid.to_bytes();
         let key_to = ShardUId::get_upper_bound_db_key(&key_from);
-        self.store_update.delete_range(col, &key_from, &key_to);
+        self.store_update
+            .delete_range(col, &key_from, &key_to);
     }
 }
 
-pub fn encode_flat_state_db_key(shard_uid: ShardUId, key: &[u8]) -> Vec<u8> {
+pub fn encode_flat_state_db_key(
+    shard_uid: ShardUId,
+    key: &[u8],
+) -> Vec<u8> {
     let mut buffer = vec![];
     buffer.extend_from_slice(&shard_uid.to_bytes());
     buffer.extend_from_slice(key);
@@ -297,9 +361,11 @@ pub fn decode_flat_state_db_key(key: &[u8]) -> io::Result<(ShardUId, Vec<u8>)> {
     let (shard_uid_bytes, trie_key) = key.split_at_checked(8).ok_or_else(|| {
         io::Error::other(format!("expected FlatState key length to be at least 8: {key:?}"))
     })?;
-    let shard_uid = shard_uid_bytes.try_into().map_err(|err| {
-        io::Error::other(format!("failed to decode shard_uid as part of FlatState key: {err}"))
-    })?;
+    let shard_uid = shard_uid_bytes
+        .try_into()
+        .map_err(|err| {
+            io::Error::other(format!("failed to decode shard_uid as part of FlatState key: {err}"))
+        })?;
     Ok((shard_uid, trie_key.to_vec()))
 }
 

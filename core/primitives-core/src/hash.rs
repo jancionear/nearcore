@@ -64,9 +64,12 @@ impl CryptoHash {
         let iter = values.into_iter();
         let n = u32::try_from(iter.len()).unwrap();
         let mut hasher = sha2::Sha256::default();
-        hasher.write_all(&n.to_le_bytes()).unwrap();
-        let count =
-            iter.inspect(|value| BorshSerialize::serialize(&value, &mut hasher).unwrap()).count();
+        hasher
+            .write_all(&n.to_le_bytes())
+            .unwrap();
+        let count = iter
+            .inspect(|value| BorshSerialize::serialize(&value, &mut hasher).unwrap())
+            .count();
         assert_eq!(n as usize, count);
         CryptoHash(hasher.finalize().into())
     }
@@ -80,12 +83,17 @@ impl CryptoHash {
     /// The conversion is performed without any memory allocation.  The visitor
     /// is given a reference to a string stored on stack.  Returns whatever the
     /// visitor returns.
-    fn to_base58_impl<Out>(self, visitor: impl FnOnce(&str) -> Out) -> Out {
+    fn to_base58_impl<Out>(
+        self,
+        visitor: impl FnOnce(&str) -> Out,
+    ) -> Out {
         // base58-encoded string is at most 1.4 times longer than the binary
         // sequence.  We’re serializing 32 bytes so ⌈32 * 1.4⌉ = 45 should be
         // enough.
         let mut buffer = [0u8; 45];
-        let len = bs58::encode(self).into(&mut buffer[..]).unwrap();
+        let len = bs58::encode(self)
+            .into(&mut buffer[..])
+            .unwrap();
         let value = std::str::from_utf8(&buffer[..len]).unwrap();
         visitor(value)
     }
@@ -98,9 +106,9 @@ impl CryptoHash {
     fn from_base58_impl(encoded: &str) -> Decode58Result {
         let mut result = Self::new();
         match bs58::decode(encoded).into(&mut result.0) {
-            Ok(len) if len == result.0.len() => Decode58Result::Ok(result),
-            Ok(_) | Err(bs58::decode::Error::BufferTooSmall) => Decode58Result::BadLength,
-            Err(err) => Decode58Result::Err(err),
+            | Ok(len) if len == result.0.len() => Decode58Result::Ok(result),
+            | Ok(_) | Err(bs58::decode::Error::BufferTooSmall) => Decode58Result::BadLength,
+            | Err(err) => Decode58Result::Err(err),
         }
     }
 }
@@ -123,7 +131,10 @@ impl Default for CryptoHash {
 }
 
 impl serde::Serialize for CryptoHash {
-    fn serialize<S>(&self, serializer: S) -> Result<<S as Serializer>::Ok, <S as Serializer>::Error>
+    fn serialize<S>(
+        &self,
+        serializer: S,
+    ) -> Result<<S as Serializer>::Ok, <S as Serializer>::Error>
     where
         S: Serializer,
     {
@@ -140,15 +151,21 @@ struct Visitor;
 impl<'de> serde::de::Visitor<'de> for Visitor {
     type Value = CryptoHash;
 
-    fn expecting(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn expecting(
+        &self,
+        fmt: &mut std::fmt::Formatter<'_>,
+    ) -> std::fmt::Result {
         fmt.write_str("base58-encoded 256-bit hash")
     }
 
-    fn visit_str<E: serde::de::Error>(self, s: &str) -> Result<Self::Value, E> {
+    fn visit_str<E: serde::de::Error>(
+        self,
+        s: &str,
+    ) -> Result<Self::Value, E> {
         match CryptoHash::from_base58_impl(s) {
-            Decode58Result::Ok(result) => Ok(result),
-            Decode58Result::BadLength => Err(E::invalid_length(s.len(), &self)),
-            Decode58Result::Err(err) => Err(E::custom(err)),
+            | Decode58Result::Ok(result) => Ok(result),
+            | Decode58Result::BadLength => Err(E::invalid_length(s.len(), &self)),
+            | Decode58Result::Err(err) => Err(E::custom(err)),
         }
     }
 }
@@ -168,9 +185,9 @@ impl std::str::FromStr for CryptoHash {
     /// Decodes base58-encoded string into a 32-byte crypto hash.
     fn from_str(encoded: &str) -> Result<Self, Self::Err> {
         match Self::from_base58_impl(encoded) {
-            Decode58Result::Ok(result) => Ok(result),
-            Decode58Result::BadLength => Err("incorrect length for hash".into()),
-            Decode58Result::Err(err) => Err(err.into()),
+            | Decode58Result::Ok(result) => Ok(result),
+            | Decode58Result::BadLength => Err("incorrect length for hash".into()),
+            | Decode58Result::Err(err) => Err(err.into()),
         }
     }
 }
@@ -202,13 +219,19 @@ impl From<CryptoHash> for [u8; CryptoHash::LENGTH] {
 }
 
 impl fmt::Debug for CryptoHash {
-    fn fmt(&self, fmtr: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(
+        &self,
+        fmtr: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
         fmt::Display::fmt(self, fmtr)
     }
 }
 
 impl fmt::Display for CryptoHash {
-    fn fmt(&self, fmtr: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(
+        &self,
+        fmtr: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
         self.to_base58_impl(|encoded| fmtr.write_str(encoded))
     }
 }
@@ -216,7 +239,10 @@ impl fmt::Display for CryptoHash {
 // This implementation is compatible with derived PartialEq.
 // Custom PartialEq implementation was explicitly removed in #4220.
 impl Hash for CryptoHash {
-    fn hash<H: Hasher>(&self, state: &mut H) {
+    fn hash<H: Hasher>(
+        &self,
+        state: &mut H,
+    ) {
         state.write(self.as_ref());
     }
 }
@@ -247,18 +273,26 @@ mod tests {
 
     #[test]
     fn test_hash_borsh() {
-        fn value<T: BorshSerialize>(want: &str, value: T) {
+        fn value<T: BorshSerialize>(
+            want: &str,
+            value: T,
+        ) {
             assert_eq!(want, CryptoHash::hash_borsh(&value).to_string());
         }
 
-        fn slice<T: BorshSerialize>(want: &str, slice: &[T]) {
+        fn slice<T: BorshSerialize>(
+            want: &str,
+            slice: &[T],
+        ) {
             assert_eq!(want, CryptoHash::hash_borsh(slice).to_string());
             iter(want, slice.iter());
             iter(want, slice);
         }
 
-        fn iter<I>(want: &str, iter: I)
-        where
+        fn iter<I>(
+            want: &str,
+            iter: I,
+        ) where
             I: IntoIterator,
             I::IntoIter: ExactSizeIterator,
             I::Item: BorshSerialize,
@@ -273,7 +307,9 @@ mod tests {
         slice("CuoNgQBWsXnTqup6FY3UXNz6RRufnYyQVxx8HKZLUaRt", "foo".as_bytes());
         iter(
             "CuoNgQBWsXnTqup6FY3UXNz6RRufnYyQVxx8HKZLUaRt",
-            "FOO".bytes().map(|ch| ch.to_ascii_lowercase()),
+            "FOO"
+                .bytes()
+                .map(|ch| ch.to_ascii_lowercase()),
         );
 
         value("3yMApqCuCjXDWPrbjfR5mjCPTHqFG8Pux1TxQrEM35jj", b"foo");
@@ -299,10 +335,13 @@ mod tests {
 
     #[test]
     fn test_from_str_failures() {
-        fn test(input: &str, want_err: &str) {
+        fn test(
+            input: &str,
+            want_err: &str,
+        ) {
             match CryptoHash::from_str(input) {
-                Ok(got) => panic!("‘{input}’ should have failed; got ‘{got}’"),
-                Err(err) => {
+                | Ok(got) => panic!("‘{input}’ should have failed; got ‘{got}’"),
+                | Err(err) => {
                     assert!(err.to_string().starts_with(want_err), "input: ‘{input}’; err: {err}")
                 }
             }
@@ -325,10 +364,13 @@ mod tests {
 
     #[test]
     fn test_serde_deserialize_failures() {
-        fn test(input: &str, want_err: &str) {
+        fn test(
+            input: &str,
+            want_err: &str,
+        ) {
             match serde_json::from_str::<CryptoHash>(input) {
-                Ok(got) => panic!("‘{input}’ should have failed; got ‘{got}’"),
-                Err(err) => {
+                | Ok(got) => panic!("‘{input}’ should have failed; got ‘{got}’"),
+                | Err(err) => {
                     assert!(err.to_string().starts_with(want_err), "input: ‘{input}’; err: {err}")
                 }
             }

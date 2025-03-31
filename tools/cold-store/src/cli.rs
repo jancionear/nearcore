@@ -72,8 +72,9 @@ impl ColdStoreCommand {
 
         let opener = self.get_opener(home_dir, &mut near_config);
 
-        let storage =
-            opener.open_in_mode(mode).unwrap_or_else(|e| panic!("Error opening storage: {:#}", e));
+        let storage = opener
+            .open_in_mode(mode)
+            .unwrap_or_else(|e| panic!("Error opening storage: {:#}", e));
 
         let epoch_manager = EpochManager::new_arc_handle(
             storage.get_hot_store(),
@@ -81,21 +82,21 @@ impl ColdStoreCommand {
             Some(home_dir),
         );
         match self.subcmd {
-            SubCommand::Open => check_open(&storage),
-            SubCommand::Head => print_heads(&storage),
-            SubCommand::CopyNextBlocks(cmd) => {
+            | SubCommand::Open => check_open(&storage),
+            | SubCommand::Head => print_heads(&storage),
+            | SubCommand::CopyNextBlocks(cmd) => {
                 for _ in 0..cmd.number_of_blocks {
                     copy_next_block(&storage, &near_config, epoch_manager.as_ref());
                 }
                 Ok(())
             }
-            SubCommand::CopyAllBlocks(cmd) => {
+            | SubCommand::CopyAllBlocks(cmd) => {
                 copy_all_blocks(&storage, cmd.batch_size, !cmd.no_check_after);
                 Ok(())
             }
-            SubCommand::PrepareHot(cmd) => cmd.run(&storage, &home_dir, &near_config),
-            SubCommand::CheckStateRoot(cmd) => cmd.run(&storage),
-            SubCommand::ResetCold(cmd) => cmd.run(&storage),
+            | SubCommand::PrepareHot(cmd) => cmd.run(&storage, &home_dir, &near_config),
+            | SubCommand::CheckStateRoot(cmd) => cmd.run(&storage),
+            | SubCommand::ResetCold(cmd) => cmd.run(&storage),
         }
     }
 
@@ -119,19 +120,25 @@ impl ColdStoreCommand {
         );
 
         match self.subcmd {
-            CheckStateRoot(_) => {
+            | CheckStateRoot(_) => {
                 let (hot_snapshot, cold_snapshot) = opener
                     .create_snapshots(near_store::Mode::ReadOnly)
                     .expect("Failed to create snapshots");
                 if let Some(_) = &hot_snapshot.0 {
-                    hot_snapshot.remove().expect("Failed to remove unnecessary hot snapshot");
+                    hot_snapshot
+                        .remove()
+                        .expect("Failed to remove unnecessary hot snapshot");
                 }
                 if let Some(cold_store_config) = near_config.config.cold_store.as_mut() {
-                    cold_store_config.path =
-                        Some(cold_snapshot.0.clone().expect("cold_snapshot should be Some"));
+                    cold_store_config.path = Some(
+                        cold_snapshot
+                            .0
+                            .clone()
+                            .expect("cold_snapshot should be Some"),
+                    );
                 }
             }
-            _ => {}
+            | _ => {}
         }
 
         NodeStorage::opener(
@@ -189,7 +196,11 @@ fn print_heads(store: &NodeStorage) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn copy_next_block(store: &NodeStorage, config: &NearConfig, epoch_manager: &EpochManagerHandle) {
+fn copy_next_block(
+    store: &NodeStorage,
+    config: &NearConfig,
+    epoch_manager: &EpochManagerHandle,
+) {
     // Cold HEAD can be not set in testing.
     // It should be set before the copying of a block in prod,
     // but we should default it to genesis height here.
@@ -225,10 +236,15 @@ fn copy_next_block(store: &NodeStorage, config: &NearConfig, epoch_manager: &Epo
     // For copying block we need to have shard_layout.
     // For that we need epoch_id.
     // For that we might use the hash of the block.
-    let epoch_id = &epoch_manager.get_epoch_id(&next_height_block_hash).unwrap();
-    let shard_layout = &epoch_manager.get_shard_layout(epoch_id).unwrap();
-    let is_last_block_in_epoch =
-        epoch_manager.is_next_block_epoch_start(&next_height_block_hash).unwrap();
+    let epoch_id = &epoch_manager
+        .get_epoch_id(&next_height_block_hash)
+        .unwrap();
+    let shard_layout = &epoch_manager
+        .get_shard_layout(epoch_id)
+        .unwrap();
+    let is_last_block_in_epoch = epoch_manager
+        .is_next_block_epoch_start(&next_height_block_hash)
+        .unwrap();
     update_cold_db(
         &*store.cold_db().unwrap(),
         &store.get_hot_store(),
@@ -243,7 +259,11 @@ fn copy_next_block(store: &NodeStorage, config: &NearConfig, epoch_manager: &Epo
         .unwrap_or_else(|_| panic!("Failed to update cold HEAD to {}", next_height));
 }
 
-fn copy_all_blocks(storage: &NodeStorage, batch_size: usize, check: bool) {
+fn copy_all_blocks(
+    storage: &NodeStorage,
+    batch_size: usize,
+    check: bool,
+) {
     // If FINAL_HEAD is not set for hot storage we default it to 0
     // not genesis_height, because hot db needs to contain genesis block for that
     let hot_final_head = storage
@@ -302,7 +322,10 @@ fn check_iter(
     col: DBCol,
 ) -> u64 {
     let mut num_checks = 0;
-    for (key, _value) in first_store.iter(col).map(Result::unwrap) {
+    for (key, _value) in first_store
+        .iter(col)
+        .map(Result::unwrap)
+    {
         check_key(first_store, second_store, col, &key);
         num_checks += 1;
     }
@@ -316,7 +339,9 @@ fn get_ser_from_store<T: near_primitives::borsh::BorshDeserialize>(
     col: DBCol,
     key: &[u8],
 ) -> Option<T> {
-    store.get_ser(col, key).unwrap_or_else(|_| panic!("Error reading {} {:?} from store", col, key))
+    store
+        .get_ser(col, key)
+        .unwrap_or_else(|_| panic!("Error reading {} {:?} from store", col, key))
 }
 
 #[derive(clap::Parser)]
@@ -408,7 +433,10 @@ impl PrepareHotCmd {
     }
 
     /// Check that the cold store and rpc store are sufficiently up to date.
-    fn check_up_to_date(cold_store: &Store, rpc_store: &Store) -> anyhow::Result<()> {
+    fn check_up_to_date(
+        cold_store: &Store,
+        rpc_store: &Store,
+    ) -> anyhow::Result<()> {
         let rpc_head = rpc_store.get_ser::<Tip>(DBCol::BlockMisc, HEAD_KEY)?;
         let rpc_head = rpc_head.ok_or_else(|| anyhow::anyhow!("The rpc head is missing!"))?;
         let rpc_tail = rpc_store.get_ser::<u64>(DBCol::BlockMisc, TAIL_KEY)?;
@@ -481,7 +509,7 @@ impl StateRootSelector {
     ) -> anyhow::Result<Vec<CryptoHash>> {
         match self {
             // If height is provided, calculate previous state roots for this block's chunks.
-            StateRootSelector::Height { height } => {
+            | StateRootSelector::Height { height } => {
                 let hash_key = {
                     let height_key = height.to_le_bytes();
                     storage
@@ -514,7 +542,7 @@ impl StateRootSelector {
                 Ok(hashes)
             }
             // If state root is provided, then just use it.
-            StateRootSelector::Hash { hash } => Ok(vec![*hash]),
+            | StateRootSelector::Hash { hash } => Ok(vec![*hash]),
         }
     }
 }
@@ -544,7 +572,10 @@ impl PruneState {
     }
 
     /// Return `true` if node should be pruned.
-    pub fn should_prune(&self, condition: &PruneCondition) -> bool {
+    pub fn should_prune(
+        &self,
+        condition: &PruneCondition,
+    ) -> bool {
         if let Some(md) = condition.max_depth {
             if self.depth > md {
                 return true;
@@ -585,12 +616,17 @@ struct CheckStateRootCmd {
 }
 
 impl CheckStateRootCmd {
-    pub fn run(self, storage: &NodeStorage) -> anyhow::Result<()> {
+    pub fn run(
+        self,
+        storage: &NodeStorage,
+    ) -> anyhow::Result<()> {
         let cold_store = storage
             .get_cold_store()
             .ok_or_else(|| anyhow::anyhow!("Cold storage is not configured"))?;
 
-        let hashes = self.state_root_selector.get_hashes(storage, &cold_store)?;
+        let hashes = self
+            .state_root_selector
+            .get_hashes(storage, &cold_store)?;
         for hash in hashes.iter() {
             Self::check_trie(
                 &cold_store,
@@ -621,13 +657,15 @@ impl CheckStateRootCmd {
             .with_context(|| format!("Failed to find raw bytes for hash {:?}", hash))?;
         let node = near_store::RawTrieNodeWithSize::try_from_slice(&bytes)?;
         match node.node {
-            near_store::RawTrieNode::Leaf(..) => {
+            | near_store::RawTrieNode::Leaf(..) => {
                 tracing::debug!(target: "check_trie", "Reached leaf node");
                 return Ok(());
             }
-            near_store::RawTrieNode::BranchNoValue(mut children)
+            | near_store::RawTrieNode::BranchNoValue(mut children)
             | near_store::RawTrieNode::BranchWithValue(_, mut children) => {
-                children.0.shuffle(&mut rand::thread_rng());
+                children
+                    .0
+                    .shuffle(&mut rand::thread_rng());
                 for (_, child) in children.iter() {
                     // Record in prune state that we are visiting a child node
                     prune_state.down();
@@ -637,7 +675,7 @@ impl CheckStateRootCmd {
                     prune_state.up();
                 }
             }
-            near_store::RawTrieNode::Extension(_, child) => {
+            | near_store::RawTrieNode::Extension(_, child) => {
                 // Record in prune state that we are visiting a child node
                 prune_state.down();
                 // Visit a child node
@@ -663,7 +701,10 @@ impl CheckStateRootCmd {
 struct ResetColdCmd {}
 
 impl ResetColdCmd {
-    pub fn run(self, storage: &NodeStorage) -> anyhow::Result<()> {
+    pub fn run(
+        self,
+        storage: &NodeStorage,
+    ) -> anyhow::Result<()> {
         let cold_store = storage
             .get_cold_store()
             .ok_or_else(|| anyhow::anyhow!("Cold storage is not configured"))?;

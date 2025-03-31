@@ -34,12 +34,18 @@ where
     Args: WasmTypeList,
     Rets: WasmTypeList,
 {
-    pub(crate) fn new(store: Store, exported: ExportFunction) -> Self {
+    pub(crate) fn new(
+        store: Store,
+        exported: ExportFunction,
+    ) -> Self {
         Self { store, exported, _phantom: PhantomData }
     }
 
     pub(crate) fn is_host(&self) -> bool {
-        self.exported.vm_function.instance_ref.is_none()
+        self.exported
+            .vm_function
+            .instance_ref
+            .is_none()
     }
 
     pub(crate) fn vmctx(&self) -> VMFunctionEnvironment {
@@ -77,7 +83,10 @@ where
 impl<Args: WasmTypeList, Rets: WasmTypeList> Clone for NativeFunc<Args, Rets> {
     fn clone(&self) -> Self {
         let mut exported = self.exported.clone();
-        exported.vm_function.upgrade_instance_ref().unwrap();
+        exported
+            .vm_function
+            .upgrade_instance_ref()
+            .unwrap();
 
         Self { store: self.store.clone(), exported, _phantom: PhantomData }
     }

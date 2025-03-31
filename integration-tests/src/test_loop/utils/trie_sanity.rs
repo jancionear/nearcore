@@ -33,12 +33,15 @@ type EpochTrieCheck = HashMap<AccountId, HashMap<ShardUId, bool>>;
 /// we want to make sure that it's always eventually checked by the end of the epoch
 pub struct TrieSanityCheck {
     accounts: Vec<AccountId>,
-    load_memtries_for_tracked_shards: bool,
+    load_mem_tries_for_tracked_shards: bool,
     checks: HashMap<EpochId, EpochTrieCheck>,
 }
 
 impl TrieSanityCheck {
-    pub fn new(clients: &[&Client], load_memtries_for_tracked_shards: bool) -> Self {
+    pub fn new(
+        clients: &[&Client],
+        load_mem_tries_for_tracked_shards: bool,
+    ) -> Self {
         let accounts = clients
             .iter()
             .filter_map(|c| {
@@ -46,7 +49,7 @@ impl TrieSanityCheck {
                 signer.map(|s| s.validator_id().clone())
             })
             .collect();
-        Self { accounts, load_memtries_for_tracked_shards, checks: HashMap::new() }
+        Self { accounts, load_mem_tries_for_tracked_shards, checks: HashMap::new() }
     }
 
     // If it's not already stored, initialize it with the expected ShardUIds for each account
@@ -56,17 +59,25 @@ impl TrieSanityCheck {
         tip: &Tip,
         new_num_shards: NumShards,
     ) -> &mut EpochTrieCheck {
-        let protocol_version =
-            client.epoch_manager.get_epoch_protocol_version(&tip.epoch_id).unwrap();
+        let protocol_version = client
+            .epoch_manager
+            .get_epoch_protocol_version(&tip.epoch_id)
+            .unwrap();
         let shards_pending_resharding = client
             .epoch_manager
             .get_shard_uids_pending_resharding(protocol_version, PROTOCOL_VERSION)
             .unwrap();
-        let shard_layout = client.epoch_manager.get_shard_layout(&tip.epoch_id).unwrap();
+        let shard_layout = client
+            .epoch_manager
+            .get_shard_layout(&tip.epoch_id)
+            .unwrap();
         let is_resharded = shard_layout.num_shards() == new_num_shards;
 
         if self.checks.contains_key(&tip.epoch_id) {
-            return self.checks.get_mut(&tip.epoch_id).unwrap();
+            return self
+                .checks
+                .get_mut(&tip.epoch_id)
+                .unwrap();
         }
 
         let mut check = HashMap::new();
@@ -83,7 +94,9 @@ impl TrieSanityCheck {
         }
 
         self.checks.insert(tip.epoch_id, check);
-        self.checks.get_mut(&tip.epoch_id).unwrap()
+        self.checks
+            .get_mut(&tip.epoch_id)
+            .unwrap()
     }
 
     // Returns the expected shard uids for the given account.
@@ -99,7 +112,7 @@ impl TrieSanityCheck {
         let mut check_shard_uids = HashMap::new();
         for shard_uid in shard_layout.shard_uids() {
             if !should_assert_state_sanity(
-                self.load_memtries_for_tracked_shards,
+                self.load_mem_tries_for_tracked_shards,
                 is_resharded,
                 shards_pending_resharding,
                 shard_layout,
@@ -123,10 +136,17 @@ impl TrieSanityCheck {
     }
 
     // Check trie sanity and keep track of which shards were successfully fully checked
-    pub fn assert_state_sanity(&mut self, clients: &[&Client], new_num_shards: NumShards) {
+    pub fn assert_state_sanity(
+        &mut self,
+        clients: &[&Client],
+        new_num_shards: NumShards,
+    ) {
         for client in clients {
             let signer = client.validator_signer.get();
-            let Some(account_id) = signer.as_ref().map(|s| s.validator_id()) else {
+            let Some(account_id) = signer
+                .as_ref()
+                .map(|s| s.validator_id())
+            else {
                 // For now this is never relevant, since all of them have account IDs, but
                 // if this changes in the future, here we'll just skip those.
                 continue;
@@ -146,7 +166,7 @@ impl TrieSanityCheck {
             let checked_shards = assert_state_sanity(
                 client,
                 &final_head,
-                self.load_memtries_for_tracked_shards,
+                self.load_mem_tries_for_tracked_shards,
                 new_num_shards,
             );
             let check = self.get_epoch_check(client, &head, new_num_shards);
@@ -159,9 +179,15 @@ impl TrieSanityCheck {
 
     /// Look through all the epochs before the current one (because the current one will be early into the epoch,
     /// and we won't have checked it yet) and make sure that for all accounts, all expected shards were checked at least once
-    pub fn check_epochs(&self, client: &Client) {
+    pub fn check_epochs(
+        &self,
+        client: &Client,
+    ) {
         let tip = client.chain.head().unwrap();
-        let mut block_info = client.epoch_manager.get_block_info(&tip.last_block_hash).unwrap();
+        let mut block_info = client
+            .epoch_manager
+            .get_block_info(&tip.last_block_hash)
+            .unwrap();
 
         loop {
             let epoch_id = client
@@ -171,9 +197,12 @@ impl TrieSanityCheck {
             if epoch_id == EpochId::default() {
                 break;
             }
-            let check = self.checks.get(&epoch_id).unwrap_or_else(|| {
-                panic!("No trie comparison checks made for epoch {}", &epoch_id.0)
-            });
+            let check = self
+                .checks
+                .get(&epoch_id)
+                .unwrap_or_else(|| {
+                    panic!("No trie comparison checks made for epoch {}", &epoch_id.0)
+                });
             for (account_id, checked_shards) in check.iter() {
                 for (shard_uid, checked) in checked_shards.iter() {
                     assert!(
@@ -184,17 +213,22 @@ impl TrieSanityCheck {
                 }
             }
 
-            block_info =
-                client.epoch_manager.get_block_info(block_info.epoch_first_block()).unwrap();
-            block_info = client.epoch_manager.get_block_info(block_info.prev_hash()).unwrap();
+            block_info = client
+                .epoch_manager
+                .get_block_info(block_info.epoch_first_block())
+                .unwrap();
+            block_info = client
+                .epoch_manager
+                .get_block_info(block_info.prev_hash())
+                .unwrap();
         }
     }
 }
 
 /// Asserts that for each child shard, MemTrie, FlatState and DiskTrie all
-/// contain the same key-value pairs. If `load_memtries_for_tracked_shards` is
+/// contain the same key-value pairs. If `load_mem_tries_for_tracked_shards` is
 /// false, we only enforce memtries for shards pending resharding in the old
-/// layout and the shards that were split in the new shard layout.
+/// layout and the shards thet were split in the new shard layout.
 ///
 /// Returns the ShardUIds that this client tracks and has sane memtries and flat
 /// storage for
@@ -204,15 +238,20 @@ impl TrieSanityCheck {
 fn assert_state_sanity(
     client: &Client,
     final_head: &Tip,
-    load_memtries_for_tracked_shards: bool,
+    load_mem_tries_for_tracked_shards: bool,
     new_num_shards: NumShards,
 ) -> Vec<ShardUId> {
-    let shard_layout = client.epoch_manager.get_shard_layout(&final_head.epoch_id).unwrap();
+    let shard_layout = client
+        .epoch_manager
+        .get_shard_layout(&final_head.epoch_id)
+        .unwrap();
     let is_resharded = shard_layout.num_shards() == new_num_shards;
     let mut checked_shards = Vec::new();
 
-    let protocol_version =
-        client.epoch_manager.get_epoch_protocol_version(&final_head.epoch_id).unwrap();
+    let protocol_version = client
+        .epoch_manager
+        .get_epoch_protocol_version(&final_head.epoch_id)
+        .unwrap();
     let shards_pending_resharding = client
         .epoch_manager
         .get_shard_uids_pending_resharding(protocol_version, PROTOCOL_VERSION)
@@ -220,7 +259,7 @@ fn assert_state_sanity(
 
     for shard_uid in shard_layout.shard_uids() {
         if !should_assert_state_sanity(
-            load_memtries_for_tracked_shards,
+            load_mem_tries_for_tracked_shards,
             is_resharded,
             &shards_pending_resharding,
             &shard_layout,
@@ -234,8 +273,12 @@ fn assert_state_sanity(
         }
 
         let memtrie = get_memtrie_for_shard(client, &shard_uid, &final_head.prev_block_hash);
-        let memtrie_state =
-            memtrie.lock_for_iter().iter().unwrap().collect::<Result<HashSet<_>, _>>().unwrap();
+        let memtrie_state = memtrie
+            .lock_for_iter()
+            .iter()
+            .unwrap()
+            .collect::<Result<HashSet<_>, _>>()
+            .unwrap();
 
         let state_root = *client
             .chain
@@ -250,11 +293,18 @@ fn assert_state_sanity(
             .get_view_trie_for_shard(shard_uid.shard_id(), &final_head.prev_block_hash, state_root)
             .unwrap();
         assert!(!trie.has_memtries());
-        let trie_state =
-            trie.lock_for_iter().iter().unwrap().collect::<Result<HashSet<_>, _>>().unwrap();
+        let trie_state = trie
+            .lock_for_iter()
+            .iter()
+            .unwrap()
+            .collect::<Result<HashSet<_>, _>>()
+            .unwrap();
         assert_state_equal(&memtrie_state, &trie_state, shard_uid, "memtrie and trie");
 
-        let flat_storage_manager = client.chain.runtime_adapter.get_flat_storage_manager();
+        let flat_storage_manager = client
+            .chain
+            .runtime_adapter
+            .get_flat_storage_manager();
         // FlatStorageChunkView::iter_range() used below to retrieve all key-value pairs in Flat
         // Storage only looks at the data committed into the DB. For this reasons comparing Flat
         // Storage and Memtries makes sense only if we can retrieve a view at the same height from
@@ -280,7 +330,7 @@ fn assert_state_sanity(
             .iter_range(None, None)
             .map_ok(|(key, value)| {
                 let value = match value {
-                    FlatStateValue::Ref(value) => client
+                    | FlatStateValue::Ref(value) => client
                         .chain
                         .chain_store()
                         .store()
@@ -288,7 +338,7 @@ fn assert_state_sanity(
                         .get(shard_uid, &value.hash)
                         .unwrap()
                         .to_vec(),
-                    FlatStateValue::Inlined(data) => data,
+                    | FlatStateValue::Inlined(data) => data,
                 };
                 (key, value)
             })
@@ -317,14 +367,14 @@ fn assert_state_equal(
 }
 
 fn should_assert_state_sanity(
-    load_memtries_for_tracked_shards: bool,
+    load_mem_tries_for_tracked_shards: bool,
     is_resharded: bool,
     shards_pending_resharding: &HashSet<ShardUId>,
     shard_layout: &ShardLayout,
     shard_uid: &ShardUId,
 ) -> bool {
     // Always assert if the tracked shards are loaded into memory.
-    if load_memtries_for_tracked_shards {
+    if load_mem_tries_for_tracked_shards {
         return true;
     }
 
@@ -349,9 +399,13 @@ pub fn check_state_shard_uid_mapping_after_resharding(
 ) {
     let tip = client.chain.head().unwrap();
     let epoch_id = tip.epoch_id;
-    let shard_layout = client.epoch_manager.get_shard_layout(&epoch_id).unwrap();
-    let children_shard_uids =
-        shard_layout.get_children_shards_uids(parent_shard_uid.shard_id()).unwrap();
+    let shard_layout = client
+        .epoch_manager
+        .get_shard_layout(&epoch_id)
+        .unwrap();
+    let children_shard_uids = shard_layout
+        .get_children_shards_uids(parent_shard_uid.shard_id())
+        .unwrap();
     assert_eq!(children_shard_uids.len(), 2);
 
     // Currently tracked shards.

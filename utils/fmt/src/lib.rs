@@ -33,13 +33,19 @@ use std::str::FromStr;
 pub struct Bytes<'a>(pub &'a [u8]);
 
 impl<'a> std::fmt::Display for Bytes<'a> {
-    fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(
+        &self,
+        fmt: &mut std::fmt::Formatter<'_>,
+    ) -> std::fmt::Result {
         bytes_format(self.0, fmt, false)
     }
 }
 
 impl<'a> std::fmt::Debug for Bytes<'a> {
-    fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(
+        &self,
+        fmt: &mut std::fmt::Formatter<'_>,
+    ) -> std::fmt::Result {
         bytes_format(self.0, fmt, false)
     }
 }
@@ -55,11 +61,21 @@ impl<'a> Bytes<'a> {
     pub fn from_str(s: &str) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
         if s.len() >= 2 && s.starts_with('`') && s.ends_with('`') {
             // hash encoded as base58
-            let hash = CryptoHash::from_str(&s[1..s.len().checked_sub(1).expect("s.len() >= 2 ")])?;
+            let hash = CryptoHash::from_str(
+                &s[1..s
+                    .len()
+                    .checked_sub(1)
+                    .expect("s.len() >= 2 ")],
+            )?;
             Ok(hash.as_bytes().to_vec())
         } else if s.len() >= 2 && s.starts_with('\'') && s.ends_with('\'') {
             // plain string
-            Ok(s[1..s.len().checked_sub(1).expect("s.len() >= 2 ")].as_bytes().to_vec())
+            Ok(s[1..s
+                .len()
+                .checked_sub(1)
+                .expect("s.len() >= 2 ")]
+                .as_bytes()
+                .to_vec())
         } else {
             // encoded with base64
             from_base64(s).map_err(|err| err.into())
@@ -77,43 +93,61 @@ impl<'a> Bytes<'a> {
 pub struct AbbrBytes<T>(pub T);
 
 impl<'a> std::fmt::Debug for AbbrBytes<&'a [u8]> {
-    fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(
+        &self,
+        fmt: &mut std::fmt::Formatter<'_>,
+    ) -> std::fmt::Result {
         truncated_bytes_format(self.0, fmt)
     }
 }
 
 impl<'a> std::fmt::Debug for AbbrBytes<&'a Vec<u8>> {
-    fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(
+        &self,
+        fmt: &mut std::fmt::Formatter<'_>,
+    ) -> std::fmt::Result {
         AbbrBytes(self.0.as_slice()).fmt(fmt)
     }
 }
 
 impl<'a> std::fmt::Debug for AbbrBytes<Option<&'a [u8]>> {
-    fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(
+        &self,
+        fmt: &mut std::fmt::Formatter<'_>,
+    ) -> std::fmt::Result {
         match self.0 {
-            None => fmt.write_str("None"),
-            Some(bytes) => truncated_bytes_format(bytes, fmt),
+            | None => fmt.write_str("None"),
+            | Some(bytes) => truncated_bytes_format(bytes, fmt),
         }
     }
 }
 
 impl<'a> std::fmt::Display for AbbrBytes<&'a [u8]> {
-    fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(
+        &self,
+        fmt: &mut std::fmt::Formatter<'_>,
+    ) -> std::fmt::Result {
         truncated_bytes_format(self.0, fmt)
     }
 }
 
 impl<'a> std::fmt::Display for AbbrBytes<&'a Vec<u8>> {
-    fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(
+        &self,
+        fmt: &mut std::fmt::Formatter<'_>,
+    ) -> std::fmt::Result {
         AbbrBytes(self.0.as_slice()).fmt(fmt)
     }
 }
 
 impl<'a> std::fmt::Display for AbbrBytes<Option<&'a [u8]>> {
-    fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(
+        &self,
+        fmt: &mut std::fmt::Formatter<'_>,
+    ) -> std::fmt::Result {
         match self.0 {
-            None => fmt.write_str("None"),
-            Some(bytes) => truncated_bytes_format(bytes, fmt),
+            | None => fmt.write_str("None"),
+            | Some(bytes) => truncated_bytes_format(bytes, fmt),
         }
     }
 }
@@ -149,13 +183,19 @@ impl<'a> std::fmt::Display for AbbrBytes<Option<&'a [u8]>> {
 pub struct StorageKey<'a>(pub &'a [u8]);
 
 impl<'a> std::fmt::Display for StorageKey<'a> {
-    fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(
+        &self,
+        fmt: &mut std::fmt::Formatter<'_>,
+    ) -> std::fmt::Result {
         bytes_format(self.0, fmt, true)
     }
 }
 
 impl<'a> std::fmt::Debug for StorageKey<'a> {
-    fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(
+        &self,
+        fmt: &mut std::fmt::Formatter<'_>,
+    ) -> std::fmt::Result {
         bytes_format(self.0, fmt, true)
     }
 }
@@ -168,20 +208,32 @@ impl<'a> std::fmt::Debug for StorageKey<'a> {
 pub struct Slice<'a, T>(pub &'a [T]);
 
 impl<'a, T: std::fmt::Debug> std::fmt::Debug for Slice<'a, T> {
-    fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(
+        &self,
+        fmt: &mut std::fmt::Formatter<'_>,
+    ) -> std::fmt::Result {
         let slice = self.0;
 
         struct Ellipsis;
 
         impl std::fmt::Debug for Ellipsis {
-            fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            fn fmt(
+                &self,
+                fmt: &mut std::fmt::Formatter<'_>,
+            ) -> std::fmt::Result {
                 fmt.write_str("…")
             }
         }
 
         if let [a, b, _c, .., _x, y, z] = slice {
             write!(fmt, "({})", slice.len())?;
-            fmt.debug_list().entry(a).entry(b).entry(&Ellipsis).entry(y).entry(z).finish()
+            fmt.debug_list()
+                .entry(a)
+                .entry(b)
+                .entry(&Ellipsis)
+                .entry(y)
+                .entry(z)
+                .finish()
         } else {
             std::fmt::Debug::fmt(&slice, fmt)
         }
@@ -199,7 +251,10 @@ fn bytes_format(
 ) -> std::fmt::Result {
     if consider_hash && bytes.len() == 32 {
         write!(fmt, "`{}`", CryptoHash(bytes.try_into().unwrap()))
-    } else if bytes.iter().all(|ch| 0x20 <= *ch && *ch <= 0x7E) {
+    } else if bytes
+        .iter()
+        .all(|ch| 0x20 <= *ch && *ch <= 0x7E)
+    {
         // SAFETY: We’ve just checked that the value contains ASCII
         // characters only.
         let value = unsafe { std::str::from_utf8_unchecked(bytes) };
@@ -210,7 +265,10 @@ fn bytes_format(
 }
 
 /// Implementation of [`AbbrBytes`].
-fn truncated_bytes_format(bytes: &[u8], fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+fn truncated_bytes_format(
+    bytes: &[u8],
+    fmt: &mut std::fmt::Formatter<'_>,
+) -> std::fmt::Result {
     const PRINTABLE_ASCII: RangeInclusive<u8> = 0x20..=0x7E;
     const OVERALL_LIMIT: usize = 128;
     const DISPLAY_ASCII_FULL_LIMIT: usize = OVERALL_LIMIT - 2;
@@ -218,7 +276,11 @@ fn truncated_bytes_format(bytes: &[u8], fmt: &mut std::fmt::Formatter<'_>) -> st
     const DISPLAY_BASE64_FULL_LIMIT: usize = OVERALL_LIMIT / 4 * 3;
     const DISPLAY_BASE64_PREFIX_LIMIT: usize = (OVERALL_LIMIT - 8) / 4 * 3;
     let len = bytes.len();
-    if bytes.iter().take(DISPLAY_ASCII_FULL_LIMIT).all(|ch| PRINTABLE_ASCII.contains(ch)) {
+    if bytes
+        .iter()
+        .take(DISPLAY_ASCII_FULL_LIMIT)
+        .all(|ch| PRINTABLE_ASCII.contains(ch))
+    {
         if len <= DISPLAY_ASCII_FULL_LIMIT {
             // SAFETY: We’ve just checked that the value contains ASCII
             // characters only.
@@ -242,7 +304,10 @@ fn truncated_bytes_format(bytes: &[u8], fmt: &mut std::fmt::Formatter<'_>) -> st
 macro_rules! do_test_bytes_formatting {
     ($type:ident, $consider_hash:expr, $truncate:expr) => {{
         #[track_caller]
-        fn test(want: &str, slice: &[u8]) {
+        fn test(
+            want: &str,
+            slice: &[u8],
+        ) {
             assert_eq!(want, $type(slice).to_string(), "unexpected formatting");
             if !$truncate {
                 assert_eq!(&Bytes::from_str(want).expect("decode fail"), slice, "wrong decoding");
@@ -250,7 +315,12 @@ macro_rules! do_test_bytes_formatting {
         }
 
         #[track_caller]
-        fn test2(cond: bool, want_true: &str, want_false: &str, slice: &[u8]) {
+        fn test2(
+            cond: bool,
+            want_true: &str,
+            want_false: &str,
+            slice: &[u8],
+        ) {
             test(if cond { want_true } else { want_false }, slice);
         }
 

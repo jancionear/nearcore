@@ -75,39 +75,42 @@ impl TrapCode {
     /// Gets the message for this trap code
     pub fn message(&self) -> &str {
         match self {
-            Self::StackOverflow => "call stack exhausted",
-            Self::HeapAccessOutOfBounds => "out of bounds memory access",
-            Self::HeapMisaligned => "misaligned heap",
-            Self::TableAccessOutOfBounds => "undefined element: out of bounds table access",
-            Self::OutOfBounds => "out of bounds",
-            Self::IndirectCallToNull => "uninitialized element",
-            Self::BadSignature => "indirect call type mismatch",
-            Self::IntegerOverflow => "integer overflow",
-            Self::IntegerDivisionByZero => "integer divide by zero",
-            Self::BadConversionToInteger => "invalid conversion to integer",
-            Self::UnreachableCodeReached => "unreachable",
-            Self::UnalignedAtomic => "unaligned atomic access",
-            Self::GasExceeded => "gas limit exceeded",
+            | Self::StackOverflow => "call stack exhausted",
+            | Self::HeapAccessOutOfBounds => "out of bounds memory access",
+            | Self::HeapMisaligned => "misaligned heap",
+            | Self::TableAccessOutOfBounds => "undefined element: out of bounds table access",
+            | Self::OutOfBounds => "out of bounds",
+            | Self::IndirectCallToNull => "uninitialized element",
+            | Self::BadSignature => "indirect call type mismatch",
+            | Self::IntegerOverflow => "integer overflow",
+            | Self::IntegerDivisionByZero => "integer divide by zero",
+            | Self::BadConversionToInteger => "invalid conversion to integer",
+            | Self::UnreachableCodeReached => "unreachable",
+            | Self::UnalignedAtomic => "unaligned atomic access",
+            | Self::GasExceeded => "gas limit exceeded",
         }
     }
 }
 
 impl Display for TrapCode {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut Formatter,
+    ) -> fmt::Result {
         let identifier = match *self {
-            Self::StackOverflow => "stk_ovf",
-            Self::HeapAccessOutOfBounds => "heap_get_oob",
-            Self::HeapMisaligned => "heap_misaligned",
-            Self::TableAccessOutOfBounds => "table_get_oob",
-            Self::OutOfBounds => "oob",
-            Self::IndirectCallToNull => "icall_null",
-            Self::BadSignature => "bad_sig",
-            Self::IntegerOverflow => "int_ovf",
-            Self::IntegerDivisionByZero => "int_divz",
-            Self::BadConversionToInteger => "bad_toint",
-            Self::UnreachableCodeReached => "unreachable",
-            Self::UnalignedAtomic => "unalign_atom",
-            Self::GasExceeded => "out_of_gas",
+            | Self::StackOverflow => "stk_ovf",
+            | Self::HeapAccessOutOfBounds => "heap_get_oob",
+            | Self::HeapMisaligned => "heap_misaligned",
+            | Self::TableAccessOutOfBounds => "table_get_oob",
+            | Self::OutOfBounds => "oob",
+            | Self::IndirectCallToNull => "icall_null",
+            | Self::BadSignature => "bad_sig",
+            | Self::IntegerOverflow => "int_ovf",
+            | Self::IntegerDivisionByZero => "int_divz",
+            | Self::BadConversionToInteger => "bad_toint",
+            | Self::UnreachableCodeReached => "unreachable",
+            | Self::UnalignedAtomic => "unalign_atom",
+            | Self::GasExceeded => "out_of_gas",
         };
         f.write_str(identifier)
     }
@@ -118,19 +121,19 @@ impl FromStr for TrapCode {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "stk_ovf" => Ok(Self::StackOverflow),
-            "heap_get_oob" => Ok(Self::HeapAccessOutOfBounds),
-            "heap_misaligned" => Ok(Self::HeapMisaligned),
-            "table_get_oob" => Ok(Self::TableAccessOutOfBounds),
-            "oob" => Ok(Self::OutOfBounds),
-            "icall_null" => Ok(Self::IndirectCallToNull),
-            "bad_sig" => Ok(Self::BadSignature),
-            "int_ovf" => Ok(Self::IntegerOverflow),
-            "int_divz" => Ok(Self::IntegerDivisionByZero),
-            "bad_toint" => Ok(Self::BadConversionToInteger),
-            "unreachable" => Ok(Self::UnreachableCodeReached),
-            "unalign_atom" => Ok(Self::UnalignedAtomic),
-            _ => Err(()),
+            | "stk_ovf" => Ok(Self::StackOverflow),
+            | "heap_get_oob" => Ok(Self::HeapAccessOutOfBounds),
+            | "heap_misaligned" => Ok(Self::HeapMisaligned),
+            | "table_get_oob" => Ok(Self::TableAccessOutOfBounds),
+            | "oob" => Ok(Self::OutOfBounds),
+            | "icall_null" => Ok(Self::IndirectCallToNull),
+            | "bad_sig" => Ok(Self::BadSignature),
+            | "int_ovf" => Ok(Self::IntegerOverflow),
+            | "int_divz" => Ok(Self::IntegerDivisionByZero),
+            | "bad_toint" => Ok(Self::BadConversionToInteger),
+            | "unreachable" => Ok(Self::UnreachableCodeReached),
+            | "unalign_atom" => Ok(Self::UnalignedAtomic),
+            | _ => Err(()),
         }
     }
 }

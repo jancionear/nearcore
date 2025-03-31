@@ -27,7 +27,7 @@ fn make_snapshot_host_info(
 }
 
 fn unwrap<'a, T: std::hash::Hash + std::cmp::Eq, E: std::fmt::Debug>(
-    v: &'a (T, Option<E>),
+    v: &'a (T, Option<E>)
 ) -> &'a T {
     if let Some(err) = &v.1 {
         panic!("unexpected error: {err:?}");
@@ -53,24 +53,46 @@ async fn happy_path() {
     let cache = SnapshotHostsCache::new(config);
     assert_eq!(cache.get_hosts().len(), 0); // initially empty
 
-    let sid_vec = |v: &[u64]| v.iter().cloned().map(Into::into).collect_vec();
+    let sid_vec = |v: &[u64]| {
+        v.iter()
+            .cloned()
+            .map(Into::into)
+            .collect_vec()
+    };
 
     // initial insert
     let info0 = Arc::new(make_snapshot_host_info(&peer0, 123, sid_vec(&[0, 1, 2, 3]), &key0));
     let info1 = Arc::new(make_snapshot_host_info(&peer1, 123, sid_vec(&[2]), &key1));
-    let res = cache.insert(vec![info0.clone(), info1.clone()]).await;
+    let res = cache
+        .insert(vec![info0.clone(), info1.clone()])
+        .await;
     assert_eq!([&info0, &info1].as_set(), unwrap(&res).as_set());
-    assert_eq!([&info0, &info1].as_set(), cache.get_hosts().iter().collect::<HashSet<_>>());
+    assert_eq!(
+        [&info0, &info1].as_set(),
+        cache
+            .get_hosts()
+            .iter()
+            .collect::<HashSet<_>>()
+    );
 
     // second insert with various types of updates
     let info0new = Arc::new(make_snapshot_host_info(&peer0, 124, sid_vec(&[1, 3]), &key0));
     let info1old = Arc::new(make_snapshot_host_info(&peer1, 122, sid_vec(&[0, 1, 2, 3]), &key1));
     let info2 = Arc::new(make_snapshot_host_info(&peer2, 123, sid_vec(&[2]), &key2));
-    let res = cache.insert(vec![info0new.clone(), info1old.clone(), info2.clone()]).await;
+    let res = cache
+        .insert(vec![
+            info0new.clone(),
+            info1old.clone(),
+            info2.clone(),
+        ])
+        .await;
     assert_eq!([&info0new, &info2].as_set(), unwrap(&res).as_set());
     assert_eq!(
         [&info0new, &info1, &info2].as_set(),
-        cache.get_hosts().iter().collect::<HashSet<_>>()
+        cache
+            .get_hosts()
+            .iter()
+            .collect::<HashSet<_>>()
     );
 }
 
@@ -89,12 +111,19 @@ async fn invalid_signature() {
     let config = Config { snapshot_hosts_cache_size: 100, part_selection_cache_batch_size: 1 };
     let cache = SnapshotHostsCache::new(config);
 
-    let sid_vec = |v: &[u64]| v.iter().cloned().map(Into::into).collect_vec();
+    let sid_vec = |v: &[u64]| {
+        v.iter()
+            .cloned()
+            .map(Into::into)
+            .collect_vec()
+    };
 
     let shards = sid_vec(&[0, 1, 2, 3]);
     let info0_invalid_sig = Arc::new(make_snapshot_host_info(&peer0, 1, shards.clone(), &key1));
     let info1 = Arc::new(make_snapshot_host_info(&peer1, 1, shards, &key1));
-    let res = cache.insert(vec![info0_invalid_sig.clone(), info1.clone()]).await;
+    let res = cache
+        .insert(vec![info0_invalid_sig.clone(), info1.clone()])
+        .await;
     // invalid signature => InvalidSignature
     assert_eq!(
         Some(SnapshotHostInfoError::VerificationError(
@@ -107,7 +136,13 @@ async fn invalid_signature() {
     // due to parallelization, so we check for superset rather than strict equality.
     assert_is_superset(&[&info1].as_set(), &res.0.as_set());
     // Partial update should match the state.
-    assert_eq!(res.0.as_set(), cache.get_hosts().iter().collect::<HashSet<_>>());
+    assert_eq!(
+        res.0.as_set(),
+        cache
+            .get_hosts()
+            .iter()
+            .collect::<HashSet<_>>()
+    );
 }
 
 #[tokio::test]
@@ -125,14 +160,21 @@ async fn too_many_shards() {
     let config = Config { snapshot_hosts_cache_size: 100, part_selection_cache_batch_size: 1 };
     let cache = SnapshotHostsCache::new(config);
 
-    let sid_vec = |v: &[u64]| v.iter().cloned().map(Into::into).collect_vec();
+    let sid_vec = |v: &[u64]| {
+        v.iter()
+            .cloned()
+            .map(Into::into)
+            .collect_vec()
+    };
 
     // info0 is valid
     let info0 = Arc::new(make_snapshot_host_info(&peer0, 1, sid_vec(&[0, 1, 2, 3]), &key0));
 
     // info1 is invalid - it has more shard ids than MAX_SHARDS_PER_SNAPSHOT_HOST_INFO
-    let too_many_shards: Vec<ShardId> =
-        (0..(MAX_SHARDS_PER_SNAPSHOT_HOST_INFO as u64 + 1)).into_iter().map(Into::into).collect();
+    let too_many_shards: Vec<ShardId> = (0..(MAX_SHARDS_PER_SNAPSHOT_HOST_INFO as u64 + 1))
+        .into_iter()
+        .map(Into::into)
+        .collect();
     let info1 = Arc::new(make_snapshot_host_info(&peer1, 1, too_many_shards, &key1));
 
     // info1.verify() should fail
@@ -141,14 +183,22 @@ async fn too_many_shards() {
     assert_eq!(info1.verify(), Err(expected_error.clone()));
 
     // Inserting should return the expected error (TooManyShards)
-    let res = cache.insert(vec![info0.clone(), info1.clone()]).await;
+    let res = cache
+        .insert(vec![info0.clone(), info1.clone()])
+        .await;
     assert_eq!(Some(SnapshotHostInfoError::VerificationError(expected_error)), res.1);
     // Partial update is allowed in case an error is encountered.
     // The valid info0 may or may not be processed before the invalid info1 is detected
     // due to parallelization, so we check for superset rather than strict equality.
     assert_is_superset(&[&info0].as_set(), &res.0.as_set());
     // Partial update should match the state.
-    assert_eq!(res.0.as_set(), cache.get_hosts().iter().collect::<HashSet<_>>());
+    assert_eq!(
+        res.0.as_set(),
+        cache
+            .get_hosts()
+            .iter()
+            .collect::<HashSet<_>>()
+    );
 }
 
 #[tokio::test]
@@ -163,11 +213,18 @@ async fn duplicate_peer_id() {
     let config = Config { snapshot_hosts_cache_size: 100, part_selection_cache_batch_size: 1 };
     let cache = SnapshotHostsCache::new(config);
 
-    let sid_vec = |v: &[u64]| v.iter().cloned().map(Into::into).collect_vec();
+    let sid_vec = |v: &[u64]| {
+        v.iter()
+            .cloned()
+            .map(Into::into)
+            .collect_vec()
+    };
 
     let info00 = Arc::new(make_snapshot_host_info(&peer0, 1, sid_vec(&[0, 1, 2, 3]), &key0));
     let info01 = Arc::new(make_snapshot_host_info(&peer0, 2, sid_vec(&[0, 3]), &key0));
-    let res = cache.insert(vec![info00.clone(), info01.clone()]).await;
+    let res = cache
+        .insert(vec![info00.clone(), info01.clone()])
+        .await;
     // duplicate peer ids => DuplicatePeerId
     assert_eq!(Some(SnapshotHostInfoError::DuplicatePeerId), res.1);
     // this type of malicious behavior is detected before verification even begins;
@@ -192,18 +249,35 @@ async fn test_lru_eviction() {
     let config = Config { snapshot_hosts_cache_size: 2, part_selection_cache_batch_size: 1 };
     let cache = SnapshotHostsCache::new(config);
 
-    let sid_vec = |v: &[u64]| v.iter().cloned().map(Into::into).collect_vec();
+    let sid_vec = |v: &[u64]| {
+        v.iter()
+            .cloned()
+            .map(Into::into)
+            .collect_vec()
+    };
 
     // initial inserts to capacity
     let info0 = Arc::new(make_snapshot_host_info(&peer0, 123, sid_vec(&[0, 1, 2, 3]), &key0));
     let res = cache.insert(vec![info0.clone()]).await;
     assert_eq!([&info0].as_set(), unwrap(&res).as_set());
-    assert_eq!([&info0].as_set(), cache.get_hosts().iter().collect::<HashSet<_>>());
+    assert_eq!(
+        [&info0].as_set(),
+        cache
+            .get_hosts()
+            .iter()
+            .collect::<HashSet<_>>()
+    );
 
     let info1 = Arc::new(make_snapshot_host_info(&peer1, 123, sid_vec(&[2]), &key1));
     let res = cache.insert(vec![info1.clone()]).await;
     assert_eq!([&info1].as_set(), unwrap(&res).as_set());
-    assert_eq!([&info0, &info1].as_set(), cache.get_hosts().iter().collect::<HashSet<_>>());
+    assert_eq!(
+        [&info0, &info1].as_set(),
+        cache
+            .get_hosts()
+            .iter()
+            .collect::<HashSet<_>>()
+    );
 
     // insert past capacity
     let info2 = Arc::new(make_snapshot_host_info(&peer2, 123, sid_vec(&[1, 3]), &key2));
@@ -211,7 +285,13 @@ async fn test_lru_eviction() {
     // check that the new data is accepted
     assert_eq!([&info2].as_set(), unwrap(&res).as_set());
     // check that the oldest data was evicted
-    assert_eq!([&info1, &info2].as_set(), cache.get_hosts().iter().collect::<HashSet<_>>());
+    assert_eq!(
+        [&info1, &info2].as_set(),
+        cache
+            .get_hosts()
+            .iter()
+            .collect::<HashSet<_>>()
+    );
 }
 
 // In each test, we will have a list of these, where they will indicate the function we
@@ -321,7 +401,7 @@ async fn run_select_peer_test(
     for action in actions.iter() {
         tracing::debug!("run_select_peer_test action {:?}", action);
         match action {
-            SelectPeerAction::InsertHosts(hosts) => {
+            | SelectPeerAction::InsertHosts(hosts) => {
                 let mut new_hosts = Vec::new();
                 for h in hosts.iter() {
                     new_hosts.push(peers[*h].clone());
@@ -329,15 +409,15 @@ async fn run_select_peer_test(
                 let (_res, err) = cache.insert(new_hosts).await;
                 assert!(err.is_none());
             }
-            SelectPeerAction::CallSelect(wanted) => {
+            | SelectPeerAction::CallSelect(wanted) => {
                 let peer = cache.select_host_for_part(sync_hash, ShardId::new(0), part_id);
                 let wanted = match wanted {
-                    Some(idx) => Some(&peers[*idx].peer_id),
-                    None => None,
+                    | Some(idx) => Some(&peers[*idx].peer_id),
+                    | None => None,
                 };
                 assert!(peer.as_ref() == wanted, "got: {:?} want: {:?}", &peer, &wanted);
             }
-            SelectPeerAction::PartReceived => {
+            | SelectPeerAction::PartReceived => {
                 let shard_id = ShardId::new(0);
                 assert!(cache.has_selector(shard_id, part_id));
                 cache.part_received(shard_id, part_id);
@@ -353,10 +433,19 @@ async fn test_select_peer() {
     let mut rng = make_rng(2947294234);
     let sync_hash = CryptoHash(rng.gen());
     let part_id = 0;
-    let num_peers = SELECT_PEER_CASES.iter().map(|t| t.num_peers).max().unwrap();
+    let num_peers = SELECT_PEER_CASES
+        .iter()
+        .map(|t| t.num_peers)
+        .max()
+        .unwrap();
     let mut peers = Vec::with_capacity(num_peers);
 
-    let sid_vec = |v: &[u64]| v.iter().cloned().map(Into::into).collect_vec();
+    let sid_vec = |v: &[u64]| {
+        v.iter()
+            .cloned()
+            .map(Into::into)
+            .collect_vec()
+    };
 
     for _ in 0..num_peers {
         let key = data::make_secret_key(&mut rng);
@@ -368,12 +457,21 @@ async fn test_select_peer() {
     }
     // cspell:ignore linfo lscore rinfo rscore
     peers.sort_by(|(_linfo, lscore), (_rinfo, rscore)| {
-        lscore.partial_cmp(rscore).unwrap().reverse()
+        lscore
+            .partial_cmp(rscore)
+            .unwrap()
+            .reverse()
     });
-    let peers = peers.into_iter().map(|(info, _score)| info).collect::<Vec<_>>();
+    let peers = peers
+        .into_iter()
+        .map(|(info, _score)| info)
+        .collect::<Vec<_>>();
     tracing::debug!(
         "run_select_peer_test peers: {:?}",
-        peers.iter().map(|info| &info.peer_id).collect::<Vec<_>>()
+        peers
+            .iter()
+            .map(|info| &info.peer_id)
+            .collect::<Vec<_>>()
     );
 
     for t in SELECT_PEER_CASES.iter() {

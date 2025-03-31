@@ -23,7 +23,10 @@ struct CacheEntry {
 }
 
 impl CacheEntry {
-    fn new(encoder: Arc<ReedSolomonEncoder>, encoded_length: usize) -> Self {
+    fn new(
+        encoder: Arc<ReedSolomonEncoder>,
+        encoded_length: usize,
+    ) -> Self {
         Self {
             parts: ReedSolomonPartsTracker::new(encoder, encoded_length),
             created_at: Instant::now(),
@@ -46,9 +49,12 @@ impl CacheEntry {
             );
             return None;
         }
-        match self.parts.insert_part(part_ord, part.data) {
-            InsertPartResult::Accepted => None,
-            InsertPartResult::PartAlreadyAvailable => {
+        match self
+            .parts
+            .insert_part(part_ord, part.data)
+        {
+            | InsertPartResult::Accepted => None,
+            | InsertPartResult::PartAlreadyAvailable => {
                 tracing::warn!(
                     target: "client",
                     ?key,
@@ -57,7 +63,7 @@ impl CacheEntry {
                 );
                 None
             }
-            InsertPartResult::InvalidPartOrd => {
+            | InsertPartResult::InvalidPartOrd => {
                 tracing::warn!(
                     target: "client",
                     ?key,
@@ -66,7 +72,7 @@ impl CacheEntry {
                 );
                 None
             }
-            InsertPartResult::Decoded(decode_result) => Some(decode_result),
+            | InsertPartResult::Decoded(decode_result) => Some(decode_result),
         }
     }
 }
@@ -86,7 +92,10 @@ impl PartialEncodedContractDeploysTracker {
         }
     }
 
-    pub fn already_processed(&self, partial_deploys: &PartialEncodedContractDeploys) -> bool {
+    pub fn already_processed(
+        &self,
+        partial_deploys: &PartialEncodedContractDeploys,
+    ) -> bool {
         let key = partial_deploys.chunk_production_key();
         if self.processed_deploys.contains(key) {
             return true;
@@ -94,7 +103,11 @@ impl PartialEncodedContractDeploysTracker {
         if self
             .parts_cache
             .peek(key)
-            .is_some_and(|entry| entry.parts.has_part(partial_deploys.part().part_ord))
+            .is_some_and(|entry| {
+                entry
+                    .parts
+                    .has_part(partial_deploys.part().part_ord)
+            })
         {
             tracing::warn!(
                 target: "client",
@@ -115,8 +128,9 @@ impl PartialEncodedContractDeploysTracker {
         let (key, part) = partial_deploys.into();
         if !self.parts_cache.contains(&key) {
             let new_entry = CacheEntry::new(encoder, part.encoded_length);
-            if let Some((evicted_key, evicted_entry)) =
-                self.parts_cache.push(key.clone(), new_entry)
+            if let Some((evicted_key, evicted_entry)) = self
+                .parts_cache
+                .push(key.clone(), new_entry)
             {
                 tracing::warn!(
                     target: "client",
@@ -134,10 +148,11 @@ impl PartialEncodedContractDeploysTracker {
                 .with_label_values(&[key.shard_id.to_string().as_str()])
                 .observe(time_to_last_part.as_seconds_f64());
             self.parts_cache.pop(&key);
-            self.processed_deploys.push(key.clone(), ());
+            self.processed_deploys
+                .push(key.clone(), ());
             let deploys = match decode_result {
-                Ok(deploys) => deploys,
-                Err(err) => {
+                | Ok(deploys) => deploys,
+                | Err(err) => {
                     tracing::warn!(
                         target: "client",
                         ?err,

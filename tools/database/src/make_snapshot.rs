@@ -52,7 +52,9 @@ mod tests {
         {
             // Populate the DB.
             let node_storage = opener.open().unwrap();
-            let mut store_update = node_storage.get_hot_store().store_update();
+            let mut store_update = node_storage
+                .get_hot_store()
+                .store_update();
             for key in &keys {
                 store_update.insert(DBCol::Block, key.clone(), vec![42]);
             }
@@ -61,28 +63,41 @@ mod tests {
             // Drops node_storage, which unlocks the DB.
         }
 
-        let destination = home_dir.path().join("data").join("snapshot");
+        let destination = home_dir
+            .path()
+            .join("data")
+            .join("snapshot");
         let cmd = MakeSnapshotCommand { destination: destination.clone(), flat_state_only: false };
-        cmd.run(home_dir.path(), &store_config, None).unwrap();
+        cmd.run(home_dir.path(), &store_config, None)
+            .unwrap();
         println!("Made a checkpoint");
 
         {
             // Make a change to the original DB.
             let node_storage = opener.open().unwrap();
-            let mut store_update = node_storage.get_hot_store().store_update();
+            let mut store_update = node_storage
+                .get_hot_store()
+                .store_update();
             store_update.delete_all(DBCol::Block);
             store_update.commit().unwrap();
             println!("Deleted");
         }
 
-        let node_storage = opener.open_in_mode(Mode::ReadOnly).unwrap();
+        let node_storage = opener
+            .open_in_mode(Mode::ReadOnly)
+            .unwrap();
         let snapshot_node_storage = NodeStorage::opener(&destination, &store_config, None)
             .open_in_mode(Mode::ReadOnly)
             .unwrap();
         for key in keys {
-            let exists_original = node_storage.get_hot_store().exists(DBCol::Block, &key).unwrap();
-            let exists_snapshot =
-                snapshot_node_storage.get_hot_store().exists(DBCol::Block, &key).unwrap();
+            let exists_original = node_storage
+                .get_hot_store()
+                .exists(DBCol::Block, &key)
+                .unwrap();
+            let exists_snapshot = snapshot_node_storage
+                .get_hot_store()
+                .exists(DBCol::Block, &key)
+                .unwrap();
             println!("{exists_original},{exists_snapshot},{key:?}");
             assert!(!exists_original);
             assert!(exists_snapshot);

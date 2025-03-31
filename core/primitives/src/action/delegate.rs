@@ -70,7 +70,8 @@ impl SignedDelegateAction {
         let hash = delegate_action.get_nep461_hash();
         let public_key = &delegate_action.public_key;
 
-        self.signature.verify(hash.as_ref(), public_key)
+        self.signature
+            .verify(hash.as_ref(), public_key)
     }
 }
 
@@ -82,7 +83,10 @@ impl From<SignedDelegateAction> for Action {
 
 impl DelegateAction {
     pub fn get_actions(&self) -> Vec<Action> {
-        self.actions.iter().map(|a| a.clone().into()).collect()
+        self.actions
+            .iter()
+            .map(|a| a.clone().into())
+            .collect()
     }
 
     /// Delegate action hash used for NEP-461 signature scheme which tags
@@ -138,11 +142,11 @@ mod private_non_delegate_action {
     impl borsh::de::BorshDeserialize for NonDelegateAction {
         fn deserialize_reader<R: Read>(rd: &mut R) -> ::core::result::Result<Self, Error> {
             match u8::deserialize_reader(rd)? {
-                ACTION_DELEGATE_NUMBER => Err(Error::new(
+                | ACTION_DELEGATE_NUMBER => Err(Error::new(
                     ErrorKind::InvalidInput,
                     "DelegateAction mustn't contain a nested one",
                 )),
-                n => borsh::de::EnumExt::deserialize_variant(rd, n).map(Self),
+                | n => borsh::de::EnumExt::deserialize_variant(rd, n).map(Self),
             }
         }
     }
@@ -205,8 +209,9 @@ mod tests {
             Err(ErrorKind::InvalidInput)
         );
 
-        let delegate_action =
-            create_delegate_action(vec![Action::CreateAccount(CreateAccountAction {})]);
+        let delegate_action = create_delegate_action(vec![Action::CreateAccount(
+            CreateAccountAction {},
+        )]);
         let serialized_delegate_action = borsh::to_vec(&delegate_action).expect("Expect ok");
 
         // Valid action
@@ -221,8 +226,9 @@ mod tests {
     fn test_delegate_action_deserialization_hard_coded() {
         let serialized_delegate_action = hex::decode(DELEGATE_ACTION_HEX).expect("invalid hex");
         // The hex data is the same as the one we create below.
-        let delegate_action =
-            create_delegate_action(vec![Action::CreateAccount(CreateAccountAction {})]);
+        let delegate_action = create_delegate_action(vec![Action::CreateAccount(
+            CreateAccountAction {},
+        )]);
 
         // Valid action
         assert_eq!(

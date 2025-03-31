@@ -18,19 +18,33 @@ mod adv {
         }
 
         pub fn disable_header_sync(&self) -> bool {
-            self.0.disable_header_sync.load(Ordering::SeqCst)
+            self.0
+                .disable_header_sync
+                .load(Ordering::SeqCst)
         }
 
-        pub fn set_disable_header_sync(&mut self, value: bool) {
-            self.0.disable_header_sync.store(value, Ordering::SeqCst);
+        pub fn set_disable_header_sync(
+            &mut self,
+            value: bool,
+        ) {
+            self.0
+                .disable_header_sync
+                .store(value, Ordering::SeqCst);
         }
 
         pub fn disable_doomslug(&self) -> bool {
-            self.0.disable_doomslug.load(Ordering::SeqCst)
+            self.0
+                .disable_doomslug
+                .load(Ordering::SeqCst)
         }
 
-        pub fn set_disable_doomslug(&self, value: bool) {
-            self.0.disable_doomslug.store(value, Ordering::SeqCst);
+        pub fn set_disable_doomslug(
+            &self,
+            value: bool,
+        ) {
+            self.0
+                .disable_doomslug
+                .store(value, Ordering::SeqCst);
         }
 
         pub fn is_archival(&self) -> bool {

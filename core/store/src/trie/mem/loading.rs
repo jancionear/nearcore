@@ -1,11 +1,11 @@
 use super::arena::single_thread::STArena;
-use super::memtries::MemTries;
+use super::mem_tries::MemTries;
 use super::node::MemTrieNodeId;
 use crate::adapter::StoreAdapter;
 use crate::flat::FlatStorageStatus;
 use crate::trie::mem::arena::Arena;
 use crate::trie::mem::construction::TrieConstructor;
-use crate::trie::mem::memtrie_update::TrackingMode;
+use crate::trie::mem::mem_trie_update::TrackingMode;
 use crate::trie::mem::parallel_loader::load_memtrie_in_parallel;
 use crate::trie::ops::insert_delete::GenericTrieUpdateInsertDelete;
 use crate::{DBCol, NibbleSlice, Store};
@@ -82,7 +82,9 @@ fn load_memtrie_single_thread(
             );
         }
     }
-    let root_id = recon.finalize().expect("state root cannot be empty");
+    let root_id = recon
+        .finalize()
+        .expect("state root cannot be empty");
     Ok((arena, root_id))
 }
 
@@ -123,8 +125,8 @@ pub fn load_trie_from_flat_state_and_delta(
     debug!(target: "memtrie", %shard_uid, "Loading base trie from flat state...");
     let flat_store = store.flat_store();
     let flat_head = match flat_store.get_flat_storage_status(shard_uid)? {
-        FlatStorageStatus::Ready(status) => status.flat_head,
-        other => {
+        | FlatStorageStatus::Ready(status) => status.flat_head,
+        | other => {
             return Err(StorageError::MemTrieLoadingError(format!(
                             "Cannot load memtries when flat storage is not ready for shard {}, actual status: {:?}",
                             shard_uid, other
@@ -133,11 +135,11 @@ pub fn load_trie_from_flat_state_and_delta(
     };
 
     let state_root = match state_root {
-        Some(state_root) => state_root,
-        None => get_state_root(store, flat_head.hash, shard_uid)?,
+        | Some(state_root) => state_root,
+        | None => get_state_root(store, flat_head.hash, shard_uid)?,
     };
 
-    let mut memtries =
+    let mut mem_tries =
         load_trie_from_flat_state(&store, shard_uid, state_root, flat_head.height, parallelize)
             .unwrap();
 
@@ -145,36 +147,41 @@ pub fn load_trie_from_flat_state_and_delta(
     // We load the deltas in order of height, so that we always have the previous state root
     // already loaded.
     let mut sorted_deltas: BTreeSet<(BlockHeight, CryptoHash, CryptoHash)> = Default::default();
-    for delta in flat_store.get_all_deltas_metadata(shard_uid).unwrap() {
+    for delta in flat_store
+        .get_all_deltas_metadata(shard_uid)
+        .unwrap()
+    {
         sorted_deltas.insert((delta.block.height, delta.block.hash, delta.block.prev_hash));
     }
 
     debug!(target: "memtrie", %shard_uid, "{} deltas to apply", sorted_deltas.len());
     for (height, hash, prev_hash) in sorted_deltas.into_iter() {
-        let delta = flat_store.get_delta(shard_uid, hash).unwrap();
+        let delta = flat_store
+            .get_delta(shard_uid, hash)
+            .unwrap();
         if let Some(changes) = delta {
             let old_state_root = get_state_root(store, prev_hash, shard_uid)?;
             let new_state_root = get_state_root(store, hash, shard_uid)?;
 
-            let mut trie_update = memtries.update(old_state_root, TrackingMode::None)?;
+            let mut trie_update = mem_tries.update(old_state_root, TrackingMode::None)?;
             for (key, value) in changes.0 {
                 match value {
-                    Some(value) => {
+                    | Some(value) => {
                         trie_update.insert_memtrie_only(&key, value)?;
                     }
-                    None => trie_update.generic_delete(0, &key)?,
+                    | None => trie_update.generic_delete(0, &key)?,
                 };
             }
 
-            let memtrie_changes = trie_update.to_memtrie_changes_only();
-            let new_root_after_apply = memtries.apply_memtrie_changes(height, &memtrie_changes);
+            let mem_trie_changes = trie_update.to_mem_trie_changes_only();
+            let new_root_after_apply = mem_tries.apply_memtrie_changes(height, &mem_trie_changes);
             assert_eq!(new_root_after_apply, new_state_root);
         }
         debug!(target: "memtrie", %shard_uid, "Applied memtrie changes for height {}", height);
     }
 
     debug!(target: "memtrie", %shard_uid, "Done loading memtries for shard");
-    Ok(memtries)
+    Ok(mem_tries)
 }
 
 #[cfg(test)]
@@ -204,11 +211,22 @@ mod tests {
     use rand::rngs::StdRng;
     use rand::{Rng, SeedableRng};
 
-    fn check_maybe_parallelize(keys: Vec<Vec<u8>>, parallelize: bool) {
-        let (shard_tries, shard_layout) = TestTriesBuilder::new().with_flat_storage(true).build2();
-        let shard_uid = shard_layout.shard_uids().next().unwrap();
+    fn check_maybe_parallelize(
+        keys: Vec<Vec<u8>>,
+        parallelize: bool,
+    ) {
+        let (shard_tries, shard_layout) = TestTriesBuilder::new()
+            .with_flat_storage(true)
+            .build2();
+        let shard_uid = shard_layout
+            .shard_uids()
+            .next()
+            .unwrap();
 
-        let changes = keys.iter().map(|key| (key.to_vec(), Some(key.to_vec()))).collect::<Vec<_>>();
+        let changes = keys
+            .iter()
+            .map(|key| (key.to_vec(), Some(key.to_vec())))
+            .collect::<Vec<_>>();
         let changes = simplify_changes(&changes);
         test_populate_flat_storage(
             &shard_tries,
@@ -244,38 +262,53 @@ mod tests {
         let _mode_guard = trie_update
             .with_trie_cache_mode(Some(near_primitives::types::TrieCacheMode::CachingChunk));
         let trie = trie_update.trie();
-        let root = in_memory_trie.get_root(&state_root).unwrap();
+        let root = in_memory_trie
+            .get_root(&state_root)
+            .unwrap();
 
         // Check access to each key to make sure the in-memory trie is consistent with
         // real trie. Check non-existent keys too.
-        for key in keys.iter().chain([b"not in trie".to_vec()].iter()) {
+        for key in keys
+            .iter()
+            .chain([b"not in trie".to_vec()].iter())
+        {
             let mut nodes_accessed = Vec::new();
             let actual_value_ref = memtrie_lookup(root, key, Some(&mut nodes_accessed))
                 .map(|v| v.to_optimized_value_ref());
-            let expected_value_ref =
-                trie.get_optimized_ref(key, KeyLookupMode::FlatStorage).unwrap();
+            let expected_value_ref = trie
+                .get_optimized_ref(key, KeyLookupMode::FlatStorage)
+                .unwrap();
             assert_eq!(actual_value_ref, expected_value_ref, "{:?}", NibbleSlice::new(key));
 
             // Do another access with the trie to see how many nodes we're supposed to
             // have accessed.
             let temp_trie = shard_tries.get_trie_for_shard(shard_uid, state_root);
-            temp_trie.get_optimized_ref(key, KeyLookupMode::Trie).unwrap();
+            temp_trie
+                .get_optimized_ref(key, KeyLookupMode::Trie)
+                .unwrap();
             assert_eq!(
-                temp_trie.get_trie_nodes_count().db_reads,
+                temp_trie
+                    .get_trie_nodes_count()
+                    .db_reads,
                 nodes_accessed.len() as u64,
                 "Number of accessed nodes does not equal number of trie nodes along the way"
             );
 
             // Check that the accessed nodes are consistent with those from disk.
             for (node_hash, serialized_node) in nodes_accessed {
-                let expected_serialized_node =
-                    trie.internal_retrieve_trie_node(&node_hash, false, true).unwrap();
+                let expected_serialized_node = trie
+                    .internal_retrieve_trie_node(&node_hash, false, true)
+                    .unwrap();
                 assert_eq!(expected_serialized_node, serialized_node);
             }
         }
     }
 
-    fn check_random(max_key_len: usize, max_keys_count: usize, test_count: usize) {
+    fn check_random(
+        max_key_len: usize,
+        max_keys_count: usize,
+        test_count: usize,
+    ) {
         let mut rng = StdRng::seed_from_u64(42);
         for _ in 0..test_count {
             let key_cnt = rng.gen_range(1..=max_keys_count);
@@ -385,11 +418,16 @@ mod tests {
         //   --> 2 -> 4
         let chain = MockChain::chain_with_two_forks(5);
         let store = create_test_store();
-        let shard_tries = TestTriesBuilder::new().with_store(store.clone()).build();
+        let shard_tries = TestTriesBuilder::new()
+            .with_store(store.clone())
+            .build();
         let shard_uid = ShardUId { version: 1, shard_id: 1 };
 
         // Populate the initial flat storage state at block 0.
-        let mut store_update = shard_tries.store().flat_store().store_update();
+        let mut store_update = shard_tries
+            .store()
+            .flat_store()
+            .store_update();
         store_update.set_flat_storage_status(
             shard_uid,
             FlatStorageStatus::Ready(FlatStorageReadyStatus { flat_head: chain.get_block(0) }),
@@ -446,31 +484,61 @@ mod tests {
         // Load into memory. It should load the base flat state (block 0), plus all
         // four deltas. We'll check against the state roots at each block; they should
         // all exist in the loaded memtrie.
-        let memtries = load_trie_from_flat_state_and_delta(&store, shard_uid, None, true).unwrap();
+        let mem_tries = load_trie_from_flat_state_and_delta(&store, shard_uid, None, true).unwrap();
 
         assert_eq!(
-            memtrie_lookup(memtries.get_root(&state_root_0).unwrap(), &test_key.to_vec(), None)
-                .map(|v| v.to_flat_value()),
+            memtrie_lookup(
+                mem_tries
+                    .get_root(&state_root_0)
+                    .unwrap(),
+                &test_key.to_vec(),
+                None
+            )
+            .map(|v| v.to_flat_value()),
             Some(FlatStateValue::inlined(&test_val0))
         );
         assert_eq!(
-            memtrie_lookup(memtries.get_root(&state_root_1).unwrap(), &test_key.to_vec(), None)
-                .map(|v| v.to_flat_value()),
+            memtrie_lookup(
+                mem_tries
+                    .get_root(&state_root_1)
+                    .unwrap(),
+                &test_key.to_vec(),
+                None
+            )
+            .map(|v| v.to_flat_value()),
             Some(FlatStateValue::inlined(&test_val1))
         );
         assert_eq!(
-            memtrie_lookup(memtries.get_root(&state_root_2).unwrap(), &test_key.to_vec(), None)
-                .map(|v| v.to_flat_value()),
+            memtrie_lookup(
+                mem_tries
+                    .get_root(&state_root_2)
+                    .unwrap(),
+                &test_key.to_vec(),
+                None
+            )
+            .map(|v| v.to_flat_value()),
             Some(FlatStateValue::inlined(&test_val2))
         );
         assert_eq!(
-            memtrie_lookup(memtries.get_root(&state_root_3).unwrap(), &test_key.to_vec(), None)
-                .map(|v| v.to_flat_value()),
+            memtrie_lookup(
+                mem_tries
+                    .get_root(&state_root_3)
+                    .unwrap(),
+                &test_key.to_vec(),
+                None
+            )
+            .map(|v| v.to_flat_value()),
             Some(FlatStateValue::inlined(&test_val3))
         );
         assert_eq!(
-            memtrie_lookup(memtries.get_root(&state_root_4).unwrap(), &test_key.to_vec(), None)
-                .map(|v| v.to_flat_value()),
+            memtrie_lookup(
+                mem_tries
+                    .get_root(&state_root_4)
+                    .unwrap(),
+                &test_key.to_vec(),
+                None
+            )
+            .map(|v| v.to_flat_value()),
             Some(FlatStateValue::inlined(&test_val4))
         );
     }

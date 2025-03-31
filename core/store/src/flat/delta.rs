@@ -74,7 +74,10 @@ where
 }
 
 impl std::fmt::Debug for FlatStateChanges {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+    ) -> std::fmt::Result {
         f.debug_struct("FlatStateChanges")
             .field("changes", &near_fmt::Slice(&Vec::from_iter(self.0.iter())))
             .finish()
@@ -83,7 +86,10 @@ impl std::fmt::Debug for FlatStateChanges {
 
 impl FlatStateChanges {
     /// Returns `Some(Option<FlatStateValue>)` from delta for the given key. If key is not present, returns None.
-    pub fn get(&self, key: &[u8]) -> Option<Option<FlatStateValue>> {
+    pub fn get(
+        &self,
+        key: &[u8],
+    ) -> Option<Option<FlatStateValue>> {
         self.0.get(key).cloned()
     }
 
@@ -101,7 +107,10 @@ impl FlatStateChanges {
     }
 
     /// Merge two deltas. Values from `other` should override values from `self`.
-    pub fn merge(&mut self, other: Self) {
+    pub fn merge(
+        &mut self,
+        other: Self,
+    ) {
         self.0.extend(other.0.into_iter())
     }
 
@@ -117,7 +126,9 @@ impl FlatStateChanges {
                 .last()
                 .expect("Committed entry should have at least one change")
                 .data;
-            let flat_state_value = last_change.as_ref().map(|value| FlatStateValue::on_disk(value));
+            let flat_state_value = last_change
+                .as_ref()
+                .map(|value| FlatStateValue::on_disk(value));
             delta.insert(key, flat_state_value);
         }
         Self(delta)
@@ -126,7 +137,9 @@ impl FlatStateChanges {
     pub fn from_raw_key_value(entries: &[(Vec<u8>, Option<Vec<u8>>)]) -> Self {
         let mut delta = HashMap::new();
         for (key, raw_value) in entries {
-            let flat_state_value = raw_value.as_ref().map(|value| FlatStateValue::on_disk(value));
+            let flat_state_value = raw_value
+                .as_ref()
+                .map(|value| FlatStateValue::on_disk(value));
             delta.insert(key.to_vec(), flat_state_value);
         }
         Self(delta)
@@ -173,7 +186,10 @@ impl CachedFlatStateChanges {
         std::mem::size_of::<CryptoHash>() + std::mem::size_of::<Option<ValueRef>>();
 
     /// Returns `Some(Option<ValueRef>)` from delta for the given key. If key is not present, returns None.
-    pub(crate) fn get(&self, key: &[u8]) -> Option<&Option<ValueRef>> {
+    pub(crate) fn get(
+        &self,
+        key: &[u8],
+    ) -> Option<&Option<ValueRef>> {
         self.0.get(&hash(key))
     }
 

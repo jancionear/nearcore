@@ -35,7 +35,10 @@ impl<T> serde::Serialize for BorshInHexString<T>
 where
     T: BorshSerialize + BorshDeserialize,
 {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    fn serialize<S>(
+        &self,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
@@ -101,7 +104,10 @@ impl<T> serde::Serialize for BlobInHexString<T>
 where
     T: AsRef<[u8]> + From<Vec<u8>>,
 {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    fn serialize<S>(
+        &self,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
@@ -172,7 +178,10 @@ impl<T> SignedDiff<T>
 where
     T: Copy + PartialEq + std::ops::Sub<Output = T> + std::cmp::Ord,
 {
-    pub fn cmp(lhs: T, rhs: T) -> Self {
+    pub fn cmp(
+        lhs: T,
+        rhs: T,
+    ) -> Self {
         if lhs <= rhs {
             Self { is_positive: true, absolute_difference: rhs - lhs }
         } else {
@@ -193,7 +202,10 @@ impl<T> std::fmt::Display for SignedDiff<T>
 where
     T: Copy + PartialEq + std::string::ToString,
 {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+    ) -> std::fmt::Result {
         write!(
             f,
             "{}{}",
@@ -207,7 +219,10 @@ impl<T> std::fmt::Debug for SignedDiff<T>
 where
     T: Copy + PartialEq + std::string::ToString,
 {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+    ) -> std::fmt::Result {
         write!(f, "SignedDiff({})", self)
     }
 }
@@ -228,7 +243,10 @@ impl<T> serde::Serialize for SignedDiff<T>
 where
     T: Copy + PartialEq + std::string::ToString,
 {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    fn serialize<S>(
+        &self,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
@@ -255,15 +273,17 @@ where
             };
             Ok(Self {
                 is_positive,
-                absolute_difference: absolute_difference.parse().map_err(|err| {
-                    serde::de::Error::invalid_value(
-                        serde::de::Unexpected::Other(&format!(
-                            "the value could not be decoded due to: {:?}",
-                            err
-                        )),
-                        &"an integer value was expected in range of [-u128::MAX; +u128::MAX]",
-                    )
-                })?,
+                absolute_difference: absolute_difference
+                    .parse()
+                    .map_err(|err| {
+                        serde::de::Error::invalid_value(
+                            serde::de::Unexpected::Other(&format!(
+                                "the value could not be decoded due to: {:?}",
+                                err
+                            )),
+                            &"an integer value was expected in range of [-u128::MAX; +u128::MAX]",
+                        )
+                    })?,
             })
         } else {
             Err(serde::de::Error::invalid_value(
@@ -334,21 +354,24 @@ pub(crate) async fn query_account(
         block_id,
         near_primitives::views::QueryRequest::ViewAccount { account_id },
     );
-    let account_info_response = match view_client_addr.send(query.with_span_context()).await? {
-        Ok(query_response) => query_response,
-        Err(err) => match err {
-            near_client_primitives::types::QueryError::UnknownAccount { .. } => {
+    let account_info_response = match view_client_addr
+        .send(query.with_span_context())
+        .await?
+    {
+        | Ok(query_response) => query_response,
+        | Err(err) => match err {
+            | near_client_primitives::types::QueryError::UnknownAccount { .. } => {
                 return Err(crate::errors::ErrorKind::NotFound(err.to_string()))
             }
-            _ => return Err(crate::errors::ErrorKind::InternalError(err.to_string())),
+            | _ => return Err(crate::errors::ErrorKind::InternalError(err.to_string())),
         },
     };
 
     match account_info_response.kind {
-        near_primitives::views::QueryResponseKind::ViewAccount(account_info) => {
+        | near_primitives::views::QueryResponseKind::ViewAccount(account_info) => {
             Ok((account_info_response.block_hash, account_info_response.block_height, account_info))
         }
-        _ => Err(crate::errors::ErrorKind::InternalInvariantError(format!(
+        | _ => Err(crate::errors::ErrorKind::InternalInvariantError(format!(
             "queried ViewAccount, but received {:?}.",
             account_info_response.kind
         ))),
@@ -402,27 +425,29 @@ pub(crate) async fn query_access_key(
         block_id,
         near_primitives::views::QueryRequest::ViewAccessKey { account_id, public_key },
     );
-    let access_key_query_response =
-        match view_client_addr.send(access_key_query.with_span_context()).await? {
-            Ok(query_response) => query_response,
-            Err(err) => {
-                return match err {
-                    near_client_primitives::types::QueryError::UnknownAccount { .. }
-                    | near_client_primitives::types::QueryError::UnknownAccessKey { .. } => {
-                        Err(crate::errors::ErrorKind::NotFound(err.to_string()))
-                    }
-                    _ => Err(crate::errors::ErrorKind::InternalError(err.to_string())),
+    let access_key_query_response = match view_client_addr
+        .send(access_key_query.with_span_context())
+        .await?
+    {
+        | Ok(query_response) => query_response,
+        | Err(err) => {
+            return match err {
+                | near_client_primitives::types::QueryError::UnknownAccount { .. }
+                | near_client_primitives::types::QueryError::UnknownAccessKey { .. } => {
+                    Err(crate::errors::ErrorKind::NotFound(err.to_string()))
                 }
+                | _ => Err(crate::errors::ErrorKind::InternalError(err.to_string())),
             }
-        };
+        }
+    };
 
     match access_key_query_response.kind {
-        near_primitives::views::QueryResponseKind::AccessKey(access_key) => Ok((
+        | near_primitives::views::QueryResponseKind::AccessKey(access_key) => Ok((
             access_key_query_response.block_hash,
             access_key_query_response.block_height,
             access_key,
         )),
-        _ => Err(crate::errors::ErrorKind::InternalInvariantError(
+        | _ => Err(crate::errors::ErrorKind::InternalInvariantError(
             "queried ViewAccessKey, but received something else.".to_string(),
         )),
     }
@@ -462,7 +487,10 @@ where
         Self { error_message, known_value: None }
     }
 
-    pub fn try_set(&mut self, new_value: &T) -> crate::errors::Result<()> {
+    pub fn try_set(
+        &mut self,
+        new_value: &T,
+    ) -> crate::errors::Result<()> {
         if let Some(ref known_value) = self.known_value {
             if new_value != known_value {
                 Err(crate::errors::ErrorKind::InvalidInput(format!(
@@ -501,10 +529,10 @@ pub(crate) async fn get_block_if_final(
 ) -> Result<Option<near_primitives::views::BlockView>, models::Error> {
     let final_block = get_final_block(view_client_addr).await?;
     let is_query_by_height = match block_id {
-        near_primitives::types::BlockReference::Finality(
+        | near_primitives::types::BlockReference::Finality(
             near_primitives::types::Finality::Final,
         ) => return Ok(Some(final_block)),
-        near_primitives::types::BlockReference::BlockId(
+        | near_primitives::types::BlockReference::BlockId(
             near_primitives::types::BlockId::Height(height),
         ) => {
             if height > &final_block.header.height {
@@ -515,14 +543,14 @@ pub(crate) async fn get_block_if_final(
             }
             true
         }
-        _ => false,
+        | _ => false,
     };
     let block = match view_client_addr
         .send(near_client::GetBlock(block_id.clone()).with_span_context())
         .await?
     {
-        Ok(block) => block,
-        Err(near_client_primitives::types::GetBlockError::UnknownBlock { .. }) => {
+        | Ok(block) => block,
+        | Err(near_client_primitives::types::GetBlockError::UnknownBlock { .. }) => {
             let near_primitives::types::BlockReference::BlockId(
                 near_primitives::types::BlockId::Height(height),
             ) = block_id
@@ -540,7 +568,7 @@ pub(crate) async fn get_block_if_final(
 
             return Ok(None);
         }
-        Err(err) => return Err(errors::ErrorKind::InternalError(err.to_string()).into()),
+        | Err(err) => return Err(errors::ErrorKind::InternalError(err.to_string()).into()),
     };
     // if block height is larger than the last final block height, then the block is not final
     if block.header.height > final_block.header.height {
@@ -567,7 +595,7 @@ pub(crate) async fn get_block_if_final(
 }
 
 pub(crate) async fn get_final_block(
-    view_client_addr: &Addr<ViewClientActor>,
+    view_client_addr: &Addr<ViewClientActor>
 ) -> Result<near_primitives::views::BlockView, errors::ErrorKind> {
     view_client_addr
         .send(
@@ -591,12 +619,14 @@ pub(crate) async fn get_nonces(
         let (_block_hash, _block_height, access_key) = crate::utils::query_access_key(
             near_primitives::types::BlockReference::latest(),
             account_id_for_public_key.into(),
-            (&public_key).try_into().map_err(|err| {
-                errors::ErrorKind::InvalidInput(format!(
-                    "public key could not be parsed due to: {:?}",
-                    err
-                ))
-            })?,
+            (&public_key)
+                .try_into()
+                .map_err(|err| {
+                    errors::ErrorKind::InvalidInput(format!(
+                        "public key could not be parsed due to: {:?}",
+                        err
+                    ))
+                })?,
             view_client_addr,
         )
         .await?;

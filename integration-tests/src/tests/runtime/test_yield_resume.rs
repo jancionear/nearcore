@@ -17,19 +17,36 @@ fn setup_test_contract(wasm_binary: &[u8]) -> RuntimeNode {
     let transaction_result = node_user
         .create_account(
             account_id,
-            "test_contract.alice.near".parse().unwrap(),
+            "test_contract.alice.near"
+                .parse()
+                .unwrap(),
             node.signer().public_key(),
             TESTING_INIT_BALANCE / 2,
         )
         .unwrap();
     assert_eq!(transaction_result.status, FinalExecutionStatus::SuccessValue(Vec::new()));
-    assert_eq!(transaction_result.receipts_outcome.len(), 2);
+    assert_eq!(
+        transaction_result
+            .receipts_outcome
+            .len(),
+        2
+    );
 
     let transaction_result = node_user
-        .deploy_contract("test_contract.alice.near".parse().unwrap(), wasm_binary.to_vec())
+        .deploy_contract(
+            "test_contract.alice.near"
+                .parse()
+                .unwrap(),
+            wasm_binary.to_vec(),
+        )
         .unwrap();
     assert_eq!(transaction_result.status, FinalExecutionStatus::SuccessValue(Vec::new()));
-    assert_eq!(transaction_result.receipts_outcome.len(), 1);
+    assert_eq!(
+        transaction_result
+            .receipts_outcome
+            .len(),
+        1
+    );
 
     node
 }
@@ -49,7 +66,9 @@ fn create_then_resume() {
         .user()
         .function_call(
             "alice.near".parse().unwrap(),
-            "test_contract.alice.near".parse().unwrap(),
+            "test_contract.alice.near"
+                .parse()
+                .unwrap(),
             "call_yield_create_return_data_id",
             yield_payload.clone(),
             MAX_GAS,
@@ -58,8 +77,8 @@ fn create_then_resume() {
         .unwrap();
 
     let data_id = match res.status {
-        FinalExecutionStatus::SuccessValue(data_id) => data_id,
-        _ => {
+        | FinalExecutionStatus::SuccessValue(data_id) => data_id,
+        | _ => {
             panic!("{res:?} unexpected result; expected some data id");
         }
     };
@@ -69,7 +88,9 @@ fn create_then_resume() {
         .user()
         .function_call(
             "alice.near".parse().unwrap(),
-            "test_contract.alice.near".parse().unwrap(),
+            "test_contract.alice.near"
+                .parse()
+                .unwrap(),
             "read_value",
             key.clone(),
             MAX_GAS,
@@ -79,12 +100,17 @@ fn create_then_resume() {
     assert_eq!(res.status, FinalExecutionStatus::SuccessValue(vec![]), "{res:?} unexpected result",);
 
     // Call yield resume with the payload followed by the data id
-    let args: Vec<u8> = yield_payload.into_iter().chain(data_id.into_iter()).collect();
+    let args: Vec<u8> = yield_payload
+        .into_iter()
+        .chain(data_id.into_iter())
+        .collect();
     let res = node
         .user()
         .function_call(
             "alice.near".parse().unwrap(),
-            "test_contract.alice.near".parse().unwrap(),
+            "test_contract.alice.near"
+                .parse()
+                .unwrap(),
             "call_yield_resume",
             args,
             MAX_GAS,
@@ -102,7 +128,9 @@ fn create_then_resume() {
         .user()
         .function_call(
             "alice.near".parse().unwrap(),
-            "test_contract.alice.near".parse().unwrap(),
+            "test_contract.alice.near"
+                .parse()
+                .unwrap(),
             "read_value",
             key,
             MAX_GAS,
@@ -126,7 +154,9 @@ fn create_and_resume_in_one_call() {
         .user()
         .function_call(
             "alice.near".parse().unwrap(),
-            "test_contract.alice.near".parse().unwrap(),
+            "test_contract.alice.near"
+                .parse()
+                .unwrap(),
             "call_yield_create_and_resume",
             yield_payload,
             MAX_GAS,
@@ -148,13 +178,18 @@ fn resume_without_yield() {
     let node = setup_test_contract(near_test_contracts::rs_contract());
 
     // payload followed by data id
-    let args: Vec<u8> = vec![42u8; 12].into_iter().chain(vec![23u8; 32].into_iter()).collect();
+    let args: Vec<u8> = vec![42u8; 12]
+        .into_iter()
+        .chain(vec![23u8; 32].into_iter())
+        .collect();
 
     let res = node
         .user()
         .function_call(
             "alice.near".parse().unwrap(),
-            "test_contract.alice.near".parse().unwrap(),
+            "test_contract.alice.near"
+                .parse()
+                .unwrap(),
             "call_yield_resume",
             args,
             MAX_GAS,

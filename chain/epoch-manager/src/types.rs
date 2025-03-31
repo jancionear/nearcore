@@ -38,7 +38,10 @@ pub struct EpochInfoAggregator {
 }
 
 impl EpochInfoAggregator {
-    pub fn new(epoch_id: EpochId, last_block_hash: CryptoHash) -> Self {
+    pub fn new(
+        epoch_id: EpochId,
+        last_block_hash: CryptoHash,
+    ) -> Self {
         Self {
             block_tracker: Default::default(),
             shard_tracker: Default::default(),
@@ -81,7 +84,9 @@ impl EpochInfoAggregator {
         let block_info_height = block_info.height();
         for height in prev_block_height + 1..=block_info_height {
             let block_producer_id = EpochManager::block_producer_from_info(epoch_info, height);
-            let entry = self.block_tracker.entry(block_producer_id);
+            let entry = self
+                .block_tracker
+                .entry(block_producer_id);
             if height == block_info_height {
                 entry
                     .and_modify(|validator_stats| {
@@ -107,8 +112,14 @@ impl EpochInfoAggregator {
         // TODO(#11900): Call EpochManager::get_chunk_validator_assignments to access the cached validator assignments.
         let chunk_validator_assignment = epoch_info.sample_chunk_validators(prev_block_height + 1);
 
-        for (shard_index, mask) in block_info.chunk_mask().iter().enumerate() {
-            let shard_id = shard_layout.get_shard_id(shard_index).unwrap();
+        for (shard_index, mask) in block_info
+            .chunk_mask()
+            .iter()
+            .enumerate()
+        {
+            let shard_id = shard_layout
+                .get_shard_id(shard_index)
+                .unwrap();
             let chunk_producer_id = EpochManager::chunk_producer_from_info(
                 epoch_info,
                 shard_layout,
@@ -116,7 +127,10 @@ impl EpochInfoAggregator {
                 prev_block_height + 1,
             )
             .unwrap();
-            let tracker = self.shard_tracker.entry(shard_id).or_insert_with(HashMap::new);
+            let tracker = self
+                .shard_tracker
+                .entry(shard_id)
+                .or_insert_with(HashMap::new);
             tracker
                 .entry(chunk_producer_id)
                 .and_modify(|stats| {
@@ -164,8 +178,9 @@ impl EpochInfoAggregator {
             } else {
                 Box::new(std::iter::repeat(*mask).take(chunk_validators.len()))
             };
-            for (chunk_validator_id, endorsement_produced) in
-                chunk_validators.iter().zip(chunk_endorsements)
+            for (chunk_validator_id, endorsement_produced) in chunk_validators
+                .iter()
+                .zip(chunk_endorsements)
             {
                 tracker
                     .entry(*chunk_validator_id)
@@ -191,7 +206,9 @@ impl EpochInfoAggregator {
 
         // Step 4: update proposals
         for proposal in block_info.proposals_iter() {
-            self.all_proposals.entry(proposal.account_id().clone()).or_insert(proposal);
+            self.all_proposals
+                .entry(proposal.account_id().clone())
+                .or_insert(proposal);
         }
     }
 
@@ -213,13 +230,18 @@ impl EpochInfoAggregator {
     ///
     /// Once the method finishes `self` will hold statistics for blocks from
     /// B till J.
-    pub fn merge(&mut self, other: EpochInfoAggregator) {
+    pub fn merge(
+        &mut self,
+        other: EpochInfoAggregator,
+    ) {
         self.merge_common(&other);
 
         // merge version tracker
-        self.version_tracker.extend(other.version_tracker);
+        self.version_tracker
+            .extend(other.version_tracker);
         // merge proposals
-        self.all_proposals.extend(other.all_proposals);
+        self.all_proposals
+            .extend(other.all_proposals);
 
         self.last_block_hash = other.last_block_hash;
     }
@@ -245,20 +267,28 @@ impl EpochInfoAggregator {
     ///
     /// The method is a bit like doing `other.merge(self)` except that `other`
     /// is not changed.
-    pub fn merge_prefix(&mut self, other: &EpochInfoAggregator) {
+    pub fn merge_prefix(
+        &mut self,
+        other: &EpochInfoAggregator,
+    ) {
         self.merge_common(&other);
 
         // merge version tracker
-        self.version_tracker.reserve(other.version_tracker.len());
+        self.version_tracker
+            .reserve(other.version_tracker.len());
         // TODO(mina86): Use try_insert once map_try_insert is stabilized.
         for (k, v) in other.version_tracker.iter() {
-            self.version_tracker.entry(*k).or_insert_with(|| *v);
+            self.version_tracker
+                .entry(*k)
+                .or_insert_with(|| *v);
         }
 
         // merge proposals
         // TODO(mina86): Use try_insert once map_try_insert is stabilized.
         for (k, v) in other.all_proposals.iter() {
-            self.all_proposals.entry(k.clone()).or_insert_with(|| v.clone());
+            self.all_proposals
+                .entry(k.clone())
+                .or_insert_with(|| v.clone());
         }
     }
 
@@ -266,7 +296,10 @@ impl EpochInfoAggregator {
     ///
     /// See [`Self::merge`] and [`Self::merge_prefix`] method for description of
     /// merging.
-    fn merge_common(&mut self, other: &EpochInfoAggregator) {
+    fn merge_common(
+        &mut self,
+        other: &EpochInfoAggregator,
+    ) {
         assert_eq!(self.epoch_id, other.epoch_id);
 
         // merge block tracker

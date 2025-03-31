@@ -27,20 +27,26 @@ macro_rules! common_conversions {
         }
 
         impl ::std::fmt::Debug for $ty {
-            fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+            fn fmt(
+                &self,
+                f: &mut ::std::fmt::Formatter<'_>,
+            ) -> ::std::fmt::Result {
                 f.write_str(to_str!(self))
             }
         }
 
         impl ::std::fmt::Display for $ty {
-            fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+            fn fmt(
+                &self,
+                f: &mut ::std::fmt::Formatter<'_>,
+            ) -> ::std::fmt::Result {
                 f.write_str(to_str!(self))
             }
         }
 
         impl<'de> ::serde::Deserialize<'de> for $ty {
             fn deserialize<D: ::serde::Deserializer<'de>>(
-                deserializer: D,
+                deserializer: D
             ) -> Result<Self, D::Error> {
                 let s = <&str as ::serde::Deserialize<'de>>::deserialize(deserializer)?;
                 <Self as ::std::convert::TryFrom<&str>>::try_from(s).map_err(|_| {
@@ -53,7 +59,10 @@ macro_rules! common_conversions {
         }
 
         impl ::serde::Serialize for $ty {
-            fn serialize<S: ::serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+            fn serialize<S: ::serde::Serializer>(
+                &self,
+                serializer: S,
+            ) -> Result<S::Ok, S::Error> {
                 serializer.serialize_str(to_str!(self))
             }
         }
@@ -92,8 +101,8 @@ macro_rules! common_conversions_fixed {
             fn try_from(value: &str) -> Result<Self, ()> {
                 let mut buf = [0; $l];
                 match bs58::decode(value).into(&mut buf[..]) {
-                    Ok($l) => Self::try_from(&buf).or(Err(())),
-                    _ => Err(()),
+                    | Ok($l) => Self::try_from(&buf).or(Err(())),
+                    | _ => Err(()),
                 }
             }
         }
@@ -105,7 +114,10 @@ macro_rules! common_conversions_fixed {
 macro_rules! eq {
     ($ty:ty, $e:expr) => {
         impl PartialEq for $ty {
-            fn eq(&self, other: &Self) -> bool {
+            fn eq(
+                &self,
+                other: &Self,
+            ) -> bool {
                 ::std::convert::identity::<fn(&Self, &Self) -> bool>($e)(self, other)
             }
         }

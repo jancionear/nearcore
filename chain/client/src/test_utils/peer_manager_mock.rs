@@ -18,7 +18,7 @@ impl PeerManagerMock {
             + FnMut(
                 PeerManagerMessageRequest,
                 &mut actix::Context<Self>,
-            ) -> PeerManagerMessageResponse,
+            ) -> PeerManagerMessageResponse
     ) -> Self {
         Self { handle: Box::new(f) }
     }
@@ -30,22 +30,41 @@ impl actix::Actor for PeerManagerMock {
 
 impl actix::Handler<PeerManagerMessageRequest> for PeerManagerMock {
     type Result = PeerManagerMessageResponse;
-    fn handle(&mut self, msg: PeerManagerMessageRequest, ctx: &mut Self::Context) -> Self::Result {
+    fn handle(
+        &mut self,
+        msg: PeerManagerMessageRequest,
+        ctx: &mut Self::Context,
+    ) -> Self::Result {
         (self.handle)(msg, ctx)
     }
 }
 
 impl actix::Handler<SetChainInfo> for PeerManagerMock {
     type Result = ();
-    fn handle(&mut self, _msg: SetChainInfo, _ctx: &mut Self::Context) {}
+    fn handle(
+        &mut self,
+        _msg: SetChainInfo,
+        _ctx: &mut Self::Context,
+    ) {
+    }
 }
 
 impl actix::Handler<StateSyncEvent> for PeerManagerMock {
     type Result = ();
-    fn handle(&mut self, _msg: StateSyncEvent, _ctx: &mut Self::Context) {}
+    fn handle(
+        &mut self,
+        _msg: StateSyncEvent,
+        _ctx: &mut Self::Context,
+    ) {
+    }
 }
 
 impl actix::Handler<Tier3Request> for PeerManagerMock {
     type Result = ();
-    fn handle(&mut self, _msg: Tier3Request, _ctx: &mut Self::Context) {}
+    fn handle(
+        &mut self,
+        _msg: Tier3Request,
+        _ctx: &mut Self::Context,
+    ) {
+    }
 }

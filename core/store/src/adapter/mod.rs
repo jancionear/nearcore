@@ -58,8 +58,8 @@ impl Deref for StoreUpdateHolder<'_> {
 
     fn deref(&self) -> &Self::Target {
         match self {
-            StoreUpdateHolder::Reference(store_update) => store_update,
-            StoreUpdateHolder::Owned(store_update) => store_update,
+            | StoreUpdateHolder::Reference(store_update) => store_update,
+            | StoreUpdateHolder::Owned(store_update) => store_update,
         }
     }
 }
@@ -68,8 +68,8 @@ impl Deref for StoreUpdateHolder<'_> {
 impl DerefMut for StoreUpdateHolder<'_> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         match self {
-            StoreUpdateHolder::Reference(store_update) => store_update,
-            StoreUpdateHolder::Owned(store_update) => store_update,
+            | StoreUpdateHolder::Reference(store_update) => store_update,
+            | StoreUpdateHolder::Owned(store_update) => store_update,
         }
     }
 }
@@ -79,8 +79,8 @@ impl DerefMut for StoreUpdateHolder<'_> {
 impl Into<StoreUpdate> for StoreUpdateHolder<'static> {
     fn into(self) -> StoreUpdate {
         match self {
-            StoreUpdateHolder::Reference(_) => panic!("converting borrowed store update"),
-            StoreUpdateHolder::Owned(store_update) => store_update,
+            | StoreUpdateHolder::Reference(_) => panic!("converting borrowed store update"),
+            | StoreUpdateHolder::Owned(store_update) => store_update,
         }
     }
 }

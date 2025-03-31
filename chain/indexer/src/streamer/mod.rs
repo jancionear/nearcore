@@ -58,8 +58,10 @@ const PROBLEMATIC_BLOCKS: [CryptoHash; 2] = [
 /// confirm the raw values are correct.
 #[test]
 fn test_problematic_blocks_hash() {
-    let got: Vec<String> =
-        PROBLEMATIC_BLOCKS.iter().map(std::string::ToString::to_string).collect();
+    let got: Vec<String> = PROBLEMATIC_BLOCKS
+        .iter()
+        .map(std::string::ToString::to_string)
+        .collect();
     assert_eq!(
         vec![
             "ErdT2vLmiMjkRoSUfgowFYXvhGaLJZUWrgimHRkousrK",
@@ -81,7 +83,9 @@ pub async fn build_streamer_message(
     let chunks = fetch_block_chunks(&client, &block, shard_tracker).await?;
 
     let protocol_config_view = fetch_protocol_config(&client, block.header.hash).await?;
-    let shard_ids = protocol_config_view.shard_layout.shard_ids();
+    let shard_ids = protocol_config_view
+        .shard_layout
+        .shard_ids();
 
     let runtime_config_store = near_parameters::RuntimeConfigStore::new(None);
     let runtime_config = runtime_config_store.get_config(protocol_config_view.protocol_version);
@@ -98,7 +102,9 @@ pub async fn build_streamer_message(
             shard_id,
             chunk: None,
             receipt_execution_outcomes: vec![],
-            state_changes: state_changes.remove(&shard_id).unwrap_or_default(),
+            state_changes: state_changes
+                .remove(&shard_id)
+                .unwrap_or_default(),
         })
         .collect::<Vec<_>>();
 
@@ -169,11 +175,11 @@ pub async fn build_streamer_message(
                 // Attempt to extract the receipt or decide to fetch it based on cache access success
                 let maybe_receipt = {
                     match DELAYED_LOCAL_RECEIPTS_CACHE.write() {
-                        Ok(mut cache) => {
+                        | Ok(mut cache) => {
                             // Lock acquired, attempt to remove the receipt
                             cache.remove(&execution_outcome.id)
                         }
-                        Err(_) => {
+                        | Err(_) => {
                             // Failed to acquire lock, log this event and decide to fetch the receipt
                             tracing::warn!(
                                 target: INDEXER,
@@ -224,7 +230,10 @@ pub async fn build_streamer_message(
         {
             let mut restored_receipts: Vec<views::ReceiptView> = vec![];
             let receipt_ids_included: std::collections::HashSet<CryptoHash> =
-                chunk_non_local_receipts.iter().map(|receipt| receipt.receipt_id).collect();
+                chunk_non_local_receipts
+                    .iter()
+                    .map(|receipt| receipt.receipt_id)
+                    .collect();
             for outcome in &receipt_execution_outcomes {
                 if !receipt_ids_included.contains(&outcome.receipt.receipt_id) {
                     restored_receipts.push(outcome.receipt.clone());
@@ -235,11 +244,22 @@ pub async fn build_streamer_message(
         }
 
         chunk_receipts.extend(chunk_non_local_receipts);
+
+        // If the chunk is missing the data from the header contains the
+        // previous new chunk in the shard. In this case there is no need to
+        // process it. It may also fail if the missing chunk happens to be the
+        // first in a new shard layout during resharding because then the shard
+        // id will be no longer valid.
+        if !header.is_new_chunk(block.header.height) {
+            continue;
+        }
+
         // Find the shard index for the chunk by shard_id
         let shard_index = protocol_config_view
             .shard_layout
             .get_shard_index(header.shard_id)
             .map_err(|e| FailedToFetchData::String(e.to_string()))?;
+
         // Add receipt_execution_outcomes into corresponding indexer shard
         indexer_shards[shard_index].receipt_execution_outcomes = receipt_execution_outcomes;
         // Put the chunk into corresponding indexer shard
@@ -255,16 +275,26 @@ pub async fn build_streamer_message(
     // chunks and we end up with non-empty `shards_outcomes` we want to be sure we put them into IndexerShard
     // That might happen before the fix https://github.com/near/nearcore/pull/4228
     for (shard_id, outcomes) in shards_outcomes {
+        // The chunk may be missing and if that happens in the first block after
+        // resharding the shard id would no longer be valid in the new shard
+        // layout. In this case we can skip the chunk.
         let shard_index = protocol_config_view
             .shard_layout
-            .get_shard_index(shard_id)
-            .map_err(|e| FailedToFetchData::String(e.to_string()))?;
-        indexer_shards[shard_index].receipt_execution_outcomes.extend(outcomes.into_iter().map(
-            |outcome| IndexerExecutionOutcomeWithReceipt {
-                execution_outcome: outcome.execution_outcome,
-                receipt: outcome.receipt.expect("`receipt` must be present at this moment"),
-            },
-        ))
+            .get_shard_index(shard_id);
+        let Ok(shard_index) = shard_index else {
+            continue;
+        };
+
+        indexer_shards[shard_index]
+            .receipt_execution_outcomes
+            .extend(outcomes.into_iter().map(|outcome| {
+                IndexerExecutionOutcomeWithReceipt {
+                    execution_outcome: outcome.execution_outcome,
+                    receipt: outcome
+                        .receipt
+                        .expect("`receipt` must be present at this moment"),
+                }
+            }))
     }
 
     Ok(StreamerMessage { block, shards: indexer_shards })
@@ -297,8 +327,8 @@ async fn lookup_delayed_local_receipt_in_previous_blocks(
             );
         }
         let prev_block = match fetch_block(&client, prev_block_hash).await {
-            Ok(block) => block,
-            Err(err) => panic!("Unable to get previous block: {:?}", err),
+            | Ok(block) => block,
+            | Err(err) => panic!("Unable to get previous block: {:?}", err),
         };
 
         prev_block_hash = prev_block.header.prev_hash;
@@ -347,8 +377,10 @@ async fn find_local_receipt_by_id_in_block(
             .remove(&header.shard_id)
             .expect("Execution outcomes for given shard should be present");
 
-        if let Some((transaction, outcome)) =
-            transactions.into_iter().zip(outcomes.into_iter()).find(|(_, outcome)| {
+        if let Some((transaction, outcome)) = transactions
+            .into_iter()
+            .zip(outcomes.into_iter())
+            .find(|(_, outcome)| {
                 outcome
                     .execution_outcome
                     .outcome
@@ -393,8 +425,8 @@ pub(crate) async fn start(
             .join("indexer");
 
     let db = match DB::open_default(indexer_db_path) {
-        Ok(db) => db,
-        Err(err) => panic!("Unable to open indexer db: {:?}", err),
+        | Ok(db) => db,
+        | Err(err) => panic!("Unable to open indexer db: {:?}", err),
     };
 
     let mut last_synced_block_height: Option<near_primitives::types::BlockHeight> = None;
@@ -402,7 +434,7 @@ pub(crate) async fn start(
     'main: loop {
         time::sleep(INTERVAL).await;
         match indexer_config.await_for_node_synced {
-            AwaitForNodeSyncedEnum::WaitForFullSync => {
+            | AwaitForNodeSyncedEnum::WaitForFullSync => {
                 let status = fetch_status(&client).await;
                 if let Ok(status) = status {
                     if status.sync_info.syncing {
@@ -410,7 +442,7 @@ pub(crate) async fn start(
                     }
                 }
             }
-            AwaitForNodeSyncedEnum::StreamWhileSyncing => {}
+            | AwaitForNodeSyncedEnum::StreamWhileSyncing => {}
         };
 
         let block =
@@ -421,22 +453,27 @@ pub(crate) async fn start(
             };
 
         let latest_block_height = block.header.height;
-        let start_syncing_block_height = if let Some(last_synced_block_height) =
-            last_synced_block_height
-        {
-            last_synced_block_height + 1
-        } else {
-            match indexer_config.sync_mode {
-                crate::SyncModeEnum::FromInterruption => {
-                    match db.get(b"last_synced_block_height").unwrap() {
-                        Some(value) => String::from_utf8(value).unwrap().parse::<u64>().unwrap(),
-                        None => latest_block_height,
+        let start_syncing_block_height =
+            if let Some(last_synced_block_height) = last_synced_block_height {
+                last_synced_block_height + 1
+            } else {
+                match indexer_config.sync_mode {
+                    | crate::SyncModeEnum::FromInterruption => {
+                        match db
+                            .get(b"last_synced_block_height")
+                            .unwrap()
+                        {
+                            | Some(value) => String::from_utf8(value)
+                                .unwrap()
+                                .parse::<u64>()
+                                .unwrap(),
+                            | None => latest_block_height,
+                        }
                     }
+                    | crate::SyncModeEnum::LatestSynced => latest_block_height,
+                    | crate::SyncModeEnum::BlockHeight(height) => height,
                 }
-                crate::SyncModeEnum::LatestSynced => latest_block_height,
-                crate::SyncModeEnum::BlockHeight(height) => height,
-            }
-        };
+            };
 
         debug!(
             target: INDEXER,
@@ -452,9 +489,13 @@ pub(crate) async fn start(
                 let response = build_streamer_message(&view_client, block, &shard_tracker).await;
 
                 match response {
-                    Ok(streamer_message) => {
+                    | Ok(streamer_message) => {
                         debug!(target: INDEXER, "Sending streamer message for block #{} to the listener", streamer_message.block.header.height);
-                        if blocks_sink.send(streamer_message).await.is_err() {
+                        if blocks_sink
+                            .send(streamer_message)
+                            .await
+                            .is_err()
+                        {
                             error!(
                                 target: INDEXER,
                                 "Unable to send StreamerMessage to listener, listener doesn't listen. terminating..."
@@ -464,7 +505,7 @@ pub(crate) async fn start(
                             metrics::NUM_STREAMER_MESSAGES_SENT.inc();
                         }
                     }
-                    Err(err) => {
+                    | Err(err) => {
                         debug!(
                             target: INDEXER,
                             "Missing data, skipping block #{}...", block_height
@@ -473,7 +514,8 @@ pub(crate) async fn start(
                     }
                 }
             }
-            db.put(b"last_synced_block_height", &block_height.to_string()).unwrap();
+            db.put(b"last_synced_block_height", &block_height.to_string())
+                .unwrap();
             last_synced_block_height = Some(block_height);
         }
     }

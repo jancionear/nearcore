@@ -38,25 +38,31 @@ async fn broadcast() {
     .await;
 
     let take_incremental_sync = |ev| match ev {
-        peer::testonly::Event::Network(PME::MessageProcessed(
+        | peer::testonly::Event::Network(PME::MessageProcessed(
             tcp::Tier::T2,
             PeerMessage::SyncAccountsData(msg),
         )) if msg.incremental => Some(msg),
-        _ => None,
+        | _ => None,
     };
     let take_full_sync = |ev| match ev {
-        peer::testonly::Event::Network(PME::MessageProcessed(
+        | peer::testonly::Event::Network(PME::MessageProcessed(
             tcp::Tier::T2,
             PeerMessage::SyncAccountsData(msg),
         )) if !msg.incremental => Some(msg),
-        _ => None,
+        | _ => None,
     };
 
     let data = chain.make_tier1_data(rng, clock);
     tracing::info!(target:"test", "Connect peer, expect initial sync to be empty.");
-    let mut peer1 =
-        pm.start_inbound(chain.clone(), chain.make_config(rng)).await.handshake(clock).await;
-    let got1 = peer1.events.recv_until(take_full_sync).await;
+    let mut peer1 = pm
+        .start_inbound(chain.clone(), chain.make_config(rng))
+        .await
+        .handshake(clock)
+        .await;
+    let got1 = peer1
+        .events
+        .recv_until(take_full_sync)
+        .await;
     assert_eq!(got1.accounts_data, vec![]);
 
     tracing::info!(target:"test", "Send some data.");
@@ -65,14 +71,26 @@ async fn broadcast() {
         incremental: true,
         requesting_full_sync: false,
     };
-    let want: HashSet<_> = msg.accounts_data.iter().cloned().collect();
-    peer1.send(PeerMessage::SyncAccountsData(msg)).await;
+    let want: HashSet<_> = msg
+        .accounts_data
+        .iter()
+        .cloned()
+        .collect();
+    peer1
+        .send(PeerMessage::SyncAccountsData(msg))
+        .await;
     pm.wait_for_accounts_data(&want).await;
 
     tracing::info!(target:"test", "Connect another peer and perform initial full sync.");
-    let mut peer2 =
-        pm.start_inbound(chain.clone(), chain.make_config(rng)).await.handshake(clock).await;
-    let got2 = peer2.events.recv_until(take_full_sync).await;
+    let mut peer2 = pm
+        .start_inbound(chain.clone(), chain.make_config(rng))
+        .await
+        .handshake(clock)
+        .await;
+    let got2 = peer2
+        .events
+        .recv_until(take_full_sync)
+        .await;
     assert_eq!(got2.accounts_data.as_set(), want.iter().collect::<HashSet<_>>());
 
     tracing::info!(target:"test", "Send a mix of new and old data. Only new data should be broadcasted.");
@@ -82,12 +100,21 @@ async fn broadcast() {
         requesting_full_sync: false,
     };
     let want = vec![data[2].clone()];
-    peer1.send(PeerMessage::SyncAccountsData(msg)).await;
-    let got2 = peer2.events.recv_until(take_incremental_sync).await;
+    peer1
+        .send(PeerMessage::SyncAccountsData(msg))
+        .await;
+    let got2 = peer2
+        .events
+        .recv_until(take_incremental_sync)
+        .await;
     assert_eq!(got2.accounts_data.as_set(), want.as_set());
 
     tracing::info!(target:"test", "Send a request for a full sync.");
-    let want = vec![data[0].clone(), data[1].clone(), data[2].clone()];
+    let want = vec![
+        data[0].clone(),
+        data[1].clone(),
+        data[2].clone(),
+    ];
     let mut events = peer1.events.from_now();
     peer1
         .send(PeerMessage::SyncAccountsData(SyncAccountsData {
@@ -128,8 +155,12 @@ async fn gradual_epoch_change() {
     // 0 <-> 1 <-> 2
     let pm1 = pms[1].peer_info();
     let pm2 = pms[2].peer_info();
-    pms[0].connect_to(&pm1, tcp::Tier::T2).await;
-    pms[1].connect_to(&pm2, tcp::Tier::T2).await;
+    pms[0]
+        .connect_to(&pm1, tcp::Tier::T2)
+        .await;
+    pms[1]
+        .connect_to(&pm2, tcp::Tier::T2)
+        .await;
 
     // For every order of nodes.
     for ids in (0..pms.len()).permutations(pms.len()) {
@@ -137,19 +168,27 @@ async fn gradual_epoch_change() {
         clock.advance(time::Duration::hours(1));
         let chain_info = testonly::make_chain_info(
             &chain,
-            &pms.iter().map(|pm| &pm.cfg).collect::<Vec<_>>()[..],
+            &pms.iter()
+                .map(|pm| &pm.cfg)
+                .collect::<Vec<_>>()[..],
         );
 
         let mut want = HashSet::new();
         tracing::info!(target:"test", "advance epoch in the given order.");
         for id in ids {
-            pms[id].set_chain_info(chain_info.clone()).await;
+            pms[id]
+                .set_chain_info(chain_info.clone())
+                .await;
             // In this tests each node is its own proxy, so it can immediately
             // connect to itself (to verify the public addr) and advertise it.
             // If some other node B was a proxy for a node A, then first both
             // A and B would have to update their chain_info, and only then A
             // would be able to connect to B and advertise B as proxy afterwards.
-            want.extend(pms[id].tier1_advertise_proxies(&clock.clock()).await);
+            want.extend(
+                pms[id]
+                    .tier1_advertise_proxies(&clock.clock())
+                    .await,
+            );
         }
         for pm in &mut pms {
             tracing::info!(target:"test", "wait for data to arrive to {}.",pm.cfg.node_id());
@@ -215,21 +254,32 @@ async fn slow_test_rate_limiting() {
     }
 
     // Construct ChainInfo with tier1_accounts containing all validators.
-    let chain_info =
-        testonly::make_chain_info(&chain, &pms.iter().map(|pm| &pm.cfg).collect::<Vec<_>>()[..]);
+    let chain_info = testonly::make_chain_info(
+        &chain,
+        &pms.iter()
+            .map(|pm| &pm.cfg)
+            .collect::<Vec<_>>()[..],
+    );
 
     clock.advance(time::Duration::hours(1));
 
     // Capture the event streams now, so that we can compute
     // the total number of SyncAccountsData messages exchanged in the process.
-    let events: Vec<_> = pms.iter().map(|pm| pm.events.from_now()).collect();
+    let events: Vec<_> = pms
+        .iter()
+        .map(|pm| pm.events.from_now())
+        .collect();
 
     tracing::info!(target:"test","Advance epoch in random order.");
     pms.shuffle(rng);
     let mut want = HashSet::new();
     for pm in &mut pms {
-        pm.set_chain_info(chain_info.clone()).await;
-        want.extend(pm.tier1_advertise_proxies(&clock.clock()).await);
+        pm.set_chain_info(chain_info.clone())
+            .await;
+        want.extend(
+            pm.tier1_advertise_proxies(&clock.clock())
+                .await,
+        );
     }
 
     tracing::info!(target:"test","Wait for data to arrive.");
@@ -298,14 +348,21 @@ async fn validator_node_restart() {
         let pm0 = start_pm(clock.clock(), TestDB::new(), cfg.clone(), chain.clone()).await;
         let pm1 =
             start_pm(clock.clock(), TestDB::new(), chain.make_config(rng), chain.clone()).await;
-        pm0.set_chain_info(chain_info.clone()).await;
-        pm1.set_chain_info(chain_info.clone()).await;
+        pm0.set_chain_info(chain_info.clone())
+            .await;
+        pm1.set_chain_info(chain_info.clone())
+            .await;
 
         // Connect the nodes and make pm0 broadcast `n` versions of the AccountData.
-        pm0.connect_to(&pm1.peer_info(), tcp::Tier::T2).await;
+        pm0.connect_to(&pm1.peer_info(), tcp::Tier::T2)
+            .await;
         for _ in 0..n {
-            let want = pm0.tier1_advertise_proxies(&clock.clock()).await.unwrap();
-            pm1.wait_for_accounts_data(&HashSet::from([want.clone()])).await;
+            let want = pm0
+                .tier1_advertise_proxies(&clock.clock())
+                .await
+                .unwrap();
+            pm1.wait_for_accounts_data(&HashSet::from([want.clone()]))
+                .await;
         }
 
         // Shut down pm0 and restart it after `downtime` with a different node_key.
@@ -313,20 +370,30 @@ async fn validator_node_restart() {
         clock.set_utc(clock.now_utc() + downtime);
         cfg.node_key = data::make_secret_key(rng);
         let pm0 = start_pm(clock.clock(), TestDB::new(), cfg.clone(), chain.clone()).await;
-        pm0.set_chain_info(chain_info.clone()).await;
+        pm0.set_chain_info(chain_info.clone())
+            .await;
 
         // Sign AccountData before even connecting to the network.
-        assert!(pm0.tier1_advertise_proxies(&clock.clock()).await.is_some());
+        assert!(pm0
+            .tier1_advertise_proxies(&clock.clock())
+            .await
+            .is_some());
         // Connect to the node which knows the old AccountData.
-        pm0.connect_to(&pm1.peer_info(), tcp::Tier::T2).await;
+        pm0.connect_to(&pm1.peer_info(), tcp::Tier::T2)
+            .await;
 
         // Now pm0 should learn from pm1 about the conflicting version and should broadcast
         // new AccountData (with higher version) to override the old AccountData.
-        let pm0_account_key = cfg.validator.signer.get().unwrap().public_key();
+        let pm0_account_key = cfg
+            .validator
+            .signer
+            .get()
+            .unwrap()
+            .public_key();
         pm1.wait_for_accounts_data_pred(|accounts_data| {
             let data = match accounts_data.data.get(&pm0_account_key) {
-                Some(it) => it,
-                None => return false,
+                | Some(it) => it,
+                | None => return false,
             };
             data.peer_id == cfg.node_id()
         })

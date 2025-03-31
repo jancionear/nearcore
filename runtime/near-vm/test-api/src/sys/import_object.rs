@@ -13,7 +13,10 @@ use std::sync::{Arc, Mutex};
 /// considered namespaces that could provide imports to an instance.
 pub trait LikeNamespace {
     /// Gets an export by name.
-    fn get_namespace_export(&self, name: &str) -> Option<Export>;
+    fn get_namespace_export(
+        &self,
+        name: &str,
+    ) -> Option<Export>;
     /// Gets all exports in the namespace.
     fn get_namespace_exports(&self) -> Vec<(String, Export)>;
 }
@@ -58,7 +61,11 @@ impl ImportObject {
     /// let mut import_object = ImportObject::new();
     /// import_object.get_export("module", "name");
     /// ```
-    pub fn get_export(&self, module: &str, name: &str) -> Option<Export> {
+    pub fn get_export(
+        &self,
+        module: &str,
+        name: &str,
+    ) -> Option<Export> {
         let map_ref = self.map.lock().unwrap();
         if map_ref.contains_key(module) {
             let namespace = map_ref[module].as_ref();
@@ -68,8 +75,14 @@ impl ImportObject {
     }
 
     /// Returns true if the ImportObject contains namespace with the provided name.
-    pub fn contains_namespace(&self, name: &str) -> bool {
-        self.map.lock().unwrap().contains_key(name)
+    pub fn contains_namespace(
+        &self,
+        name: &str,
+    ) -> bool {
+        self.map
+            .lock()
+            .unwrap()
+            .contains_key(name)
     }
 
     /// Register anything that implements `LikeNamespace` as a namespace.
@@ -83,7 +96,11 @@ impl ImportObject {
     /// import_object.register("namespace1", namespace);
     /// // ...
     /// ```
-    pub fn register<S, N>(&mut self, name: S, namespace: N) -> Option<Box<dyn LikeNamespace>>
+    pub fn register<S, N>(
+        &mut self,
+        name: S,
+        namespace: N,
+    ) -> Option<Box<dyn LikeNamespace>>
     where
         S: Into<String>,
         N: LikeNamespace + Send + Sync + 'static,
@@ -92,11 +109,11 @@ impl ImportObject {
         let map = guard.borrow_mut();
 
         match map.entry(name.into()) {
-            Entry::Vacant(empty) => {
+            | Entry::Vacant(empty) => {
                 empty.insert(Box::new(namespace));
                 None
             }
-            Entry::Occupied(mut occupied) => Some(occupied.insert(Box::new(namespace))),
+            | Entry::Occupied(mut occupied) => Some(occupied.insert(Box::new(namespace))),
         }
     }
 
@@ -113,7 +130,11 @@ impl ImportObject {
 }
 
 impl NamedResolver for ImportObject {
-    fn resolve_by_name(&self, module: &str, name: &str) -> Option<Export> {
+    fn resolve_by_name(
+        &self,
+        module: &str,
+        name: &str,
+    ) -> Option<Export> {
         self.get_export(module, name)
     }
 }
@@ -140,7 +161,10 @@ impl IntoIterator for ImportObject {
 }
 
 impl fmt::Debug for ImportObject {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter,
+    ) -> fmt::Result {
         enum SecretMap {
             Empty,
             Some(usize),
@@ -157,10 +181,13 @@ impl fmt::Debug for ImportObject {
         }
 
         impl fmt::Debug for SecretMap {
-            fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            fn fmt(
+                &self,
+                f: &mut fmt::Formatter,
+            ) -> fmt::Result {
                 match self {
-                    Self::Empty => write!(f, "(empty)"),
-                    Self::Some(len) => write!(f, "(... {} item(s) ...)", len),
+                    | Self::Empty => write!(f, "(empty)"),
+                    | Self::Some(len) => write!(f, "(... {} item(s) ...)", len),
                 }
             }
         }
@@ -294,7 +321,9 @@ mod test {
         };
 
         let resolver = imports1.chain_front(imports2);
-        let happy_dog_entry = resolver.resolve_by_name("dog", "happy").unwrap();
+        let happy_dog_entry = resolver
+            .resolve_by_name("dog", "happy")
+            .unwrap();
 
         assert!(if let Export::Global(happy_dog_global) = happy_dog_entry {
             happy_dog_global.from.ty().ty == Type::I64
@@ -320,7 +349,9 @@ mod test {
         };
 
         let resolver = imports1.chain_back(imports2);
-        let happy_dog_entry = resolver.resolve_by_name("dog", "happy").unwrap();
+        let happy_dog_entry = resolver
+            .resolve_by_name("dog", "happy")
+            .unwrap();
 
         assert!(if let Export::Global(happy_dog_global) = happy_dog_entry {
             happy_dog_global.from.ty().ty == Type::I32
@@ -340,7 +371,9 @@ mod test {
             "dog" => namespace
         };
 
-        let happy_dog_entry = imports1.resolve_by_name("dog", "happy").unwrap();
+        let happy_dog_entry = imports1
+            .resolve_by_name("dog", "happy")
+            .unwrap();
 
         assert!(if let Export::Global(happy_dog_global) = happy_dog_entry {
             happy_dog_global.from.ty().ty == Type::I32

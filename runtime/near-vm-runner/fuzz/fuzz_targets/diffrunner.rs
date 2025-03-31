@@ -19,7 +19,10 @@ libfuzzer_sys::fuzz_target!(|module: ArbitraryModule| {
     assert_eq!(near_vm, wasmtime);
 });
 
-fn run_fuzz(code: &ContractCode, vm_kind: VMKind) -> VMOutcome {
+fn run_fuzz(
+    code: &ContractCode,
+    vm_kind: VMKind,
+) -> VMOutcome {
     let mut fake_external = MockedExternal::with_code(code.clone_for_tests());
     let method_name = find_entry_point(code).unwrap_or_else(|| "main".to_string());
     let mut context = create_context(vec![]);
@@ -28,8 +31,9 @@ fn run_fuzz(code: &ContractCode, vm_kind: VMKind) -> VMOutcome {
     let config = config_store.get_config(PROTOCOL_VERSION);
     let fees = Arc::clone(&config.fees);
     let mut wasm_config = near_parameters::vm::Config::clone(&config.wasm_config);
-    wasm_config.limit_config.contract_prepare_version =
-        near_vm_runner::logic::ContractPrepareVersion::V2;
+    wasm_config
+        .limit_config
+        .contract_prepare_version = near_vm_runner::logic::ContractPrepareVersion::V2;
     let gas_counter = context.make_gas_counter(&wasm_config);
     let res = vm_kind
         .runtime(wasm_config.into())
@@ -40,7 +44,7 @@ fn run_fuzz(code: &ContractCode, vm_kind: VMKind) -> VMOutcome {
     // Remove the VMError message details as they can differ between runtimes
     // TODO: maybe there's actually things we could check for equality here too?
     match res {
-        Ok(mut outcome) => {
+        | Ok(mut outcome) => {
             if outcome.aborted.is_some() {
                 outcome.logs = vec!["[censored]".to_owned()];
                 outcome.aborted =
@@ -48,6 +52,6 @@ fn run_fuzz(code: &ContractCode, vm_kind: VMKind) -> VMOutcome {
             }
             outcome
         }
-        Err(err) => panic!("fatal error: {err:?}"),
+        | Err(err) => panic!("fatal error: {err:?}"),
     }
 }

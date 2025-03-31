@@ -117,21 +117,21 @@ impl FromStr for CpuFeature {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "sse2" => Ok(Self::SSE2),
-            "sse3" => Ok(Self::SSE3),
-            "ssse3" => Ok(Self::SSSE3),
-            "sse4.1" => Ok(Self::SSE41),
-            "sse4.2" => Ok(Self::SSE42),
-            "popcnt" => Ok(Self::POPCNT),
-            "avx" => Ok(Self::AVX),
-            "bmi" => Ok(Self::BMI1),
-            "bmi2" => Ok(Self::BMI2),
-            "avx2" => Ok(Self::AVX2),
-            "avx512dq" => Ok(Self::AVX512DQ),
-            "avx512vl" => Ok(Self::AVX512VL),
-            "avx512f" => Ok(Self::AVX512F),
-            "lzcnt" => Ok(Self::LZCNT),
-            _ => Err(ParseCpuFeatureError::Missing(s.to_string())),
+            | "sse2" => Ok(Self::SSE2),
+            | "sse3" => Ok(Self::SSE3),
+            | "ssse3" => Ok(Self::SSSE3),
+            | "sse4.1" => Ok(Self::SSE41),
+            | "sse4.2" => Ok(Self::SSE42),
+            | "popcnt" => Ok(Self::POPCNT),
+            | "avx" => Ok(Self::AVX),
+            | "bmi" => Ok(Self::BMI1),
+            | "bmi2" => Ok(Self::BMI2),
+            | "avx2" => Ok(Self::AVX2),
+            | "avx512dq" => Ok(Self::AVX512DQ),
+            | "avx512vl" => Ok(Self::AVX512VL),
+            | "avx512f" => Ok(Self::AVX512F),
+            | "lzcnt" => Ok(Self::LZCNT),
+            | _ => Err(ParseCpuFeatureError::Missing(s.to_string())),
         }
     }
 }
@@ -139,20 +139,20 @@ impl FromStr for CpuFeature {
 impl ToString for CpuFeature {
     fn to_string(&self) -> String {
         match self {
-            Self::SSE2 => "sse2",
-            Self::SSE3 => "sse3",
-            Self::SSSE3 => "ssse3",
-            Self::SSE41 => "sse4.1",
-            Self::SSE42 => "sse4.2",
-            Self::POPCNT => "popcnt",
-            Self::AVX => "avx",
-            Self::BMI1 => "bmi",
-            Self::BMI2 => "bmi2",
-            Self::AVX2 => "avx2",
-            Self::AVX512DQ => "avx512dq",
-            Self::AVX512VL => "avx512vl",
-            Self::AVX512F => "avx512f",
-            Self::LZCNT => "lzcnt",
+            | Self::SSE2 => "sse2",
+            | Self::SSE3 => "sse3",
+            | Self::SSSE3 => "ssse3",
+            | Self::SSE41 => "sse4.1",
+            | Self::SSE42 => "sse4.2",
+            | Self::POPCNT => "popcnt",
+            | Self::AVX => "avx",
+            | Self::BMI1 => "bmi",
+            | Self::BMI2 => "bmi2",
+            | Self::AVX2 => "avx2",
+            | Self::AVX512DQ => "avx512dq",
+            | Self::AVX512VL => "avx512vl",
+            | Self::AVX512F => "avx512f",
+            | Self::LZCNT => "lzcnt",
         }
         .to_string()
     }
@@ -168,7 +168,10 @@ pub struct Target {
 
 impl Target {
     /// Creates a new target given a triple
-    pub fn new(triple: Triple, cpu_features: EnumSet<CpuFeature>) -> Self {
+    pub fn new(
+        triple: Triple,
+        cpu_features: EnumSet<CpuFeature>,
+    ) -> Self {
         Self { triple, cpu_features }
     }
 

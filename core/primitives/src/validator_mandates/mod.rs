@@ -35,7 +35,10 @@ impl ValidatorMandatesConfig {
     ///
     /// - If `stake_per_mandate` is 0 as this would lead to division by 0.
     /// - If `num_shards` is zero.
-    pub fn new(target_mandates_per_shard: usize, num_shards: usize) -> Self {
+    pub fn new(
+        target_mandates_per_shard: usize,
+        num_shards: usize,
+    ) -> Self {
         assert!(num_shards > 0, "there should be at least one shard");
         Self { target_mandates_per_shard, num_shards }
     }
@@ -85,13 +88,23 @@ impl ValidatorMandates {
     ///
     /// Only full mandates are assigned, partial mandates are dropped. For example, when the stake
     /// required for a mandate is 5 and a validator has staked 12, then it will obtain 2 mandates.
-    pub fn new(config: ValidatorMandatesConfig, validators: &[ValidatorStake]) -> Self {
-        let stakes: Vec<Balance> = validators.iter().map(|v| v.stake()).collect();
+    pub fn new(
+        config: ValidatorMandatesConfig,
+        validators: &[ValidatorStake],
+    ) -> Self {
+        let stakes: Vec<Balance> = validators
+            .iter()
+            .map(|v| v.stake())
+            .collect();
         let stake_per_mandate = compute_price::compute_mandate_price(config, &stakes);
-        let num_mandates_per_validator: Vec<u16> =
-            validators.iter().map(|v| v.num_mandates(stake_per_mandate)).collect();
-        let num_total_mandates =
-            num_mandates_per_validator.iter().map(|&num| usize::from(num)).sum();
+        let num_mandates_per_validator: Vec<u16> = validators
+            .iter()
+            .map(|v| v.num_mandates(stake_per_mandate))
+            .collect();
+        let num_total_mandates = num_mandates_per_validator
+            .iter()
+            .map(|&num| usize::from(num))
+            .sum();
         let mut mandates: Vec<ValidatorId> = Vec::with_capacity(num_total_mandates);
 
         for i in 0..validators.len() {
@@ -131,7 +144,10 @@ mod validator_mandates_sample {
         ///
         /// It clones mandates since [`ValidatorMandates`] is supposed to be valid for an epoch, while a
         /// new assignment is calculated at every height.
-        pub fn sample<R>(&self, rng: &mut R) -> ChunkValidatorStakeAssignment
+        pub fn sample<R>(
+            &self,
+            rng: &mut R,
+        ) -> ChunkValidatorStakeAssignment
         where
             R: Rng + ?Sized,
         {
@@ -162,7 +178,9 @@ mod validator_mandates_sample {
                 // `i % num_shards == shard_id`.
                 for idx in (shard_id..shuffled_mandates.len()).step_by(self.config.num_shards) {
                     let validator_id = shuffled_mandates[idx];
-                    *mandates_assignment.entry(validator_id).or_default() += stake_per_mandate;
+                    *mandates_assignment
+                        .entry(validator_id)
+                        .or_default() += stake_per_mandate;
                 }
 
                 // Achieve shard id shuffling by writing to the position of the alias of `shard_id`.
@@ -173,7 +191,9 @@ mod validator_mandates_sample {
                 // `i % num_shards == shard_id`.
                 for idx in (shard_id..shuffled_partials.len()).step_by(self.config.num_shards) {
                     let (validator_id, partial_weight) = shuffled_partials[idx];
-                    *partials_assignment.entry(validator_id).or_default() += partial_weight;
+                    *partials_assignment
+                        .entry(validator_id)
+                        .or_default() += partial_weight;
                 }
             }
 
@@ -182,7 +202,10 @@ mod validator_mandates_sample {
             for shard_id in 0..self.config.num_shards {
                 // first sort the validators by id then shuffle using rng
                 let stake_assignment = &stake_assignment_per_shard[shard_id];
-                let mut ordered_validator_ids = stake_assignment.keys().sorted().collect_vec();
+                let mut ordered_validator_ids = stake_assignment
+                    .keys()
+                    .sorted()
+                    .collect_vec();
                 ordered_validator_ids.shuffle(rng);
                 let ordered_mandate_assignment = ordered_validator_ids
                     .into_iter()
@@ -196,7 +219,10 @@ mod validator_mandates_sample {
 
         /// Clones the contained mandates and shuffles them. Cloning is required as a shuffle happens at
         /// every height while the `ValidatorMandates` are to be valid for an epoch.
-        pub(super) fn shuffled_mandates<R>(&self, rng: &mut R) -> Vec<ValidatorId>
+        pub(super) fn shuffled_mandates<R>(
+            &self,
+            rng: &mut R,
+        ) -> Vec<ValidatorId>
         where
             R: Rng + ?Sized,
         {
@@ -207,7 +233,10 @@ mod validator_mandates_sample {
 
         /// Clones the contained partials and shuffles them. Cloning is required as a shuffle happens at
         /// every height while the `ValidatorMandates` are to be valid for an epoch.
-        pub(super) fn shuffled_partials<R>(&self, rng: &mut R) -> Vec<(ValidatorId, Balance)>
+        pub(super) fn shuffled_partials<R>(
+            &self,
+            rng: &mut R,
+        ) -> Vec<(ValidatorId, Balance)>
         where
             R: Rng + ?Sized,
         {
@@ -252,7 +281,10 @@ struct ShuffledShardIds {
 
 #[cfg(feature = "rand")]
 impl ShuffledShardIds {
-    fn new<R>(rng: &mut R, num_shards: usize) -> Self
+    fn new<R>(
+        rng: &mut R,
+        num_shards: usize,
+    ) -> Self
     where
         R: rand::Rng + ?Sized,
     {
@@ -268,7 +300,10 @@ impl ShuffledShardIds {
     /// # Panics
     ///
     /// Panics if `shard_id >= num_shards`.
-    fn get_alias(&self, shard_id: usize) -> usize {
+    fn get_alias(
+        &self,
+        shard_id: usize,
+    ) -> usize {
         self.shuffled_ids[shard_id]
     }
 }
@@ -355,8 +390,15 @@ mod tests {
 
         // At 8 stake per mandate, the first validator a partial mandate with weight 6, the second
         // validator holds a partial mandate with weight 3, and so on.
-        let expected_partials: Vec<(ValidatorId, Balance)> =
-            vec![(0, 6), (1, 3), (2, 1), (3, 4), (4, 3), (5, 4), (6, 6)];
+        let expected_partials: Vec<(ValidatorId, Balance)> = vec![
+            (0, 6),
+            (1, 3),
+            (2, 1),
+            (3, 4),
+            (4, 3),
+            (5, 4),
+            (6, 6),
+        ];
         assert_eq!(mandates.partials, expected_partials);
     }
 
@@ -393,11 +435,26 @@ mod tests {
         // Testing with different `num_shards` values to verify the shuffles used in other tests.
         assert_validator_mandates_shuffled_partials(
             3,
-            vec![(3, 2), (4, 5), (1, 7), (2, 9), (5, 4), (6, 6)],
+            vec![
+                (3, 2),
+                (4, 5),
+                (1, 7),
+                (2, 9),
+                (5, 4),
+                (6, 6),
+            ],
         );
         assert_validator_mandates_shuffled_partials(
             4,
-            vec![(5, 4), (3, 4), (0, 6), (2, 1), (1, 3), (4, 3), (6, 6)],
+            vec![
+                (5, 4),
+                (3, 4),
+                (0, 6),
+                (2, 1),
+                (1, 3),
+                (4, 3),
+                (6, 6),
+            ],
         );
     }
 
@@ -434,7 +491,13 @@ mod tests {
         let config = ValidatorMandatesConfig::new(3, 3);
         let expected_assignment = vec![
             vec![(1, 17), (4, 10), (6, 06), (0, 10)],
-            vec![(4, 05), (5, 04), (0, 10), (1, 10), (3, 10)],
+            vec![
+                (4, 05),
+                (5, 04),
+                (0, 10),
+                (1, 10),
+                (3, 10),
+            ],
             vec![(0, 10), (2, 09), (4, 20), (3, 02)],
         ];
         assert_validator_mandates_sample(config, expected_assignment);

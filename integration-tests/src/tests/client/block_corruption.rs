@@ -16,7 +16,10 @@ use nearcore::test_utils::TestEnvNightshadeSetupExt;
 const NOT_BREAKING_CHANGE_MSG: &str = "Not a breaking change";
 const BLOCK_NOT_PARSED_MSG: &str = "Corrupt block didn't parse";
 
-fn create_tx_load(height: BlockHeight, last_block: &Block) -> Vec<SignedTransaction> {
+fn create_tx_load(
+    height: BlockHeight,
+    last_block: &Block,
+) -> Vec<SignedTransaction> {
     let signer = InMemorySigner::test_signer(&"test0".parse().unwrap());
     let tx = SignedTransaction::send_money(
         height + 10000,
@@ -35,11 +38,22 @@ fn create_tx_load(height: BlockHeight, last_block: &Block) -> Vec<SignedTransact
 fn change_shard_id_to_invalid() {
     init_test_logger();
     let epoch_length = 5000000;
-    let mut genesis = Genesis::test(vec!["test0".parse().unwrap(), "test1".parse().unwrap()], 1);
+    let mut genesis = Genesis::test(
+        vec![
+            "test0".parse().unwrap(),
+            "test1".parse().unwrap(),
+        ],
+        1,
+    );
     genesis.config.epoch_length = epoch_length;
-    let mut env = TestEnv::builder(&genesis.config).nightshade_runtimes(&genesis).build();
+    let mut env = TestEnv::builder(&genesis.config)
+        .nightshade_runtimes(&genesis)
+        .build();
 
-    let mut last_block = env.clients[0].chain.get_block_by_height(0).unwrap();
+    let mut last_block = env.clients[0]
+        .chain
+        .get_block_by_height(0)
+        .unwrap();
 
     // Produce normal block
 
@@ -48,7 +62,10 @@ fn change_shard_id_to_invalid() {
         assert_eq!(env.clients[0].process_tx(tx, false, false), ProcessTxResponse::ValidTx);
     }
 
-    let block = env.clients[0].produce_block(1).unwrap().unwrap();
+    let block = env.clients[0]
+        .produce_block(1)
+        .unwrap()
+        .unwrap();
     env.process_block(0, block.clone(), Provenance::PRODUCED);
     last_block = block;
 
@@ -59,7 +76,10 @@ fn change_shard_id_to_invalid() {
         assert_eq!(env.clients[0].process_tx(tx, false, false), ProcessTxResponse::ValidTx);
     }
 
-    let mut block = env.clients[0].produce_block(2).unwrap().unwrap();
+    let mut block = env.clients[0]
+        .produce_block(2)
+        .unwrap()
+        .unwrap();
 
     // 1. Corrupt chunks
     let bad_shard_id = ShardId::new(100);
@@ -67,13 +87,13 @@ fn change_shard_id_to_invalid() {
     for chunk in block.chunks().iter_deprecated() {
         let mut new_chunk = chunk.clone();
         match &mut new_chunk {
-            ShardChunkHeader::V1(new_chunk) => new_chunk.inner.shard_id = bad_shard_id,
-            ShardChunkHeader::V2(new_chunk) => new_chunk.inner.shard_id = bad_shard_id,
-            ShardChunkHeader::V3(new_chunk) => match &mut new_chunk.inner {
-                ShardChunkHeaderInner::V1(inner) => inner.shard_id = bad_shard_id,
-                ShardChunkHeaderInner::V2(inner) => inner.shard_id = bad_shard_id,
-                ShardChunkHeaderInner::V3(inner) => inner.shard_id = bad_shard_id,
-                ShardChunkHeaderInner::V4(inner) => inner.shard_id = bad_shard_id,
+            | ShardChunkHeader::V1(new_chunk) => new_chunk.inner.shard_id = bad_shard_id,
+            | ShardChunkHeader::V2(new_chunk) => new_chunk.inner.shard_id = bad_shard_id,
+            | ShardChunkHeader::V3(new_chunk) => match &mut new_chunk.inner {
+                | ShardChunkHeaderInner::V1(inner) => inner.shard_id = bad_shard_id,
+                | ShardChunkHeaderInner::V2(inner) => inner.shard_id = bad_shard_id,
+                | ShardChunkHeaderInner::V3(inner) => inner.shard_id = bad_shard_id,
+                | ShardChunkHeaderInner::V4(inner) => inner.shard_id = bad_shard_id,
             },
         };
         new_chunks.push(new_chunk);
@@ -82,24 +102,28 @@ fn change_shard_id_to_invalid() {
 
     // 2. Rehash and resign
     let body_hash = block.compute_block_body_hash().unwrap();
-    block.mut_header().set_block_body_hash(body_hash);
-    block.mut_header().resign(&InMemoryValidatorSigner::from_seed(
-        "test0".parse().unwrap(),
-        KeyType::ED25519,
-        "test0",
-    ));
+    block
+        .mut_header()
+        .set_block_body_hash(body_hash);
+    block
+        .mut_header()
+        .resign(&InMemoryValidatorSigner::from_seed(
+            "test0".parse().unwrap(),
+            KeyType::ED25519,
+            "test0",
+        ));
 
     // Try to process corrupt block and expect code to notice invalid shard_id
     let res = env.clients[0].process_block_test(block.into(), Provenance::NONE);
     match res {
-        Err(Error::InvalidShardId(shard_id)) => {
+        | Err(Error::InvalidShardId(shard_id)) => {
             assert_eq!(shard_id, bad_shard_id);
             tracing::debug!("process failed successfully");
         }
-        Err(e) => {
+        | Err(e) => {
             assert!(false, "Failed with error {:?} instead of Error::InvalidShardId(100).", e);
         }
-        Ok(_) => {
+        | Ok(_) => {
             assert!(false, "Block processing of a corrupt block succeeded.");
         }
     }
@@ -107,8 +131,16 @@ fn change_shard_id_to_invalid() {
 
 /// We ensure there are SOME change between these blocks.
 /// We check that they are NOT in fields that can be mutated and still pass validation by design.
-fn is_breaking_block_change(original: &Block, corrupt: &Block) -> bool {
-    original.header().latest_protocol_version() == corrupt.header().latest_protocol_version()
+fn is_breaking_block_change(
+    original: &Block,
+    corrupt: &Block,
+) -> bool {
+    original
+        .header()
+        .latest_protocol_version()
+        == corrupt
+            .header()
+            .latest_protocol_version()
         && original.header().block_ordinal() == corrupt.header().block_ordinal()
         && original.header().timestamp() == corrupt.header().timestamp()
         && original != corrupt
@@ -127,24 +159,30 @@ fn check_corrupt_block(
     corrupted_bit_idx: usize,
 ) -> Result<anyhow::Error, anyhow::Error> {
     if let Ok(mut corrupt_block) = Block::try_from_slice(corrupt_block_vec.as_slice()) {
-        let body_hash = corrupt_block.compute_block_body_hash().unwrap();
-        corrupt_block.mut_header().set_block_body_hash(body_hash);
-        corrupt_block.mut_header().resign(&InMemoryValidatorSigner::from_seed(
-            "test0".parse().unwrap(),
-            KeyType::ED25519,
-            "test0",
-        ));
+        let body_hash = corrupt_block
+            .compute_block_body_hash()
+            .unwrap();
+        corrupt_block
+            .mut_header()
+            .set_block_body_hash(body_hash);
+        corrupt_block
+            .mut_header()
+            .resign(&InMemoryValidatorSigner::from_seed(
+                "test0".parse().unwrap(),
+                KeyType::ED25519,
+                "test0",
+            ));
 
         if !is_breaking_block_change(&correct_block, &corrupt_block) {
             return Ok(anyhow::anyhow!(NOT_BREAKING_CHANGE_MSG));
         }
 
         match env.clients[0].process_block_test(corrupt_block.into(), Provenance::NONE) {
-            Ok(_) => Err(anyhow::anyhow!(
+            | Ok(_) => Err(anyhow::anyhow!(
                 "Was able to process default block with {} bit switched.",
                 corrupted_bit_idx
             )),
-            Err(e) => {
+            | Err(e) => {
                 if let Err(e) =
                     env.clients[0].process_block_test(correct_block.into(), Provenance::NONE)
                 {
@@ -175,14 +213,25 @@ fn check_corrupt_block(
 /// Returns `Ok(reason)` if corrupt block wasn't parsed or had changes that are not breaking by design.
 /// Returns `Err(reason)` if corrupt block was processed or correct block wasn't processed afterwards.
 fn check_process_flipped_block_fails_on_bit(
-    corrupted_bit_idx: usize,
+    corrupted_bit_idx: usize
 ) -> Result<anyhow::Error, anyhow::Error> {
     let epoch_length = 5000000;
-    let mut genesis = Genesis::test(vec!["test0".parse().unwrap(), "test1".parse().unwrap()], 1);
+    let mut genesis = Genesis::test(
+        vec![
+            "test0".parse().unwrap(),
+            "test1".parse().unwrap(),
+        ],
+        1,
+    );
     genesis.config.epoch_length = epoch_length;
-    let mut env = TestEnv::builder(&genesis.config).nightshade_runtimes(&genesis).build();
+    let mut env = TestEnv::builder(&genesis.config)
+        .nightshade_runtimes(&genesis)
+        .build();
 
-    let mut last_block = env.clients[0].chain.get_block_by_height(0).unwrap();
+    let mut last_block = env.clients[0]
+        .chain
+        .get_block_by_height(0)
+        .unwrap();
 
     let mid_height = 3;
     for h in 1..=mid_height {
@@ -191,7 +240,10 @@ fn check_process_flipped_block_fails_on_bit(
             assert_eq!(env.clients[0].process_tx(tx, false, false), ProcessTxResponse::ValidTx);
         }
 
-        let block = env.clients[0].produce_block(h).unwrap().unwrap();
+        let block = env.clients[0]
+            .produce_block(h)
+            .unwrap()
+            .unwrap();
         env.process_block(0, block.clone(), Provenance::PRODUCED);
         last_block = block;
     }
@@ -256,8 +308,8 @@ fn ultra_slow_test_check_process_flipped_block_fails() {
             }
         }
         match res {
-            Err(e) => errs.push(e),
-            Ok(o) => oks.push(o),
+            | Err(e) => errs.push(e),
+            | Ok(o) => oks.push(o),
         }
         corrupted_bit_idx += 1;
     }

@@ -18,7 +18,7 @@ fn map_action(
     delegate_allowed: bool,
 ) -> Option<Action> {
     match action {
-        Action::AddKey(add_key) => {
+        | Action::AddKey(add_key) => {
             let public_key = crate::key_mapping::map_key(&add_key.public_key, secret).public_key();
 
             Some(Action::AddKey(Box::new(AddKeyAction {
@@ -26,18 +26,18 @@ fn map_action(
                 access_key: add_key.access_key.clone(),
             })))
         }
-        Action::DeleteKey(delete_key) => {
+        | Action::DeleteKey(delete_key) => {
             let public_key =
                 crate::key_mapping::map_key(&delete_key.public_key, secret).public_key();
 
             Some(Action::DeleteKey(Box::new(DeleteKeyAction { public_key })))
         }
-        Action::DeleteAccount(delete_account) => {
+        | Action::DeleteAccount(delete_account) => {
             let beneficiary_id =
                 crate::key_mapping::map_account(&delete_account.beneficiary_id, secret);
             Some(Action::DeleteAccount(DeleteAccountAction { beneficiary_id }))
         }
-        Action::Delegate(delegate) => {
+        | Action::Delegate(delegate) => {
             if delegate_allowed {
                 map_delegate_action(delegate, secret, default_key)
             } else {
@@ -47,8 +47,8 @@ fn map_action(
             }
         }
         // We don't want to mess with the set of validators in the target chain
-        Action::Stake(_) => None,
-        _ => Some(action.clone()),
+        | Action::Stake(_) => None,
+        | _ => Some(action.clone()),
     }
 }
 
@@ -65,15 +65,15 @@ fn map_delegate_action(
     for action in source_actions.iter() {
         if let Some(a) = map_action(action, secret, default_key, false) {
             match &a {
-                Action::AddKey(add_key) => {
+                | Action::AddKey(add_key) => {
                     if add_key.access_key.permission == AccessKeyPermission::FullAccess {
                         full_key_added = true;
                     }
                 }
-                Action::CreateAccount(_) => {
+                | Action::CreateAccount(_) => {
                     account_created = true;
                 }
-                _ => {}
+                | _ => {}
             };
             actions.push(a.try_into().unwrap());
         }
@@ -97,7 +97,9 @@ fn map_delegate_action(
         receiver_id: crate::key_mapping::map_account(&delegate.delegate_action.receiver_id, secret),
         actions,
         nonce: delegate.delegate_action.nonce,
-        max_block_height: delegate.delegate_action.max_block_height,
+        max_block_height: delegate
+            .delegate_action
+            .max_block_height,
         public_key: mapped_key.public_key(),
     };
     let tx_hash = mapped_action.get_nep461_hash();
@@ -127,15 +129,15 @@ fn map_action_receipt(
     for action in receipt.actions.iter() {
         if let Some(a) = map_action(action, secret, default_key, true) {
             match &a {
-                Action::AddKey(add_key) => {
+                | Action::AddKey(add_key) => {
                     if add_key.access_key.permission == AccessKeyPermission::FullAccess {
                         full_key_added = true;
                     }
                 }
-                Action::CreateAccount(_) => {
+                | Action::CreateAccount(_) => {
                     account_created = true;
                 }
-                _ => {}
+                | _ => {}
             };
             actions.push(a);
         }
@@ -158,10 +160,10 @@ pub fn map_receipt(
     receipt.set_predecessor_id(crate::key_mapping::map_account(receipt.predecessor_id(), secret));
     receipt.set_receiver_id(crate::key_mapping::map_account(receipt.receiver_id(), secret));
     match receipt.receipt_mut() {
-        ReceiptEnum::Action(r) | ReceiptEnum::PromiseYield(r) => {
+        | ReceiptEnum::Action(r) | ReceiptEnum::PromiseYield(r) => {
             map_action_receipt(r, secret, default_key);
         }
-        _ => {}
+        | _ => {}
     }
 }
 
@@ -191,7 +193,7 @@ pub(crate) fn map_records<P: AsRef<Path>>(
     let default_key = crate::key_mapping::default_extra_key(secret.as_ref()).public_key();
     near_chain_configs::stream_records_from_file(reader, |mut r| {
         match &mut r {
-            StateRecord::AccessKey { account_id, public_key, access_key } => {
+            | StateRecord::AccessKey { account_id, public_key, access_key } => {
                 let replacement = crate::key_mapping::map_key(&public_key, secret.as_ref());
                 let new_record = StateRecord::AccessKey {
                     account_id: crate::key_mapping::map_account(&account_id, secret.as_ref()),
@@ -206,45 +208,59 @@ pub(crate) fn map_records<P: AsRef<Path>>(
                 }
                 // TODO: would be nice for stream_records_from_file() to let you return early on error so
                 // we dont have to unwrap here
-                records_seq.serialize_element(&new_record).unwrap();
+                records_seq
+                    .serialize_element(&new_record)
+                    .unwrap();
             }
-            StateRecord::Account { account_id, .. } => {
+            | StateRecord::Account { account_id, .. } => {
                 // TODO(eth-implicit) Change back to is_implicit() when ETH-implicit accounts are supported.
                 if account_id.get_account_type() == AccountType::NearImplicitAccount {
                     *account_id = crate::key_mapping::map_account(&account_id, secret.as_ref());
                 } else {
                     accounts.insert(account_id.clone());
                 }
-                records_seq.serialize_element(&r).unwrap();
+                records_seq
+                    .serialize_element(&r)
+                    .unwrap();
             }
-            StateRecord::Data { account_id, .. } => {
+            | StateRecord::Data { account_id, .. } => {
                 // TODO(eth-implicit) Change back to is_implicit() when ETH-implicit accounts are supported.
                 if account_id.get_account_type() == AccountType::NearImplicitAccount {
                     *account_id = crate::key_mapping::map_account(&account_id, secret.as_ref());
                 }
-                records_seq.serialize_element(&r).unwrap();
+                records_seq
+                    .serialize_element(&r)
+                    .unwrap();
             }
-            StateRecord::Contract { account_id, .. } => {
+            | StateRecord::Contract { account_id, .. } => {
                 // TODO(eth-implicit) Change back to is_implicit() when ETH-implicit accounts are supported.
                 if account_id.get_account_type() == AccountType::NearImplicitAccount {
                     *account_id = crate::key_mapping::map_account(&account_id, secret.as_ref());
                 }
-                records_seq.serialize_element(&r).unwrap();
+                records_seq
+                    .serialize_element(&r)
+                    .unwrap();
             }
-            StateRecord::PostponedReceipt(receipt) => {
+            | StateRecord::PostponedReceipt(receipt) => {
                 map_receipt(receipt, secret.as_ref(), &default_key);
-                records_seq.serialize_element(&r).unwrap();
+                records_seq
+                    .serialize_element(&r)
+                    .unwrap();
             }
-            StateRecord::ReceivedData { account_id, .. } => {
+            | StateRecord::ReceivedData { account_id, .. } => {
                 // TODO(eth-implicit) Change back to is_implicit() when ETH-implicit accounts are supported.
                 if account_id.get_account_type() == AccountType::NearImplicitAccount {
                     *account_id = crate::key_mapping::map_account(&account_id, secret.as_ref());
                 }
-                records_seq.serialize_element(&r).unwrap();
+                records_seq
+                    .serialize_element(&r)
+                    .unwrap();
             }
-            StateRecord::DelayedReceipt(receipt) => {
+            | StateRecord::DelayedReceipt(receipt) => {
                 map_receipt(receipt, secret.as_ref(), &default_key);
-                records_seq.serialize_element(&r).unwrap();
+                records_seq
+                    .serialize_element(&r)
+                    .unwrap();
             }
         };
     })?;
@@ -351,7 +367,9 @@ mod test {
             max_block_height: 1234,
             public_key: secret_key.public_key(),
             actions: vec![Action::AddKey(Box::new(AddKeyAction {
-                public_key: "ed25519:Eo9W44tRMwcYcoua11yM7Xfr1DjgR4EWQFM3RU27MEX8".parse().unwrap(),
+                public_key: "ed25519:Eo9W44tRMwcYcoua11yM7Xfr1DjgR4EWQFM3RU27MEX8"
+                    .parse()
+                    .unwrap(),
                 access_key: AccessKey::full_access(),
             }))
             .try_into()
@@ -378,10 +396,9 @@ mod test {
                 gas_price: 100,
                 output_data_receivers: vec![],
                 input_data_ids: vec![],
-                actions: vec![Action::Delegate(Box::new(SignedDelegateAction {
-                    delegate_action,
-                    signature,
-                }))],
+                actions: vec![Action::Delegate(Box::new(
+                    SignedDelegateAction { delegate_action, signature },
+                ))],
             }),
         });
 
@@ -395,7 +412,9 @@ mod test {
             max_block_height: 1234,
             public_key: mapped_secret_key.public_key(),
             actions: vec![Action::AddKey(Box::new(AddKeyAction {
-                public_key: "ed25519:4etp3kcYH2rwGdbwbLbUd1AKHMEPLKosCMSQFqYqPL6V".parse().unwrap(),
+                public_key: "ed25519:4etp3kcYH2rwGdbwbLbUd1AKHMEPLKosCMSQFqYqPL6V"
+                    .parse()
+                    .unwrap(),
                 access_key: AccessKey::full_access(),
             }))
             .try_into()
@@ -421,10 +440,9 @@ mod test {
                 gas_price: 100,
                 output_data_receivers: vec![],
                 input_data_ids: vec![],
-                actions: vec![Action::Delegate(Box::new(SignedDelegateAction {
-                    delegate_action,
-                    signature,
-                }))],
+                actions: vec![Action::Delegate(Box::new(
+                    SignedDelegateAction { delegate_action, signature },
+                ))],
             }),
         });
 

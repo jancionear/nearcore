@@ -20,7 +20,7 @@ pub(crate) struct SecretAccessKey {
 }
 
 pub(crate) fn default_extra_key(
-    secret: Option<&[u8; crate::secret::SECRET_LEN]>,
+    secret: Option<&[u8; crate::secret::SECRET_LEN]>
 ) -> SecretAccessKey {
     SecretAccessKey {
         original_key: None,
@@ -33,7 +33,9 @@ pub(crate) fn map_pub_key(
     public_key: &str,
     secret: Option<&[u8; crate::secret::SECRET_LEN]>,
 ) -> anyhow::Result<SecretAccessKey> {
-    let public_key: PublicKey = public_key.parse().context("Could not parse public key")?;
+    let public_key: PublicKey = public_key
+        .parse()
+        .context("Could not parse public key")?;
     // we say original_key is None here because the user provided it on the command line in this case, so no need to print it again.
     Ok(SecretAccessKey {
         original_key: None,
@@ -48,7 +50,9 @@ pub(crate) fn keys_from_source_db(
     block_height: Option<BlockHeight>,
     secret: Option<&[u8; crate::secret::SECRET_LEN]>,
 ) -> anyhow::Result<Vec<SecretAccessKey>> {
-    let account_id: AccountId = account_id.parse().context("bad account ID")?;
+    let account_id: AccountId = account_id
+        .parse()
+        .context("bad account ID")?;
 
     let mut config =
         nearcore::config::load_config(home.as_ref(), GenesisValidationMode::UnsafeFast)
@@ -60,7 +64,10 @@ pub(crate) fn keys_from_source_db(
         store.clone(),
         config.genesis.config.genesis_height,
         config.client_config.save_trie_changes,
-        config.genesis.config.transaction_validity_period,
+        config
+            .genesis
+            .config
+            .transaction_validity_period,
     );
     let epoch_manager =
         EpochManager::new_arc_handle(store.clone(), &config.genesis.config, Some(home));
@@ -68,9 +75,11 @@ pub(crate) fn keys_from_source_db(
         NightshadeRuntime::from_config(home.as_ref(), store, &config, epoch_manager.clone())
             .context("could not create the transaction runtime")?;
     let block_height = match block_height {
-        Some(h) => h,
-        None => {
-            let head = chain.head().context("failed getting chain head")?;
+        | Some(h) => h,
+        | None => {
+            let head = chain
+                .head()
+                .context("failed getting chain head")?;
             head.height
         }
     };
@@ -84,8 +93,9 @@ pub(crate) fn keys_from_source_db(
     let shard_uid = epoch_manager
         .shard_id_to_uid(shard_id, header.epoch_id())
         .context("failed mapping ShardID to ShardUID")?;
-    let chunk_extra =
-        chain.get_chunk_extra(header.hash(), &shard_uid).context("failed getting chunk extra")?;
+    let chunk_extra = chain
+        .get_chunk_extra(header.hash(), &shard_uid)
+        .context("failed getting chunk extra")?;
     match runtime
         .query(
             shard_uid,
@@ -100,7 +110,7 @@ pub(crate) fn keys_from_source_db(
         .with_context(|| format!("failed fetching access keys for {}", &account_id))?
         .kind
     {
-        QueryResponseKind::AccessKeyList(l) => Ok(l
+        | QueryResponseKind::AccessKeyList(l) => Ok(l
             .keys
             .into_iter()
             .map(|k| SecretAccessKey {
@@ -109,7 +119,7 @@ pub(crate) fn keys_from_source_db(
                 permission: Some(k.access_key.permission),
             })
             .collect()),
-        _ => unreachable!(),
+        | _ => unreachable!(),
     }
 }
 
@@ -119,13 +129,15 @@ pub(crate) async fn keys_from_rpc(
     block_height: Option<BlockHeight>,
     secret: Option<&[u8; crate::secret::SECRET_LEN]>,
 ) -> anyhow::Result<Vec<SecretAccessKey>> {
-    let account_id: AccountId = account_id.parse().context("bad account ID")?;
+    let account_id: AccountId = account_id
+        .parse()
+        .context("bad account ID")?;
 
     let rpc_client = near_jsonrpc_client::new_client(rpc_url);
 
     let block_reference = match block_height {
-        Some(h) => BlockReference::BlockId(BlockId::Height(h)),
-        None => BlockReference::Finality(Finality::None),
+        | Some(h) => BlockReference::BlockId(BlockId::Height(h)),
+        | None => BlockReference::Finality(Finality::None),
     };
     let request = RpcQueryRequest {
         block_reference,
@@ -133,12 +145,12 @@ pub(crate) async fn keys_from_rpc(
     };
 
     let response = match rpc_client.query(request).await {
-        Ok(r) => r,
-        Err(e) => anyhow::bail!("failed making RPC request: {:?}", e),
+        | Ok(r) => r,
+        | Err(e) => anyhow::bail!("failed making RPC request: {:?}", e),
     };
 
     match response.kind {
-        RpcQueryResponseKind::AccessKeyList(l) => Ok(l
+        | RpcQueryResponseKind::AccessKeyList(l) => Ok(l
             .keys
             .into_iter()
             .map(|k| SecretAccessKey {
@@ -147,7 +159,7 @@ pub(crate) async fn keys_from_rpc(
                 permission: Some(k.access_key.permission),
             })
             .collect()),
-        k => {
+        | k => {
             anyhow::bail!("received unexpected RPC response for access key query: {:?}", k);
         }
     }

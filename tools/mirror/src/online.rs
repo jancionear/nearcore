@@ -49,18 +49,18 @@ impl crate::ChainAccess for ChainAccess {
         let mut first_height = None;
         loop {
             match self.head_height().await {
-                Ok(head) => match first_height {
-                    Some(h) => {
+                | Ok(head) => match first_height {
+                    | Some(h) => {
                         if h != head {
                             break;
                         }
                     }
-                    None => {
+                    | None => {
                         first_height = Some(head);
                     }
                 },
-                Err(ChainError::Unknown) => {}
-                Err(ChainError::Other(e)) => return Err(e),
+                | Err(ChainError::Unknown) => {}
+                | Err(ChainError::Other(e)) => return Err(e),
             };
 
             tokio::time::sleep(Duration::from_millis(500)).await;
@@ -74,17 +74,17 @@ impl crate::ChainAccess for ChainAccess {
             // allows passing a height that doesn't exist in the chain. This is not true for the offline
             // version
             match self.get_next_block_height(height).await {
-                Ok(h) => {
+                | Ok(h) => {
                     block_heights.push(h);
                     height = h;
                     if block_heights.len() >= num_initial_blocks {
                         return Ok(block_heights);
                     }
                 }
-                Err(ChainError::Unknown) => {
+                | Err(ChainError::Unknown) => {
                     tokio::time::sleep(Duration::from_millis(500)).await;
                 }
-                Err(ChainError::Other(e)) => {
+                | Err(ChainError::Other(e)) => {
                     return Err(e)
                         .with_context(|| format!("failed fetching next block after #{}", height))
                 }
@@ -92,7 +92,10 @@ impl crate::ChainAccess for ChainAccess {
         }
     }
 
-    async fn block_height_to_hash(&self, height: BlockHeight) -> Result<CryptoHash, ChainError> {
+    async fn block_height_to_hash(
+        &self,
+        height: BlockHeight,
+    ) -> Result<CryptoHash, ChainError> {
         Ok(self
             .view_client
             .send(GetBlock(BlockReference::BlockId(BlockId::Height(height))).with_span_context())
@@ -112,7 +115,10 @@ impl crate::ChainAccess for ChainAccess {
             .height)
     }
 
-    async fn get_txs(&self, height: BlockHeight) -> Result<SourceBlock, ChainError> {
+    async fn get_txs(
+        &self,
+        height: BlockHeight,
+    ) -> Result<SourceBlock, ChainError> {
         let block = self
             .view_client
             .send(GetBlock(BlockReference::BlockId(BlockId::Height(height))).with_span_context())
@@ -126,16 +132,16 @@ impl crate::ChainAccess for ChainAccess {
                 .await
                 .unwrap()
             {
-                Ok(c) => c,
-                Err(e) => match e {
-                    GetChunkError::UnknownChunk { .. } => {
+                | Ok(c) => c,
+                | Err(e) => match e {
+                    | GetChunkError::UnknownChunk { .. } => {
                         tracing::error!(
                             "Can't fetch source chain shard {} chunk {} at height {}. Are we tracking all shards?",
                             c.shard_id, c.chunk_hash, height
                         );
                         continue;
                     }
-                    _ => return Err(e.into()),
+                    | _ => return Err(e.into()),
                 },
             };
             if chunk.height_included() == height {
@@ -176,9 +182,9 @@ impl crate::ChainAccess for ChainAccess {
                     .await
                     .unwrap()
                 {
-                    Ok(b) => break Ok(b.header.height),
-                    Err(GetBlockError::UnknownBlock { .. }) => {}
-                    Err(e) => break Err(ChainError::other(e)),
+                    | Ok(b) => break Ok(b.header.height),
+                    | Err(GetBlockError::UnknownBlock { .. }) => {}
+                    | Err(e) => break Err(ChainError::other(e)),
                 }
             }
         }
@@ -196,7 +202,10 @@ impl crate::ChainAccess for ChainAccess {
             .outcome_proof)
     }
 
-    async fn get_receipt(&self, id: &CryptoHash) -> Result<Arc<Receipt>, ChainError> {
+    async fn get_receipt(
+        &self,
+        id: &CryptoHash,
+    ) -> Result<Arc<Receipt>, ChainError> {
         self.view_client
             .send(GetReceipt { receipt_id: *id }.with_span_context())
             .await
@@ -224,14 +233,14 @@ impl crate::ChainAccess for ChainAccess {
             .unwrap()?
             .kind
         {
-            QueryResponseKind::AccessKeyList(l) => {
+            | QueryResponseKind::AccessKeyList(l) => {
                 for k in l.keys {
                     if k.access_key.permission == AccessKeyPermissionView::FullAccess {
                         ret.push(k.public_key);
                     }
                 }
             }
-            _ => unreachable!(),
+            | _ => unreachable!(),
         };
         Ok(ret)
     }

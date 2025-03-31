@@ -8,7 +8,10 @@ pub struct ContractCode {
 }
 
 impl ContractCode {
-    pub fn new(code: Vec<u8>, hash: Option<CryptoHash>) -> ContractCode {
+    pub fn new(
+        code: Vec<u8>,
+        hash: Option<CryptoHash>,
+    ) -> ContractCode {
         let hash = hash.unwrap_or_else(|| sha256(&code));
         debug_assert_eq!(hash, sha256(&code));
 
@@ -38,7 +41,10 @@ impl ContractCode {
 }
 
 impl Debug for ContractCode {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut Formatter<'_>,
+    ) -> std::fmt::Result {
         f.debug_struct("ContractCode")
             .field("hash", &self.hash)
             .field("code_size", &self.code.len())

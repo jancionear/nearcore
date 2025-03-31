@@ -23,8 +23,8 @@ fn test_caches_compilation_error() {
     with_vm_variants(&config, |vm_kind: VMKind| {
         // The cache is currently properly implemented only for NearVM
         match vm_kind {
-            VMKind::NearVm => {}
-            VMKind::Wasmer0 | VMKind::Wasmer2 | VMKind::Wasmtime => return,
+            | VMKind::NearVm => {}
+            | VMKind::Wasmer0 | VMKind::Wasmer2 | VMKind::Wasmtime => return,
         }
         let cache = MockContractRuntimeCache::default();
         let code = [42; 1000];
@@ -63,8 +63,8 @@ fn test_does_not_cache_io_error() {
     let config = Arc::new(test_vm_config());
     with_vm_variants(&config, |vm_kind: VMKind| {
         match vm_kind {
-            VMKind::NearVm => {}
-            VMKind::Wasmer0 | VMKind::Wasmer2 | VMKind::Wasmtime => return,
+            | VMKind::NearVm => {}
+            | VMKind::Wasmer0 | VMKind::Wasmer2 | VMKind::Wasmtime => return,
         }
 
         let code = near_test_contracts::trivial_contract();
@@ -126,12 +126,12 @@ fn make_cached_contract_call_vm(
     let fees = Arc::new(RuntimeFeesConfig::test());
     context.prepaid_gas = prepaid_gas;
     let gas_counter = context.make_gas_counter(&config);
-    let runtime = vm_kind.runtime(config).expect("runtime has not been compiled");
-    runtime.prepare(&fake_external, Some(cache), gas_counter, method_name).run(
-        &mut fake_external,
-        &context,
-        fees,
-    )
+    let runtime = vm_kind
+        .runtime(config)
+        .expect("runtime has not been compiled");
+    runtime
+        .prepare(&fake_external, Some(cache), gas_counter, method_name)
+        .run(&mut fake_external, &context, fees)
 }
 
 #[test]
@@ -181,7 +181,9 @@ fn test_wasmer2_artifact_output_stability() {
 
         let mut features = CpuFeature::set();
         features.insert(CpuFeature::AVX);
-        let triple = "x86_64-unknown-linux-gnu".parse().unwrap();
+        let triple = "x86_64-unknown-linux-gnu"
+            .parse()
+            .unwrap();
         let target = Target::new(triple, features);
         let vm = Wasmer2VM::new_for_target(config, target);
         let artifact = vm.compile_uncached(&contract).unwrap();
@@ -261,7 +263,9 @@ fn test_near_vm_artifact_output_stability() {
 
         let mut features = CpuFeature::set();
         features.insert(CpuFeature::AVX);
-        let triple = "x86_64-unknown-linux-gnu".parse().unwrap();
+        let triple = "x86_64-unknown-linux-gnu"
+            .parse()
+            .unwrap();
         let target = Target::new(triple, features);
         let vm = NearVM::new_for_target(config, target);
         let artifact = vm.compile_uncached(&contract).unwrap();
@@ -304,25 +308,46 @@ struct FaultingContractRuntimeCache {
 }
 
 impl FaultingContractRuntimeCache {
-    fn set_read_fault(&self, yes: bool) {
-        self.read_fault.store(yes, Ordering::SeqCst);
+    fn set_read_fault(
+        &self,
+        yes: bool,
+    ) {
+        self.read_fault
+            .store(yes, Ordering::SeqCst);
     }
 
-    fn set_write_fault(&self, yes: bool) {
-        self.write_fault.store(yes, Ordering::SeqCst);
+    fn set_write_fault(
+        &self,
+        yes: bool,
+    ) {
+        self.write_fault
+            .store(yes, Ordering::SeqCst);
     }
 }
 
 impl ContractRuntimeCache for FaultingContractRuntimeCache {
-    fn put(&self, key: &CryptoHash, value: CompiledContractInfo) -> std::io::Result<()> {
-        if self.write_fault.swap(false, Ordering::Relaxed) {
+    fn put(
+        &self,
+        key: &CryptoHash,
+        value: CompiledContractInfo,
+    ) -> std::io::Result<()> {
+        if self
+            .write_fault
+            .swap(false, Ordering::Relaxed)
+        {
             return Err(io::ErrorKind::Other.into());
         }
         self.inner.put(key, value)
     }
 
-    fn get(&self, key: &CryptoHash) -> std::io::Result<Option<CompiledContractInfo>> {
-        if self.read_fault.swap(false, Ordering::Relaxed) {
+    fn get(
+        &self,
+        key: &CryptoHash,
+    ) -> std::io::Result<Option<CompiledContractInfo>> {
+        if self
+            .read_fault
+            .swap(false, Ordering::Relaxed)
+        {
             return Err(io::ErrorKind::Other.into());
         }
         self.inner.get(key)

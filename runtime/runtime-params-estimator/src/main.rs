@@ -121,7 +121,7 @@ fn main() -> anyhow::Result<()> {
 
     if let Some(cmd) = cli_args.sub_cmd {
         return match cmd {
-            CliSubCmd::Replay(inner) => inner.run(&mut std::io::stdout()),
+            | CliSubCmd::Replay(inner) => inner.run(&mut std::io::stdout()),
         };
     }
 
@@ -148,13 +148,17 @@ fn main() -> anyhow::Result<()> {
 fn run_estimation(cli_args: CliArgs) -> anyhow::Result<Option<CostTable>> {
     let temp_dir;
     let state_dump_path = match cli_args.home {
-        Some(it) => it,
-        None => {
+        | Some(it) => it,
+        | None => {
             temp_dir = tempfile::tempdir()?;
             temp_dir.path().to_path_buf()
         }
     };
-    if state_dump_path.read_dir()?.next().is_none() {
+    if state_dump_path
+        .read_dir()?
+        .next()
+        .is_none()
+    {
         // Every created account gets this smart contract deployed, such that
         // any account can be used to perform estimations that require this
         // contract.
@@ -281,9 +285,9 @@ fn run_estimation(cli_args: CliArgs) -> anyhow::Result<Option<CostTable>> {
     let iter_per_block = cli_args.iters;
     let active_accounts = cli_args.accounts_num;
     let metric = match cli_args.metric.as_str() {
-        "icount" => GasMetric::ICount,
-        "time" => GasMetric::Time,
-        other => unreachable!("Unknown metric {}", other),
+        | "icount" => GasMetric::ICount,
+        | "time" => GasMetric::Time,
+        | other => unreachable!("Unknown metric {}", other),
     };
     let config = Config {
         warmup_iters_per_block,
@@ -291,7 +295,7 @@ fn run_estimation(cli_args: CliArgs) -> anyhow::Result<Option<CostTable>> {
         active_accounts,
         finality_lag: cli_args.finality_lag,
         fs_keys_per_delta: cli_args.fs_keys_per_delta,
-        state_dump_path: state_dump_path,
+        state_dump_path,
         metric,
         vm_kind: cli_args.vm_kind,
         costs_to_measure: cli_args.costs,
@@ -364,7 +368,9 @@ fn main_container(
         let mut qemu_cmd_builder = QemuCommandBuilder::default();
 
         if debug {
-            qemu_cmd_builder = qemu_cmd_builder.plugin_log(true).print_on_every_close(true);
+            qemu_cmd_builder = qemu_cmd_builder
+                .plugin_log(true)
+                .print_on_every_close(true);
         }
         let mut qemu_cmd = qemu_cmd_builder
             .build(&format!("/host/nearcore/target/{profile}/runtime-params-estimator"))?;
@@ -378,12 +384,12 @@ fn main_container(
         let _binary_name = args.next();
         while let Some(arg) = args.next() {
             match arg.as_str() {
-                "--containerize" => continue,
-                "--additional-accounts-num" | "--home" => {
+                | "--containerize" => continue,
+                | "--additional-accounts-num" | "--home" => {
                     args.next();
                     continue;
                 }
-                _ => {
+                | _ => {
                     write!(buf, " {:?}", arg).unwrap();
                 }
             }
@@ -408,7 +414,9 @@ fn main_container(
     nearcore_mount.push(project_root.as_os_str());
     let mut nearhome_mount = OsString::from("type=bind,target=/.near,source=");
     nearhome_mount.push(state_dump_path.as_os_str());
-    let host_target_dir = project_root.join("target").join("estimator");
+    let host_target_dir = project_root
+        .join("target")
+        .join("estimator");
     let mut target_mount = OsString::from("type=bind,target=/host/nearcore/target,source=");
     target_mount.push(host_target_dir.as_os_str());
     std::fs::create_dir_all(&host_target_dir)
@@ -473,7 +481,10 @@ fn container_image_name() -> Result<String, anyhow::Error> {
         .find_map(|line| line.split_once("FROM "))
         .context("could not parse rustc version from Dockerfile")?
         .1;
-    let image_name = from_image.split_once("/").map(|(_, b)| b).unwrap_or(from_image);
+    let image_name = from_image
+        .split_once("/")
+        .map(|(_, b)| b)
+        .unwrap_or(from_image);
     let tag = image_name.replace(":", "-");
     Ok(format!("{}:{}", image, tag))
 }
@@ -488,7 +499,9 @@ fn read_costs_table(path: &Path) -> anyhow::Result<CostTable> {
 }
 
 fn exec(command: &str) -> anyhow::Result<String> {
-    let args = command.split_ascii_whitespace().collect::<Vec<_>>();
+    let args = command
+        .split_ascii_whitespace()
+        .collect::<Vec<_>>();
     let (cmd, args) = args.split_first().unwrap();
     let output = std::process::Command::new(cmd)
         .args(args)
@@ -504,7 +517,11 @@ fn exec(command: &str) -> anyhow::Result<String> {
 
 fn project_root() -> PathBuf {
     let dir = env!("CARGO_MANIFEST_DIR");
-    let res = PathBuf::from(dir).ancestors().nth(2).unwrap().to_owned();
+    let res = PathBuf::from(dir)
+        .ancestors()
+        .nth(2)
+        .unwrap()
+        .to_owned();
     assert!(res.join(".github").exists());
     res
 }
@@ -526,7 +543,11 @@ mod tests {
     #[test]
     fn slow_test_sanity_check() {
         // select a mix of estimations that are all fast
-        let costs = vec![Cost::WasmInstruction, Cost::StorageHasKeyByte, Cost::AltBn128G1SumBase];
+        let costs = vec![
+            Cost::WasmInstruction,
+            Cost::StorageHasKeyByte,
+            Cost::AltBn128G1SumBase,
+        ];
         let args = CliArgs {
             home: None,
             warmup_iters: 0,

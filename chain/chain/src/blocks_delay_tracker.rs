@@ -150,7 +150,10 @@ impl BlocksDelayTracker {
         }
     }
 
-    pub fn mark_block_received(&mut self, block: &Block) {
+    pub fn mark_block_received(
+        &mut self,
+        block: &Block,
+    ) {
         let block_hash = block.header().hash();
 
         if let Entry::Vacant(entry) = self.blocks.entry(*block_hash) {
@@ -183,11 +186,18 @@ impl BlocksDelayTracker {
                 error: None,
                 chunks,
             });
-            self.blocks_height_map.entry(height).or_insert(vec![]).push(*block_hash);
+            self.blocks_height_map
+                .entry(height)
+                .or_insert(vec![])
+                .push(*block_hash);
         }
     }
 
-    pub fn mark_block_dropped(&mut self, block_hash: &CryptoHash, reason: DroppedReason) {
+    pub fn mark_block_dropped(
+        &mut self,
+        block_hash: &CryptoHash,
+        reason: DroppedReason,
+    ) {
         if let Some(block_entry) = self.blocks.get_mut(block_hash) {
             block_entry.dropped = Some(reason);
         } else {
@@ -195,7 +205,11 @@ impl BlocksDelayTracker {
         }
     }
 
-    pub fn mark_block_errored(&mut self, block_hash: &CryptoHash, err: String) {
+    pub fn mark_block_errored(
+        &mut self,
+        block_hash: &CryptoHash,
+        err: String,
+    ) {
         if let Some(block_entry) = self.blocks.get_mut(block_hash) {
             block_entry.error = Some(err);
         } else {
@@ -203,7 +217,10 @@ impl BlocksDelayTracker {
         }
     }
 
-    pub fn mark_block_orphaned(&mut self, block_hash: &CryptoHash) {
+    pub fn mark_block_orphaned(
+        &mut self,
+        block_hash: &CryptoHash,
+    ) {
         if let Some(block_entry) = self.blocks.get_mut(block_hash) {
             block_entry.orphaned_timestamp = Some(self.clock.now());
         } else {
@@ -211,7 +228,10 @@ impl BlocksDelayTracker {
         }
     }
 
-    pub fn mark_block_unorphaned(&mut self, block_hash: &CryptoHash) {
+    pub fn mark_block_unorphaned(
+        &mut self,
+        block_hash: &CryptoHash,
+    ) {
         if let Some(block_entry) = self.blocks.get_mut(block_hash) {
             block_entry.removed_from_orphan_timestamp = Some(self.clock.now());
         } else {
@@ -219,7 +239,10 @@ impl BlocksDelayTracker {
         }
     }
 
-    pub fn mark_block_has_missing_chunks(&mut self, block_hash: &CryptoHash) {
+    pub fn mark_block_has_missing_chunks(
+        &mut self,
+        block_hash: &CryptoHash,
+    ) {
         if let Some(block_entry) = self.blocks.get_mut(block_hash) {
             block_entry.missing_chunks_timestamp = Some(self.clock.now());
         } else {
@@ -227,7 +250,10 @@ impl BlocksDelayTracker {
         }
     }
 
-    pub fn mark_block_completed_missing_chunks(&mut self, block_hash: &CryptoHash) {
+    pub fn mark_block_completed_missing_chunks(
+        &mut self,
+        block_hash: &CryptoHash,
+    ) {
         if let Some(block_entry) = self.blocks.get_mut(block_hash) {
             block_entry.removed_from_missing_chunks_timestamp = Some(self.clock.now());
         } else {
@@ -235,35 +261,48 @@ impl BlocksDelayTracker {
         }
     }
 
-    pub fn mark_chunk_completed(&mut self, chunk_header: &ShardChunkHeader) {
+    pub fn mark_chunk_completed(
+        &mut self,
+        chunk_header: &ShardChunkHeader,
+    ) {
         let chunk_hash = chunk_header.chunk_hash();
         self.chunks
             .entry(chunk_hash.clone())
             .or_insert_with(|| {
-                self.floating_chunks.insert(chunk_hash, chunk_header.height_created());
+                self.floating_chunks
+                    .insert(chunk_hash, chunk_header.height_created());
                 ChunkTrackingStats::new(chunk_header)
             })
             .completed_timestamp
             .get_or_insert(self.clock.now_utc());
     }
 
-    pub fn mark_chunk_requested(&mut self, chunk_header: &ShardChunkHeader) {
+    pub fn mark_chunk_requested(
+        &mut self,
+        chunk_header: &ShardChunkHeader,
+    ) {
         let chunk_hash = chunk_header.chunk_hash();
         self.chunks
             .entry(chunk_hash.clone())
             .or_insert_with(|| {
-                self.floating_chunks.insert(chunk_hash, chunk_header.height_created());
+                self.floating_chunks
+                    .insert(chunk_hash, chunk_header.height_created());
                 ChunkTrackingStats::new(chunk_header)
             })
             .requested_timestamp
             .get_or_insert(self.clock.now_utc());
     }
 
-    fn update_head(&mut self, head_height: BlockHeight) {
+    fn update_head(
+        &mut self,
+        head_height: BlockHeight,
+    ) {
         if head_height != self.head_height {
             let cutoff_height = head_height.saturating_sub(BLOCK_DELAY_TRACKING_COUNT);
             self.head_height = head_height;
-            let mut blocks_to_remove = self.blocks_height_map.split_off(&cutoff_height);
+            let mut blocks_to_remove = self
+                .blocks_height_map
+                .split_off(&cutoff_height);
             mem::swap(&mut self.blocks_height_map, &mut blocks_to_remove);
 
             for block_hash in blocks_to_remove.values().flatten() {
@@ -327,26 +366,39 @@ impl BlocksDelayTracker {
         }
     }
 
-    fn update_block_metrics(&self, block: &BlockTrackingStats) {
+    fn update_block_metrics(
+        &self,
+        block: &BlockTrackingStats,
+    ) {
         if let Some(start) = block.orphaned_timestamp {
             if let Some(end) = block.removed_from_orphan_timestamp {
-                metrics::BLOCK_ORPHANED_DELAY
-                    .observe((end.signed_duration_since(start)).as_seconds_f64().max(0.0));
+                metrics::BLOCK_ORPHANED_DELAY.observe(
+                    (end.signed_duration_since(start))
+                        .as_seconds_f64()
+                        .max(0.0),
+                );
             }
         } else {
             metrics::BLOCK_ORPHANED_DELAY.observe(0.);
         }
         if let Some(start) = block.missing_chunks_timestamp {
             if let Some(end) = block.removed_from_missing_chunks_timestamp {
-                metrics::BLOCK_MISSING_CHUNKS_DELAY
-                    .observe((end.signed_duration_since(start)).as_seconds_f64().max(0.0));
+                metrics::BLOCK_MISSING_CHUNKS_DELAY.observe(
+                    (end.signed_duration_since(start))
+                        .as_seconds_f64()
+                        .max(0.0),
+                );
             }
         } else {
             metrics::BLOCK_MISSING_CHUNKS_DELAY.observe(0.);
         }
     }
 
-    fn update_chunk_metrics(&self, chunk: &ChunkTrackingStats, shard_id: ShardId) {
+    fn update_chunk_metrics(
+        &self,
+        chunk: &ChunkTrackingStats,
+        shard_id: ShardId,
+    ) {
         if let Some(chunk_requested) = chunk.requested_timestamp {
             // Theoretically chunk_received should have been set here because a block being processed
             // requires all chunks to be received
@@ -365,64 +417,66 @@ impl BlocksDelayTracker {
         chain: &Chain,
         epoch_manager: &dyn EpochManagerAdapter,
     ) -> Option<BlockProcessingInfo> {
-        self.blocks.get(block_hash).map(|block_stats| {
-            let chunks_info: Vec<_> = block_stats
-                .chunks
-                .iter()
-                .map(|chunk_hash| {
-                    if let Some(chunk_hash) = chunk_hash {
-                        self.chunks
-                            .get(chunk_hash)
-                            .map(|x| x.to_chunk_processing_info(chunk_hash.clone(), epoch_manager))
-                    } else {
-                        None
-                    }
-                })
-                .collect();
-            let now = self.clock.now();
-            let block_status = chain.get_block_status(block_hash, block_stats);
-            let in_progress_ms = (block_stats
-                .processed_timestamp
-                .unwrap_or(now)
-                .signed_duration_since(block_stats.received_timestamp))
-            .whole_milliseconds()
-            .max(0) as u128;
-            let orphaned_ms = if let Some(orphaned_time) = block_stats.orphaned_timestamp {
-                Some(
-                    (block_stats
-                        .removed_from_orphan_timestamp
-                        .unwrap_or(now)
-                        .signed_duration_since(orphaned_time))
-                    .whole_milliseconds()
-                    .max(0) as u128,
-                )
-            } else {
-                None
-            };
-            let missing_chunks_ms =
-                if let Some(missing_chunks_time) = block_stats.missing_chunks_timestamp {
+        self.blocks
+            .get(block_hash)
+            .map(|block_stats| {
+                let chunks_info: Vec<_> = block_stats
+                    .chunks
+                    .iter()
+                    .map(|chunk_hash| {
+                        if let Some(chunk_hash) = chunk_hash {
+                            self.chunks.get(chunk_hash).map(|x| {
+                                x.to_chunk_processing_info(chunk_hash.clone(), epoch_manager)
+                            })
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
+                let now = self.clock.now();
+                let block_status = chain.get_block_status(block_hash, block_stats);
+                let in_progress_ms = (block_stats
+                    .processed_timestamp
+                    .unwrap_or(now)
+                    .signed_duration_since(block_stats.received_timestamp))
+                .whole_milliseconds()
+                .max(0) as u128;
+                let orphaned_ms = if let Some(orphaned_time) = block_stats.orphaned_timestamp {
                     Some(
                         (block_stats
-                            .removed_from_missing_chunks_timestamp
+                            .removed_from_orphan_timestamp
                             .unwrap_or(now)
-                            .signed_duration_since(missing_chunks_time))
+                            .signed_duration_since(orphaned_time))
                         .whole_milliseconds()
                         .max(0) as u128,
                     )
                 } else {
                     None
                 };
-            BlockProcessingInfo {
-                height: block_height,
-                hash: *block_hash,
-                received_timestamp: block_stats.received_utc_timestamp,
-                in_progress_ms,
-                orphaned_ms,
-                block_status,
-                missing_chunks_ms,
-                chunks_info,
-            }
-        })
+                let missing_chunks_ms =
+                    if let Some(missing_chunks_time) = block_stats.missing_chunks_timestamp {
+                        Some(
+                            (block_stats
+                                .removed_from_missing_chunks_timestamp
+                                .unwrap_or(now)
+                                .signed_duration_since(missing_chunks_time))
+                            .whole_milliseconds()
+                            .max(0) as u128,
+                        )
+                    } else {
+                        None
+                    };
+                BlockProcessingInfo {
+                    height: block_height,
+                    hash: *block_hash,
+                    received_timestamp: block_stats.received_utc_timestamp,
+                    in_progress_ms,
+                    orphaned_ms,
+                    block_status,
+                    missing_chunks_ms,
+                    chunks_info,
+                }
+            })
     }
 }
 
@@ -441,7 +495,11 @@ impl Chain {
         if self.is_in_processing(block_hash) {
             return BlockProcessingStatus::InProcessing;
         }
-        if self.chain_store().block_exists(block_hash).unwrap_or_default() {
+        if self
+            .chain_store()
+            .block_exists(block_hash)
+            .unwrap_or_default()
+        {
             return BlockProcessingStatus::Accepted;
         }
         if let Some(dropped_reason) = &block_info.dropped {
@@ -463,12 +521,13 @@ impl Chain {
                 hashes
                     .iter()
                     .flat_map(|hash| {
-                        self.blocks_delay_tracker.get_block_processing_info(
-                            *height,
-                            hash,
-                            self,
-                            self.epoch_manager.as_ref(),
-                        )
+                        self.blocks_delay_tracker
+                            .get_block_processing_info(
+                                *height,
+                                hash,
+                                self,
+                                self.epoch_manager.as_ref(),
+                            )
                     })
                     .collect::<Vec<_>>()
             })
@@ -478,10 +537,15 @@ impl Chain {
             .floating_chunks
             .iter()
             .flat_map(|(chunk_hash, _)| {
-                self.blocks_delay_tracker.chunks.get(chunk_hash).map(|chunk_stats| {
-                    chunk_stats
-                        .to_chunk_processing_info(chunk_hash.clone(), self.epoch_manager.as_ref())
-                })
+                self.blocks_delay_tracker
+                    .chunks
+                    .get(chunk_hash)
+                    .map(|chunk_stats| {
+                        chunk_stats.to_chunk_processing_info(
+                            chunk_hash.clone(),
+                            self.epoch_manager.as_ref(),
+                        )
+                    })
             })
             .collect::<Vec<_>>();
         floating_chunks_info.sort_by(|chunk1, chunk2| {

@@ -29,7 +29,9 @@ impl Arbitrary<'_> for Scenario {
     fn arbitrary(u: &mut Unstructured<'_>) -> Result<Self> {
         let num_accounts = u.int_in_range(2..=MAX_ACCOUNTS)?;
 
-        let seeds: Vec<String> = (0..num_accounts).map(|i| format!("test{}", i)).collect();
+        let seeds: Vec<String> = (0..num_accounts)
+            .map(|i| format!("test{}", i))
+            .collect();
 
         let mut scope = Scope::from_seeds(&seeds);
 
@@ -60,31 +62,51 @@ impl Arbitrary<'_> for Scenario {
 }
 
 impl BlockConfig {
-    fn arbitrary(u: &mut Unstructured, scope: &mut Scope) -> Result<BlockConfig> {
+    fn arbitrary(
+        u: &mut Unstructured,
+        scope: &mut Scope,
+    ) -> Result<BlockConfig> {
         scope.inc_height();
         let mut block_config = BlockConfig::at_height(scope.height());
 
-        let lower_bound = scope.last_tx_num.saturating_sub(MAX_TX_DIFF);
-        let upper_bound = scope.last_tx_num.saturating_add(MAX_TX_DIFF);
+        let lower_bound = scope
+            .last_tx_num
+            .saturating_sub(MAX_TX_DIFF);
+        let upper_bound = scope
+            .last_tx_num
+            .saturating_add(MAX_TX_DIFF);
         let max_tx_num = u.int_in_range(lower_bound..=std::cmp::min(MAX_TXS, upper_bound))?;
         scope.last_tx_num = max_tx_num;
 
         while block_config.transactions.len() < max_tx_num
             && u.len() > TransactionConfig::size_hint(0).0
         {
-            block_config.transactions.push(TransactionConfig::arbitrary(u, scope)?)
+            block_config
+                .transactions
+                .push(TransactionConfig::arbitrary(u, scope)?)
         }
 
         Ok(block_config)
     }
 
     fn size_hint(_depth: usize) -> (usize, Option<usize>) {
-        (1, Some((MAX_TXS + 1) * TransactionConfig::size_hint(0).1.unwrap()))
+        (
+            1,
+            Some(
+                (MAX_TXS + 1)
+                    * TransactionConfig::size_hint(0)
+                        .1
+                        .unwrap(),
+            ),
+        )
     }
 }
 
 impl TransactionConfig {
-    fn arbitrary(u: &mut Unstructured, scope: &mut Scope) -> Result<Self> {
+    fn arbitrary(
+        u: &mut Unstructured,
+        scope: &mut Scope,
+    ) -> Result<Self> {
         let mut options: Vec<fn(&mut Unstructured, &mut Scope) -> Result<TransactionConfig>> =
             vec![];
 
@@ -106,17 +128,21 @@ impl TransactionConfig {
 
             let signer_idx = scope.usize_id(&signer_account);
             let receiver_idx = scope.usize_id(&receiver_account);
-            scope.accounts[signer_idx].balance =
-                scope.accounts[signer_idx].balance.saturating_sub(amount);
-            scope.accounts[receiver_idx].balance =
-                scope.accounts[receiver_idx].balance.saturating_add(amount);
+            scope.accounts[signer_idx].balance = scope.accounts[signer_idx]
+                .balance
+                .saturating_sub(amount);
+            scope.accounts[receiver_idx].balance = scope.accounts[receiver_idx]
+                .balance
+                .saturating_add(amount);
 
             Ok(TransactionConfig {
                 nonce: scope.nonce(),
                 signer_id: signer_account.id.clone(),
                 receiver_id: receiver_account.id,
                 signer: scope.full_access_signer(u, &signer_account)?,
-                actions: vec![Action::Transfer(TransferAction { deposit: amount })],
+                actions: vec![Action::Transfer(TransferAction {
+                    deposit: amount,
+                })],
             })
         });
 
@@ -190,9 +216,9 @@ impl TransactionConfig {
                     signer_id: signer_account.id.clone(),
                     receiver_id: receiver_account.id,
                     signer,
-                    actions: vec![Action::DeleteAccount(DeleteAccountAction {
-                        beneficiary_id: beneficiary_id.id,
-                    })],
+                    actions: vec![Action::DeleteAccount(
+                        DeleteAccountAction { beneficiary_id: beneficiary_id.id },
+                    )],
                 })
             });
         }
@@ -215,9 +241,13 @@ impl TransactionConfig {
                 signer_id: signer_account.id.clone(),
                 receiver_id: signer_account.id.clone(),
                 signer,
-                actions: vec![Action::DeployContract(DeployContractAction {
-                    code: scope.available_contracts[contract_id].code.clone(),
-                })],
+                actions: vec![Action::DeployContract(
+                    DeployContractAction {
+                        code: scope.available_contracts[contract_id]
+                            .code
+                            .clone(),
+                    },
+                )],
             })
         });
 
@@ -293,11 +323,9 @@ impl TransactionConfig {
                 signer_id: signer_account.id.clone(),
                 receiver_id: signer_account.id.clone(),
                 signer,
-                actions: vec![Action::AddKey(Box::new(scope.add_new_key(
-                    u,
-                    scope.usize_id(&signer_account),
-                    nonce,
-                )?))],
+                actions: vec![Action::AddKey(Box::new(
+                    scope.add_new_key(u, scope.usize_id(&signer_account), nonce)?,
+                ))],
             })
         });
 
@@ -325,7 +353,9 @@ impl TransactionConfig {
                 signer_id: signer_account.id.clone(),
                 receiver_id: signer_account.id.clone(),
                 signer,
-                actions: vec![Action::DeleteKey(Box::new(DeleteKeyAction { public_key }))],
+                actions: vec![Action::DeleteKey(Box::new(
+                    DeleteKeyAction { public_key },
+                ))],
             })
         });
 
@@ -399,7 +429,10 @@ pub enum Function {
 
 impl Scope {
     fn from_seeds(seeds: &[String]) -> Self {
-        let accounts: Vec<Account> = seeds.iter().map(|id| Account::from_id(id.clone())).collect();
+        let accounts: Vec<Account> = seeds
+            .iter()
+            .map(|id| Account::from_id(id.clone()))
+            .collect();
         let account_id_to_idx = accounts
             .iter()
             .enumerate()
@@ -441,7 +474,10 @@ impl Scope {
             },
             Contract {
                 code: near_test_contracts::fuzzing_contract().to_vec(),
-                functions: vec![Function::SumOfNumbers, Function::DataReceipt],
+                functions: vec![
+                    Function::SumOfNumbers,
+                    Function::DataReceipt,
+                ],
             },
         ]
     }
@@ -466,36 +502,67 @@ impl Scope {
         self.alive_accounts.len()
     }
 
-    pub fn random_non_zero_alive_account_usize_id(&self, u: &mut Unstructured) -> Result<usize> {
+    pub fn random_non_zero_alive_account_usize_id(
+        &self,
+        u: &mut Unstructured,
+    ) -> Result<usize> {
         let mut accounts = self.alive_accounts.clone();
         accounts.remove(&0);
-        Ok(*u.choose(&accounts.iter().cloned().collect::<Vec<_>>())?)
+        Ok(*u.choose(
+            &accounts
+                .iter()
+                .cloned()
+                .collect::<Vec<_>>(),
+        )?)
     }
 
-    pub fn random_alive_account_usize_id(&self, u: &mut Unstructured) -> Result<usize> {
-        Ok(*u.choose(&self.alive_accounts.iter().cloned().collect::<Vec<_>>())?)
+    pub fn random_alive_account_usize_id(
+        &self,
+        u: &mut Unstructured,
+    ) -> Result<usize> {
+        Ok(*u.choose(
+            &self
+                .alive_accounts
+                .iter()
+                .cloned()
+                .collect::<Vec<_>>(),
+        )?)
     }
 
-    pub fn random_account(&self, u: &mut Unstructured) -> Result<Account> {
+    pub fn random_account(
+        &self,
+        u: &mut Unstructured,
+    ) -> Result<Account> {
         Ok(self.accounts[self.random_alive_account_usize_id(u)?].clone())
     }
 
-    pub fn random_non_zero_account(&self, u: &mut Unstructured) -> Result<Account> {
+    pub fn random_non_zero_account(
+        &self,
+        u: &mut Unstructured,
+    ) -> Result<Account> {
         Ok(self.accounts[self.random_non_zero_alive_account_usize_id(u)?].clone())
     }
 
-    pub fn usize_id(&self, account: &Account) -> usize {
+    pub fn usize_id(
+        &self,
+        account: &Account,
+    ) -> usize {
         self.account_id_to_idx[&account.id]
     }
 
     fn new_test_account(&mut self) -> Account {
         let new_id = format!("test{}", self.accounts.len());
-        self.alive_accounts.insert(self.accounts.len());
-        self.accounts.push(Account::from_id(new_id));
+        self.alive_accounts
+            .insert(self.accounts.len());
+        self.accounts
+            .push(Account::from_id(new_id));
         self.accounts[self.accounts.len() - 1].clone()
     }
 
-    fn new_implicit_account(&mut self, u: &mut Unstructured) -> Result<Account> {
+    fn new_implicit_account(
+        &mut self,
+        u: &mut Unstructured,
+    ) -> Result<Account> {
         let mut new_id_vec = vec![];
         let mut chars = vec![];
         for x in b'a'..=b'f' {
@@ -508,26 +575,40 @@ impl Scope {
             new_id_vec.push(*u.choose(&chars)?);
         }
         let new_id = String::from_utf8(new_id_vec).unwrap();
-        self.alive_accounts.insert(self.accounts.len());
-        self.accounts.push(Account::from_id(new_id));
+        self.alive_accounts
+            .insert(self.accounts.len());
+        self.accounts
+            .push(Account::from_id(new_id));
         Ok(self.accounts[self.accounts.len() - 1].clone())
     }
 
-    pub fn new_account(&mut self, u: &mut Unstructured) -> Result<Account> {
+    pub fn new_account(
+        &mut self,
+        u: &mut Unstructured,
+    ) -> Result<Account> {
         let account = if u.arbitrary::<bool>()? {
             self.new_implicit_account(u)?
         } else {
             self.new_test_account()
         };
-        self.account_id_to_idx.insert(account.id.clone(), self.accounts.len() - 1);
+        self.account_id_to_idx
+            .insert(account.id.clone(), self.accounts.len() - 1);
         Ok(account)
     }
 
-    pub fn delete_account(&mut self, account_usize_id: usize) {
-        self.alive_accounts.remove(&account_usize_id);
+    pub fn delete_account(
+        &mut self,
+        account_usize_id: usize,
+    ) {
+        self.alive_accounts
+            .remove(&account_usize_id);
     }
 
-    pub fn deploy_contract(&mut self, receiver_account: &Account, contract_id: usize) {
+    pub fn deploy_contract(
+        &mut self,
+        receiver_account: &Account,
+        contract_id: usize,
+    ) {
         let acc_id = self.usize_id(receiver_account);
         self.accounts[acc_id].deployed_contract = Some(contract_id);
     }
@@ -562,7 +643,11 @@ impl Scope {
         Ok(AddKeyAction { public_key, access_key: AccessKey { nonce, permission } })
     }
 
-    pub fn full_access_signer(&self, u: &mut Unstructured, account: &Account) -> Result<Signer> {
+    pub fn full_access_signer(
+        &self,
+        u: &mut Unstructured,
+        account: &Account,
+    ) -> Result<Signer> {
         let account_idx = self.usize_id(account);
         let possible_signers = self.accounts[account_idx].full_access_keys();
         if possible_signers.is_empty() {
@@ -597,7 +682,9 @@ impl Scope {
         let account_idx = self.usize_id(account);
         let (nonce, key) = self.accounts[account_idx].random_key(u)?;
         let public_key = key.signer.public_key();
-        self.accounts[account_idx].keys.remove(&nonce);
+        self.accounts[account_idx]
+            .keys
+            .remove(&nonce);
         Ok(public_key)
     }
 }
@@ -632,12 +719,15 @@ impl Account {
         full_access_keys
     }
 
-    pub fn function_call_keys(&self, receiver_id: &str) -> Vec<Signer> {
+    pub fn function_call_keys(
+        &self,
+        receiver_id: &str,
+    ) -> Vec<Signer> {
         let mut function_call_keys = vec![];
         for (_, key) in &self.keys {
             match &key.access_key.permission {
-                AccessKeyPermission::FullAccess => function_call_keys.push(key.signer.clone()),
-                AccessKeyPermission::FunctionCall(function_call_permission) => {
+                | AccessKeyPermission::FullAccess => function_call_keys.push(key.signer.clone()),
+                | AccessKeyPermission::FunctionCall(function_call_permission) => {
                     if function_call_permission.receiver_id == receiver_id {
                         function_call_keys.push(key.signer.clone())
                     }
@@ -647,88 +737,104 @@ impl Account {
         function_call_keys
     }
 
-    pub fn random_key(&self, u: &mut Unstructured) -> Result<(Nonce, Key)> {
+    pub fn random_key(
+        &self,
+        u: &mut Unstructured,
+    ) -> Result<(Nonce, Key)> {
         let (nonce, key) = *u.choose(&self.keys.iter().collect::<Vec<_>>())?;
         Ok((*nonce, key.clone()))
     }
 }
 
 impl Function {
-    pub fn arbitrary(&self, u: &mut Unstructured) -> Result<FunctionCallAction> {
+    pub fn arbitrary(
+        &self,
+        u: &mut Unstructured,
+    ) -> Result<FunctionCallAction> {
         let method_name;
         let mut args = Vec::new();
         match self {
             // #################
             // # Test contract #
             // #################
-            Function::StorageUsage => {
+            | Function::StorageUsage => {
                 method_name = "ext_storage_usage";
             }
-            Function::BlockIndex => {
+            | Function::BlockIndex => {
                 method_name = "ext_block_index";
             }
-            Function::BlockTimestamp => {
+            | Function::BlockTimestamp => {
                 method_name = "ext_block_timestamp";
             }
-            Function::PrepaidGas => {
+            | Function::PrepaidGas => {
                 method_name = "ext_prepaid_gas";
             }
-            Function::RandomSeed => {
+            | Function::RandomSeed => {
                 method_name = "ext_random_seed";
             }
-            Function::PredecessorAccountId => {
+            | Function::PredecessorAccountId => {
                 method_name = "ext_predecessor_account_id";
             }
-            Function::SignerAccountPk => {
+            | Function::SignerAccountPk => {
                 method_name = "ext_signer_account_pk";
             }
-            Function::SignerAccountId => {
+            | Function::SignerAccountId => {
                 method_name = "ext_signer_account_id";
             }
-            Function::CurrentAccountId => {
+            | Function::CurrentAccountId => {
                 method_name = "ext_current_account_id";
             }
-            Function::AccountBalance => {
+            | Function::AccountBalance => {
                 method_name = "ext_account_balance";
             }
-            Function::AttachedDeposit => {
+            | Function::AttachedDeposit => {
                 method_name = "ext_attached_deposit";
             }
-            Function::ValidatorTotalStake => {
+            | Function::ValidatorTotalStake => {
                 method_name = "ext_validators_total_stake";
             }
-            Function::ExtSha256 => {
+            | Function::ExtSha256 => {
                 let len = u.int_in_range(0..=100)?;
                 method_name = "ext_sha256";
                 args = u.bytes(len)?.to_vec();
             }
-            Function::UsedGas => {
+            | Function::UsedGas => {
                 method_name = "ext_used_gas";
             }
-            Function::WriteKeyValue => {
-                let key = u.int_in_range::<u64>(0..=1_000)?.to_le_bytes();
-                let value = u.int_in_range::<u64>(0..=1_000)?.to_le_bytes();
+            | Function::WriteKeyValue => {
+                let key = u
+                    .int_in_range::<u64>(0..=1_000)?
+                    .to_le_bytes();
+                let value = u
+                    .int_in_range::<u64>(0..=1_000)?
+                    .to_le_bytes();
                 method_name = "write_key_value";
                 args = [&key[..], &value[..]].concat();
             }
-            Function::WriteBlockHeight => {
+            | Function::WriteBlockHeight => {
                 method_name = "write_block_height";
             }
             // ########################
             // # Contract for fuzzing #
             // ########################
-            Function::SumOfNumbers => {
+            | Function::SumOfNumbers => {
                 method_name = "sum_of_numbers";
-                args = u.int_in_range::<u64>(1..=10)?.to_le_bytes().to_vec();
+                args = u
+                    .int_in_range::<u64>(1..=10)?
+                    .to_le_bytes()
+                    .to_vec();
             }
-            Function::DataReceipt => {
+            | Function::DataReceipt => {
                 method_name = "data_receipt_with_size";
-                args = u.choose(&[10u64, 100, 1000, 10000, 100000])?.to_le_bytes().to_vec();
+                args = u
+                    .choose(&[10u64, 100, 1000, 10000, 100000])?
+                    .to_le_bytes()
+                    .to_vec();
             }
         };
         Ok(FunctionCallAction {
             method_name: method_name.to_string(),
-            args: args,
+            args,
             gas: GAS_1,
             deposit: 0,
         })
@@ -744,7 +850,10 @@ mod tests {
     use crate::Scenario;
 
     fn do_fuzz(scenario: &Scenario) -> Result<(), String> {
-        let stats = scenario.run().result.map_err(|e| e.to_string())?;
+        let stats = scenario
+            .run()
+            .result
+            .map_err(|e| e.to_string())?;
         for block_stats in stats.blocks_stats {
             if block_stats.block_production_time > std::time::Duration::from_secs(2) {
                 return Err(format!(

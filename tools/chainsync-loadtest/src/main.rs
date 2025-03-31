@@ -25,9 +25,9 @@ use std::sync::Arc;
 
 fn genesis_hash(chain_id: &str) -> CryptoHash {
     return match chain_id {
-        near_primitives::chains::MAINNET => "EPnLgE7iEq9s7yTkos96M3cWymH5avBAPm3qx3NXqR8H",
-        near_primitives::chains::TESTNET => "FWJ9kR6KFWoyMoNjpLXXGHeuiy7tEY6GmoFeCA5yuc6b",
-        _ => {
+        | near_primitives::chains::MAINNET => "EPnLgE7iEq9s7yTkos96M3cWymH5avBAPm3qx3NXqR8H",
+        | near_primitives::chains::TESTNET => "FWJ9kR6KFWoyMoNjpLXXGHeuiy7tEY6GmoFeCA5yuc6b",
+        | _ => {
             return Default::default();
         }
     }
@@ -35,7 +35,10 @@ fn genesis_hash(chain_id: &str) -> CryptoHash {
     .unwrap();
 }
 
-pub fn start_with_config(config: NearConfig, qps_limit: u32) -> anyhow::Result<Arc<Network>> {
+pub fn start_with_config(
+    config: NearConfig,
+    qps_limit: u32,
+) -> anyhow::Result<Arc<Network>> {
     let network_adapter = LateBoundSender::new();
     let network = Network::new(&config, network_adapter.as_multi_sender(), qps_limit);
 
@@ -57,7 +60,10 @@ pub fn start_with_config(config: NearConfig, qps_limit: u32) -> anyhow::Result<A
     return Ok(network);
 }
 
-fn download_configs(chain_id: &str, dir: &std::path::Path) -> anyhow::Result<NearConfig> {
+fn download_configs(
+    chain_id: &str,
+    dir: &std::path::Path,
+) -> anyhow::Result<NearConfig> {
     // Always fetch the config.
     std::fs::create_dir_all(dir)?;
     let url = config::get_config_url(chain_id, near_config_utils::DownloadConfigType::RPC);
@@ -90,8 +96,10 @@ struct Cmd {
 impl Cmd {
     fn parse_and_run() -> anyhow::Result<()> {
         let cmd: Self = clap::Parser::parse();
-        let start_block_hash =
-            cmd.start_block_hash.parse::<CryptoHash>().map_err(|x| anyhow!(x.to_string()))?;
+        let start_block_hash = cmd
+            .start_block_hash
+            .parse::<CryptoHash>()
+            .map_err(|x| anyhow!(x.to_string()))?;
 
         let mut cache_dir = dirs::cache_dir().context("dirs::cache_dir() = None")?;
         cache_dir.push("near_configs");
@@ -102,7 +110,14 @@ impl Cmd {
         let near_config =
             download_configs(&cmd.chain_id, home_dir).context("Failed to initialize configs")?;
 
-        info!("#boot nodes = {}", near_config.network_config.peer_store.boot_nodes.len());
+        info!(
+            "#boot nodes = {}",
+            near_config
+                .network_config
+                .peer_store
+                .boot_nodes
+                .len()
+        );
         // Dropping Runtime is blocking, while futures should never be blocking.
         // Tokio has a runtime check which panics if you drop tokio Runtime from a future executed
         // on another Tokio runtime.
@@ -120,8 +135,8 @@ impl Cmd {
                 scope::run!(|s| async {
                     s.spawn_bg(async {
                         match ctx::wait(tokio::signal::ctrl_c()).await {
-                            Err(ctx::ErrCanceled) => Ok(()),
-                            Ok(res) => {
+                            | Err(ctx::ErrCanceled) => Ok(()),
+                            | Ok(res) => {
                                 res?;
                                 info!("Got CTRL+C, stopping...");
                                 Err(anyhow!("Got CTRL+C"))

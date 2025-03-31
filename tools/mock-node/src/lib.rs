@@ -78,11 +78,11 @@ struct PeriodicRequest {
 
 async fn next_request(r: Option<&mut PeriodicRequest>) -> Message {
     match r {
-        Some(r) => {
+        | Some(r) => {
             r.interval.tick().await;
             r.message.clone()
         }
-        None => futures::future::pending().await,
+        | None => futures::future::pending().await,
     }
 }
 
@@ -102,43 +102,62 @@ fn retrieve_starting_chunk_hash(
     head_height: BlockHeight,
 ) -> anyhow::Result<ChunkHash> {
     let mut last_err = None;
-    for height in (chain.tail().context("failed fetching chain tail")? + 1..=head_height).rev() {
+    for height in (chain
+        .tail()
+        .context("failed fetching chain tail")?
+        + 1..=head_height)
+        .rev()
+    {
         match chain
             .chain_store()
             .get_block_hash_by_height(height)
             .and_then(|hash| chain.chain_store().get_block(&hash))
-            .map(|block| block.chunks().iter_deprecated().next().unwrap().chunk_hash())
-        {
-            Ok(hash) => return Ok(hash),
-            Err(e) => {
+            .map(|block| {
+                block
+                    .chunks()
+                    .iter_deprecated()
+                    .next()
+                    .unwrap()
+                    .chunk_hash()
+            }) {
+            | Ok(hash) => return Ok(hash),
+            | Err(e) => {
                 last_err = Some(e);
             }
         }
     }
     match last_err {
-        Some(e) => {
+        | Some(e) => {
             Err(e).with_context(|| format!("Last error (retrieving chunk hash @ #{})", head_height))
         }
-        None => Err(anyhow!("given head_height is not after the chain tail?")),
+        | None => Err(anyhow!("given head_height is not after the chain tail?")),
     }
 }
 
 // get some block to serve as the source of unrequested incoming blocks.
-fn retrieve_incoming_block(chain: &Chain, head_height: BlockHeight) -> anyhow::Result<Block> {
+fn retrieve_incoming_block(
+    chain: &Chain,
+    head_height: BlockHeight,
+) -> anyhow::Result<Block> {
     let mut last_err = None;
-    for height in (chain.tail().context("failed fetching chain tail")? + 1..=head_height).rev() {
+    for height in (chain
+        .tail()
+        .context("failed fetching chain tail")?
+        + 1..=head_height)
+        .rev()
+    {
         match chain.get_block_by_height(height) {
-            Ok(b) => return Ok(b),
-            Err(e) => {
+            | Ok(b) => return Ok(b),
+            | Err(e) => {
                 last_err = Some(e);
             }
         }
     }
     match last_err {
-        Some(e) => {
+        | Some(e) => {
             Err(e).with_context(|| format!("Last error (retrieving block #{})", head_height))
         }
-        None => Err(anyhow!("given head_height is not after the chain tail?")),
+        | None => Err(anyhow!("given head_height is not after the chain tail?")),
     }
 }
 
@@ -155,7 +174,7 @@ impl IncomingRequests {
         if let Some(config) = config {
             if let Some(block_config) = &config.block {
                 match retrieve_incoming_block(chain, head_height) {
-                    Ok(b) => {
+                    | Ok(b) => {
                         block = Some(PeriodicRequest {
                             interval: tokio::time::interval_at(
                                 (now + block_config.interval).into(),
@@ -164,14 +183,14 @@ impl IncomingRequests {
                             message: Message::Direct(DirectMessage::Block(b)),
                         });
                     }
-                    Err(e) => {
+                    | Err(e) => {
                         tracing::error!("Can't retrieve block suitable for mock messages: {:?}", e);
                     }
                 };
             }
             if let Some(chunk_request_config) = &config.chunk_request {
                 match retrieve_starting_chunk_hash(chain, head_height) {
-                    Ok(chunk_hash) => {
+                    | Ok(chunk_hash) => {
                         chunk_request = Some(PeriodicRequest {
                             interval: tokio::time::interval_at(
                                 (now + chunk_request_config.interval).into(),
@@ -188,7 +207,7 @@ impl IncomingRequests {
                             )),
                         });
                     }
-                    Err(e) => {
+                    | Err(e) => {
                         tracing::error!(
                             "Can't construct chunk part request suitable for mock messages: {:?}",
                             e
@@ -239,40 +258,50 @@ impl InFlightMessages {
         }
     }
 
-    fn queue_message(self: Pin<&mut Self>, message: Message) {
+    fn queue_message(
+        self: Pin<&mut Self>,
+        message: Message,
+    ) {
         let me = self.project();
         let now = tokio::time::Instant::now();
         if me.messages.is_empty() {
-            me.next_delivery.reset(now + *me.response_delay);
+            me.next_delivery
+                .reset(now + *me.response_delay);
         }
         tracing::debug!(
             "mock peer queueing up message {} to be delivered in {:?}",
             &message,
             me.response_delay
         );
-        me.messages.push_back(InFlightMessage { message, sent_at: now });
+        me.messages
+            .push_back(InFlightMessage { message, sent_at: now });
     }
 }
 
 impl Future for InFlightMessages {
     type Output = Message;
 
-    fn poll(self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Self::Output> {
+    fn poll(
+        self: Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> Poll<Self::Output> {
         if self.messages.is_empty() {
             Poll::Pending
         } else {
             let mut me = self.project();
             match me.next_delivery.as_mut().poll(cx) {
-                Poll::Ready(()) => {
+                | Poll::Ready(()) => {
                     let msg = me.messages.pop_front().unwrap();
                     if let Some(m) = me.messages.front() {
                         // if there's another message after the one we're returning here, reset
                         // the time til the next message gets delivered accordingly.
-                        me.next_delivery.as_mut().reset(m.sent_at + *me.response_delay);
+                        me.next_delivery
+                            .as_mut()
+                            .reset(m.sent_at + *me.response_delay);
                     }
                     Poll::Ready(msg.message)
                 }
-                Poll::Pending => Poll::Pending,
+                | Poll::Pending => Poll::Pending,
             }
         }
     }
@@ -315,17 +344,22 @@ impl MockPeer {
         // make sure we start at a height that actually exists, because we want self.produce_block()
         // to give the first block immediately. Otherwise the node won't even try asking us for block headers
         // until we give it a block.
-        let tail = chain.tail().context("failed getting chain tail")?;
+        let tail = chain
+            .tail()
+            .context("failed getting chain tail")?;
         let mut current_height = None;
         for height in (tail..=network_start_height).rev() {
-            if chain.get_block_by_height(height).is_ok() {
+            if chain
+                .get_block_by_height(height)
+                .is_ok()
+            {
                 current_height = Some(height);
                 break;
             }
         }
         let current_height = match current_height {
-            Some(h) => h,
-            None => anyhow::bail!(
+            | Some(h) => h,
+            | None => anyhow::bail!(
                 "No block found between tail {} and network start height {}",
                 tail,
                 network_start_height
@@ -348,9 +382,9 @@ impl MockPeer {
     ) -> anyhow::Result<()> {
         tracing::debug!("mock peer received message: {}", &message);
         match message {
-            Message::Direct(msg) => {
+            | Message::Direct(msg) => {
                 match msg {
-                    DirectMessage::BlockHeadersRequest(hashes) => {
+                    | DirectMessage::BlockHeadersRequest(hashes) => {
                         let headers = self
                             .chain
                             .retrieve_headers(hashes, MAX_BLOCK_HEADERS, Some(self.current_height))
@@ -363,19 +397,19 @@ impl MockPeer {
                         outbound
                             .queue_message(Message::Direct(DirectMessage::BlockHeaders(headers)));
                     }
-                    DirectMessage::BlockRequest(hash) => {
+                    | DirectMessage::BlockRequest(hash) => {
                         let block = self
                             .chain
                             .get_block(&hash)
                             .with_context(|| format!("failed getting block {}", &hash))?;
                         outbound.queue_message(Message::Direct(DirectMessage::Block(block)));
                     }
-                    _ => {}
+                    | _ => {}
                 };
             }
-            Message::Routed(r) => {
+            | Message::Routed(r) => {
                 match r {
-                    RoutedMessage::PartialEncodedChunkRequest(request) => {
+                    | RoutedMessage::PartialEncodedChunkRequest(request) => {
                         let response = retrieve_partial_encoded_chunk(&self.chain, &request)
                             .with_context(|| {
                                 format!(
@@ -389,7 +423,7 @@ impl MockPeer {
                     }
                     // TODO: add state sync requests to possible request types so we can either
                     // respond or just exit, saying we don't know how to do that
-                    _ => {}
+                    | _ => {}
                 }
             }
         };
@@ -402,16 +436,19 @@ impl MockPeer {
         let height = self.current_height;
         self.current_height += 1;
         match self.chain.get_block_by_height(height) {
-            Ok(b) => Ok(Some(b)),
-            Err(near_chain::Error::DBNotFoundErr(_)) => Ok(None),
-            Err(e) => Err(e.into()),
+            | Ok(b) => Ok(Some(b)),
+            | Err(near_chain::Error::DBNotFoundErr(_)) => Ok(None),
+            | Err(e) => Err(e.into()),
         }
     }
 
     // returns a message produced by this mock peer. Right now this includes a new block
     // at a rate given by block_production_delay in the config, and extra chunk part requests
     // and blocks as specified by the mock.json config
-    async fn incoming_message(&mut self, target_height: BlockHeight) -> anyhow::Result<Message> {
+    async fn incoming_message(
+        &mut self,
+        target_height: BlockHeight,
+    ) -> anyhow::Result<Message> {
         loop {
             tokio::select! {
                 msg = self.incoming_requests.next() => {
@@ -428,7 +465,10 @@ impl MockPeer {
 
     // listen on the addr passed to MockPeer::new() and wait til someone connects.
     // Then respond to messages indefinitely until an error occurs
-    async fn run(mut self, target_height: BlockHeight) -> anyhow::Result<()> {
+    async fn run(
+        mut self,
+        target_height: BlockHeight,
+    ) -> anyhow::Result<()> {
         let mut conn = self.listener.accept().await?;
         let messages = InFlightMessages::new(self.network_config.response_delay);
         tokio::pin!(messages);
@@ -464,9 +504,14 @@ fn retrieve_partial_encoded_chunk(
     request: &PartialEncodedChunkRequestMsg,
 ) -> Result<PartialEncodedChunkResponseMsg, Error> {
     let num_total_parts = chain.epoch_manager.num_total_parts();
-    let partial_chunk = chain.chain_store().get_partial_chunk(&request.chunk_hash)?;
-    let present_parts: HashMap<u64, _> =
-        partial_chunk.parts().iter().map(|part| (part.part_ord, part)).collect();
+    let partial_chunk = chain
+        .chain_store()
+        .get_partial_chunk(&request.chunk_hash)?;
+    let present_parts: HashMap<u64, _> = partial_chunk
+        .parts()
+        .iter()
+        .map(|part| (part.part_ord, part))
+        .collect();
     assert_eq!(
         present_parts.len(),
         num_total_parts,
@@ -476,7 +521,13 @@ fn retrieve_partial_encoded_chunk(
     let parts: Vec<_> = request
         .part_ords
         .iter()
-        .map(|ord| present_parts.get(ord).cloned().cloned().unwrap())
+        .map(|ord| {
+            present_parts
+                .get(ord)
+                .cloned()
+                .cloned()
+                .unwrap()
+        })
         .collect();
 
     // Same process for receipts as above for parts.
@@ -488,7 +539,13 @@ fn retrieve_partial_encoded_chunk(
     let receipts: Vec<_> = request
         .tracking_shards
         .iter()
-        .map(|shard_id| present_receipts.get(shard_id).cloned().cloned().unwrap())
+        .map(|shard_id| {
+            present_receipts
+                .get(shard_id)
+                .cloned()
+                .cloned()
+                .unwrap()
+        })
         .collect();
 
     Ok(PartialEncodedChunkResponseMsg { chunk_hash: request.chunk_hash.clone(), parts, receipts })

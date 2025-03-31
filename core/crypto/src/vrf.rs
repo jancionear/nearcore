@@ -18,11 +18,19 @@ impl PublicKey {
         Some(PublicKey(*bytes, unpack(bytes)?))
     }
 
-    fn offset(&self, input: &[u8]) -> Scalar {
+    fn offset(
+        &self,
+        input: &[u8],
+    ) -> Scalar {
         hash_s!(&self.0, input)
     }
 
-    pub fn is_vrf_valid(&self, input: &impl Borrow<[u8]>, value: &Value, proof: &Proof) -> bool {
+    pub fn is_vrf_valid(
+        &self,
+        input: &impl Borrow<[u8]>,
+        value: &Value,
+        proof: &Proof,
+    ) -> bool {
         self.is_valid(input.borrow(), value, proof)
     }
 
@@ -30,7 +38,12 @@ impl PublicKey {
     // unchecked arithmetic inside and provides no apparent way to do it in a checked manner.
     // cspell:words vmul
     #[allow(clippy::arithmetic_side_effects)]
-    fn is_valid(&self, input: &[u8], value: &Value, proof: &Proof) -> bool {
+    fn is_valid(
+        &self,
+        input: &[u8],
+        value: &Value,
+        proof: &Proof,
+    ) -> bool {
         let p = unwrap_or_return_false!(unpack(&value.0));
         let (r, c) = unwrap_or_return_false!(unpack(&proof.0));
         hash_s!(
@@ -69,7 +82,10 @@ impl SecretKey {
         &self.1
     }
 
-    pub fn compute_vrf(&self, input: &impl Borrow<[u8]>) -> Value {
+    pub fn compute_vrf(
+        &self,
+        input: &impl Borrow<[u8]>,
+    ) -> Value {
         self.compute(input.borrow())
     }
 
@@ -77,11 +93,17 @@ impl SecretKey {
     // unchecked arithmetic inside and provides no apparent way to do it in a checked or wrapping
     // manner.
     #[allow(clippy::arithmetic_side_effects)]
-    fn compute(&self, input: &[u8]) -> Value {
+    fn compute(
+        &self,
+        input: &[u8],
+    ) -> Value {
         Value(basemul(safe_invert(self.0 + self.1.offset(input))).pack())
     }
 
-    pub fn compute_vrf_with_proof(&self, input: &impl Borrow<[u8]>) -> (Value, Proof) {
+    pub fn compute_vrf_with_proof(
+        &self,
+        input: &impl Borrow<[u8]>,
+    ) -> (Value, Proof) {
         self.compute_with_proof(input.borrow())
     }
 
@@ -89,7 +111,10 @@ impl SecretKey {
     // unchecked arithmetic inside and provides no apparent way to do it in a checked or wrapping
     // manner.
     #[allow(clippy::arithmetic_side_effects)]
-    fn compute_with_proof(&self, input: &[u8]) -> (Value, Proof) {
+    fn compute_with_proof(
+        &self,
+        input: &[u8],
+    ) -> (Value, Proof) {
         let x = self.0 + self.1.offset(input);
         let inv = safe_invert(x);
         let val = basemul(inv).pack();
@@ -98,8 +123,14 @@ impl SecretKey {
         (Value(val), Proof((k - c * x, c).pack()))
     }
 
-    pub fn is_vrf_valid(&self, input: &impl Borrow<[u8]>, value: &Value, proof: &Proof) -> bool {
-        self.1.is_valid(input.borrow(), value, proof)
+    pub fn is_vrf_valid(
+        &self,
+        input: &impl Borrow<[u8]>,
+        value: &Value,
+        proof: &Proof,
+    ) -> bool {
+        self.1
+            .is_valid(input.borrow(), value, proof)
     }
 }
 
@@ -150,8 +181,12 @@ mod tests {
         let (val, proof) = sk.compute_vrf_with_proof(b"Test");
         let val2 = sk.compute_vrf(b"Test");
         assert_eq!(val, val2);
-        assert!(sk.public_key().is_vrf_valid(b"Test", &val, &proof));
-        assert!(!sk.public_key().is_vrf_valid(b"Tent", &val, &proof));
+        assert!(sk
+            .public_key()
+            .is_vrf_valid(b"Test", &val, &proof));
+        assert!(!sk
+            .public_key()
+            .is_vrf_valid(b"Tent", &val, &proof));
     }
 
     #[test]

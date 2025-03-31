@@ -49,10 +49,19 @@ impl TryFrom<crate::models::Operation> for FunctionCallOperation {
 
     fn try_from(operation: crate::models::Operation) -> Result<Self, Self::Error> {
         Self::validate_operation_type(operation.type_)?;
-        let metadata = operation.metadata.ok_or_else(required_fields_error)?;
-        let method_name = metadata.method_name.ok_or_else(required_fields_error)?;
-        let args = metadata.args.ok_or_else(required_fields_error)?.into_inner();
-        let attached_gas = metadata.attached_gas.ok_or_else(required_fields_error)?;
+        let metadata = operation
+            .metadata
+            .ok_or_else(required_fields_error)?;
+        let method_name = metadata
+            .method_name
+            .ok_or_else(required_fields_error)?;
+        let args = metadata
+            .args
+            .ok_or_else(required_fields_error)?
+            .into_inner();
+        let attached_gas = metadata
+            .attached_gas
+            .ok_or_else(required_fields_error)?;
         let attached_gas = if attached_gas.is_positive() {
             attached_gas.absolute_difference()
         } else {
@@ -66,7 +75,9 @@ impl TryFrom<crate::models::Operation> for FunctionCallOperation {
                     "FUNCTION_CALL operations must have non-negative `amount`".to_string(),
                 ));
             }
-            attached_amount.value.absolute_difference()
+            attached_amount
+                .value
+                .absolute_difference()
         } else {
             0
         };

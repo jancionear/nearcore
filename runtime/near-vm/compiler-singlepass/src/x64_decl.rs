@@ -103,32 +103,32 @@ impl X64Register {
     /// Converts a DWARF regnum to X64Register.
     pub(crate) fn _from_dwarf_regnum(x: u16) -> Option<X64Register> {
         Some(match x {
-            0 => X64Register::GPR(GPR::RAX),
-            1 => X64Register::GPR(GPR::RDX),
-            2 => X64Register::GPR(GPR::RCX),
-            3 => X64Register::GPR(GPR::RBX),
-            4 => X64Register::GPR(GPR::RSI),
-            5 => X64Register::GPR(GPR::RDI),
-            6 => X64Register::GPR(GPR::RBP),
-            7 => X64Register::GPR(GPR::RSP),
-            8 => X64Register::GPR(GPR::R8),
-            9 => X64Register::GPR(GPR::R9),
-            10 => X64Register::GPR(GPR::R10),
-            11 => X64Register::GPR(GPR::R11),
-            12 => X64Register::GPR(GPR::R12),
-            13 => X64Register::GPR(GPR::R13),
-            14 => X64Register::GPR(GPR::R14),
-            15 => X64Register::GPR(GPR::R15),
+            | 0 => X64Register::GPR(GPR::RAX),
+            | 1 => X64Register::GPR(GPR::RDX),
+            | 2 => X64Register::GPR(GPR::RCX),
+            | 3 => X64Register::GPR(GPR::RBX),
+            | 4 => X64Register::GPR(GPR::RSI),
+            | 5 => X64Register::GPR(GPR::RDI),
+            | 6 => X64Register::GPR(GPR::RBP),
+            | 7 => X64Register::GPR(GPR::RSP),
+            | 8 => X64Register::GPR(GPR::R8),
+            | 9 => X64Register::GPR(GPR::R9),
+            | 10 => X64Register::GPR(GPR::R10),
+            | 11 => X64Register::GPR(GPR::R11),
+            | 12 => X64Register::GPR(GPR::R12),
+            | 13 => X64Register::GPR(GPR::R13),
+            | 14 => X64Register::GPR(GPR::R14),
+            | 15 => X64Register::GPR(GPR::R15),
 
-            17 => X64Register::XMM(XMM::XMM0),
-            18 => X64Register::XMM(XMM::XMM1),
-            19 => X64Register::XMM(XMM::XMM2),
-            20 => X64Register::XMM(XMM::XMM3),
-            21 => X64Register::XMM(XMM::XMM4),
-            22 => X64Register::XMM(XMM::XMM5),
-            23 => X64Register::XMM(XMM::XMM6),
-            24 => X64Register::XMM(XMM::XMM7),
-            _ => return None,
+            | 17 => X64Register::XMM(XMM::XMM0),
+            | 18 => X64Register::XMM(XMM::XMM1),
+            | 19 => X64Register::XMM(XMM::XMM2),
+            | 20 => X64Register::XMM(XMM::XMM3),
+            | 21 => X64Register::XMM(XMM::XMM4),
+            | 22 => X64Register::XMM(XMM::XMM5),
+            | 23 => X64Register::XMM(XMM::XMM6),
+            | 24 => X64Register::XMM(XMM::XMM7),
+            | _ => return None,
         })
     }
 
@@ -138,25 +138,25 @@ impl X64Register {
     /// offset to the stack pointer to this prefix.
     pub(crate) fn _prefix_mov_to_stack(&self) -> Option<&'static [u8]> {
         Some(match *self {
-            X64Register::GPR(gpr) => match gpr {
-                GPR::RDI => &[0x48, 0x89, 0xbc, 0x24],
-                GPR::RSI => &[0x48, 0x89, 0xb4, 0x24],
-                GPR::RDX => &[0x48, 0x89, 0x94, 0x24],
-                GPR::RCX => &[0x48, 0x89, 0x8c, 0x24],
-                GPR::R8 => &[0x4c, 0x89, 0x84, 0x24],
-                GPR::R9 => &[0x4c, 0x89, 0x8c, 0x24],
-                _ => return None,
+            | X64Register::GPR(gpr) => match gpr {
+                | GPR::RDI => &[0x48, 0x89, 0xbc, 0x24],
+                | GPR::RSI => &[0x48, 0x89, 0xb4, 0x24],
+                | GPR::RDX => &[0x48, 0x89, 0x94, 0x24],
+                | GPR::RCX => &[0x48, 0x89, 0x8c, 0x24],
+                | GPR::R8 => &[0x4c, 0x89, 0x84, 0x24],
+                | GPR::R9 => &[0x4c, 0x89, 0x8c, 0x24],
+                | _ => return None,
             },
-            X64Register::XMM(xmm) => match xmm {
-                XMM::XMM0 => &[0x66, 0x0f, 0xd6, 0x84, 0x24],
-                XMM::XMM1 => &[0x66, 0x0f, 0xd6, 0x8c, 0x24],
-                XMM::XMM2 => &[0x66, 0x0f, 0xd6, 0x94, 0x24],
-                XMM::XMM3 => &[0x66, 0x0f, 0xd6, 0x9c, 0x24],
-                XMM::XMM4 => &[0x66, 0x0f, 0xd6, 0xa4, 0x24],
-                XMM::XMM5 => &[0x66, 0x0f, 0xd6, 0xac, 0x24],
-                XMM::XMM6 => &[0x66, 0x0f, 0xd6, 0xb4, 0x24],
-                XMM::XMM7 => &[0x66, 0x0f, 0xd6, 0xbc, 0x24],
-                _ => return None,
+            | X64Register::XMM(xmm) => match xmm {
+                | XMM::XMM0 => &[0x66, 0x0f, 0xd6, 0x84, 0x24],
+                | XMM::XMM1 => &[0x66, 0x0f, 0xd6, 0x8c, 0x24],
+                | XMM::XMM2 => &[0x66, 0x0f, 0xd6, 0x94, 0x24],
+                | XMM::XMM3 => &[0x66, 0x0f, 0xd6, 0x9c, 0x24],
+                | XMM::XMM4 => &[0x66, 0x0f, 0xd6, 0xa4, 0x24],
+                | XMM::XMM5 => &[0x66, 0x0f, 0xd6, 0xac, 0x24],
+                | XMM::XMM6 => &[0x66, 0x0f, 0xd6, 0xb4, 0x24],
+                | XMM::XMM7 => &[0x66, 0x0f, 0xd6, 0xbc, 0x24],
+                | _ => return None,
             },
         })
     }
@@ -177,12 +177,17 @@ impl ArgumentRegisterAllocator {
         calling_convention: CallingConvention,
     ) -> Option<X64Register> {
         match calling_convention {
-            CallingConvention::WindowsFastcall => {
+            | CallingConvention::WindowsFastcall => {
                 static GPR_SEQ: &'static [GPR] = &[GPR::RCX, GPR::RDX, GPR::R8, GPR::R9];
-                static XMM_SEQ: &'static [XMM] = &[XMM::XMM0, XMM::XMM1, XMM::XMM2, XMM::XMM3];
+                static XMM_SEQ: &'static [XMM] = &[
+                    XMM::XMM0,
+                    XMM::XMM1,
+                    XMM::XMM2,
+                    XMM::XMM3,
+                ];
                 let idx = self.n_gprs + self.n_xmms;
                 match ty {
-                    Type::I32 | Type::I64 => {
+                    | Type::I32 | Type::I64 => {
                         if idx < 4 {
                             let gpr = GPR_SEQ[idx];
                             self.n_gprs += 1;
@@ -191,7 +196,7 @@ impl ArgumentRegisterAllocator {
                             None
                         }
                     }
-                    Type::F32 | Type::F64 => {
+                    | Type::F32 | Type::F64 => {
                         if idx < 4 {
                             let xmm = XMM_SEQ[idx];
                             self.n_xmms += 1;
@@ -200,12 +205,18 @@ impl ArgumentRegisterAllocator {
                             None
                         }
                     }
-                    _ => todo!("ArgumentRegisterAllocator::next: Unsupported type: {:?}", ty),
+                    | _ => todo!("ArgumentRegisterAllocator::next: Unsupported type: {:?}", ty),
                 }
             }
-            _ => {
-                static GPR_SEQ: &'static [GPR] =
-                    &[GPR::RDI, GPR::RSI, GPR::RDX, GPR::RCX, GPR::R8, GPR::R9];
+            | _ => {
+                static GPR_SEQ: &'static [GPR] = &[
+                    GPR::RDI,
+                    GPR::RSI,
+                    GPR::RDX,
+                    GPR::RCX,
+                    GPR::R8,
+                    GPR::R9,
+                ];
                 static XMM_SEQ: &'static [XMM] = &[
                     XMM::XMM0,
                     XMM::XMM1,
@@ -217,7 +228,7 @@ impl ArgumentRegisterAllocator {
                     XMM::XMM7,
                 ];
                 match ty {
-                    Type::I32 | Type::I64 => {
+                    | Type::I32 | Type::I64 => {
                         if self.n_gprs < GPR_SEQ.len() {
                             let gpr = GPR_SEQ[self.n_gprs];
                             self.n_gprs += 1;
@@ -226,7 +237,7 @@ impl ArgumentRegisterAllocator {
                             None
                         }
                     }
-                    Type::F32 | Type::F64 => {
+                    | Type::F32 | Type::F64 => {
                         if self.n_xmms < XMM_SEQ.len() {
                             let xmm = XMM_SEQ[self.n_xmms];
                             self.n_xmms += 1;
@@ -235,7 +246,7 @@ impl ArgumentRegisterAllocator {
                             None
                         }
                     }
-                    _ => todo!("ArgumentRegisterAllocator::next: Unsupported type: {:?}", ty),
+                    | _ => todo!("ArgumentRegisterAllocator::next: Unsupported type: {:?}", ty),
                 }
             }
         }

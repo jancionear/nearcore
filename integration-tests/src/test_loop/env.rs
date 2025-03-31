@@ -38,11 +38,23 @@ impl TestLoopEnv {
         let Self { mut test_loop, datas, tempdir } = self;
 
         let client_handle = datas[0].client_sender.actor_handle();
-        let genesis_height = test_loop.data.get(&client_handle).client.chain.genesis().height();
+        let genesis_height = test_loop
+            .data
+            .get(&client_handle)
+            .client
+            .chain
+            .genesis()
+            .height();
         test_loop.run_until(
             |test_loop_data| {
                 let client_actor = test_loop_data.get(&client_handle);
-                client_actor.client.chain.head().unwrap().height == genesis_height + 4
+                client_actor
+                    .client
+                    .chain
+                    .head()
+                    .unwrap()
+                    .height
+                    == genesis_height + 4
             },
             Duration::seconds(5),
         );
@@ -50,8 +62,11 @@ impl TestLoopEnv {
             let client_handle = datas[idx].client_sender.actor_handle();
             let event = move |test_loop_data: &mut TestLoopData| {
                 let client_actor = test_loop_data.get(&client_handle);
-                let block =
-                    client_actor.client.chain.get_block_by_height(genesis_height + 3).unwrap();
+                let block = client_actor
+                    .client
+                    .chain
+                    .get_block_by_height(genesis_height + 3)
+                    .unwrap();
                 let num_shards = block.header().chunk_mask().len();
                 assert_eq!(block.header().chunk_mask(), vec![true; num_shards]);
             };
@@ -68,13 +83,20 @@ impl TestLoopEnv {
     /// TestLoop itself, as it asserts that all events have been handled.
     ///
     /// Returns the test loop data dir, if the caller wishes to reuse it for another test loop.
-    pub fn shutdown_and_drain_remaining_events(mut self, timeout: Duration) -> TempDir {
+    pub fn shutdown_and_drain_remaining_events(
+        mut self,
+        timeout: Duration,
+    ) -> TempDir {
         // State sync dumper is not an Actor, handle stopping separately.
         for node_data in self.datas {
-            self.test_loop.data.get_mut(&node_data.state_sync_dumper_handle).stop();
+            self.test_loop
+                .data
+                .get_mut(&node_data.state_sync_dumper_handle)
+                .stop();
         }
 
-        self.test_loop.shutdown_and_drain_remaining_events(timeout);
+        self.test_loop
+            .shutdown_and_drain_remaining_events(timeout);
         self.tempdir
     }
 }
@@ -93,22 +115,32 @@ pub struct TestLoopChunksStorage {
 }
 
 impl TestLoopChunksStorage {
-    pub fn insert(&mut self, chunk_header: ShardChunkHeader) {
+    pub fn insert(
+        &mut self,
+        chunk_header: ShardChunkHeader,
+    ) {
         let chunk_height = chunk_header.height_created();
         self.min_chunk_height = Some(
             self.min_chunk_height
                 .map_or(chunk_height, |current_height| current_height.min(chunk_height)),
         );
-        self.storage.insert(chunk_header.chunk_hash(), chunk_header);
+        self.storage
+            .insert(chunk_header.chunk_hash(), chunk_header);
     }
 
-    pub fn get(&self, chunk_hash: &ChunkHash) -> Option<&ShardChunkHeader> {
+    pub fn get(
+        &self,
+        chunk_hash: &ChunkHash,
+    ) -> Option<&ShardChunkHeader> {
         self.storage.get(chunk_hash)
     }
 
     /// If chunk height is too low, don't drop chunk, allow the chain to warm
     /// up.
-    pub fn can_drop_chunk(&self, chunk_header: &ShardChunkHeader) -> bool {
+    pub fn can_drop_chunk(
+        &self,
+        chunk_header: &ShardChunkHeader,
+    ) -> bool {
         self.min_chunk_height
             .is_some_and(|min_height| chunk_header.height_created() >= min_height + 3)
     }
@@ -124,7 +156,10 @@ pub struct ClientToShardsManagerSender {
 }
 
 impl CanSend<ShardsManagerRequestFromClient> for ClientToShardsManagerSender {
-    fn send(&self, message: ShardsManagerRequestFromClient) {
+    fn send(
+        &self,
+        message: ShardsManagerRequestFromClient,
+    ) {
         // `DistributeEncodedChunk` indicates that a certain chunk was produced.
         if let ShardsManagerRequestFromClient::DistributeEncodedChunk { partial_chunk, .. } =
             &message
@@ -162,30 +197,45 @@ impl From<&TestData> for PeerId {
 
 impl From<&TestData> for ClientSenderForTestLoopNetwork {
     fn from(data: &TestData) -> ClientSenderForTestLoopNetwork {
-        data.client_sender.clone().with_delay(NETWORK_DELAY).into_multi_sender()
+        data.client_sender
+            .clone()
+            .with_delay(NETWORK_DELAY)
+            .into_multi_sender()
     }
 }
 
 impl From<&TestData> for ViewClientSenderForRpc {
     fn from(data: &TestData) -> ViewClientSenderForRpc {
-        data.view_client_sender.clone().with_delay(NETWORK_DELAY).into_multi_sender()
+        data.view_client_sender
+            .clone()
+            .with_delay(NETWORK_DELAY)
+            .into_multi_sender()
     }
 }
 
 impl From<&TestData> for ViewClientSenderForTestLoopNetwork {
     fn from(data: &TestData) -> ViewClientSenderForTestLoopNetwork {
-        data.view_client_sender.clone().with_delay(NETWORK_DELAY).into_multi_sender()
+        data.view_client_sender
+            .clone()
+            .with_delay(NETWORK_DELAY)
+            .into_multi_sender()
     }
 }
 
 impl From<&TestData> for PartialWitnessSenderForNetwork {
     fn from(data: &TestData) -> PartialWitnessSenderForNetwork {
-        data.partial_witness_sender.clone().with_delay(NETWORK_DELAY).into_multi_sender()
+        data.partial_witness_sender
+            .clone()
+            .with_delay(NETWORK_DELAY)
+            .into_multi_sender()
     }
 }
 
 impl From<&TestData> for Sender<ShardsManagerRequestFromNetwork> {
     fn from(data: &TestData) -> Sender<ShardsManagerRequestFromNetwork> {
-        data.shards_manager_sender.clone().with_delay(NETWORK_DELAY).into_sender()
+        data.shards_manager_sender
+            .clone()
+            .with_delay(NETWORK_DELAY)
+            .into_sender()
     }
 }

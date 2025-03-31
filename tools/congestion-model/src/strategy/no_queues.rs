@@ -13,7 +13,10 @@ impl crate::CongestionStrategy for NoQueueShard {
     ) {
     }
 
-    fn compute_chunk(&mut self, ctx: &mut ChunkExecutionContext) {
+    fn compute_chunk(
+        &mut self,
+        ctx: &mut ChunkExecutionContext,
+    ) {
         while ctx.gas_burnt() < TX_GAS_LIMIT {
             if let Some(tx) = ctx.incoming_transactions().pop_front() {
                 let outgoing = ctx.accept_transaction(tx);

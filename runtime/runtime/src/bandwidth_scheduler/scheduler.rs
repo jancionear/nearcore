@@ -160,8 +160,15 @@ pub struct GrantedBandwidth {
 }
 
 impl GrantedBandwidth {
-    pub fn get_granted_bandwidth(&self, sender: ShardId, receiver: ShardId) -> Bandwidth {
-        self.granted.get(&(sender, receiver)).copied().unwrap_or(0)
+    pub fn get_granted_bandwidth(
+        &self,
+        sender: ShardId,
+        receiver: ShardId,
+    ) -> Bandwidth {
+        self.granted
+            .get(&(sender, receiver))
+            .copied()
+            .unwrap_or(0)
     }
 }
 
@@ -211,7 +218,7 @@ impl BandwidthScheduler {
         }
 
         let state = match state {
-            BandwidthSchedulerState::V1(v1) => v1,
+            | BandwidthSchedulerState::V1(v1) => v1,
         };
 
         // Convert link allowances to the internal representation.
@@ -220,11 +227,11 @@ impl BandwidthScheduler {
             let sender_index_opt = shard_layout.get_shard_index(link_allowance.sender);
             let receiver_index_opt = shard_layout.get_shard_index(link_allowance.receiver);
             match (sender_index_opt, receiver_index_opt) {
-                (Ok(sender_index), Ok(receiver_index)) => {
+                | (Ok(sender_index), Ok(receiver_index)) => {
                     let link = ShardLink::new(sender_index, receiver_index);
                     link_allowances.insert(link, link_allowance.allowance);
                 }
-                _ => {} // The allowance was for a shard that is not in the current set of shards. // TODO(bandwidth_scheduler) - add a warning?
+                | _ => {} // The allowance was for a shard that is not in the current set of shards. // TODO(bandwidth_scheduler) - add a warning?
             }
         }
 
@@ -256,7 +263,7 @@ impl BandwidthScheduler {
             &bandwidth_requests.shards_bandwidth_requests
         {
             let requests = match shard_bandwidth_requests {
-                BandwidthRequests::V1(requests_v1) => &requests_v1.requests,
+                | BandwidthRequests::V1(requests_v1) => &requests_v1.requests,
             };
 
             for bandwidth_request in requests {
@@ -300,7 +307,10 @@ impl BandwidthScheduler {
         grants
     }
 
-    fn schedule_bandwidth(&mut self, requests: Vec<SchedulerBandwidthRequest>) -> GrantedBandwidth {
+    fn schedule_bandwidth(
+        &mut self,
+        requests: Vec<SchedulerBandwidthRequest>,
+    ) -> GrantedBandwidth {
         self.init_budgets();
         self.increase_allowances();
         self.grant_base_bandwidth();
@@ -313,10 +323,12 @@ impl BandwidthScheduler {
     /// Initialize sender and receiver budgets. Every shard can send and receive at most `max_shard_bandwidth`.
     fn init_budgets(&mut self) {
         for sender in self.shard_layout.shard_indexes() {
-            self.sender_budget.insert(sender, self.params.max_shard_bandwidth);
+            self.sender_budget
+                .insert(sender, self.params.max_shard_bandwidth);
         }
         for receiver in self.shard_layout.shard_indexes() {
-            self.receiver_budget.insert(receiver, self.params.max_shard_bandwidth);
+            self.receiver_budget
+                .insert(receiver, self.params.max_shard_bandwidth);
         }
     }
     /// Give every link a fair amount of allowance at every height.
@@ -344,7 +356,10 @@ impl BandwidthScheduler {
         }
     }
 
-    fn process_bandwidth_requests(&mut self, requests: Vec<SchedulerBandwidthRequest>) {
+    fn process_bandwidth_requests(
+        &mut self,
+        requests: Vec<SchedulerBandwidthRequest>,
+    ) {
         // Bandwidth requests, ordered by link allowance.
         let mut requests_by_allowance: BTreeMap<Bandwidth, Vec<SchedulerBandwidthRequest>> =
             BTreeMap::new();
@@ -366,7 +381,7 @@ impl BandwidthScheduler {
                     continue;
                 };
                 match self.try_grant_bandwidth(&request.link, bandwidth_increase) {
-                    TryGrantOutcome::Granted => {
+                    | TryGrantOutcome::Granted => {
                         // Granting bandwidth succeeded. Decrease the allowance and put the request back into the queue.
                         // The rest of requested bandwidth increases will be processed when the request is taken out
                         // of the priority queue again.
@@ -377,7 +392,7 @@ impl BandwidthScheduler {
                                 .push(request);
                         }
                     }
-                    TryGrantOutcome::NotGranted => {
+                    | TryGrantOutcome::NotGranted => {
                         // Can't grant the next bandwidth increase for this request.
                         // Discard the request, there's nothing more we can do to fulfill it.
                         continue;
@@ -412,8 +427,12 @@ impl BandwidthScheduler {
             if let Some(granted_bandwidth) = self.granted_bandwidth.get(&link) {
                 granted.insert(
                     (
-                        self.shard_layout.get_shard_id(link.sender).unwrap(),
-                        self.shard_layout.get_shard_id(link.receiver).unwrap(),
+                        self.shard_layout
+                            .get_shard_id(link.sender)
+                            .unwrap(),
+                        self.shard_layout
+                            .get_shard_id(link.receiver)
+                            .unwrap(),
                     ),
                     *granted_bandwidth,
                 );
@@ -425,8 +444,11 @@ impl BandwidthScheduler {
     /// Iterate over all links from senders to receivers without borrowing &self.
     /// Allows to modify other fields of the struct while iterating over links.
     fn iter_links(&self) -> impl Iterator<Item = ShardLink> + 'static {
-        let num_indexes: usize =
-            self.shard_layout.num_shards().try_into().expect("num_shards doesn't fit into usize!");
+        let num_indexes: usize = self
+            .shard_layout
+            .num_shards()
+            .try_into()
+            .expect("num_shards doesn't fit into usize!");
         (0..num_indexes)
             .map(move |sender_idx| {
                 (0..num_indexes).map(move |receiver_idx| ShardLink::new(sender_idx, receiver_idx))
@@ -434,25 +456,41 @@ impl BandwidthScheduler {
             .flatten()
     }
 
-    fn get_allowance(&self, link: &ShardLink) -> Bandwidth {
-        self.link_allowances.get(link).copied().unwrap_or_else(|| self.default_link_allowance())
+    fn get_allowance(
+        &self,
+        link: &ShardLink,
+    ) -> Bandwidth {
+        self.link_allowances
+            .get(link)
+            .copied()
+            .unwrap_or_else(|| self.default_link_allowance())
     }
 
     /// Increase allowance on the link, but don't exceed the maximum allowance.
-    fn increase_allowance(&mut self, link: &ShardLink, increase: Bandwidth) {
+    fn increase_allowance(
+        &mut self,
+        link: &ShardLink,
+        increase: Bandwidth,
+    ) {
         let current_allowance = self.get_allowance(link);
         let mut new_allowance = current_allowance.saturating_add(increase);
         if new_allowance > self.params.max_allowance {
             new_allowance = self.params.max_allowance;
         }
-        self.link_allowances.insert(*link, new_allowance);
+        self.link_allowances
+            .insert(*link, new_allowance);
     }
 
     /// Decrease allowance on the link, but don't go below zero.
-    fn decrease_allowance(&mut self, link: &ShardLink, decrease: Bandwidth) {
+    fn decrease_allowance(
+        &mut self,
+        link: &ShardLink,
+        decrease: Bandwidth,
+    ) {
         let current_allowance = self.get_allowance(link);
         let new_allowance = current_allowance.saturating_sub(decrease);
-        self.link_allowances.insert(*link, new_allowance);
+        self.link_allowances
+            .insert(*link, new_allowance);
     }
 
     /// New links start with zero allowance. They will get their fair share of bandwidth,
@@ -464,14 +502,26 @@ impl BandwidthScheduler {
     /// Try to grant some bandwidth on the link.
     /// On success returns TryGrantOutcome::Granted
     /// If granting more bandwidth is not possible because of some restrictions, returns TryGrantOutcome::NotGranted.
-    fn try_grant_bandwidth(&mut self, link: &ShardLink, bandwidth: Bandwidth) -> TryGrantOutcome {
+    fn try_grant_bandwidth(
+        &mut self,
+        link: &ShardLink,
+        bandwidth: Bandwidth,
+    ) -> TryGrantOutcome {
         if !self.is_link_allowed(link) {
             // Not allowed to send anything on this link. Receiver is too congested or had a missing chunk.
             return TryGrantOutcome::NotGranted;
         }
 
-        let sender_budget = self.sender_budget.get(&link.sender).copied().unwrap_or(0);
-        let receiver_budget = self.receiver_budget.get(&link.receiver).copied().unwrap_or(0);
+        let sender_budget = self
+            .sender_budget
+            .get(&link.sender)
+            .copied()
+            .unwrap_or(0);
+        let receiver_budget = self
+            .receiver_budget
+            .get(&link.receiver)
+            .copied()
+            .unwrap_or(0);
 
         if sender_budget < bandwidth || receiver_budget < bandwidth {
             // Sender or receiver can't send this much as they would go over the per-shard budget.
@@ -479,8 +529,10 @@ impl BandwidthScheduler {
         }
 
         // Ok, grant the bandwidth
-        self.sender_budget.insert(link.sender, sender_budget - bandwidth);
-        self.receiver_budget.insert(link.receiver, receiver_budget - bandwidth);
+        self.sender_budget
+            .insert(link.sender, sender_budget - bandwidth);
+        self.receiver_budget
+            .insert(link.receiver, receiver_budget - bandwidth);
         self.decrease_allowance(link, bandwidth);
         self.grant_more_bandwidth(link, bandwidth);
 
@@ -488,17 +540,32 @@ impl BandwidthScheduler {
     }
 
     /// Add new granted bandwidth to the link. Doesn't adjust allowance or budgets.
-    fn grant_more_bandwidth(&mut self, link: &ShardLink, bandwidth: Bandwidth) {
-        let current_granted = self.granted_bandwidth.get(link).copied().unwrap_or(0);
+    fn grant_more_bandwidth(
+        &mut self,
+        link: &ShardLink,
+        bandwidth: Bandwidth,
+    ) {
+        let current_granted = self
+            .granted_bandwidth
+            .get(link)
+            .copied()
+            .unwrap_or(0);
         let new_granted = current_granted.checked_add(bandwidth).unwrap_or_else(|| {
             tracing::warn!(target: "runtime", "Granting bandwidth on link {:?} would overflow, this is unexpected. Granting max bandwidth instead", link);
             Bandwidth::MAX
         });
-        self.granted_bandwidth.insert(*link, new_granted);
+        self.granted_bandwidth
+            .insert(*link, new_granted);
     }
 
-    fn is_link_allowed(&self, link: &ShardLink) -> bool {
-        *self.is_link_allowed_map.get(link).unwrap_or(&false)
+    fn is_link_allowed(
+        &self,
+        link: &ShardLink,
+    ) -> bool {
+        *self
+            .is_link_allowed_map
+            .get(link)
+            .unwrap_or(&false)
     }
 
     /// Decide if it's allowed to send receipts on the link, based on shard statuses.
@@ -545,14 +612,23 @@ impl BandwidthScheduler {
 
     /// Update the persistent scheduler state after running the scheduler algorithm.
     /// This state is persisted in the trie between runs.
-    fn update_scheduler_state(&self, state: &mut BandwidthSchedulerStateV1) {
+    fn update_scheduler_state(
+        &self,
+        state: &mut BandwidthSchedulerStateV1,
+    ) {
         let mut new_state_allowances: Vec<LinkAllowance> = Vec::new();
 
         for link in self.iter_links() {
             if let Some(link_allowance) = self.link_allowances.get(&link) {
                 new_state_allowances.push(LinkAllowance {
-                    sender: self.shard_layout.get_shard_id(link.sender).unwrap(),
-                    receiver: self.shard_layout.get_shard_id(link.receiver).unwrap(),
+                    sender: self
+                        .shard_layout
+                        .get_shard_id(link.sender)
+                        .unwrap(),
+                    receiver: self
+                        .shard_layout
+                        .get_shard_id(link.receiver)
+                        .unwrap(),
                     allowance: *link_allowance,
                 });
             }
@@ -619,8 +695,14 @@ impl SchedulerBandwidthRequest {
         let mut current_total = params.base_bandwidth;
 
         let request_values = BandwidthRequestValues::new(params).values;
-        for bit_idx in 0..bandwidth_request.requested_values_bitmap.len() {
-            if !bandwidth_request.requested_values_bitmap.get_bit(bit_idx) {
+        for bit_idx in 0..bandwidth_request
+            .requested_values_bitmap
+            .len()
+        {
+            if !bandwidth_request
+                .requested_values_bitmap
+                .get_bit(bit_idx)
+            {
                 continue;
             }
 
@@ -652,7 +734,10 @@ pub struct ShardLink {
 }
 
 impl ShardLink {
-    pub fn new(sender: ShardIndex, receiver: ShardIndex) -> Self {
+    pub fn new(
+        sender: ShardIndex,
+        receiver: ShardIndex,
+    ) -> Self {
         Self { sender, receiver }
     }
 }
@@ -666,8 +751,10 @@ pub struct ShardIndexMap<T> {
 
 impl<T> ShardIndexMap<T> {
     pub fn new(layout: &ShardLayout) -> Self {
-        let num_indexes: usize =
-            layout.num_shards().try_into().expect("num_shards doesn't fit into usize");
+        let num_indexes: usize = layout
+            .num_shards()
+            .try_into()
+            .expect("num_shards doesn't fit into usize");
         let mut data = Vec::with_capacity(num_indexes);
         // T might not implement Clone, so we can't use vec![None; mapping.indexes_len()]
         for _ in 0..num_indexes {
@@ -676,15 +763,25 @@ impl<T> ShardIndexMap<T> {
         Self { data }
     }
 
-    pub fn get(&self, index: &ShardIndex) -> Option<&T> {
+    pub fn get(
+        &self,
+        index: &ShardIndex,
+    ) -> Option<&T> {
         self.data[*index].as_ref()
     }
 
-    pub fn get_mut(&mut self, index: &ShardIndex) -> Option<&mut T> {
+    pub fn get_mut(
+        &mut self,
+        index: &ShardIndex,
+    ) -> Option<&mut T> {
         self.data[*index].as_mut()
     }
 
-    pub fn insert(&mut self, index: ShardIndex, value: T) {
+    pub fn insert(
+        &mut self,
+        index: ShardIndex,
+        value: T,
+    ) {
         self.data[index] = Some(value);
     }
 }
@@ -699,8 +796,10 @@ pub struct ShardLinkMap<T> {
 
 impl<T> ShardLinkMap<T> {
     pub fn new(layout: &ShardLayout) -> Self {
-        let num_indexes: usize =
-            layout.num_shards().try_into().expect("Can't convert u64 to usize");
+        let num_indexes: usize = layout
+            .num_shards()
+            .try_into()
+            .expect("Can't convert u64 to usize");
         let data_len = num_indexes * num_indexes;
         let mut data = Vec::with_capacity(data_len);
         for _ in 0..data_len {
@@ -709,11 +808,18 @@ impl<T> ShardLinkMap<T> {
         Self { data, num_indexes }
     }
 
-    pub fn get(&self, link: &ShardLink) -> Option<&T> {
+    pub fn get(
+        &self,
+        link: &ShardLink,
+    ) -> Option<&T> {
         self.data[self.data_index_for_link(link)].as_ref()
     }
 
-    pub fn insert(&mut self, link: ShardLink, value: T) {
+    pub fn insert(
+        &mut self,
+        link: ShardLink,
+        value: T,
+    ) {
         let data_index = self.data_index_for_link(&link);
         self.data[data_index] = Some(value);
     }
@@ -723,7 +829,10 @@ impl<T> ShardLinkMap<T> {
         self.num_indexes
     }
 
-    fn data_index_for_link(&self, link: &ShardLink) -> usize {
+    fn data_index_for_link(
+        &self,
+        link: &ShardLink,
+    ) -> usize {
         debug_assert!(
             link.sender < self.num_indexes,
             "Sender index out of bounds! num_indexes: {}, link: {:?}",
@@ -810,7 +919,9 @@ mod tests {
                     requested_values_bitmap: BandwidthRequestBitmap::new(),
                 };
                 for i in 0..request.requested_values_bitmap.len() {
-                    request.requested_values_bitmap.set_bit(i, true);
+                    request
+                        .requested_values_bitmap
+                        .set_bit(i, true);
                 }
                 requests.push(request);
             }

@@ -30,11 +30,11 @@ fn test_basic_leaf_node_inlined() {
     assert_eq!(view.memory_usage(), 115);
     assert_eq!(view.node_hash(), hash(&borsh::to_vec(&view.to_raw_trie_node_with_size()).unwrap()));
     match view {
-        MemTrieNodeView::Leaf { extension, value } => {
+        | MemTrieNodeView::Leaf { extension, value } => {
             assert_eq!(extension, &[0, 1, 2, 3, 4]);
             assert_eq!(value.to_flat_value(), FlatStateValue::Inlined(vec![5, 6, 7, 8, 9]));
         }
-        _ => panic!("Unexpected view type: {:?}", view),
+        | _ => panic!("Unexpected view type: {:?}", view),
     }
 }
 
@@ -60,14 +60,14 @@ fn test_basic_leaf_node_ref() {
     assert_eq!(view.memory_usage(), 115);
     assert_eq!(view.node_hash(), hash(&borsh::to_vec(&view.to_raw_trie_node_with_size()).unwrap()));
     match view {
-        MemTrieNodeView::Leaf { extension, value } => {
+        | MemTrieNodeView::Leaf { extension, value } => {
             assert_eq!(extension, &[0, 1, 2, 3, 4]);
             assert_eq!(
                 value.to_flat_value(),
                 FlatStateValue::Ref(ValueRef { hash: test_hash, length: 5 })
             );
         }
-        _ => panic!("Unexpected view type: {:?}", view),
+        | _ => panic!("Unexpected view type: {:?}", view),
     }
 }
 
@@ -89,11 +89,11 @@ fn test_basic_leaf_node_empty_extension_empty_value() {
     assert_eq!(view.memory_usage(), 100);
     assert_eq!(view.node_hash(), hash(&borsh::to_vec(&view.to_raw_trie_node_with_size()).unwrap()));
     match view {
-        MemTrieNodeView::Leaf { extension, value } => {
+        | MemTrieNodeView::Leaf { extension, value } => {
             assert!(extension.is_empty());
             assert_eq!(value.to_flat_value(), FlatStateValue::Inlined(vec![]));
         }
-        _ => panic!("Unexpected view type: {:?}", view),
+        | _ => panic!("Unexpected view type: {:?}", view),
     }
 }
 
@@ -114,7 +114,9 @@ fn test_basic_extension_node() {
     let child_ptr = child.as_ptr(arena.memory());
     let node_ptr = node.as_ptr(arena.memory());
     assert_eq!(
-        node_ptr.view().to_raw_trie_node_with_size(),
+        node_ptr
+            .view()
+            .to_raw_trie_node_with_size(),
         RawTrieNodeWithSize {
             memory_usage: child_ptr.view().memory_usage() + 60,
             node: RawTrieNode::Extension(vec![5, 6, 7, 8, 9], child_ptr.view().node_hash()),
@@ -123,16 +125,23 @@ fn test_basic_extension_node() {
     assert_eq!(node_ptr.view().memory_usage(), child_ptr.view().memory_usage() + 60);
     assert_eq!(
         node_ptr.view().node_hash(),
-        hash(&borsh::to_vec(&node_ptr.view().to_raw_trie_node_with_size()).unwrap())
+        hash(
+            &borsh::to_vec(
+                &node_ptr
+                    .view()
+                    .to_raw_trie_node_with_size()
+            )
+            .unwrap()
+        )
     );
     match node_ptr.view() {
-        MemTrieNodeView::Extension { hash, memory_usage, extension, child: actual_child } => {
+        | MemTrieNodeView::Extension { hash, memory_usage, extension, child: actual_child } => {
             assert_eq!(hash, node_ptr.view().node_hash());
             assert_eq!(memory_usage, node_ptr.view().memory_usage());
             assert_eq!(extension, &[5, 6, 7, 8, 9]);
             assert_eq!(actual_child, child_ptr);
         }
-        _ => panic!("Unexpected view type: {:?}", node_ptr.view()),
+        | _ => panic!("Unexpected view type: {:?}", node_ptr.view()),
     }
 }
 
@@ -163,7 +172,9 @@ fn test_basic_branch_node() {
     let child2_ptr = child2.as_ptr(arena.memory());
     let node_ptr = node.as_ptr(arena.memory());
     assert_eq!(
-        node_ptr.view().to_raw_trie_node_with_size(),
+        node_ptr
+            .view()
+            .to_raw_trie_node_with_size(),
         RawTrieNodeWithSize {
             memory_usage: child1_ptr.view().memory_usage() + child2_ptr.view().memory_usage() + 50,
             node: RawTrieNode::BranchNoValue(Children([
@@ -192,10 +203,17 @@ fn test_basic_branch_node() {
     );
     assert_eq!(
         node_ptr.view().node_hash(),
-        hash(&borsh::to_vec(&node_ptr.view().to_raw_trie_node_with_size()).unwrap())
+        hash(
+            &borsh::to_vec(
+                &node_ptr
+                    .view()
+                    .to_raw_trie_node_with_size()
+            )
+            .unwrap()
+        )
     );
     match node_ptr.view() {
-        MemTrieNodeView::Branch { hash, memory_usage, children } => {
+        | MemTrieNodeView::Branch { hash, memory_usage, children } => {
             assert_eq!(hash, node_ptr.view().node_hash());
             assert_eq!(memory_usage, node_ptr.view().memory_usage());
             assert_eq!(children.iter().collect::<Vec<_>>(), vec![child1_ptr, child2_ptr]);
@@ -203,7 +221,7 @@ fn test_basic_branch_node() {
             assert_eq!(children.get(1), None);
             assert_eq!(children.get(5), Some(child2_ptr));
         }
-        _ => panic!("Unexpected view type: {:?}", node_ptr.view()),
+        | _ => panic!("Unexpected view type: {:?}", node_ptr.view()),
     }
 }
 
@@ -230,7 +248,9 @@ fn test_basic_branch_with_value_node() {
     let child2_ptr = child2.as_ptr(arena.memory());
     let node_ptr = node.as_ptr(arena.memory());
     assert_eq!(
-        node_ptr.view().to_raw_trie_node_with_size(),
+        node_ptr
+            .view()
+            .to_raw_trie_node_with_size(),
         RawTrieNodeWithSize {
             memory_usage: child1_ptr.view().memory_usage() + child2_ptr.view().memory_usage() + 103,
             node: RawTrieNode::BranchWithValue(
@@ -262,10 +282,17 @@ fn test_basic_branch_with_value_node() {
     );
     assert_eq!(
         node_ptr.view().node_hash(),
-        hash(&borsh::to_vec(&node_ptr.view().to_raw_trie_node_with_size()).unwrap())
+        hash(
+            &borsh::to_vec(
+                &node_ptr
+                    .view()
+                    .to_raw_trie_node_with_size()
+            )
+            .unwrap()
+        )
     );
     match node_ptr.view() {
-        MemTrieNodeView::BranchWithValue { hash, memory_usage, children, value } => {
+        | MemTrieNodeView::BranchWithValue { hash, memory_usage, children, value } => {
             assert_eq!(hash, node_ptr.view().node_hash());
             assert_eq!(memory_usage, node_ptr.view().memory_usage());
             assert_eq!(children.iter().collect::<Vec<_>>(), vec![child1_ptr, child2_ptr]);
@@ -274,6 +301,6 @@ fn test_basic_branch_with_value_node() {
             assert_eq!(children.get(15), Some(child2_ptr));
             assert_eq!(value.to_flat_value(), FlatStateValue::Inlined(vec![3, 4, 5]));
         }
-        _ => panic!("Unexpected view type: {:?}", node_ptr.view()),
+        | _ => panic!("Unexpected view type: {:?}", node_ptr.view()),
     }
 }

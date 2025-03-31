@@ -41,8 +41,8 @@ impl WriteCryptoHashCommand {
         let mut store_update = store.store_update();
 
         match &self.column {
-            ColumnSelector::BlockMisc { key } => match key {
-                BlockMiscKeySelector::StateSnapshot => {
+            | ColumnSelector::BlockMisc { key } => match key {
+                | BlockMiscKeySelector::StateSnapshot => {
                     store_update.set_ser(
                         DBCol::BlockMisc,
                         near_store::STATE_SNAPSHOT_KEY,

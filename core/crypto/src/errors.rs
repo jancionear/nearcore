@@ -19,7 +19,7 @@ pub enum ParseKeyError {
 impl From<ParseKeyTypeError> for ParseKeyError {
     fn from(err: ParseKeyTypeError) -> Self {
         match err {
-            ParseKeyTypeError::UnknownKeyType { unknown_key_type } => {
+            | ParseKeyTypeError::UnknownKeyType { unknown_key_type } => {
                 Self::UnknownKeyType { unknown_key_type }
             }
         }
@@ -39,7 +39,7 @@ pub enum ParseSignatureError {
 impl From<ParseKeyTypeError> for ParseSignatureError {
     fn from(err: ParseKeyTypeError) -> Self {
         match err {
-            ParseKeyTypeError::UnknownKeyType { unknown_key_type } => {
+            | ParseKeyTypeError::UnknownKeyType { unknown_key_type } => {
                 Self::UnknownKeyType { unknown_key_type }
             }
         }

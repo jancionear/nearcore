@@ -9,7 +9,9 @@ use near_store::test_utils::TestTriesBuilder;
 use near_store::Trie;
 
 fn rand_bytes() -> Vec<u8> {
-    (0..10).map(|_| random::<u8>()).collect()
+    (0..10)
+        .map(|_| random::<u8>())
+        .collect()
 }
 
 fn trie_lookup(bench: &mut Bencher) {
@@ -21,12 +23,16 @@ fn trie_lookup(bench: &mut Bencher) {
         for _ in 0..100 {
             changes.push((rand_bytes(), Some(rand_bytes())));
         }
-        let changed_keys =
-            changes.iter().map(|(key, _value)| key.clone()).collect::<Vec<Vec<u8>>>();
+        let changed_keys = changes
+            .iter()
+            .map(|(key, _value)| key.clone())
+            .collect::<Vec<Vec<u8>>>();
         let trie_changes = trie.update(changes).unwrap();
         let mut state_update = tries.store_update();
         let root = tries.apply_all(&trie_changes, ShardUId::single_shard(), &mut state_update);
-        state_update.commit().expect("Failed to commit");
+        state_update
+            .commit()
+            .expect("Failed to commit");
 
         let trie = tries.get_trie_for_shard(ShardUId::single_shard(), root);
         (changed_keys, trie)

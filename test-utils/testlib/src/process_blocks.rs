@@ -5,7 +5,10 @@ use near_primitives::{
 };
 use std::sync::Arc;
 
-pub fn set_no_chunk_in_block(block: &mut Block, prev_block: &Block) {
+pub fn set_no_chunk_in_block(
+    block: &mut Block,
+    prev_block: &Block,
+) {
     let chunk_headers = vec![prev_block.chunks()[0].clone()];
     let mut balance_burnt = 0;
     for chunk in block.chunks().iter_deprecated() {
@@ -17,12 +20,14 @@ pub fn set_no_chunk_in_block(block: &mut Block, prev_block: &Block) {
     block.set_chunk_endorsements(vec![vec![]; chunk_headers.len()]);
     let block_body_hash = block.compute_block_body_hash();
     match block.mut_header() {
-        BlockHeader::BlockHeaderV1(header) => {
+        | BlockHeader::BlockHeaderV1(header) => {
             let header = Arc::make_mut(header);
             header.inner_rest.chunk_headers_root =
                 Block::compute_chunk_headers_root(&chunk_headers).0;
             header.inner_rest.chunk_tx_root = Block::compute_chunk_tx_root(&chunk_headers);
-            header.inner_rest.prev_chunk_outgoing_receipts_root =
+            header
+                .inner_rest
+                .prev_chunk_outgoing_receipts_root =
                 Block::compute_chunk_prev_outgoing_receipts_root(&chunk_headers);
             header.inner_lite.prev_state_root = Block::compute_state_root(&chunk_headers);
             header.inner_lite.prev_outcome_root = Block::compute_outcome_root(&chunk_headers);
@@ -30,12 +35,14 @@ pub fn set_no_chunk_in_block(block: &mut Block, prev_block: &Block) {
             header.inner_rest.next_gas_price = prev_block.header().next_gas_price();
             header.inner_rest.total_supply += balance_burnt;
         }
-        BlockHeader::BlockHeaderV2(header) => {
+        | BlockHeader::BlockHeaderV2(header) => {
             let header = Arc::make_mut(header);
             header.inner_rest.chunk_headers_root =
                 Block::compute_chunk_headers_root(&chunk_headers).0;
             header.inner_rest.chunk_tx_root = Block::compute_chunk_tx_root(&chunk_headers);
-            header.inner_rest.prev_chunk_outgoing_receipts_root =
+            header
+                .inner_rest
+                .prev_chunk_outgoing_receipts_root =
                 Block::compute_chunk_prev_outgoing_receipts_root(&chunk_headers);
             header.inner_lite.prev_state_root = Block::compute_state_root(&chunk_headers);
             header.inner_lite.prev_outcome_root = Block::compute_outcome_root(&chunk_headers);
@@ -43,12 +50,14 @@ pub fn set_no_chunk_in_block(block: &mut Block, prev_block: &Block) {
             header.inner_rest.next_gas_price = prev_block.header().next_gas_price();
             header.inner_rest.total_supply += balance_burnt;
         }
-        BlockHeader::BlockHeaderV3(header) => {
+        | BlockHeader::BlockHeaderV3(header) => {
             let header = Arc::make_mut(header);
             header.inner_rest.chunk_headers_root =
                 Block::compute_chunk_headers_root(&chunk_headers).0;
             header.inner_rest.chunk_tx_root = Block::compute_chunk_tx_root(&chunk_headers);
-            header.inner_rest.prev_chunk_outgoing_receipts_root =
+            header
+                .inner_rest
+                .prev_chunk_outgoing_receipts_root =
                 Block::compute_chunk_prev_outgoing_receipts_root(&chunk_headers);
             header.inner_lite.prev_state_root = Block::compute_state_root(&chunk_headers);
             header.inner_lite.prev_outcome_root = Block::compute_outcome_root(&chunk_headers);
@@ -56,12 +65,14 @@ pub fn set_no_chunk_in_block(block: &mut Block, prev_block: &Block) {
             header.inner_rest.next_gas_price = prev_block.header().next_gas_price();
             header.inner_rest.total_supply += balance_burnt;
         }
-        BlockHeader::BlockHeaderV4(header) => {
+        | BlockHeader::BlockHeaderV4(header) => {
             let header = Arc::make_mut(header);
             header.inner_rest.chunk_headers_root =
                 Block::compute_chunk_headers_root(&chunk_headers).0;
             header.inner_rest.chunk_tx_root = Block::compute_chunk_tx_root(&chunk_headers);
-            header.inner_rest.prev_chunk_outgoing_receipts_root =
+            header
+                .inner_rest
+                .prev_chunk_outgoing_receipts_root =
                 Block::compute_chunk_prev_outgoing_receipts_root(&chunk_headers);
             header.inner_lite.prev_state_root = Block::compute_state_root(&chunk_headers);
             header.inner_lite.prev_outcome_root = Block::compute_outcome_root(&chunk_headers);
@@ -71,12 +82,14 @@ pub fn set_no_chunk_in_block(block: &mut Block, prev_block: &Block) {
             header.inner_rest.block_body_hash = block_body_hash.unwrap();
         }
         // Same as BlockHeader::BlockHeaderV4 branch but with inner_rest.chunk_endorsements field set.
-        BlockHeader::BlockHeaderV5(header) => {
+        | BlockHeader::BlockHeaderV5(header) => {
             let header = Arc::make_mut(header);
             header.inner_rest.chunk_headers_root =
                 Block::compute_chunk_headers_root(&chunk_headers).0;
             header.inner_rest.chunk_tx_root = Block::compute_chunk_tx_root(&chunk_headers);
-            header.inner_rest.prev_chunk_outgoing_receipts_root =
+            header
+                .inner_rest
+                .prev_chunk_outgoing_receipts_root =
                 Block::compute_chunk_prev_outgoing_receipts_root(&chunk_headers);
             header.inner_lite.prev_state_root = Block::compute_state_root(&chunk_headers);
             header.inner_lite.prev_outcome_root = Block::compute_outcome_root(&chunk_headers);
@@ -89,5 +102,7 @@ pub fn set_no_chunk_in_block(block: &mut Block, prev_block: &Block) {
         }
     }
     let validator_signer = create_test_signer("test0");
-    block.mut_header().resign(&validator_signer);
+    block
+        .mut_header()
+        .resign(&validator_signer);
 }

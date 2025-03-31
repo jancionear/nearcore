@@ -15,7 +15,11 @@ pub struct StateDump {
 }
 
 impl StateDump {
-    pub fn from_dir(dir: &Path, store_home_dir: &Path, in_memory_db: bool) -> Self {
+    pub fn from_dir(
+        dir: &Path,
+        store_home_dir: &Path,
+        in_memory_db: bool,
+    ) -> Self {
         let node_storage = if in_memory_db {
             let storage = TestDB::new();
             near_store::NodeStorage::new(storage)
@@ -26,20 +30,27 @@ impl StateDump {
         };
         let store = node_storage.get_hot_store();
         let state_file = dir.join(STATE_DUMP_FILE);
-        store.load_state_from_file(state_file.as_path()).expect("Failed to read state dump");
+        store
+            .load_state_from_file(state_file.as_path())
+            .expect("Failed to read state dump");
         let roots_files = dir.join(GENESIS_ROOTS_FILE);
         let mut file = File::open(roots_files).expect("Failed to open genesis roots file.");
         let mut data = vec![];
-        file.read_to_end(&mut data).expect("Failed to read genesis roots file.");
+        file.read_to_end(&mut data)
+            .expect("Failed to read genesis roots file.");
         let roots: Vec<StateRoot> =
             BorshDeserialize::try_from_slice(&data).expect("Failed to deserialize genesis roots");
         Self { store, roots }
     }
 
-    pub fn save_to_dir(self, dir: PathBuf) -> std::result::Result<(), Box<dyn std::error::Error>> {
+    pub fn save_to_dir(
+        self,
+        dir: PathBuf,
+    ) -> std::result::Result<(), Box<dyn std::error::Error>> {
         let mut dump_path = dir.clone();
         dump_path.push(STATE_DUMP_FILE);
-        self.store.save_state_to_file(dump_path.as_path())?;
+        self.store
+            .save_state_to_file(dump_path.as_path())?;
         {
             let mut roots_files = dir;
             roots_files.push(GENESIS_ROOTS_FILE);

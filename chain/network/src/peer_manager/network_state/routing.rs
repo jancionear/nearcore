@@ -21,7 +21,10 @@ use std::sync::Arc;
 impl NetworkState {
     // TODO(gprusak): eventually, this should be blocking, as it should be up to the caller
     // whether to wait for the broadcast to finish, or run it in parallel with sth else.
-    fn broadcast_routing_table_update(&self, mut rtu: RoutingTableUpdate) {
+    fn broadcast_routing_table_update(
+        &self,
+        mut rtu: RoutingTableUpdate,
+    ) {
         if rtu == RoutingTableUpdate::default() {
             return;
         }
@@ -35,7 +38,10 @@ impl NetworkState {
     // TODO(saketh-are): eventually, this should be blocking, as it should be up to the caller
     // whether to wait for the broadcast to finish, or run it in parallel with sth else.
     #[cfg(feature = "distance_vector_routing")]
-    fn broadcast_distance_vector(&self, distance_vector: DistanceVector) {
+    fn broadcast_distance_vector(
+        &self,
+        distance_vector: DistanceVector,
+    ) {
         let msg = Arc::new(PeerMessage::DistanceVector(distance_vector));
         for conn in self.tier2.load().ready.values() {
             conn.send_message(msg.clone());
@@ -44,7 +50,10 @@ impl NetworkState {
 
     /// Adds AnnounceAccounts (without validating them) to the routing table.
     /// Then it broadcasts all the AnnounceAccounts that haven't been seen before.
-    pub async fn add_accounts(self: &Arc<NetworkState>, accounts: Vec<AnnounceAccount>) {
+    pub async fn add_accounts(
+        self: &Arc<NetworkState>,
+        accounts: Vec<AnnounceAccount>,
+    ) {
         let this = self.clone();
         self.spawn(async move {
             let new_accounts = this.account_announcements.add_accounts(accounts);
@@ -96,7 +105,8 @@ impl NetworkState {
             &self.config.node_key,
             edge_info.signature,
         );
-        self.add_edges(&clock, vec![edge.clone()]).await?;
+        self.add_edges(&clock, vec![edge.clone()])
+            .await?;
         #[cfg(feature = "distance_vector_routing")]
         self.update_routes(
             &clock,
@@ -141,8 +151,8 @@ impl NetworkState {
                 this.broadcast_routing_table_update(RoutingTableUpdate::from_edges(edges));
                 oks.iter()
                     .map(|ok| match ok {
-                        true => Ok(()),
-                        false => Err(ReasonForBan::InvalidEdge),
+                        | true => Ok(()),
+                        | false => Err(ReasonForBan::InvalidEdge),
                     })
                     .collect()
             })
@@ -150,30 +160,51 @@ impl NetworkState {
             .unwrap_or(Ok(()))
     }
 
-    fn record_routing_protocol_metrics(&self, target: &PeerId) {
-        let v1_dist = self.graph.routing_table.get_distance(target);
+    fn record_routing_protocol_metrics(
+        &self,
+        target: &PeerId,
+    ) {
+        let v1_dist = self
+            .graph
+            .routing_table
+            .get_distance(target);
         #[cfg(feature = "distance_vector_routing")]
-        let v2_dist = self.graph_v2.routing_table.get_distance(target);
+        let v2_dist = self
+            .graph_v2
+            .routing_table
+            .get_distance(target);
         #[cfg(not(feature = "distance_vector_routing"))]
         let v2_dist = None;
 
         match (v1_dist, v2_dist) {
-            (None, None) => {
-                metrics::NETWORK_ROUTED_MSG_DISTANCES.with_label_values(&["NONE"]).inc();
+            | (None, None) => {
+                metrics::NETWORK_ROUTED_MSG_DISTANCES
+                    .with_label_values(&["NONE"])
+                    .inc();
             }
-            (Some(_v1), None) => {
-                metrics::NETWORK_ROUTED_MSG_DISTANCES.with_label_values(&["v1 ONLY"]).inc();
+            | (Some(_v1), None) => {
+                metrics::NETWORK_ROUTED_MSG_DISTANCES
+                    .with_label_values(&["v1 ONLY"])
+                    .inc();
             }
-            (None, Some(_v2)) => {
-                metrics::NETWORK_ROUTED_MSG_DISTANCES.with_label_values(&["v2 ONLY"]).inc();
+            | (None, Some(_v2)) => {
+                metrics::NETWORK_ROUTED_MSG_DISTANCES
+                    .with_label_values(&["v2 ONLY"])
+                    .inc();
             }
-            (Some(v1), Some(v2)) => {
+            | (Some(v1), Some(v2)) => {
                 if v1 == v2 {
-                    metrics::NETWORK_ROUTED_MSG_DISTANCES.with_label_values(&["v1 == v2"]).inc();
+                    metrics::NETWORK_ROUTED_MSG_DISTANCES
+                        .with_label_values(&["v1 == v2"])
+                        .inc();
                 } else if v1 < v2 {
-                    metrics::NETWORK_ROUTED_MSG_DISTANCES.with_label_values(&["v1 < v2"]).inc();
+                    metrics::NETWORK_ROUTED_MSG_DISTANCES
+                        .with_label_values(&["v1 < v2"])
+                        .inc();
                 } else {
-                    metrics::NETWORK_ROUTED_MSG_DISTANCES.with_label_values(&["v1 > v2"]).inc();
+                    metrics::NETWORK_ROUTED_MSG_DISTANCES
+                        .with_label_values(&["v1 > v2"])
+                        .inc();
                 }
             }
         }
@@ -185,19 +216,29 @@ impl NetworkState {
         target: &PeerIdOrHash,
     ) -> Result<PeerId, FindRouteError> {
         match target {
-            PeerIdOrHash::PeerId(peer_id) => {
+            | PeerIdOrHash::PeerId(peer_id) => {
                 self.record_routing_protocol_metrics(peer_id);
 
                 #[cfg(feature = "distance_vector_routing")]
-                return match self.graph.routing_table.find_next_hop_for_target(peer_id) {
-                    Ok(peer_id) => Ok(peer_id),
-                    Err(_) => self.graph_v2.routing_table.find_next_hop_for_target(peer_id),
+                return match self
+                    .graph
+                    .routing_table
+                    .find_next_hop_for_target(peer_id)
+                {
+                    | Ok(peer_id) => Ok(peer_id),
+                    | Err(_) => self
+                        .graph_v2
+                        .routing_table
+                        .find_next_hop_for_target(peer_id),
                 };
 
                 #[cfg(not(feature = "distance_vector_routing"))]
-                return self.graph.routing_table.find_next_hop_for_target(peer_id);
+                return self
+                    .graph
+                    .routing_table
+                    .find_next_hop_for_target(peer_id);
             }
-            PeerIdOrHash::Hash(hash) => self
+            | PeerIdOrHash::Hash(hash) => self
                 .tier2_route_back
                 .lock()
                 .remove(clock, hash)
@@ -222,17 +263,32 @@ impl NetworkState {
         let from = &conn.peer_info.id;
 
         match conn.tier {
-            tcp::Tier::T1 => self.tier1_route_back.lock().insert(&clock, msg.hash(), from.clone()),
-            tcp::Tier::T2 => self.tier2_route_back.lock().insert(&clock, msg.hash(), from.clone()),
-            tcp::Tier::T3 => {
+            | tcp::Tier::T1 => {
+                self.tier1_route_back
+                    .lock()
+                    .insert(&clock, msg.hash(), from.clone())
+            }
+            | tcp::Tier::T2 => {
+                self.tier2_route_back
+                    .lock()
+                    .insert(&clock, msg.hash(), from.clone())
+            }
+            | tcp::Tier::T3 => {
                 // TIER3 connections are direct by design; no routing is performed
                 debug_assert!(false)
             }
         }
     }
 
-    pub(crate) fn compare_route_back(&self, hash: CryptoHash, peer_id: &PeerId) -> bool {
-        self.tier2_route_back.lock().get(&hash).is_some_and(|value| value == peer_id)
+    pub(crate) fn compare_route_back(
+        &self,
+        hash: CryptoHash,
+        peer_id: &PeerId,
+    ) -> bool {
+        self.tier2_route_back
+            .lock()
+            .get(&hash)
+            .is_some_and(|value| value == peer_id)
     }
 
     /// Accepts NetworkTopologyChange events.
@@ -249,8 +305,10 @@ impl NetworkState {
         let clock = clock.clone();
         self.update_routes_demux
             .call(event, |events: Vec<NetworkTopologyChange>| async move {
-                let (to_broadcast, oks) =
-                    this.graph_v2.batch_process_network_changes(&clock, events).await;
+                let (to_broadcast, oks) = this
+                    .graph_v2
+                    .batch_process_network_changes(&clock, events)
+                    .await;
 
                 if let Some(my_distance_vector) = to_broadcast {
                     this.broadcast_distance_vector(my_distance_vector);
@@ -258,8 +316,8 @@ impl NetworkState {
 
                 oks.iter()
                     .map(|ok| match ok {
-                        true => Ok(()),
-                        false => Err(ReasonForBan::InvalidDistanceVector),
+                        | true => Ok(()),
+                        | false => Err(ReasonForBan::InvalidDistanceVector),
                     })
                     .collect()
             })
@@ -268,9 +326,14 @@ impl NetworkState {
     }
 
     /// Update the routing protocols with a set of peers to avoid routing through.
-    pub fn set_unreliable_peers(&self, unreliable_peers: HashSet<PeerId>) {
+    pub fn set_unreliable_peers(
+        &self,
+        unreliable_peers: HashSet<PeerId>,
+    ) {
         #[cfg(feature = "distance_vector_routing")]
-        self.graph_v2.set_unreliable_peers(unreliable_peers.clone());
-        self.graph.set_unreliable_peers(unreliable_peers);
+        self.graph_v2
+            .set_unreliable_peers(unreliable_peers.clone());
+        self.graph
+            .set_unreliable_peers(unreliable_peers);
     }
 }

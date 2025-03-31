@@ -58,7 +58,10 @@ pub(crate) struct UncertainChange {
     pub after: String,
 }
 
-pub(crate) fn check(db: &Db, config: &CheckConfig) -> anyhow::Result<()> {
+pub(crate) fn check(
+    db: &Db,
+    config: &CheckConfig,
+) -> anyhow::Result<()> {
     let report = create_report(db, config)?;
 
     // This is the check command output to observe directly in the terminal.
@@ -82,26 +85,38 @@ pub(crate) fn check(db: &Db, config: &CheckConfig) -> anyhow::Result<()> {
     Ok(())
 }
 
-pub(crate) fn create_report(db: &Db, config: &CheckConfig) -> anyhow::Result<ZulipReport> {
+pub(crate) fn create_report(
+    db: &Db,
+    config: &CheckConfig,
+) -> anyhow::Result<ZulipReport> {
     let (commit_after, commit_before) = match (&config.commit_after, &config.commit_before) {
-        (Some(a), Some(b)) => (a.clone(), b.clone()),
-        (None, None) => {
+        | (Some(a), Some(b)) => (a.clone(), b.clone()),
+        | (None, None) => {
             let mut commits = EstimationRow::commits_sorted_by_date(db, Some(config.metric))?;
             if commits.len() < 2 {
                 anyhow::bail!("need data for at least 2 commits to perform comparison");
             }
             (commits.pop().unwrap().0, commits.pop().unwrap().0)
         }
-        _ => anyhow::bail!("you have to either specify both commits for comparison or neither"),
+        | _ => anyhow::bail!("you have to either specify both commits for comparison or neither"),
     };
     let estimations = if !config.estimations.is_empty() {
         config.estimations.clone()
     } else {
         let rows_a = EstimationRow::select_by_commit_and_metric(db, &commit_after, config.metric)?;
         let rows_b = EstimationRow::select_by_commit_and_metric(db, &commit_before, config.metric)?;
-        let estimations_a = rows_a.into_iter().map(|row| row.name).collect::<BTreeSet<_>>();
-        let estimations_b = rows_b.into_iter().map(|row| row.name).collect::<BTreeSet<_>>();
-        estimations_a.intersection(&estimations_b).cloned().collect()
+        let estimations_a = rows_a
+            .into_iter()
+            .map(|row| row.name)
+            .collect::<BTreeSet<_>>();
+        let estimations_b = rows_b
+            .into_iter()
+            .map(|row| row.name)
+            .collect::<BTreeSet<_>>();
+        estimations_a
+            .intersection(&estimations_b)
+            .cloned()
+            .collect()
     };
     let warnings =
         estimation_changes(db, &estimations, &commit_before, &commit_after, 0.1, config.metric)?;
@@ -161,14 +176,14 @@ fn estimation_uncertain_changes(
         let b = EstimationRow::get(db, name, commit_before, metric)?.remove(0);
         let a = EstimationRow::get(db, name, commit_after, metric)?.remove(0);
         match (b.uncertain_reason, a.uncertain_reason) {
-            (None, None) => continue,
-            (Some(uncertain_before), None) => {
+            | (None, None) => continue,
+            | (Some(uncertain_before), None) => {
                 add_warning(&mut warnings, name.clone(), uncertain_before, "None".to_owned())
             }
-            (None, Some(uncertain_after)) => {
+            | (None, Some(uncertain_after)) => {
                 add_warning(&mut warnings, name.clone(), "None".to_owned(), uncertain_after)
             }
-            (Some(uncertain_before), Some(uncertain_after)) => {
+            | (Some(uncertain_before), Some(uncertain_after)) => {
                 add_warning(&mut warnings, name.clone(), uncertain_before, uncertain_after);
             }
         }
@@ -177,7 +192,12 @@ fn estimation_uncertain_changes(
     Ok(warnings)
 }
 
-fn add_warning(warnings: &mut Vec<Notice>, name: String, before: String, after: String) {
+fn add_warning(
+    warnings: &mut Vec<Notice>,
+    name: String,
+    before: String,
+    after: String,
+) {
     warnings.push(Notice::UncertainChange(UncertainChange { estimation: name, before, after }))
 }
 
@@ -186,7 +206,11 @@ mod tests {
     use super::*;
 
     #[track_caller]
-    fn generate_test_report(input: &str, metric: Metric, estimations: &[&str]) -> ZulipReport {
+    fn generate_test_report(
+        input: &str,
+        metric: Metric,
+        estimations: &[&str],
+    ) -> ZulipReport {
         let db = Db::test_with_data(input);
         let config = CheckConfig {
             zulip_stream: None,
@@ -194,7 +218,10 @@ mod tests {
             metric,
             commit_before: None,
             commit_after: None,
-            estimations: estimations.iter().map(|&s| s.to_owned()).collect(),
+            estimations: estimations
+                .iter()
+                .map(|&s| s.to_owned())
+                .collect(),
         };
         create_report(&db, &config).unwrap()
     }

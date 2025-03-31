@@ -25,11 +25,17 @@ pub struct Manifest {
 }
 
 impl Manifest {
-    pub fn new(this: toml::Value, parent: Option<Rc<Manifest>>) -> Self {
+    pub fn new(
+        this: toml::Value,
+        parent: Option<Rc<Manifest>>,
+    ) -> Self {
         Self { raw: this, parent }
     }
 
-    pub fn read(&self, path: &[&str]) -> Option<&toml::Value> {
+    pub fn read(
+        &self,
+        path: &[&str],
+    ) -> Option<&toml::Value> {
         read_toml_with_potential_inheritance(&self.raw, self.parent.as_ref().map(|p| &p.raw), path)
     }
 }
@@ -55,7 +61,10 @@ pub struct ComplianceError {
 }
 
 impl fmt::Display for ComplianceError {
-    fn fmt(&self, _: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(
+        &self,
+        _: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
         unimplemented!()
     }
 }
@@ -63,16 +72,21 @@ impl fmt::Display for ComplianceError {
 impl std::error::Error for ComplianceError {}
 
 impl ComplianceError {
-    pub fn report(&self, workspace: &Workspace) {
+    pub fn report(
+        &self,
+        workspace: &Workspace,
+    ) {
         let mut report = format!(
             "{c_heading}(i) {}:{c_none}{}",
             self.msg,
             match &self.expected {
-                None => "".to_string(),
-                Some(Expected { value, reason }) => format!(
+                | None => "".to_string(),
+                | Some(Expected { value, reason }) => format!(
                     " [expected: {c_expected}{}{c_none}{}]",
                     value,
-                    reason.as_ref().map_or("".to_string(), |reason| format!(", {}", reason)),
+                    reason
+                        .as_ref()
+                        .map_or("".to_string(), |reason| format!(", {}", reason)),
                     c_expected = style::fg(style::Color::Color256(35))
                         + &style::bg(style::Color::Gray { shade: 3 })
                         + style::bold(),
@@ -86,10 +100,11 @@ impl ComplianceError {
         for Outlier { path, found, extra: reason } in &self.outliers {
             report.push_str(&format!(
                 "\n {c_path}\u{21b3} {}{c_none}{}{}",
-                path.strip_prefix(&workspace.root).unwrap(),
+                path.strip_prefix(&workspace.root)
+                    .unwrap(),
                 match found {
-                    None => "".to_string(),
-                    Some(found) => format!(
+                    | None => "".to_string(),
+                    | Some(found) => format!(
                         " (found: {c_found}{}{c_none})",
                         found,
                         c_found = style::fg(style::Color::White)
@@ -99,8 +114,8 @@ impl ComplianceError {
                     ),
                 },
                 match reason {
-                    None => "".to_string(),
-                    Some(reason) => format!(" ({})", reason),
+                    | None => "".to_string(),
+                    | Some(reason) => format!(" ({})", reason),
                 },
                 c_path = style::fg(style::Color::Gray { shade: 12 }),
                 c_none = style::reset(),

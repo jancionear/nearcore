@@ -25,19 +25,26 @@ struct Inner {
 
 impl Inner {
     /// Get AnnounceAccount for the given AccountId.
-    fn get_announce(&mut self, account_id: &AccountId) -> Option<AnnounceAccount> {
+    fn get_announce(
+        &mut self,
+        account_id: &AccountId,
+    ) -> Option<AnnounceAccount> {
         if let Some(announce_account) = self.account_peers.get(account_id) {
             return Some(announce_account.clone());
         }
 
-        match self.store.get_account_announcement(&account_id) {
-            Err(err) => {
+        match self
+            .store
+            .get_account_announcement(&account_id)
+        {
+            | Err(err) => {
                 tracing::warn!(target: "network", "Error loading announce account from store: {:?}", err);
                 None
             }
-            Ok(None) => None,
-            Ok(Some(stored_announce_account)) => {
-                self.account_peers.put(account_id.clone(), stored_announce_account.clone());
+            | Ok(None) => None,
+            | Ok(Some(stored_announce_account)) => {
+                self.account_peers
+                    .put(account_id.clone(), stored_announce_account.clone());
                 Some(stored_announce_account)
             }
         }
@@ -71,17 +78,27 @@ impl AnnounceAccountCache {
             let epoch_id = &announcement.epoch_id;
 
             // We skip broadcasting stuff that is already broadcasted.
-            if inner.account_peers_broadcasted.get(account_id).map(|x| &x.epoch_id)
+            if inner
+                .account_peers_broadcasted
+                .get(account_id)
+                .map(|x| &x.epoch_id)
                 == Some(epoch_id)
             {
                 continue;
             }
 
-            inner.account_peers.put(account_id.clone(), announcement.clone());
-            inner.account_peers_broadcasted.put(account_id.clone(), announcement.clone());
+            inner
+                .account_peers
+                .put(account_id.clone(), announcement.clone());
+            inner
+                .account_peers_broadcasted
+                .put(account_id.clone(), announcement.clone());
 
             // Add account to store. Best effort
-            if let Err(e) = inner.store.set_account_announcement(account_id, &announcement) {
+            if let Err(e) = inner
+                .store
+                .set_account_announcement(account_id, &announcement)
+            {
                 tracing::warn!(target: "network", "Error saving announce account to store: {:?}", e);
             }
             res.push(announcement);
@@ -90,19 +107,36 @@ impl AnnounceAccountCache {
     }
 
     /// Find peer that owns this AccountId.
-    pub(crate) fn get_account_owner(&self, account_id: &AccountId) -> Option<PeerId> {
-        self.0.lock().get_announce(account_id).map(|announce_account| announce_account.peer_id)
+    pub(crate) fn get_account_owner(
+        &self,
+        account_id: &AccountId,
+    ) -> Option<PeerId> {
+        self.0
+            .lock()
+            .get_announce(account_id)
+            .map(|announce_account| announce_account.peer_id)
     }
 
     /// Public interface for `account_peers`.
     /// Get keys currently on cache.
     pub(crate) fn get_accounts_keys(&self) -> Vec<AccountId> {
-        self.0.lock().account_peers.iter().map(|(k, _)| k).cloned().collect()
+        self.0
+            .lock()
+            .account_peers
+            .iter()
+            .map(|(k, _)| k)
+            .cloned()
+            .collect()
     }
 
     /// Get announce accounts on cache.
     pub(crate) fn get_announcements(&self) -> Vec<AnnounceAccount> {
-        self.0.lock().account_peers.iter().map(|(_, v)| v.clone()).collect()
+        self.0
+            .lock()
+            .account_peers
+            .iter()
+            .map(|(_, v)| v.clone())
+            .collect()
     }
 
     /// Get AnnounceAccount for the given AccountIds, that we already broadcasted.
@@ -113,7 +147,10 @@ impl AnnounceAccountCache {
         let mut inner = self.0.lock();
         account_ids
             .filter_map(|id| {
-                inner.account_peers_broadcasted.get(id).map(|a| (id.clone(), a.clone()))
+                inner
+                    .account_peers_broadcasted
+                    .get(id)
+                    .map(|a| (id.clone(), a.clone()))
             })
             .collect()
     }

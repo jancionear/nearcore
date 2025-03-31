@@ -69,7 +69,11 @@ impl TokenBucket {
     /// If the tokens are available they are subtracted from the current `size` and
     /// the method returns `true`. Otherwise, `size` is not changed and the method
     /// returns `false`.
-    pub fn acquire(&mut self, tokens: u32, now: Instant) -> bool {
+    pub fn acquire(
+        &mut self,
+        tokens: u32,
+        now: Instant,
+    ) -> bool {
         self.refill(now);
         let tokens = to_tokens_with_parts(tokens);
         if self.size >= tokens {
@@ -85,7 +89,10 @@ impl TokenBucket {
     ///
     /// For example: if `refill_rate` == 1 and `now - last_refill` == 1s then exactly 1 token
     /// will be added.
-    fn refill(&mut self, now: Instant) {
+    fn refill(
+        &mut self,
+        now: Instant,
+    ) {
         // Sanity check: now should be bigger than the last refill time.
         if now <= self.last_refill {
             return;

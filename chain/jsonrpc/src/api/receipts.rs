@@ -28,9 +28,9 @@ impl RpcFrom<ReceiptReference> for GetReceipt {
 impl RpcFrom<GetReceiptError> for RpcReceiptError {
     fn rpc_from(error: GetReceiptError) -> Self {
         match error {
-            GetReceiptError::IOError(error_message) => Self::InternalError { error_message },
-            GetReceiptError::UnknownReceipt(hash) => Self::UnknownReceipt { receipt_id: hash },
-            GetReceiptError::Unreachable(ref error_message) => {
+            | GetReceiptError::IOError(error_message) => Self::InternalError { error_message },
+            | GetReceiptError::UnknownReceipt(hash) => Self::UnknownReceipt { receipt_id: hash },
+            | GetReceiptError::Unreachable(ref error_message) => {
                 tracing::warn!(target: "jsonrpc", "Unreachable error occurred: {}", error_message);
                 crate::metrics::RPC_UNREACHABLE_ERROR_COUNT
                     .with_label_values(&["RpcReceiptError"])

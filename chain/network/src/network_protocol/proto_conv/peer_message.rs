@@ -31,7 +31,11 @@ impl From<&RoutingTableUpdate> for proto::RoutingTableUpdate {
     fn from(x: &RoutingTableUpdate) -> Self {
         Self {
             edges: x.edges.iter().map(Into::into).collect(),
-            accounts: x.accounts.iter().map(Into::into).collect(),
+            accounts: x
+                .accounts
+                .iter()
+                .map(Into::into)
+                .collect(),
             ..Default::default()
         }
     }
@@ -93,7 +97,11 @@ impl From<&DistanceVector> for proto::DistanceVector {
     fn from(x: &DistanceVector) -> Self {
         Self {
             root: MF::some((&x.root).into()),
-            distances: x.distances.iter().map(Into::into).collect(),
+            distances: x
+                .distances
+                .iter()
+                .map(Into::into)
+                .collect(),
             edges: x.edges.iter().map(Into::into).collect(),
             ..Default::default()
         }
@@ -180,7 +188,12 @@ impl From<&SnapshotHostInfo> for proto::SnapshotHostInfo {
             peer_id: MF::some((&x.peer_id).into()),
             sync_hash: MF::some((&x.sync_hash).into()),
             epoch_height: x.epoch_height,
-            shards: x.shards.clone().into_iter().map(Into::into).collect(),
+            shards: x
+                .shards
+                .clone()
+                .into_iter()
+                .map(Into::into)
+                .collect(),
             signature: MF::some((&x.signature).into()),
             ..Default::default()
         }
@@ -194,7 +207,12 @@ impl TryFrom<&proto::SnapshotHostInfo> for SnapshotHostInfo {
             peer_id: try_from_required(&x.peer_id).map_err(Self::Error::PeerId)?,
             sync_hash: try_from_required(&x.sync_hash).map_err(Self::Error::SyncHash)?,
             epoch_height: x.epoch_height,
-            shards: x.shards.clone().into_iter().map(Into::into).collect(),
+            shards: x
+                .shards
+                .clone()
+                .into_iter()
+                .map(Into::into)
+                .collect(),
             signature: try_from_required(&x.signature).map_err(Self::Error::Signature)?,
         })
     }
@@ -210,7 +228,14 @@ pub enum ParseSyncSnapshotHostsError {
 
 impl From<&SyncSnapshotHosts> for proto::SyncSnapshotHosts {
     fn from(x: &SyncSnapshotHosts) -> Self {
-        Self { hosts: x.hosts.iter().map(|d| d.as_ref().into()).collect(), ..Default::default() }
+        Self {
+            hosts: x
+                .hosts
+                .iter()
+                .map(|d| d.as_ref().into())
+                .collect(),
+            ..Default::default()
+        }
     }
 }
 
@@ -233,25 +258,25 @@ impl From<&PeerMessage> for proto::PeerMessage {
     fn from(x: &PeerMessage) -> Self {
         Self {
             message_type: Some(match x {
-                PeerMessage::Tier1Handshake(h) => ProtoMT::Tier1Handshake(h.into()),
-                PeerMessage::Tier2Handshake(h) => ProtoMT::Tier2Handshake(h.into()),
-                PeerMessage::Tier3Handshake(h) => ProtoMT::Tier3Handshake(h.into()),
-                PeerMessage::HandshakeFailure(pi, hfr) => {
+                | PeerMessage::Tier1Handshake(h) => ProtoMT::Tier1Handshake(h.into()),
+                | PeerMessage::Tier2Handshake(h) => ProtoMT::Tier2Handshake(h.into()),
+                | PeerMessage::Tier3Handshake(h) => ProtoMT::Tier3Handshake(h.into()),
+                | PeerMessage::HandshakeFailure(pi, hfr) => {
                     ProtoMT::HandshakeFailure((pi, hfr).into())
                 }
-                PeerMessage::LastEdge(e) => ProtoMT::LastEdge(proto::LastEdge {
+                | PeerMessage::LastEdge(e) => ProtoMT::LastEdge(proto::LastEdge {
                     edge: MF::some(e.into()),
                     ..Default::default()
                 }),
-                PeerMessage::SyncRoutingTable(rtu) => ProtoMT::SyncRoutingTable(rtu.into()),
-                PeerMessage::DistanceVector(spt) => ProtoMT::DistanceVector(spt.into()),
-                PeerMessage::RequestUpdateNonce(pei) => {
+                | PeerMessage::SyncRoutingTable(rtu) => ProtoMT::SyncRoutingTable(rtu.into()),
+                | PeerMessage::DistanceVector(spt) => ProtoMT::DistanceVector(spt.into()),
+                | PeerMessage::RequestUpdateNonce(pei) => {
                     ProtoMT::UpdateNonceRequest(proto::UpdateNonceRequest {
                         partial_edge_info: MF::some(pei.into()),
                         ..Default::default()
                     })
                 }
-                PeerMessage::SyncAccountsData(msg) => {
+                | PeerMessage::SyncAccountsData(msg) => {
                     ProtoMT::SyncAccountsData(proto::SyncAccountsData {
                         accounts_data: msg
                             .accounts_data
@@ -263,63 +288,71 @@ impl From<&PeerMessage> for proto::PeerMessage {
                         ..Default::default()
                     })
                 }
-                PeerMessage::PeersRequest(pr) => ProtoMT::PeersRequest(proto::PeersRequest {
+                | PeerMessage::PeersRequest(pr) => ProtoMT::PeersRequest(proto::PeersRequest {
                     max_peers: pr.max_peers,
                     max_direct_peers: pr.max_direct_peers,
                     ..Default::default()
                 }),
-                PeerMessage::PeersResponse(pr) => ProtoMT::PeersResponse(proto::PeersResponse {
-                    peers: pr.peers.iter().map(Into::into).collect(),
-                    direct_peers: pr.direct_peers.iter().map(Into::into).collect(),
+                | PeerMessage::PeersResponse(pr) => ProtoMT::PeersResponse(proto::PeersResponse {
+                    peers: pr
+                        .peers
+                        .iter()
+                        .map(Into::into)
+                        .collect(),
+                    direct_peers: pr
+                        .direct_peers
+                        .iter()
+                        .map(Into::into)
+                        .collect(),
                     ..Default::default()
                 }),
-                PeerMessage::BlockHeadersRequest(bhs) => {
+                | PeerMessage::BlockHeadersRequest(bhs) => {
                     ProtoMT::BlockHeadersRequest(proto::BlockHeadersRequest {
                         block_hashes: bhs.iter().map(Into::into).collect(),
                         ..Default::default()
                     })
                 }
-                PeerMessage::BlockHeaders(bhs) => {
+                | PeerMessage::BlockHeaders(bhs) => {
                     ProtoMT::BlockHeadersResponse(proto::BlockHeadersResponse {
                         block_headers: bhs.iter().map(Into::into).collect(),
                         ..Default::default()
                     })
                 }
-                PeerMessage::BlockRequest(bh) => ProtoMT::BlockRequest(proto::BlockRequest {
+                | PeerMessage::BlockRequest(bh) => ProtoMT::BlockRequest(proto::BlockRequest {
                     block_hash: MF::some(bh.into()),
                     ..Default::default()
                 }),
-                PeerMessage::Block(b) => ProtoMT::BlockResponse(proto::BlockResponse {
+                | PeerMessage::Block(b) => ProtoMT::BlockResponse(proto::BlockResponse {
                     block: MF::some(b.into()),
                     ..Default::default()
                 }),
-                PeerMessage::Transaction(t) => ProtoMT::Transaction(proto::SignedTransaction {
+                | PeerMessage::Transaction(t) => ProtoMT::Transaction(proto::SignedTransaction {
                     borsh: borsh::to_vec(&t).unwrap(),
                     ..Default::default()
                 }),
-                PeerMessage::Routed(r) => ProtoMT::Routed(proto::RoutedMessage {
+                | PeerMessage::Routed(r) => ProtoMT::Routed(proto::RoutedMessage {
                     borsh: borsh::to_vec(&r.msg).unwrap(),
                     created_at: MF::from_option(r.created_at.as_ref().map(utc_to_proto)),
                     num_hops: r.num_hops,
                     ..Default::default()
                 }),
-                PeerMessage::Disconnect(r) => ProtoMT::Disconnect(proto::Disconnect {
+                | PeerMessage::Disconnect(r) => ProtoMT::Disconnect(proto::Disconnect {
                     remove_from_connection_store: r.remove_from_connection_store,
                     ..Default::default()
                 }),
-                PeerMessage::Challenge(r) => ProtoMT::Challenge(proto::Challenge {
+                | PeerMessage::Challenge(r) => ProtoMT::Challenge(proto::Challenge {
                     borsh: borsh::to_vec(&r).unwrap(),
                     ..Default::default()
                 }),
-                PeerMessage::SyncSnapshotHosts(ssh) => ProtoMT::SyncSnapshotHosts(ssh.into()),
-                PeerMessage::StateRequestHeader(shard_id, sync_hash) => {
+                | PeerMessage::SyncSnapshotHosts(ssh) => ProtoMT::SyncSnapshotHosts(ssh.into()),
+                | PeerMessage::StateRequestHeader(shard_id, sync_hash) => {
                     ProtoMT::StateRequestHeader(proto::StateRequestHeader {
                         shard_id: (*shard_id).into(),
                         sync_hash: MF::some(sync_hash.into()),
                         ..Default::default()
                     })
                 }
-                PeerMessage::StateRequestPart(shard_id, sync_hash, part_id) => {
+                | PeerMessage::StateRequestPart(shard_id, sync_hash, part_id) => {
                     ProtoMT::StateRequestPart(proto::StateRequestPart {
                         shard_id: (*shard_id).into(),
                         sync_hash: MF::some(sync_hash.into()),
@@ -327,16 +360,16 @@ impl From<&PeerMessage> for proto::PeerMessage {
                         ..Default::default()
                     })
                 }
-                PeerMessage::VersionedStateResponse(sri) => {
+                | PeerMessage::VersionedStateResponse(sri) => {
                     ProtoMT::StateResponse(proto::StateResponse {
                         state_response_info: MF::some(sri.into()),
                         ..Default::default()
                     })
                 }
-                PeerMessage::EpochSyncRequest => {
+                | PeerMessage::EpochSyncRequest => {
                     ProtoMT::EpochSyncRequest(proto::EpochSyncRequest { ..Default::default() })
                 }
-                PeerMessage::EpochSyncResponse(esp) => {
+                | PeerMessage::EpochSyncResponse(esp) => {
                     ProtoMT::EpochSyncResponse(proto::EpochSyncResponse {
                         compressed_proof: esp.as_slice().to_vec(),
                         ..Default::default()
@@ -402,109 +435,131 @@ pub enum ParsePeerMessageError {
 impl TryFrom<&proto::PeerMessage> for PeerMessage {
     type Error = ParsePeerMessageError;
     fn try_from(x: &proto::PeerMessage) -> Result<Self, Self::Error> {
-        Ok(match x.message_type.as_ref().ok_or(Self::Error::Empty)? {
-            ProtoMT::Tier1Handshake(h) => {
-                PeerMessage::Tier1Handshake(h.try_into().map_err(Self::Error::Handshake)?)
-            }
-            ProtoMT::Tier2Handshake(h) => {
-                PeerMessage::Tier2Handshake(h.try_into().map_err(Self::Error::Handshake)?)
-            }
-            ProtoMT::Tier3Handshake(h) => {
-                PeerMessage::Tier3Handshake(h.try_into().map_err(Self::Error::Handshake)?)
-            }
-            ProtoMT::HandshakeFailure(hf) => {
-                let (pi, hfr) = hf.try_into().map_err(Self::Error::HandshakeFailure)?;
-                PeerMessage::HandshakeFailure(pi, hfr)
-            }
-            ProtoMT::LastEdge(le) => {
-                PeerMessage::LastEdge(try_from_required(&le.edge).map_err(Self::Error::LastEdge)?)
-            }
-            ProtoMT::SyncRoutingTable(rtu) => PeerMessage::SyncRoutingTable(
-                rtu.try_into().map_err(Self::Error::SyncRoutingTable)?,
-            ),
-            ProtoMT::DistanceVector(spt) => {
-                PeerMessage::DistanceVector(spt.try_into().map_err(Self::Error::DistanceVector)?)
-            }
-            ProtoMT::UpdateNonceRequest(unr) => PeerMessage::RequestUpdateNonce(
-                try_from_required(&unr.partial_edge_info)
-                    .map_err(Self::Error::UpdateNonceRequest)?,
-            ),
-            ProtoMT::UpdateNonceResponse(unr) => {
-                PeerMessage::SyncRoutingTable(RoutingTableUpdate {
-                    edges: vec![
-                        try_from_required(&unr.edge).map_err(Self::Error::UpdateNonceResponse)?
-                    ],
-                    accounts: vec![],
-                })
-            }
-            ProtoMT::SyncAccountsData(msg) => PeerMessage::SyncAccountsData(SyncAccountsData {
-                accounts_data: try_from_slice(&msg.accounts_data)
-                    .map_err(Self::Error::SyncAccountsData)?
-                    .into_iter()
-                    .map(Arc::new)
-                    .collect(),
-                incremental: msg.incremental,
-                requesting_full_sync: msg.requesting_full_sync,
-            }),
-            ProtoMT::PeersRequest(pr) => PeerMessage::PeersRequest(PeersRequest {
-                max_peers: pr.max_peers,
-                max_direct_peers: pr.max_direct_peers,
-            }),
-            ProtoMT::PeersResponse(pr) => PeerMessage::PeersResponse(PeersResponse {
-                peers: try_from_slice(&pr.peers).map_err(Self::Error::PeersResponse)?,
-                direct_peers: try_from_slice(&pr.direct_peers)
-                    .map_err(Self::Error::PeersResponse)?,
-            }),
-            ProtoMT::BlockHeadersRequest(bhr) => PeerMessage::BlockHeadersRequest(
-                try_from_slice(&bhr.block_hashes).map_err(Self::Error::BlockHeadersRequest)?,
-            ),
-            ProtoMT::BlockHeadersResponse(bhr) => PeerMessage::BlockHeaders(
-                try_from_slice(&bhr.block_headers).map_err(Self::Error::BlockHeadersResponse)?,
-            ),
-            ProtoMT::BlockRequest(br) => PeerMessage::BlockRequest(
-                try_from_required(&br.block_hash).map_err(Self::Error::BlockRequest)?,
-            ),
-            ProtoMT::BlockResponse(br) => PeerMessage::Block(
-                try_from_required(&br.block).map_err(Self::Error::BlockResponse)?,
-            ),
-            ProtoMT::Transaction(t) => PeerMessage::Transaction(
-                SignedTransaction::try_from_slice(&t.borsh).map_err(Self::Error::Transaction)?,
-            ),
-            ProtoMT::Routed(r) => PeerMessage::Routed(Box::new(RoutedMessageV2 {
-                msg: RoutedMessage::try_from_slice(&r.borsh).map_err(Self::Error::Routed)?,
-                created_at: r
-                    .created_at
-                    .as_ref()
-                    .map(utc_from_proto)
-                    .transpose()
-                    .map_err(Self::Error::RoutedCreatedAtTimestamp)?,
-                num_hops: r.num_hops,
-            })),
-            ProtoMT::Disconnect(d) => PeerMessage::Disconnect(Disconnect {
-                remove_from_connection_store: d.remove_from_connection_store,
-            }),
-            ProtoMT::Challenge(c) => PeerMessage::Challenge(Box::new(
-                Challenge::try_from_slice(&c.borsh).map_err(Self::Error::Challenge)?,
-            )),
-            ProtoMT::StateRequestHeader(srh) => PeerMessage::StateRequestHeader(
-                srh.shard_id.into(),
-                try_from_required(&srh.sync_hash).map_err(Self::Error::BlockRequest)?,
-            ),
-            ProtoMT::StateRequestPart(srp) => PeerMessage::StateRequestPart(
-                srp.shard_id.into(),
-                try_from_required(&srp.sync_hash).map_err(Self::Error::BlockRequest)?,
-                srp.part_id,
-            ),
-            ProtoMT::StateResponse(t) => PeerMessage::VersionedStateResponse(
-                try_from_required(&t.state_response_info).map_err(Self::Error::StateResponse)?,
-            ),
-            ProtoMT::SyncSnapshotHosts(srh) => PeerMessage::SyncSnapshotHosts(
-                srh.try_into().map_err(Self::Error::SyncSnapshotHosts)?,
-            ),
-            ProtoMT::EpochSyncRequest(_) => PeerMessage::EpochSyncRequest,
-            ProtoMT::EpochSyncResponse(esr) => PeerMessage::EpochSyncResponse(
-                CompressedData::from_boxed_slice(esr.compressed_proof.clone().into_boxed_slice()),
-            ),
-        })
+        Ok(
+            match x
+                .message_type
+                .as_ref()
+                .ok_or(Self::Error::Empty)?
+            {
+                | ProtoMT::Tier1Handshake(h) => PeerMessage::Tier1Handshake(
+                    h.try_into()
+                        .map_err(Self::Error::Handshake)?,
+                ),
+                | ProtoMT::Tier2Handshake(h) => PeerMessage::Tier2Handshake(
+                    h.try_into()
+                        .map_err(Self::Error::Handshake)?,
+                ),
+                | ProtoMT::Tier3Handshake(h) => PeerMessage::Tier3Handshake(
+                    h.try_into()
+                        .map_err(Self::Error::Handshake)?,
+                ),
+                | ProtoMT::HandshakeFailure(hf) => {
+                    let (pi, hfr) = hf
+                        .try_into()
+                        .map_err(Self::Error::HandshakeFailure)?;
+                    PeerMessage::HandshakeFailure(pi, hfr)
+                }
+                | ProtoMT::LastEdge(le) => PeerMessage::LastEdge(
+                    try_from_required(&le.edge).map_err(Self::Error::LastEdge)?,
+                ),
+                | ProtoMT::SyncRoutingTable(rtu) => PeerMessage::SyncRoutingTable(
+                    rtu.try_into()
+                        .map_err(Self::Error::SyncRoutingTable)?,
+                ),
+                | ProtoMT::DistanceVector(spt) => PeerMessage::DistanceVector(
+                    spt.try_into()
+                        .map_err(Self::Error::DistanceVector)?,
+                ),
+                | ProtoMT::UpdateNonceRequest(unr) => PeerMessage::RequestUpdateNonce(
+                    try_from_required(&unr.partial_edge_info)
+                        .map_err(Self::Error::UpdateNonceRequest)?,
+                ),
+                | ProtoMT::UpdateNonceResponse(unr) => {
+                    PeerMessage::SyncRoutingTable(RoutingTableUpdate {
+                        edges: vec![try_from_required(&unr.edge)
+                            .map_err(Self::Error::UpdateNonceResponse)?],
+                        accounts: vec![],
+                    })
+                }
+                | ProtoMT::SyncAccountsData(msg) => {
+                    PeerMessage::SyncAccountsData(SyncAccountsData {
+                        accounts_data: try_from_slice(&msg.accounts_data)
+                            .map_err(Self::Error::SyncAccountsData)?
+                            .into_iter()
+                            .map(Arc::new)
+                            .collect(),
+                        incremental: msg.incremental,
+                        requesting_full_sync: msg.requesting_full_sync,
+                    })
+                }
+                | ProtoMT::PeersRequest(pr) => PeerMessage::PeersRequest(PeersRequest {
+                    max_peers: pr.max_peers,
+                    max_direct_peers: pr.max_direct_peers,
+                }),
+                | ProtoMT::PeersResponse(pr) => PeerMessage::PeersResponse(PeersResponse {
+                    peers: try_from_slice(&pr.peers).map_err(Self::Error::PeersResponse)?,
+                    direct_peers: try_from_slice(&pr.direct_peers)
+                        .map_err(Self::Error::PeersResponse)?,
+                }),
+                | ProtoMT::BlockHeadersRequest(bhr) => PeerMessage::BlockHeadersRequest(
+                    try_from_slice(&bhr.block_hashes).map_err(Self::Error::BlockHeadersRequest)?,
+                ),
+                | ProtoMT::BlockHeadersResponse(bhr) => PeerMessage::BlockHeaders(
+                    try_from_slice(&bhr.block_headers)
+                        .map_err(Self::Error::BlockHeadersResponse)?,
+                ),
+                | ProtoMT::BlockRequest(br) => PeerMessage::BlockRequest(
+                    try_from_required(&br.block_hash).map_err(Self::Error::BlockRequest)?,
+                ),
+                | ProtoMT::BlockResponse(br) => PeerMessage::Block(
+                    try_from_required(&br.block).map_err(Self::Error::BlockResponse)?,
+                ),
+                | ProtoMT::Transaction(t) => PeerMessage::Transaction(
+                    SignedTransaction::try_from_slice(&t.borsh)
+                        .map_err(Self::Error::Transaction)?,
+                ),
+                | ProtoMT::Routed(r) => PeerMessage::Routed(Box::new(RoutedMessageV2 {
+                    msg: RoutedMessage::try_from_slice(&r.borsh).map_err(Self::Error::Routed)?,
+                    created_at: r
+                        .created_at
+                        .as_ref()
+                        .map(utc_from_proto)
+                        .transpose()
+                        .map_err(Self::Error::RoutedCreatedAtTimestamp)?,
+                    num_hops: r.num_hops,
+                })),
+                | ProtoMT::Disconnect(d) => PeerMessage::Disconnect(Disconnect {
+                    remove_from_connection_store: d.remove_from_connection_store,
+                }),
+                | ProtoMT::Challenge(c) => PeerMessage::Challenge(Box::new(
+                    Challenge::try_from_slice(&c.borsh).map_err(Self::Error::Challenge)?,
+                )),
+                | ProtoMT::StateRequestHeader(srh) => PeerMessage::StateRequestHeader(
+                    srh.shard_id.into(),
+                    try_from_required(&srh.sync_hash).map_err(Self::Error::BlockRequest)?,
+                ),
+                | ProtoMT::StateRequestPart(srp) => PeerMessage::StateRequestPart(
+                    srp.shard_id.into(),
+                    try_from_required(&srp.sync_hash).map_err(Self::Error::BlockRequest)?,
+                    srp.part_id,
+                ),
+                | ProtoMT::StateResponse(t) => PeerMessage::VersionedStateResponse(
+                    try_from_required(&t.state_response_info)
+                        .map_err(Self::Error::StateResponse)?,
+                ),
+                | ProtoMT::SyncSnapshotHosts(srh) => PeerMessage::SyncSnapshotHosts(
+                    srh.try_into()
+                        .map_err(Self::Error::SyncSnapshotHosts)?,
+                ),
+                | ProtoMT::EpochSyncRequest(_) => PeerMessage::EpochSyncRequest,
+                | ProtoMT::EpochSyncResponse(esr) => {
+                    PeerMessage::EpochSyncResponse(CompressedData::from_boxed_slice(
+                        esr.compressed_proof
+                            .clone()
+                            .into_boxed_slice(),
+                    ))
+                }
+            },
+        )
     }
 }

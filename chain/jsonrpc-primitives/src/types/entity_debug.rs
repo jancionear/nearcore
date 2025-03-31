@@ -34,11 +34,20 @@ impl EntityDataStruct {
         EntityDataStruct { entries: Vec::new() }
     }
 
-    pub fn add(&mut self, name: &str, value: EntityDataValue) {
-        self.entries.push(EntityDataEntry { name: name.to_string(), value });
+    pub fn add(
+        &mut self,
+        name: &str,
+        value: EntityDataValue,
+    ) {
+        self.entries
+            .push(EntityDataEntry { name: name.to_string(), value });
     }
 
-    pub fn add_string(&mut self, name: &str, value: &str) {
+    pub fn add_string(
+        &mut self,
+        name: &str,
+        value: &str,
+    ) {
         self.add(name, EntityDataValue::String(value.to_string()));
     }
 }
@@ -108,14 +117,20 @@ pub struct EntityQueryWithParams {
 /// blockchain data structures for implementing the queries.
 pub trait EntityDebugHandler: Sync + Send {
     #[allow(clippy::result_large_err)]
-    fn query(&self, query: EntityQueryWithParams) -> Result<EntityDataValue, RpcError>;
+    fn query(
+        &self,
+        query: EntityQueryWithParams,
+    ) -> Result<EntityDataValue, RpcError>;
 }
 
 /// For tests.
 pub struct DummyEntityDebugHandler {}
 
 impl EntityDebugHandler for DummyEntityDebugHandler {
-    fn query(&self, _query: EntityQueryWithParams) -> Result<EntityDataValue, RpcError> {
+    fn query(
+        &self,
+        _query: EntityQueryWithParams,
+    ) -> Result<EntityDataValue, RpcError> {
         Err(RpcError::new_internal_error(None, "Not implemented".to_string()))
     }
 }

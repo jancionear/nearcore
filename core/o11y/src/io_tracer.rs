@@ -94,16 +94,24 @@ impl<S: Subscriber + for<'span> LookupSpan<'span>> Layer<S> for IoTraceLayer {
 
         // This will be used to add lines that should be printed below the span
         // opening line.
-        span.extensions_mut().insert(OutputBuffer(vec![]));
+        span.extensions_mut()
+            .insert(OutputBuffer(vec![]));
     }
 
-    fn on_event(&self, event: &tracing::Event<'_>, ctx: tracing_subscriber::layer::Context<'_, S>) {
+    fn on_event(
+        &self,
+        event: &tracing::Event<'_>,
+        ctx: tracing_subscriber::layer::Context<'_, S>,
+    ) {
         if event.metadata().target() == "io_tracer_count" {
             // Events specifically added to add more info to spans in IO Tracer.
             // Marked with `target: "io_tracer_count"`.
             let mut span = ctx.event_span(event);
             while let Some(parent) = span {
-                if let Some(span_info) = parent.extensions_mut().get_mut::<SpanInfo>() {
+                if let Some(span_info) = parent
+                    .extensions_mut()
+                    .get_mut::<SpanInfo>()
+                {
                     event.record(span_info);
                     break;
                 } else {
@@ -118,7 +126,11 @@ impl<S: Subscriber + for<'span> LookupSpan<'span>> Layer<S> for IoTraceLayer {
     }
 
     #[allow(clippy::arithmetic_side_effects)]
-    fn on_exit(&self, id: &span::Id, ctx: tracing_subscriber::layer::Context<'_, S>) {
+    fn on_exit(
+        &self,
+        id: &span::Id,
+        ctx: tracing_subscriber::layer::Context<'_, S>,
+    ) {
         // When the span exits, produce one line for the span itself that
         // includes key=value pairs from `SpanInfo`. Then also add indentation
         // to all lines buffered in the `OutputBuffer` extension.
@@ -126,24 +138,35 @@ impl<S: Subscriber + for<'span> LookupSpan<'span>> Layer<S> for IoTraceLayer {
         let span = ctx.span(id).unwrap();
         let name = span.name();
         let span_line = {
-            let mut span_info = span.extensions_mut().replace(SpanInfo::default()).unwrap();
+            let mut span_info = span
+                .extensions_mut()
+                .replace(SpanInfo::default())
+                .unwrap();
             for (key, count) in span_info.counts.drain() {
-                span_info.key_values.push(format!("{key}={count}"));
+                span_info
+                    .key_values
+                    .push(format!("{key}={count}"));
             }
             format!("{name} {}", span_info.key_values.join(" "))
         };
 
-        let OutputBuffer(mut exiting_buffer) =
-            span.extensions_mut().replace(OutputBuffer(vec![])).unwrap();
+        let OutputBuffer(mut exiting_buffer) = span
+            .extensions_mut()
+            .replace(OutputBuffer(vec![]))
+            .unwrap();
 
         if let Some(parent) = span.parent() {
             let mut ext = parent.extensions_mut();
             let OutputBuffer(parent_buffer) = ext.get_mut().unwrap();
             parent_buffer.push(BufferedLine { indent: 2, output_line: span_line });
-            parent_buffer.extend(exiting_buffer.drain(..).map(|mut line| {
-                line.indent += 2;
-                line
-            }));
+            parent_buffer.extend(
+                exiting_buffer
+                    .drain(..)
+                    .map(|mut line| {
+                        line.indent += 2;
+                        line
+                    }),
+            );
         } else {
             let mut out = self.make_writer.make_writer();
             writeln!(out, "{span_line}").unwrap();
@@ -163,7 +186,10 @@ impl<S: Subscriber + for<'span> LookupSpan<'span>> Layer<S> for IoTraceLayer {
         // add records to the same.
         let mut span = ctx.span(span);
         while let Some(parent) = span {
-            if let Some(span_info) = parent.extensions_mut().get_mut::<SpanInfo>() {
+            if let Some(span_info) = parent
+                .extensions_mut()
+                .get_mut::<SpanInfo>()
+            {
                 values.record(span_info);
                 break;
             } else {
@@ -194,15 +220,19 @@ impl IoTraceLayer {
         struct FormattedSize(Option<u64>);
 
         impl std::fmt::Display for FormattedSize {
-            fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                self.0.map_or(Ok(()), |size| write!(fmt, " size={size}"))
+            fn fmt(
+                &self,
+                fmt: &mut std::fmt::Formatter<'_>,
+            ) -> std::fmt::Result {
+                self.0
+                    .map_or(Ok(()), |size| write!(fmt, " size={size}"))
             }
         }
 
         let mut visitor = IoEventVisitor::default();
         event.record(&mut visitor);
         match visitor.t {
-            Some(IoEventType::DbOp(db_op)) => {
+            | Some(IoEventType::DbOp(db_op)) => {
                 let col = visitor.col.as_deref().unwrap_or("?");
                 let key = visitor.key.as_deref().unwrap_or("?");
                 let size = FormattedSize(visitor.size);
@@ -218,7 +248,7 @@ impl IoTraceLayer {
                     writeln!(self.make_writer.make_writer(), "{output_line}").unwrap();
                 }
             }
-            Some(IoEventType::StorageOp(storage_op)) => {
+            | Some(IoEventType::StorageOp(storage_op)) => {
                 let key_bytes = visitor.key.map(|key| {
                     base64::engine::general_purpose::STANDARD
                         .decode(key)
@@ -235,11 +265,16 @@ impl IoTraceLayer {
                 let span_info =
                     format!("{storage_op} key={key}{size} tn_db_reads={tn_db_reads} tn_mem_reads={tn_mem_reads}");
 
-                let span =
-                    ctx.event_span(event).expect("storage operations must happen inside span");
-                span.extensions_mut().get_mut::<SpanInfo>().unwrap().key_values.push(span_info);
+                let span = ctx
+                    .event_span(event)
+                    .expect("storage operations must happen inside span");
+                span.extensions_mut()
+                    .get_mut::<SpanInfo>()
+                    .unwrap()
+                    .key_values
+                    .push(span_info);
             }
-            None => {
+            | None => {
                 // Ignore irrelevant tracing events.
             }
         }
@@ -259,74 +294,102 @@ struct IoEventVisitor {
 }
 
 impl tracing::field::Visit for IoEventVisitor {
-    fn record_u64(&mut self, field: &tracing::field::Field, value: u64) {
+    fn record_u64(
+        &mut self,
+        field: &tracing::field::Field,
+        value: u64,
+    ) {
         match field.name() {
-            "size" => self.size = Some(value),
-            "evicted_len" => self.evicted_len = Some(value),
-            "tn_db_reads" => self.tn_db_reads = Some(value),
-            "tn_mem_reads" => self.tn_mem_reads = Some(value),
-            _ => { /* Ignore other values, likely they are used in logging. */ }
+            | "size" => self.size = Some(value),
+            | "evicted_len" => self.evicted_len = Some(value),
+            | "tn_db_reads" => self.tn_db_reads = Some(value),
+            | "tn_mem_reads" => self.tn_mem_reads = Some(value),
+            | _ => { /* Ignore other values, likely they are used in logging. */ }
         }
     }
-    fn record_i64(&mut self, field: &tracing::field::Field, value: i64) {
+    fn record_i64(
+        &mut self,
+        field: &tracing::field::Field,
+        value: i64,
+    ) {
         if value >= 0 {
             self.record_u64(field, value as u64);
         }
     }
-    fn record_str(&mut self, field: &tracing::field::Field, value: &str) {
+    fn record_str(
+        &mut self,
+        field: &tracing::field::Field,
+        value: &str,
+    ) {
         match field.name() {
-            "key" => self.key = Some(value.to_owned()),
-            "col" => self.col = Some(value.to_owned()),
-            "storage_op" => {
+            | "key" => self.key = Some(value.to_owned()),
+            | "col" => self.col = Some(value.to_owned()),
+            | "storage_op" => {
                 let op = match value {
-                    "write" => StorageOp::Write,
-                    "read" => StorageOp::Read,
-                    "exists" => StorageOp::Exists,
-                    "remove" => StorageOp::Remove,
-                    _ => StorageOp::Other,
+                    | "write" => StorageOp::Write,
+                    | "read" => StorageOp::Read,
+                    | "exists" => StorageOp::Exists,
+                    | "remove" => StorageOp::Remove,
+                    | _ => StorageOp::Other,
                 };
                 self.t = Some(IoEventType::StorageOp(op));
             }
-            "size" => {
+            | "size" => {
                 self.size = value.parse().ok();
             }
-            "db_op" => {
+            | "db_op" => {
                 let op = match value {
-                    "get" => DbOp::Get,
-                    "insert" => DbOp::Insert,
-                    "set" => DbOp::Set,
-                    "update_rc" => DbOp::UpdateRc,
-                    "delete" => DbOp::Delete,
-                    "delete_all" => DbOp::DeleteAll,
-                    _ => DbOp::Other,
+                    | "get" => DbOp::Get,
+                    | "insert" => DbOp::Insert,
+                    | "set" => DbOp::Set,
+                    | "update_rc" => DbOp::UpdateRc,
+                    | "delete" => DbOp::Delete,
+                    | "delete_all" => DbOp::DeleteAll,
+                    | _ => DbOp::Other,
                 };
                 self.t = Some(IoEventType::DbOp(op));
             }
-            _ => { /* Ignore other values, likely they are used in logging. */ }
+            | _ => { /* Ignore other values, likely they are used in logging. */ }
         }
     }
-    fn record_debug(&mut self, field: &tracing::field::Field, value: &dyn std::fmt::Debug) {
+    fn record_debug(
+        &mut self,
+        field: &tracing::field::Field,
+        value: &dyn std::fmt::Debug,
+    ) {
         self.record_str(field, &format!("{value:?}"))
     }
 }
 
 impl tracing::field::Visit for SpanInfo {
     #[allow(clippy::arithmetic_side_effects)]
-    fn record_str(&mut self, field: &tracing::field::Field, value: &str) {
+    fn record_str(
+        &mut self,
+        field: &tracing::field::Field,
+        value: &str,
+    ) {
         // "count" is a special field, everything else are key values pairs.
         if field.name() == "counter" {
-            *self.counts.entry(value.to_string()).or_default() += 1;
+            *self
+                .counts
+                .entry(value.to_string())
+                .or_default() += 1;
         } else {
             self.record_debug(field, &value);
         }
     }
 
-    fn record_debug(&mut self, field: &tracing::field::Field, value: &dyn std::fmt::Debug) {
+    fn record_debug(
+        &mut self,
+        field: &tracing::field::Field,
+        value: &dyn std::fmt::Debug,
+    ) {
         let name = field.name();
         // Some fields are too verbose for the trace, ignore them on a case-by-case basis.
         let ignore = ["message", "node_counter"];
         if !ignore.contains(&name) {
-            self.key_values.push(format!("{name}={value:?}"));
+            self.key_values
+                .push(format!("{name}={value:?}"));
         }
     }
 }

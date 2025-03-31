@@ -12,11 +12,17 @@ struct Inner {
 }
 
 impl Inner {
-    fn ticks(&self, t: time::Instant) -> u64 {
+    fn ticks(
+        &self,
+        t: time::Instant,
+    ) -> u64 {
         return ((t.signed_duration_since(self.start)).as_seconds_f64()
             / self.interval.as_seconds_f64()) as u64;
     }
-    fn instant(&self, ticks: u64) -> time::Instant {
+    fn instant(
+        &self,
+        ticks: u64,
+    ) -> time::Instant {
         return self.start + self.interval * (ticks as f64);
     }
 }
@@ -29,7 +35,10 @@ impl Inner {
 pub struct RateLimiter(Arc<tokio::sync::Mutex<Inner>>);
 
 impl RateLimiter {
-    pub fn new(interval: time::Duration, burst: u64) -> RateLimiter {
+    pub fn new(
+        interval: time::Duration,
+        burst: u64,
+    ) -> RateLimiter {
         if interval.is_zero() {
             panic!("interval has to be non-zero");
         }
@@ -48,7 +57,8 @@ impl RateLimiter {
         let ticks_now = rl.ticks(ctx::time::now());
         rl.tokens = std::cmp::min(
             rl.burst,
-            rl.tokens.wrapping_add(ticks_now.wrapping_sub(rl.ticks_processed)),
+            rl.tokens
+                .wrapping_add(ticks_now.wrapping_sub(rl.ticks_processed)),
         );
         rl.ticks_processed = ticks_now;
         if rl.tokens > 0 {

@@ -25,7 +25,10 @@ where
 {
     type Context = actix::Context<Self>;
 
-    fn started(&mut self, ctx: &mut Self::Context) {
+    fn started(
+        &mut self,
+        ctx: &mut Self::Context,
+    ) {
         self.actor.start_actor(ctx);
     }
 }
@@ -55,7 +58,11 @@ where
         actix::dev::MessageResponse<ActixWrapper<T>, WithSpanContext<M>> + Send,
 {
     type Result = M::Result;
-    fn handle(&mut self, msg: WithSpanContext<M>, ctx: &mut Self::Context) -> Self::Result {
+    fn handle(
+        &mut self,
+        msg: WithSpanContext<M>,
+        ctx: &mut Self::Context,
+    ) -> Self::Result {
         let (_span, msg) = handler_debug_span!(target: "actix_message_handler", msg);
         self.actor.handle(msg, ctx)
     }
@@ -87,7 +94,11 @@ where
         actix::dev::MessageResponse<SyncActixWrapper<T>, WithSpanContext<M>> + Send,
 {
     type Result = M::Result;
-    fn handle(&mut self, msg: WithSpanContext<M>, _ctx: &mut Self::Context) -> Self::Result {
+    fn handle(
+        &mut self,
+        msg: WithSpanContext<M>,
+        _ctx: &mut Self::Context,
+    ) -> Self::Result {
         let (_span, msg) = handler_debug_span!(target: "actix_message_handler", msg);
         self.actor.handle(msg)
     }

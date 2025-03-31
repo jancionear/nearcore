@@ -29,7 +29,10 @@ pub struct PartialEncodedStateWitness {
 }
 
 impl Debug for PartialEncodedStateWitness {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut Formatter<'_>,
+    ) -> std::fmt::Result {
         f.debug_struct("PartialEncodedStateWitness")
             .field("epoch_id", &self.inner.epoch_id)
             .field("shard_id", &self.inner.shard_id)
@@ -67,7 +70,10 @@ impl PartialEncodedStateWitness {
         }
     }
 
-    pub fn verify(&self, public_key: &PublicKey) -> bool {
+    pub fn verify(
+        &self,
+        public_key: &PublicKey,
+    ) -> bool {
         let data = borsh::to_vec(&self.inner).unwrap();
         self.signature.verify(&data, public_key)
     }

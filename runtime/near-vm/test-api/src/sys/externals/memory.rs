@@ -31,7 +31,10 @@ impl Memory {
     ///
     /// This function will construct the `Memory` using the store
     /// [`BaseTunables`][crate::sys::BaseTunables].
-    pub fn new(store: &Store, ty: MemoryType) -> Result<Self, MemoryError> {
+    pub fn new(
+        store: &Store,
+        ty: MemoryType,
+    ) -> Result<Self, MemoryError> {
         let tunables = store.tunables();
         let style = tunables.memory_style(&ty);
         let memory = tunables.create_host_memory(&ty, &style)?;
@@ -48,7 +51,10 @@ impl Memory {
     }
 
     /// Create a `Memory` from `VMMemory`.
-    pub fn from_vmmemory(store: &Store, vm_memory: VMMemory) -> Self {
+    pub fn from_vmmemory(
+        store: &Store,
+        vm_memory: VMMemory,
+    ) -> Self {
         Self { store: store.clone(), vm_memory }
     }
 
@@ -127,7 +133,10 @@ impl Memory {
         unsafe { MemoryView::new(base as _, length as u32) }
     }
 
-    pub(crate) fn from_vm_export(store: &Store, vm_memory: VMMemory) -> Self {
+    pub(crate) fn from_vm_export(
+        store: &Store,
+        vm_memory: VMMemory,
+    ) -> Self {
         Self { store: store.clone(), vm_memory }
     }
 
@@ -147,7 +156,9 @@ impl Memory {
 impl Clone for Memory {
     fn clone(&self) -> Self {
         let mut vm_memory = self.vm_memory.clone();
-        vm_memory.upgrade_instance_ref().unwrap();
+        vm_memory
+            .upgrade_instance_ref()
+            .unwrap();
 
         Self { store: self.store.clone(), vm_memory }
     }

@@ -117,7 +117,10 @@ struct EventInHeap {
 }
 
 impl PartialEq for EventInHeap {
-    fn eq(&self, other: &Self) -> bool {
+    fn eq(
+        &self,
+        other: &Self,
+    ) -> bool {
         self.due == other.due && self.id == other.id
     }
 }
@@ -125,14 +128,22 @@ impl PartialEq for EventInHeap {
 impl Eq for EventInHeap {}
 
 impl PartialOrd for EventInHeap {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+    fn partial_cmp(
+        &self,
+        other: &Self,
+    ) -> Option<std::cmp::Ordering> {
         Some(self.cmp(other))
     }
 }
 
 impl Ord for EventInHeap {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        (self.due, self.id).cmp(&(other.due, other.id)).reverse()
+    fn cmp(
+        &self,
+        other: &Self,
+    ) -> std::cmp::Ordering {
+        (self.due, self.id)
+            .cmp(&(other.due, other.id))
+            .reverse()
     }
 }
 
@@ -146,7 +157,10 @@ struct InFlightEvents {
 }
 
 impl InFlightEvents {
-    fn add(&mut self, event: CallbackEvent) {
+    fn add(
+        &mut self,
+        event: CallbackEvent,
+    ) {
         if !self.is_handling_event && std::thread::current().id() != self.event_loop_thread_id {
             // Another thread shall not be sending an event while we're not handling an event.
             // If that happens, it means we have a rogue thread spawned somewhere that has not been
@@ -241,7 +255,8 @@ impl TestLoopV2 {
         description: String,
         callback: impl FnOnce(&mut TestLoopData) + Send + 'static,
     ) {
-        self.pending_events_sender.send(format!("Adhoc({})", description), Box::new(callback));
+        self.pending_events_sender
+            .send(format!("Adhoc({})", description), Box::new(callback));
     }
 
     /// Sends any ad-hoc event to the loop, after some delay.
@@ -251,11 +266,8 @@ impl TestLoopV2 {
         delay: Duration,
         callback: impl FnOnce(&mut TestLoopData) + Send + 'static,
     ) {
-        self.pending_events_sender.send_with_delay(
-            format!("Adhoc({})", description),
-            Box::new(callback),
-            delay,
-        );
+        self.pending_events_sender
+            .send_with_delay(format!("Adhoc({})", description), Box::new(callback), delay);
     }
 
     /// Returns a clock that will always return the current virtual time.
@@ -271,7 +283,8 @@ impl TestLoopV2 {
     where
         A: Actor + 'static,
     {
-        self.data.register_actor_for_index(0, actor, adapter)
+        self.data
+            .register_actor_for_index(0, actor, adapter)
     }
 
     pub fn register_actor_for_index<A>(
@@ -283,16 +296,26 @@ impl TestLoopV2 {
     where
         A: Actor + 'static,
     {
-        self.data.register_actor_for_index(index, actor, adapter)
+        self.data
+            .register_actor_for_index(index, actor, adapter)
     }
 
-    pub fn set_every_event_callback(&mut self, callback: impl FnMut(&TestLoopData) + 'static) {
+    pub fn set_every_event_callback(
+        &mut self,
+        callback: impl FnMut(&TestLoopData) + 'static,
+    ) {
         self.every_event_callback = Some(Box::new(callback));
     }
 
     /// Helper to push events we have just received into the heap.
     fn queue_received_events(&mut self) {
-        for event in self.pending_events.lock().unwrap().events.drain(..) {
+        for event in self
+            .pending_events
+            .lock()
+            .unwrap()
+            .events
+            .drain(..)
+        {
             self.events.push(EventInHeap {
                 due: self.current_time + event.delay,
                 id: self.next_event_index,
@@ -318,20 +341,30 @@ impl TestLoopV2 {
             // queued into the event loop at a specific time; the other is that some future is
             // waiting on our fake clock to advance beyond a specific time. Pick the earliest.
             let next_timestamp = {
-                let next_event_timestamp = self.events.peek().map(|event| event.due);
+                let next_event_timestamp = self
+                    .events
+                    .peek()
+                    .map(|event| event.due);
                 let next_future_waiter_timestamp = self
                     .clock
                     .first_waiter()
                     .map(|time| time.signed_duration_since(self.clock.now() - self.current_time));
                 next_event_timestamp
-                    .map(|t1| next_future_waiter_timestamp.map(|t2| t2.min(t1)).unwrap_or(t1))
+                    .map(|t1| {
+                        next_future_waiter_timestamp
+                            .map(|t2| t2.min(t1))
+                            .unwrap_or(t1)
+                    })
                     .or(next_future_waiter_timestamp)
             };
             // If the next event is immediately available (i.e. its time is same as current time),
             // just return that event; there's no decision to make (as we only give deciders a
             // chance to stop processing if we would advance the clock) and no need to advance time.
             if next_timestamp == Some(self.current_time) {
-                let event = self.events.pop().expect("Programming error in TestLoop");
+                let event = self
+                    .events
+                    .pop()
+                    .expect("Programming error in TestLoop");
                 assert_eq!(event.due, self.current_time);
                 return Some(event);
             }
@@ -339,9 +372,10 @@ impl TestLoopV2 {
             // if we should do that, or if we should stop.
             let decision = decider(next_timestamp, &mut self.data);
             match decision {
-                AdvanceDecision::AdvanceToNextEvent => {
+                | AdvanceDecision::AdvanceToNextEvent => {
                     let next_timestamp = next_timestamp.unwrap();
-                    self.clock.advance(next_timestamp - self.current_time);
+                    self.clock
+                        .advance(next_timestamp - self.current_time);
                     self.current_time = next_timestamp;
                     // Run the loop again, because if the reason why we advance the clock to this
                     // time is due to a possible future waiting on the clock, we may or may not get
@@ -349,12 +383,13 @@ impl TestLoopV2 {
                     // again.
                     continue;
                 }
-                AdvanceDecision::AdvanceToAndStop(target) => {
-                    self.clock.advance(target - self.current_time);
+                | AdvanceDecision::AdvanceToAndStop(target) => {
+                    self.clock
+                        .advance(target - self.current_time);
                     self.current_time = target;
                     return None;
                 }
-                AdvanceDecision::Stop => {
+                | AdvanceDecision::Stop => {
                     return None;
                 }
             }
@@ -362,7 +397,10 @@ impl TestLoopV2 {
     }
 
     /// Processes the given event, by logging a line first and then finding a handler to run it.
-    fn process_event(&mut self, event: EventInHeap) {
+    fn process_event(
+        &mut self,
+        event: EventInHeap,
+    ) {
         let start_json = serde_json::to_string(&EventStartLogOutput {
             current_index: event.id,
             total_events: self.next_event_index,
@@ -392,7 +430,10 @@ impl TestLoopV2 {
     /// Runs the test loop for the given duration. This function may be called
     /// multiple times, but further test handlers may not be registered after
     /// the first call.
-    pub fn run_for(&mut self, duration: Duration) {
+    pub fn run_for(
+        &mut self,
+        duration: Duration,
+    ) {
         let deadline = self.current_time + duration;
         while let Some(event) = self.advance_till_next_event(&mut |next_time, _| {
             if let Some(next_time) = next_time {
@@ -433,8 +474,12 @@ impl TestLoopV2 {
         }
     }
 
-    pub fn shutdown_and_drain_remaining_events(mut self, maximum_duration: Duration) {
-        self.shutting_down.store(true, Ordering::Relaxed);
+    pub fn shutdown_and_drain_remaining_events(
+        mut self,
+        maximum_duration: Duration,
+    ) {
+        self.shutting_down
+            .store(true, Ordering::Relaxed);
         self.run_for(maximum_duration);
         // Implicitly dropped here, which asserts that no more events are remaining.
     }
@@ -487,27 +532,35 @@ mod tests {
 
         let clock1 = clock.clone();
         let finished1 = finished.clone();
-        test_loop.future_spawner().spawn("test1", async move {
-            assert_eq!(clock1.now(), start_time);
-            clock1.sleep(Duration::seconds(10)).await;
-            assert_eq!(clock1.now(), start_time + Duration::seconds(10));
-            clock1.sleep(Duration::seconds(5)).await;
-            assert_eq!(clock1.now(), start_time + Duration::seconds(15));
-            finished1.fetch_add(1, Ordering::Relaxed);
-        });
+        test_loop
+            .future_spawner()
+            .spawn("test1", async move {
+                assert_eq!(clock1.now(), start_time);
+                clock1
+                    .sleep(Duration::seconds(10))
+                    .await;
+                assert_eq!(clock1.now(), start_time + Duration::seconds(10));
+                clock1.sleep(Duration::seconds(5)).await;
+                assert_eq!(clock1.now(), start_time + Duration::seconds(15));
+                finished1.fetch_add(1, Ordering::Relaxed);
+            });
 
         test_loop.run_for(Duration::seconds(2));
 
         let clock2 = clock;
         let finished2 = finished.clone();
-        test_loop.future_spawner().spawn("test2", async move {
-            assert_eq!(clock2.now(), start_time + Duration::seconds(2));
-            clock2.sleep(Duration::seconds(3)).await;
-            assert_eq!(clock2.now(), start_time + Duration::seconds(5));
-            clock2.sleep(Duration::seconds(20)).await;
-            assert_eq!(clock2.now(), start_time + Duration::seconds(25));
-            finished2.fetch_add(1, Ordering::Relaxed);
-        });
+        test_loop
+            .future_spawner()
+            .spawn("test2", async move {
+                assert_eq!(clock2.now(), start_time + Duration::seconds(2));
+                clock2.sleep(Duration::seconds(3)).await;
+                assert_eq!(clock2.now(), start_time + Duration::seconds(5));
+                clock2
+                    .sleep(Duration::seconds(20))
+                    .await;
+                assert_eq!(clock2.now(), start_time + Duration::seconds(25));
+                finished2.fetch_add(1, Ordering::Relaxed);
+            });
         // During these 30 virtual seconds, the TestLoop should've automatically advanced the clock
         // to wake each future as they become ready to run again. The code inside the futures
         // assert that the fake clock does indeed have the expected times.

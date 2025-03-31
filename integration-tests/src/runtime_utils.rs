@@ -19,7 +19,11 @@ pub const TEST_SHARD_UID: ShardUId = ShardUId { version: 1, shard_id: 0 };
 
 pub fn get_runtime_and_trie() -> (Runtime, ShardTries, StateRoot) {
     let mut genesis = Genesis::test_sharded_new_version(
-        vec![alice_account(), bob_account(), "carol.near".parse().unwrap()],
+        vec![
+            alice_account(),
+            bob_account(),
+            "carol.near".parse().unwrap(),
+        ],
         3,
         vec![3],
     );
@@ -36,17 +40,24 @@ pub fn get_test_trie_viewer() -> (TrieViewer, TrieUpdate) {
 
 pub fn get_runtime_and_trie_from_genesis(genesis: &Genesis) -> (Runtime, ShardTries, StateRoot) {
     let shard_layout = genesis.config.shard_layout.clone();
-    let shard_uid = shard_layout.shard_uids().next().unwrap();
+    let shard_uid = shard_layout
+        .shard_uids()
+        .next()
+        .unwrap();
 
-    let tries =
-        TestTriesBuilder::new().with_shard_layout(shard_layout).with_flat_storage(true).build();
+    let tries = TestTriesBuilder::new()
+        .with_shard_layout(shard_layout)
+        .with_flat_storage(true)
+        .build();
     let runtime = Runtime::new();
     let mut account_ids: HashSet<AccountId> = HashSet::new();
     genesis.for_each_record(|record: &StateRecord| {
         account_ids.insert(state_record_to_account_id(record).clone());
     });
     let writers = std::sync::atomic::AtomicUsize::new(0);
-    let storage_usage_config = &RuntimeConfig::test().fees.storage_usage_config;
+    let storage_usage_config = &RuntimeConfig::test()
+        .fees
+        .storage_usage_config;
     let genesis_root = GenesisStateApplier::apply(
         &writers,
         tries.clone(),

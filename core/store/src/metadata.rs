@@ -77,7 +77,7 @@ impl DbMetadata {
     /// method doesn't enforce the invariant that version must always be set so
     /// it should only be used when setting the version for the first time.
     pub(super) fn maybe_read_version(
-        db: &dyn crate::Database,
+        db: &dyn crate::Database
     ) -> std::io::Result<Option<DbVersion>> {
         maybe_read("DbVersion", db, VERSION_KEY)
     }
@@ -102,8 +102,8 @@ fn read<T: std::str::FromStr>(
     let result = maybe_read::<T>(what, db, key)?;
 
     match result {
-        Some(value) => Ok(value),
-        None => Err(std::io::Error::other(format!("missing {what}; {msg}"))),
+        | Some(value) => Ok(value),
+        | None => Err(std::io::Error::other(format!("missing {what}; {msg}"))),
     }
 }
 

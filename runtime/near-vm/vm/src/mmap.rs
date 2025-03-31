@@ -11,7 +11,10 @@ use std::ptr;
 use std::slice;
 
 /// Round `size` up to the nearest multiple of `page_size`.
-fn round_up_to_page_size(size: usize, page_size: usize) -> usize {
+fn round_up_to_page_size(
+    size: usize,
+    page_size: usize,
+) -> usize {
     (size + (page_size - 1)) & !(page_size - 1)
 }
 
@@ -167,7 +170,11 @@ impl Mmap {
     /// `start` and `len` must be native page-size multiples and describe a range within
     /// `self`'s reserved memory.
     #[cfg(not(target_os = "windows"))]
-    pub fn make_accessible(&mut self, start: usize, len: usize) -> Result<(), String> {
+    pub fn make_accessible(
+        &mut self,
+        start: usize,
+        len: usize,
+    ) -> Result<(), String> {
         let page_size = region::page::size();
         assert_eq!(start & (page_size - 1), 0);
         assert_eq!(len & (page_size - 1), 0);
@@ -183,7 +190,11 @@ impl Mmap {
     /// `start` and `len` must be native page-size multiples and describe a range within
     /// `self`'s reserved memory.
     #[cfg(target_os = "windows")]
-    pub fn make_accessible(&mut self, start: usize, len: usize) -> Result<(), String> {
+    pub fn make_accessible(
+        &mut self,
+        start: usize,
+        len: usize,
+    ) -> Result<(), String> {
         use winapi::ctypes::c_void;
         use winapi::um::memoryapi::VirtualAlloc;
         use winapi::um::winnt::{MEM_COMMIT, PAGE_READWRITE};

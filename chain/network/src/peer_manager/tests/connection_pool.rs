@@ -43,14 +43,20 @@ async fn slow_test_connection_spam_security_test() {
     // Saturate the pending connections limit.
     let mut conns = vec![];
     for _ in 0..LIMIT_PENDING_PEERS {
-        conns.push(pm.start_inbound(chain.clone(), chain.make_config(rng)).await);
+        conns.push(
+            pm.start_inbound(chain.clone(), chain.make_config(rng))
+                .await,
+        );
     }
     // Try to establish additional connections. Should fail.
     for _ in 0..PEERS_OVER_LIMIT {
-        let conn = pm.start_inbound(chain.clone(), chain.make_config(rng)).await;
+        let conn = pm
+            .start_inbound(chain.clone(), chain.make_config(rng))
+            .await;
         assert_eq!(
             ClosingReason::TooManyInbound,
-            conn.manager_fail_handshake(&clock.clock()).await
+            conn.manager_fail_handshake(&clock.clock())
+                .await
         );
     }
     // Terminate the pending connections. Should succeed.
@@ -78,10 +84,13 @@ async fn loop_connection() {
     cfg.node_key = pm.cfg.node_key.clone();
 
     // Starting an outbound loop connection on TIER2 should be stopped without sending the handshake.
-    let conn = pm.start_outbound(chain.clone(), cfg, tcp::Tier::T2).await;
+    let conn = pm
+        .start_outbound(chain.clone(), cfg, tcp::Tier::T2)
+        .await;
     assert_eq!(
         ClosingReason::OutboundNotAllowed(connection::PoolError::UnexpectedLoopConnection),
-        conn.manager_fail_handshake(&clock.clock()).await
+        conn.manager_fail_handshake(&clock.clock())
+            .await
     );
 
     // An inbound connection pretending to be a loop should be rejected.
@@ -111,13 +120,13 @@ async fn loop_connection() {
         .await;
     let reason = events
         .recv_until(|ev| match ev {
-            Event::PeerManager(PME::ConnectionClosed(ev)) if ev.stream_id == stream_id => {
+            | Event::PeerManager(PME::ConnectionClosed(ev)) if ev.stream_id == stream_id => {
                 Some(ev.reason)
             }
-            Event::PeerManager(PME::HandshakeCompleted(ev)) if ev.stream_id == stream_id => {
+            | Event::PeerManager(PME::HandshakeCompleted(ev)) if ev.stream_id == stream_id => {
                 panic!("PeerManager accepted the handshake")
             }
-            _ => None,
+            | _ => None,
         })
         .await;
     assert_eq!(
@@ -181,13 +190,13 @@ async fn owned_account_mismatch() {
         .await;
     let reason = events
         .recv_until(|ev| match ev {
-            Event::PeerManager(PME::ConnectionClosed(ev)) if ev.stream_id == stream_id => {
+            | Event::PeerManager(PME::ConnectionClosed(ev)) if ev.stream_id == stream_id => {
                 Some(ev.reason)
             }
-            Event::PeerManager(PME::HandshakeCompleted(ev)) if ev.stream_id == stream_id => {
+            | Event::PeerManager(PME::HandshakeCompleted(ev)) if ev.stream_id == stream_id => {
                 panic!("PeerManager accepted the handshake")
             }
-            _ => None,
+            | _ => None,
         })
         .await;
     assert_eq!(ClosingReason::OwnedAccountMismatch, reason);
@@ -211,19 +220,32 @@ async fn owned_account_conflict() {
 
     let cfg1 = chain.make_config(rng);
     let mut cfg2 = chain.make_config(rng);
-    cfg2.validator.clone_from(&cfg1.validator);
+    cfg2.validator
+        .clone_from(&cfg1.validator);
 
     // Start 2 connections with the same account_key.
     // The second should be rejected.
-    let conn1 = pm.start_inbound(chain.clone(), cfg1.clone()).await.handshake(&clock.clock()).await;
-    let reason =
-        pm.start_inbound(chain.clone(), cfg2).await.manager_fail_handshake(&clock.clock()).await;
+    let conn1 = pm
+        .start_inbound(chain.clone(), cfg1.clone())
+        .await
+        .handshake(&clock.clock())
+        .await;
+    let reason = pm
+        .start_inbound(chain.clone(), cfg2)
+        .await
+        .manager_fail_handshake(&clock.clock())
+        .await;
     assert_eq!(
         reason,
         ClosingReason::RejectedByPeerManager(RegisterPeerError::PoolError(
             connection::PoolError::AlreadyConnectedAccount {
                 peer_id: cfg1.node_id(),
-                account_key: cfg1.validator.signer.get().unwrap().public_key(),
+                account_key: cfg1
+                    .validator
+                    .signer
+                    .get()
+                    .unwrap()
+                    .public_key(),
             }
         ))
     );
@@ -273,7 +295,11 @@ async fn invalid_edge() {
     ];
 
     for (name, edge) in &testcases {
-        for tier in [tcp::Tier::T1, tcp::Tier::T2, tcp::Tier::T3] {
+        for tier in [
+            tcp::Tier::T1,
+            tcp::Tier::T2,
+            tcp::Tier::T3,
+        ] {
             tracing::info!(target:"test","{name} {tier:?}");
             let stream = tcp::Stream::connect(&pm.peer_info(), tier, &SocketOptions::default())
                 .await
@@ -301,24 +327,27 @@ async fn invalid_edge() {
                 ),
             };
             let handshake = match tier {
-                tcp::Tier::T1 => PeerMessage::Tier1Handshake(handshake),
-                tcp::Tier::T2 => PeerMessage::Tier2Handshake(handshake),
-                tcp::Tier::T3 => PeerMessage::Tier3Handshake(handshake),
+                | tcp::Tier::T1 => PeerMessage::Tier1Handshake(handshake),
+                | tcp::Tier::T2 => PeerMessage::Tier2Handshake(handshake),
+                | tcp::Tier::T3 => PeerMessage::Tier3Handshake(handshake),
             };
             stream.write(&handshake).await;
-            let reason = events
-                .recv_until(|ev| match ev {
-                    Event::PeerManager(PME::ConnectionClosed(ev)) if ev.stream_id == stream_id => {
-                        Some(ev.reason)
-                    }
-                    Event::PeerManager(PME::HandshakeCompleted(ev))
-                        if ev.stream_id == stream_id =>
-                    {
-                        panic!("PeerManager accepted the handshake")
-                    }
-                    _ => None,
-                })
-                .await;
+            let reason =
+                events
+                    .recv_until(|ev| match ev {
+                        | Event::PeerManager(PME::ConnectionClosed(ev))
+                            if ev.stream_id == stream_id =>
+                        {
+                            Some(ev.reason)
+                        }
+                        | Event::PeerManager(PME::HandshakeCompleted(ev))
+                            if ev.stream_id == stream_id =>
+                        {
+                            panic!("PeerManager accepted the handshake")
+                        }
+                        | _ => None,
+                    })
+                    .await;
             assert_eq!(
                 ClosingReason::RejectedByPeerManager(RegisterPeerError::InvalidEdge),
                 reason

@@ -64,10 +64,13 @@ impl VMContext {
     /// Make a gas counter based on the configuration in this VMContext.
     ///
     /// Meant for use in tests only.
-    pub fn make_gas_counter(&self, config: &near_parameters::vm::Config) -> super::GasCounter {
+    pub fn make_gas_counter(
+        &self,
+        config: &near_parameters::vm::Config,
+    ) -> super::GasCounter {
         let max_gas_burnt = match self.view_config {
-            Some(near_primitives_core::config::ViewConfig { max_gas_burnt }) => max_gas_burnt,
-            None => config.limit_config.max_gas_burnt,
+            | Some(near_primitives_core::config::ViewConfig { max_gas_burnt }) => max_gas_burnt,
+            | None => config.limit_config.max_gas_burnt,
         };
         crate::logic::GasCounter::new(
             config.ext_costs.clone(),

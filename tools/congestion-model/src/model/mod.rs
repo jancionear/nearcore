@@ -74,7 +74,9 @@ impl Model {
         let new_transactions = self.generate_tx_for_round();
         for tx_id in new_transactions {
             let shard_id = self.transactions[tx_id].sender_shard;
-            self.queues.incoming_transactions_mut(shard_id).push_back(tx_id);
+            self.queues
+                .incoming_transactions_mut(shard_id)
+                .push_back(tx_id);
         }
 
         // Give each shard a chance to their computations and buffer all created outputs.
@@ -102,7 +104,9 @@ impl Model {
             // TODO: Deal with postponed receipts. There should be a separate
             // queue where they are kept until all dependencies have been
             // resolved. But for now, there is no producer of such workload.
-            self.queues.incoming_receipts_mut(receipt.receiver).push_back(receipt);
+            self.queues
+                .incoming_receipts_mut(receipt.receiver)
+                .push_back(receipt);
         }
     }
 
@@ -112,28 +116,45 @@ impl Model {
         // model to control how these are created and registered.
         // Hence, we inject a factory as a dependency and collect the created
         // builders as the output.
-        let mut tx_factory =
-            |shard_id| self.transactions.new_transaction_builder(shard_id, self.round);
+        let mut tx_factory = |shard_id| {
+            self.transactions
+                .new_transaction_builder(shard_id, self.round)
+        };
         let tx_builders =
-            self.producer.produce_transactions(self.round, &self.shard_ids, &mut tx_factory);
+            self.producer
+                .produce_transactions(self.round, &self.shard_ids, &mut tx_factory);
 
         // Now we take all created transactions and register them properly. Return tx ids.
         tx_builders
             .into_iter()
-            .map(|builder| self.transactions.build_transaction(builder))
+            .map(|builder| {
+                self.transactions
+                    .build_transaction(builder)
+            })
             .collect()
     }
 
-    pub fn trim_transaction_pools(&mut self, max_len: usize) {
+    pub fn trim_transaction_pools(
+        &mut self,
+        max_len: usize,
+    ) {
         for &shard_id in &self.shard_ids {
-            let len = self.queues.incoming_transactions(shard_id).len();
+            let len = self
+                .queues
+                .incoming_transactions(shard_id)
+                .len();
             if len > max_len {
-                self.queues.incoming_transactions_mut(shard_id).drain(0..len - max_len);
+                self.queues
+                    .incoming_transactions_mut(shard_id)
+                    .drain(0..len - max_len);
             }
         }
     }
 
-    pub fn shard(&mut self, id: ShardId) -> &mut dyn CongestionStrategy {
+    pub fn shard(
+        &mut self,
+        id: ShardId,
+    ) -> &mut dyn CongestionStrategy {
         self.shards[id.0].as_mut()
     }
 
@@ -142,13 +163,19 @@ impl Model {
         &self.shard_ids
     }
 
-    pub fn queue(&mut self, id: QueueId) -> &mut Queue {
+    pub fn queue(
+        &mut self,
+        id: QueueId,
+    ) -> &mut Queue {
         self.queues.queue_mut(id)
     }
 }
 
 impl std::fmt::Display for ShardId {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+    ) -> std::fmt::Result {
         write!(f, "{}", self.0)
     }
 }

@@ -70,13 +70,16 @@ pub(super) async fn run_state_sync_for_shard(
 ) -> Result<(), near_chain::Error> {
     tracing::info!("Running state sync for shard {}", shard_id);
     *status.lock().unwrap() = ShardSyncStatus::StateDownloadHeader;
-    let header = downloader.ensure_shard_header(shard_id, sync_hash, cancel.clone()).await?;
+    let header = downloader
+        .ensure_shard_header(shard_id, sync_hash, cancel.clone())
+        .await?;
     let state_root = header.chunk_prev_state_root();
     let num_parts = header.num_state_parts();
-    let block_header =
-        store.get_ser::<BlockHeader>(DBCol::BlockHeader, sync_hash.as_bytes())?.ok_or_else(
-            || near_chain::Error::DBNotFoundErr(format!("No block header {}", sync_hash)),
-        )?;
+    let block_header = store
+        .get_ser::<BlockHeader>(DBCol::BlockHeader, sync_hash.as_bytes())?
+        .ok_or_else(|| {
+            near_chain::Error::DBNotFoundErr(format!("No block header {}", sync_hash))
+        })?;
     let epoch_id = *block_header.epoch_id();
     let shard_uid = epoch_manager.shard_id_to_uid(shard_id, &epoch_id)?;
     metrics::STATE_SYNC_PARTS_TOTAL
@@ -121,14 +124,18 @@ pub(super) async fn run_state_sync_for_shard(
             .iter()
             .enumerate()
             .filter_map(|(task_index, res)| {
-                res.as_ref().err().map(|_| parts_to_download[task_index])
+                res.as_ref()
+                    .err()
+                    .map(|_| parts_to_download[task_index])
             })
             .collect();
     }
 
     return_if_cancelled!(cancel);
     *status.lock().unwrap() = ShardSyncStatus::StateApplyInProgress;
-    runtime.get_tries().unload_memtrie(&shard_uid);
+    runtime
+        .get_tries()
+        .unload_mem_trie(&shard_uid);
     let mut store_update = store.store_update();
     runtime
         .get_flat_storage_manager()
@@ -178,16 +185,16 @@ pub(super) async fn run_state_sync_for_shard(
     return_if_cancelled!(cancel);
     // Load memtrie.
     {
-        let handle = computation_task_tracker.get_handle(&format!("shard {}", shard_id)).await;
+        let handle = computation_task_tracker
+            .get_handle(&format!("shard {}", shard_id))
+            .await;
         let head_protocol_version = epoch_manager.get_epoch_protocol_version(&epoch_id)?;
         let shard_uids_pending_resharding = epoch_manager
             .get_shard_uids_pending_resharding(head_protocol_version, PROTOCOL_VERSION)?;
         handle.set_status("Loading memtrie");
-        runtime.get_tries().load_memtrie_on_catchup(
-            &shard_uid,
-            &state_root,
-            &shard_uids_pending_resharding,
-        )?;
+        runtime
+            .get_tries()
+            .load_mem_trie_on_catchup(&shard_uid, &state_root, &shard_uids_pending_resharding)?;
     }
 
     return_if_cancelled!(cancel);
@@ -198,8 +205,8 @@ pub(super) async fn run_state_sync_for_shard(
         .send_async(ChainFinalizationRequest { shard_id, sync_hash })
         .await
         .map_err(|_| {
-        near_chain::Error::Other("Chain finalization request could not be handled".to_owned())
-    })??;
+            near_chain::Error::Other("Chain finalization request could not be handled".to_owned())
+        })??;
 
     *status.lock().unwrap() = ShardSyncStatus::StateSyncDone;
 
@@ -214,13 +221,16 @@ fn create_flat_storage_for_shard(
 ) -> Result<(), near_chain::Error> {
     let flat_storage_manager = runtime.get_flat_storage_manager();
     // Flat storage must not exist at this point because leftover keys corrupt its state.
-    assert!(flat_storage_manager.get_flat_storage_for_shard(shard_uid).is_none());
+    assert!(flat_storage_manager
+        .get_flat_storage_for_shard(shard_uid)
+        .is_none());
 
     let flat_head_hash = *chunk.prev_block();
-    let flat_head_header =
-        store.get_ser::<BlockHeader>(DBCol::BlockHeader, flat_head_hash.as_bytes())?.ok_or_else(
-            || near_chain::Error::DBNotFoundErr(format!("No block header {}", flat_head_hash)),
-        )?;
+    let flat_head_header = store
+        .get_ser::<BlockHeader>(DBCol::BlockHeader, flat_head_hash.as_bytes())?
+        .ok_or_else(|| {
+            near_chain::Error::DBNotFoundErr(format!("No block header {}", flat_head_hash))
+        })?;
     let flat_head_prev_hash = *flat_head_header.prev_hash();
     let flat_head_height = flat_head_header.height();
 
@@ -238,7 +248,9 @@ fn create_flat_storage_for_shard(
         }),
     );
     store_update.commit()?;
-    flat_storage_manager.create_flat_storage_for_shard(shard_uid).unwrap();
+    flat_storage_manager
+        .create_flat_storage_for_shard(shard_uid)
+        .unwrap();
     Ok(())
 }
 
@@ -255,8 +267,9 @@ async fn apply_state_part(
     epoch_id: EpochId,
 ) -> anyhow::Result<(), near_chain::Error> {
     return_if_cancelled!(cancel);
-    let handle =
-        computation_task_tracker.get_handle(&format!("shard {} part {}", shard_id, part_id)).await;
+    let handle = computation_task_tracker
+        .get_handle(&format!("shard {} part {}", shard_id, part_id))
+        .await;
     return_if_cancelled!(cancel);
     handle.set_status("Loading part data from store");
     let data = store

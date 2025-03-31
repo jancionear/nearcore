@@ -26,10 +26,15 @@ impl crate::CongestionStrategy for SimpleBackpressure {
         self.id = Some(id);
     }
 
-    fn compute_chunk(&mut self, ctx: &mut ChunkExecutionContext) {
+    fn compute_chunk(
+        &mut self,
+        ctx: &mut ChunkExecutionContext,
+    ) {
         // first attempt forwarding previously buffered outgoing receipts
-        let buffered: Vec<_> =
-            ctx.queue(self.delayed_outgoing_receipts.unwrap()).drain(..).collect();
+        let buffered: Vec<_> = ctx
+            .queue(self.delayed_outgoing_receipts.unwrap())
+            .drain(..)
+            .collect();
         for receipt in buffered {
             self.forward_or_buffer(receipt, ctx);
         }
@@ -65,23 +70,43 @@ impl crate::CongestionStrategy for SimpleBackpressure {
 }
 
 impl SimpleBackpressure {
-    fn forward_or_buffer(&self, receipt: Receipt, ctx: &mut ChunkExecutionContext) {
-        if let Some(info) = ctx.prev_block_info().get(&receipt.receiver) {
-            if info.get::<CongestedShardsInfo>().unwrap().congested
+    fn forward_or_buffer(
+        &self,
+        receipt: Receipt,
+        ctx: &mut ChunkExecutionContext,
+    ) {
+        if let Some(info) = ctx
+            .prev_block_info()
+            .get(&receipt.receiver)
+        {
+            if info
+                .get::<CongestedShardsInfo>()
+                .unwrap()
+                .congested
                 && receipt.receiver != self.id.unwrap()
             {
-                ctx.queue(self.delayed_outgoing_receipts.unwrap()).push_back(receipt);
+                ctx.queue(self.delayed_outgoing_receipts.unwrap())
+                    .push_back(receipt);
                 return;
             }
         }
         ctx.forward_receipt(receipt);
     }
 
-    fn total_queued_receipts(&self, ctx: &mut ChunkExecutionContext) -> usize {
-        ctx.incoming_receipts().len() + ctx.queue(self.delayed_outgoing_receipts.unwrap()).len()
+    fn total_queued_receipts(
+        &self,
+        ctx: &mut ChunkExecutionContext,
+    ) -> usize {
+        ctx.incoming_receipts().len()
+            + ctx
+                .queue(self.delayed_outgoing_receipts.unwrap())
+                .len()
     }
 
-    fn congested(&mut self, ctx: &mut ChunkExecutionContext) -> bool {
+    fn congested(
+        &mut self,
+        ctx: &mut ChunkExecutionContext,
+    ) -> bool {
         let congested = self.total_queued_receipts(ctx) > self.max_receipts;
         congested
     }

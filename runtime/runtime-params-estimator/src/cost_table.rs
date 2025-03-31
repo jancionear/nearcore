@@ -21,14 +21,24 @@ pub struct CostTableDiff {
 }
 
 impl CostTable {
-    pub(crate) fn add(&mut self, cost: Cost, value: Gas) {
+    pub(crate) fn add(
+        &mut self,
+        cost: Cost,
+        value: Gas,
+    ) {
         let prev = self.map.insert(cost, value);
         assert!(prev.is_none())
     }
-    pub(crate) fn get(&self, cost: Cost) -> Option<Gas> {
+    pub(crate) fn get(
+        &self,
+        cost: Cost,
+    ) -> Option<Gas> {
         self.map.get(&cost).copied()
     }
-    pub fn diff(&self, other: &CostTable) -> CostTableDiff {
+    pub fn diff(
+        &self,
+        other: &CostTable,
+    ) -> CostTableDiff {
         let mut res = CostTableDiff::default();
         for (&cost, &x) in &self.map {
             if let Some(&y) = other.map.get(&cost) {
@@ -46,8 +56,12 @@ impl FromStr for CostTable {
         let mut res = CostTable::default();
         for line in s.lines() {
             let mut words = line.split_ascii_whitespace();
-            let cost = words.next().context("expected cost name")?;
-            let gas = words.next().context("expected gas value")?;
+            let cost = words
+                .next()
+                .context("expected cost name")?;
+            let gas = words
+                .next()
+                .context("expected gas value")?;
             if let Some(word) = words.next() {
                 anyhow::bail!("unexpected token {word}");
             }
@@ -62,7 +76,10 @@ impl FromStr for CostTable {
 }
 
 impl fmt::Display for CostTable {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
         for cost in Cost::all() {
             if let Some(gas) = self.get(cost) {
                 let gas = format_gas(gas);
@@ -74,7 +91,10 @@ impl fmt::Display for CostTable {
 }
 
 impl fmt::Display for CostTableDiff {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
         writeln!(f, "{:<35} {:>25} {:>25} {:>13}", "Cost", "First", "Second", "Second/First")?;
 
         let mut biggest_diff_first = self.map.iter().collect::<Vec<_>>();

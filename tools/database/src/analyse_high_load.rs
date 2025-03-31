@@ -27,7 +27,10 @@ struct BlockStats {
     pub receipts_by_account: Vec<usize>,
 }
 
-fn add_to_line(line: &mut String, new_string: String) {
+fn add_to_line(
+    line: &mut String,
+    new_string: String,
+) {
     *line = [line.clone(), new_string].join("\t");
 }
 
@@ -38,12 +41,18 @@ fn push_stats<T: Default + Clone + std::fmt::Debug>(
 ) {
     for i in 0..shard_num {
         let mut stat = T::default();
-        stat_vec.get(i).map(|val| stat = (*val).clone());
+        stat_vec
+            .get(i)
+            .map(|val| stat = (*val).clone());
         add_to_line(line, format!("{:?}", stat))
     }
 }
 
-fn push_header(header_parts: &mut Vec<String>, name: String, num_shards: usize) {
+fn push_header(
+    header_parts: &mut Vec<String>,
+    name: String,
+    num_shards: usize,
+) {
     for i in 0..num_shards {
         header_parts.push(format!("{name}_{i}"));
     }
@@ -76,14 +85,19 @@ impl BlockStats {
 }
 
 impl HighLoadStatsCommand {
-    pub(crate) fn run(&self, home: &Path) -> anyhow::Result<()> {
+    pub(crate) fn run(
+        &self,
+        home: &Path,
+    ) -> anyhow::Result<()> {
         let near_config = nearcore::config::Config::from_file_skip_validation(
             &home.join(nearcore::config::CONFIG_FILENAME),
         )?;
         let opener = NodeStorage::opener(home, &near_config.store, near_config.archival_config());
         let storage = opener.open()?;
         let store = std::sync::Arc::new(
-            storage.get_split_store().unwrap_or_else(|| storage.get_hot_store()),
+            storage
+                .get_split_store()
+                .unwrap_or_else(|| storage.get_hot_store()),
         );
 
         let num_threads = self.num_threads;
@@ -115,9 +129,9 @@ impl HighLoadStatsCommand {
                         // First found Err, or Ok(concat of two vectors)
                         |left, right| -> anyhow::Result<Vec<BlockStats>> {
                             match (left, right) {
-                                (Err(e), _) => Err(e),
-                                (Ok(_), Err(e)) => Err(e),
-                                (Ok(mut left), Ok(mut right)) => {
+                                | (Err(e), _) => Err(e),
+                                | (Ok(_), Err(e)) => Err(e),
+                                | (Ok(mut left), Ok(mut right)) => {
                                     left.append(&mut right);
                                     Ok(left)
                                 }
@@ -147,16 +161,22 @@ impl HighLoadStatsCommand {
         }
         let block_hash_vec = block_hash_vec.unwrap();
         let block_hash_key = block_hash_vec.as_slice();
-        let block = store.get_ser::<Block>(DBCol::Block, &block_hash_key)?.ok_or_else(|| {
-            anyhow::anyhow!("Block header not found for {height} with {block_hash_vec:?}")
-        })?;
+        let block = store
+            .get_ser::<Block>(DBCol::Block, &block_hash_key)?
+            .ok_or_else(|| {
+                anyhow::anyhow!("Block header not found for {height} with {block_hash_vec:?}")
+            })?;
 
         let mut gas_used = vec![0; 4];
         let mut gas_used_by_account = vec![0; 4];
         let mut tx_by_account = vec![0; 4];
         let mut receipts_by_account = vec![0; 4];
 
-        for (shard_index, chunk_header) in block.chunks().iter_deprecated().enumerate() {
+        for (shard_index, chunk_header) in block
+            .chunks()
+            .iter_deprecated()
+            .enumerate()
+        {
             // Note that this doesn't work if there are missing chunks and resharding.
             let shard_id = chunk_header.shard_id();
             // let mut gas_usage_in_shard = GasUsageInShard::new();

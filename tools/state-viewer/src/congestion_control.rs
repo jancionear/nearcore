@@ -36,11 +36,16 @@ pub enum CongestionControlCmd {
 }
 
 impl CongestionControlCmd {
-    pub(crate) fn run(&self, home_dir: &Path, near_config: NearConfig, store: Store) {
+    pub(crate) fn run(
+        &self,
+        home_dir: &Path,
+        near_config: NearConfig,
+        store: Store,
+    ) {
         match self {
-            CongestionControlCmd::Print(cmd) => cmd.run(&near_config, store),
-            CongestionControlCmd::Bootstrap(cmd) => cmd.run(home_dir, &near_config, store),
-            CongestionControlCmd::PrepareBenchmark(cmd) => cmd.run(home_dir, &near_config, store),
+            | CongestionControlCmd::Print(cmd) => cmd.run(&near_config, store),
+            | CongestionControlCmd::Bootstrap(cmd) => cmd.run(home_dir, &near_config, store),
+            | CongestionControlCmd::PrepareBenchmark(cmd) => cmd.run(home_dir, &near_config, store),
         }
     }
 }
@@ -49,15 +54,29 @@ impl CongestionControlCmd {
 pub struct PrintCmd {}
 
 impl PrintCmd {
-    pub(crate) fn run(&self, near_config: &NearConfig, store: Store) {
+    pub(crate) fn run(
+        &self,
+        near_config: &NearConfig,
+        store: Store,
+    ) {
         let chain_store = ChainStore::new(
             store,
-            near_config.genesis.config.genesis_height,
-            near_config.client_config.save_trie_changes,
-            near_config.genesis.config.transaction_validity_period,
+            near_config
+                .genesis
+                .config
+                .genesis_height,
+            near_config
+                .client_config
+                .save_trie_changes,
+            near_config
+                .genesis
+                .config
+                .transaction_validity_period,
         );
         let head = chain_store.head().unwrap();
-        let block = chain_store.get_block(&head.last_block_hash).unwrap();
+        let block = chain_store
+            .get_block(&head.last_block_hash)
+            .unwrap();
 
         for chunk_header in block.chunks().iter_deprecated() {
             let congestion_info = chunk_header.congestion_info();
@@ -80,24 +99,33 @@ pub struct BootstrapCmd {
 }
 
 impl BootstrapCmd {
-    pub(crate) fn run(&self, home_dir: &Path, near_config: &NearConfig, store: Store) {
+    pub(crate) fn run(
+        &self,
+        home_dir: &Path,
+        near_config: &NearConfig,
+        store: Store,
+    ) {
         let (epoch_manager, runtime, state_roots, block_header) =
             load_trie(store, home_dir, near_config);
 
         let epoch_id = block_header.epoch_id();
-        let shard_layout = epoch_manager.get_shard_layout(&epoch_id).unwrap();
+        let shard_layout = epoch_manager
+            .get_shard_layout(&epoch_id)
+            .unwrap();
 
         let shard_id_state_root_list = match (self.shard_id, self.state_root) {
-            (None, None) => {
+            | (None, None) => {
                 let mut result = vec![];
                 for (shard_index, state_root) in state_roots.into_iter().enumerate() {
-                    let shard_id = shard_layout.get_shard_id(shard_index).unwrap();
+                    let shard_id = shard_layout
+                        .get_shard_id(shard_index)
+                        .unwrap();
                     result.push((shard_id, state_root));
                 }
                 result
             }
-            (Some(shard_id), Some(state_root)) => vec![(shard_id, state_root)],
-            _ => {
+            | (Some(shard_id), Some(state_root)) => vec![(shard_id, state_root)],
+            | _ => {
                 panic!("Both shard_id and state_root must be provided");
             }
         };
@@ -121,10 +149,16 @@ impl BootstrapCmd {
         shard_id: ShardId,
         state_root: StateRoot,
     ) {
-        let epoch_id = epoch_manager.get_epoch_id_from_prev_block(&prev_hash).unwrap();
-        let protocol_config = runtime.get_protocol_config(&epoch_id).unwrap();
+        let epoch_id = epoch_manager
+            .get_epoch_id_from_prev_block(&prev_hash)
+            .unwrap();
+        let protocol_config = runtime
+            .get_protocol_config(&epoch_id)
+            .unwrap();
         let runtime_config = protocol_config.runtime_config;
-        let trie = runtime.get_trie_for_shard(shard_id, &prev_hash, state_root, true).unwrap();
+        let trie = runtime
+            .get_trie_for_shard(shard_id, &prev_hash, state_root, true)
+            .unwrap();
 
         let start_time = std::time::Instant::now();
         let congestion_info = bootstrap_congestion_info(&trie, &runtime_config, shard_id).unwrap();
@@ -150,7 +184,12 @@ pub struct PrepareBenchmarkCmd {
 }
 
 impl PrepareBenchmarkCmd {
-    fn run(&self, home_dir: &Path, near_config: &NearConfig, store: Store) {
+    fn run(
+        &self,
+        home_dir: &Path,
+        near_config: &NearConfig,
+        store: Store,
+    ) {
         if !self.should_run() {
             println!("aborted");
             return;
@@ -160,13 +199,21 @@ impl PrepareBenchmarkCmd {
             load_trie(store, home_dir, near_config);
 
         let prev_hash = block_header.prev_hash();
-        let epoch_id = epoch_manager.get_epoch_id_from_prev_block(prev_hash).unwrap();
-        let shard_layout = epoch_manager.get_shard_layout(&epoch_id).unwrap();
+        let epoch_id = epoch_manager
+            .get_epoch_id_from_prev_block(prev_hash)
+            .unwrap();
+        let shard_layout = epoch_manager
+            .get_shard_layout(&epoch_id)
+            .unwrap();
 
         for (shard_index, &state_root) in state_roots.iter().enumerate() {
-            let shard_id = shard_layout.get_shard_id(shard_index).unwrap();
+            let shard_id = shard_layout
+                .get_shard_id(shard_index)
+                .unwrap();
             println!("old - {:?} - {:?}", shard_id, state_root);
-            let shard_uid = epoch_manager.shard_id_to_uid(shard_id, &epoch_id).unwrap();
+            let shard_uid = epoch_manager
+                .shard_id_to_uid(shard_id, &epoch_id)
+                .unwrap();
 
             let tries = runtime.get_tries();
 
@@ -185,7 +232,9 @@ impl PrepareBenchmarkCmd {
         println!("WARNING: Do you want to continue? [y/N]");
 
         let mut input = String::new();
-        std::io::stdin().read_line(&mut input).unwrap();
+        std::io::stdin()
+            .read_line(&mut input)
+            .unwrap();
         let input = input.trim().to_lowercase();
         input == "y" || input == "yes"
     }
@@ -204,11 +253,16 @@ impl PrepareBenchmarkCmd {
             let receipt = self.create_receipt();
             let receipt = Cow::Borrowed(&receipt);
             let receipt = ReceiptOrStateStoredReceipt::Receipt(receipt);
-            queue.push_back(&mut trie_update, &receipt).unwrap();
+            queue
+                .push_back(&mut trie_update, &receipt)
+                .unwrap();
         }
 
         trie_update.commit(StateChangeCause::UpdatedDelayedReceipts);
-        let trie_changes = trie_update.finalize().unwrap().trie_changes;
+        let trie_changes = trie_update
+            .finalize()
+            .unwrap()
+            .trie_changes;
 
         let mut store_update = tries.store_update();
         let new_state_root = tries.apply_all(&trie_changes, shard_uid, &mut store_update);

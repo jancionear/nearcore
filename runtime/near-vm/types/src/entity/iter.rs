@@ -30,7 +30,9 @@ impl<'a, K: EntityRef, V> Iterator for Iter<'a, K, V> {
     type Item = (K, &'a V);
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.enumerate.next().map(|(i, v)| (K::new(i), v))
+        self.enumerate
+            .next()
+            .map(|(i, v)| (K::new(i), v))
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
@@ -40,7 +42,9 @@ impl<'a, K: EntityRef, V> Iterator for Iter<'a, K, V> {
 
 impl<'a, K: EntityRef, V> DoubleEndedIterator for Iter<'a, K, V> {
     fn next_back(&mut self) -> Option<Self::Item> {
-        self.enumerate.next_back().map(|(i, v)| (K::new(i), v))
+        self.enumerate
+            .next_back()
+            .map(|(i, v)| (K::new(i), v))
     }
 }
 
@@ -67,7 +71,9 @@ impl<'a, K: EntityRef, V> Iterator for IterMut<'a, K, V> {
     type Item = (K, &'a mut V);
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.enumerate.next().map(|(i, v)| (K::new(i), v))
+        self.enumerate
+            .next()
+            .map(|(i, v)| (K::new(i), v))
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
@@ -77,7 +83,9 @@ impl<'a, K: EntityRef, V> Iterator for IterMut<'a, K, V> {
 
 impl<'a, K: EntityRef, V> DoubleEndedIterator for IterMut<'a, K, V> {
     fn next_back(&mut self) -> Option<Self::Item> {
-        self.enumerate.next_back().map(|(i, v)| (K::new(i), v))
+        self.enumerate
+            .next_back()
+            .map(|(i, v)| (K::new(i), v))
     }
 }
 
@@ -101,7 +109,9 @@ impl<K: EntityRef, V> Iterator for IntoIter<K, V> {
     type Item = (K, V);
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.enumerate.next().map(|(i, v)| (K::new(i), v))
+        self.enumerate
+            .next()
+            .map(|(i, v)| (K::new(i), v))
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
@@ -111,7 +121,9 @@ impl<K: EntityRef, V> Iterator for IntoIter<K, V> {
 
 impl<K: EntityRef, V> DoubleEndedIterator for IntoIter<K, V> {
     fn next_back(&mut self) -> Option<Self::Item> {
-        self.enumerate.next_back().map(|(i, v)| (K::new(i), v))
+        self.enumerate
+            .next_back()
+            .map(|(i, v)| (K::new(i), v))
     }
 }
 

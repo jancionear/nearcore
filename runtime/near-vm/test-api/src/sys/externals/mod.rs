@@ -32,12 +32,15 @@ pub enum Extern {
 
 impl Extern {
     /// Create an `Extern` from an `near_vm_engine::Export`.
-    pub fn from_vm_export(store: &Store, export: Export) -> Self {
+    pub fn from_vm_export(
+        store: &Store,
+        export: Export,
+    ) -> Self {
         match export {
-            Export::Function(f) => Self::Function(Function::from_vm_export(store, f)),
-            Export::Memory(m) => Self::Memory(Memory::from_vm_export(store, m)),
-            Export::Global(g) => Self::Global(Global::from_vm_export(store, g)),
-            Export::Table(t) => Self::Table(Table::from_vm_export(store, t)),
+            | Export::Function(f) => Self::Function(Function::from_vm_export(store, f)),
+            | Export::Memory(m) => Self::Memory(Memory::from_vm_export(store, m)),
+            | Export::Global(g) => Self::Global(Global::from_vm_export(store, g)),
+            | Export::Table(t) => Self::Table(Table::from_vm_export(store, t)),
         }
     }
 }
@@ -45,36 +48,42 @@ impl Extern {
 impl<'a> Exportable<'a> for Extern {
     fn to_export(&self) -> Export {
         match self {
-            Self::Function(f) => f.to_export(),
-            Self::Global(g) => g.to_export(),
-            Self::Memory(m) => m.to_export(),
-            Self::Table(t) => t.to_export(),
+            | Self::Function(f) => f.to_export(),
+            | Self::Global(g) => g.to_export(),
+            | Self::Memory(m) => m.to_export(),
+            | Self::Table(t) => t.to_export(),
         }
     }
 }
 
 impl StoreObject for Extern {
-    fn comes_from_same_store(&self, store: &Store) -> bool {
+    fn comes_from_same_store(
+        &self,
+        store: &Store,
+    ) -> bool {
         let my_store = match self {
-            Self::Function(f) => f.store(),
-            Self::Global(g) => g.store(),
-            Self::Memory(m) => m.store(),
-            Self::Table(t) => t.store(),
+            | Self::Function(f) => f.store(),
+            | Self::Global(g) => g.store(),
+            | Self::Memory(m) => m.store(),
+            | Self::Table(t) => t.store(),
         };
         Store::same(my_store, store)
     }
 }
 
 impl fmt::Debug for Extern {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter,
+    ) -> fmt::Result {
         write!(
             f,
             "{}",
             match self {
-                Self::Function(_) => "Function(...)",
-                Self::Global(_) => "Global(...)",
-                Self::Memory(_) => "Memory(...)",
-                Self::Table(_) => "Table(...)",
+                | Self::Function(_) => "Function(...)",
+                | Self::Global(_) => "Global(...)",
+                | Self::Memory(_) => "Memory(...)",
+                | Self::Table(_) => "Table(...)",
             }
         )
     }

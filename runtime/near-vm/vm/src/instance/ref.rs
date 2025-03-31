@@ -64,7 +64,10 @@ impl InstanceInner {
 impl PartialEq for InstanceInner {
     /// Two `InstanceInner` are equal if and only if
     /// `Self.instance` points to the same location.
-    fn eq(&self, other: &Self) -> bool {
+    fn eq(
+        &self,
+        other: &Self,
+    ) -> bool {
         self.instance == other.instance
     }
 }
@@ -118,7 +121,10 @@ impl InstanceRef {
     /// and correctly initialized pointer to `Instance`. See
     /// [`InstanceAllocator`] for an example of how to correctly use
     /// this API.
-    pub(super) unsafe fn new(instance: NonNull<Instance>, instance_layout: Layout) -> Self {
+    pub(super) unsafe fn new(
+        instance: NonNull<Instance>,
+        instance_layout: Layout,
+    ) -> Self {
         Self(Arc::new(InstanceInner { instance_layout, instance }))
     }
 
@@ -155,7 +161,10 @@ impl InstanceRef {
 pub struct WeakInstanceRef(Weak<InstanceInner>);
 
 impl PartialEq for WeakInstanceRef {
-    fn eq(&self, other: &Self) -> bool {
+    fn eq(
+        &self,
+        other: &Self,
+    ) -> bool {
         self.0.ptr_eq(&other.0)
     }
 }
@@ -185,16 +194,16 @@ impl WeakOrStrongInstanceRef {
     /// if it can't be done.
     pub fn upgrade(&self) -> Option<Self> {
         match self {
-            Self::Weak(weak) => weak.upgrade().map(Self::Strong),
-            Self::Strong(strong) => Some(Self::Strong(strong.clone())),
+            | Self::Weak(weak) => weak.upgrade().map(Self::Strong),
+            | Self::Strong(strong) => Some(Self::Strong(strong.clone())),
         }
     }
 
     /// Clones self into a weak reference.
     pub fn downgrade(&self) -> Self {
         match self {
-            Self::Weak(weak) => Self::Weak(weak.clone()),
-            Self::Strong(strong) => Self::Weak(WeakInstanceRef(Arc::downgrade(&strong.0))),
+            | Self::Weak(weak) => Self::Weak(weak.clone()),
+            | Self::Strong(strong) => Self::Weak(WeakInstanceRef(Arc::downgrade(&strong.0))),
         }
     }
 }
@@ -203,10 +212,10 @@ impl TryFrom<WeakOrStrongInstanceRef> for InstanceRef {
     type Error = &'static str;
     fn try_from(value: WeakOrStrongInstanceRef) -> Result<Self, Self::Error> {
         match value {
-            WeakOrStrongInstanceRef::Strong(strong) => Ok(strong),
-            WeakOrStrongInstanceRef::Weak(weak) => {
-                weak.upgrade().ok_or("Failed to upgrade weak reference")
-            }
+            | WeakOrStrongInstanceRef::Strong(strong) => Ok(strong),
+            | WeakOrStrongInstanceRef::Weak(weak) => weak
+                .upgrade()
+                .ok_or("Failed to upgrade weak reference"),
         }
     }
 }
@@ -214,8 +223,8 @@ impl TryFrom<WeakOrStrongInstanceRef> for InstanceRef {
 impl From<WeakOrStrongInstanceRef> for WeakInstanceRef {
     fn from(value: WeakOrStrongInstanceRef) -> Self {
         match value {
-            WeakOrStrongInstanceRef::Strong(strong) => Self(Arc::downgrade(&strong.0)),
-            WeakOrStrongInstanceRef::Weak(weak) => weak,
+            | WeakOrStrongInstanceRef::Strong(strong) => Self(Arc::downgrade(&strong.0)),
+            | WeakOrStrongInstanceRef::Weak(weak) => weak,
         }
     }
 }

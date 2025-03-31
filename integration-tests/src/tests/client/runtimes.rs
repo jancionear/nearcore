@@ -17,8 +17,16 @@ use std::sync::Arc;
 
 #[test]
 fn test_pending_approvals() {
-    let genesis = Genesis::test(vec!["test0".parse().unwrap(), "test1".parse().unwrap()], 1);
-    let mut env = TestEnv::builder(&genesis.config).nightshade_runtimes(&genesis).build();
+    let genesis = Genesis::test(
+        vec![
+            "test0".parse().unwrap(),
+            "test1".parse().unwrap(),
+        ],
+        1,
+    );
+    let mut env = TestEnv::builder(&genesis.config)
+        .nightshade_runtimes(&genesis)
+        .build();
     let signer = create_test_signer("test0");
     let parent_hash = hash(&[1]);
     let approval = Approval::new(parent_hash, 0, 1, &signer);
@@ -29,7 +37,9 @@ fn test_pending_approvals() {
         ApprovalType::PeerApproval(peer_id.clone()),
         &client_signer,
     );
-    let approvals = env.clients[0].pending_approvals.pop(&ApprovalInner::Endorsement(parent_hash));
+    let approvals = env.clients[0]
+        .pending_approvals
+        .pop(&ApprovalInner::Endorsement(parent_hash));
     let expected =
         vec![("test0".parse().unwrap(), (approval, ApprovalType::PeerApproval(peer_id)))]
             .into_iter()
@@ -39,7 +49,13 @@ fn test_pending_approvals() {
 
 #[test]
 fn test_invalid_approvals() {
-    let genesis = Genesis::test(vec!["test0".parse().unwrap(), "test1".parse().unwrap()], 1);
+    let genesis = Genesis::test(
+        vec![
+            "test0".parse().unwrap(),
+            "test1".parse().unwrap(),
+        ],
+        1,
+    );
     let network_adapter = Arc::new(MockPeerManagerAdapter::default());
     let mut env = TestEnv::builder(&genesis.config)
         .nightshade_runtimes(&genesis)
@@ -74,25 +90,45 @@ fn test_invalid_approvals() {
 fn test_cap_max_gas_price() {
     use near_chain::Provenance;
     use near_primitives::version::ProtocolFeature;
-    let mut genesis = Genesis::test(vec!["test0".parse().unwrap(), "test1".parse().unwrap()], 1);
+    let mut genesis = Genesis::test(
+        vec![
+            "test0".parse().unwrap(),
+            "test1".parse().unwrap(),
+        ],
+        1,
+    );
     let epoch_length = 5;
     genesis.config.min_gas_price = 1_000;
     genesis.config.max_gas_price = 1_000_000;
     genesis.config.protocol_version = ProtocolFeature::CapMaxGasPrice.protocol_version();
     genesis.config.epoch_length = epoch_length;
-    let mut env = TestEnv::builder(&genesis.config).nightshade_runtimes(&genesis).build();
+    let mut env = TestEnv::builder(&genesis.config)
+        .nightshade_runtimes(&genesis)
+        .build();
 
     for i in 1..epoch_length {
-        let block = env.clients[0].produce_block(i).unwrap().unwrap();
+        let block = env.clients[0]
+            .produce_block(i)
+            .unwrap()
+            .unwrap();
         env.process_block(0, block, Provenance::PRODUCED);
     }
 
-    let last_block = env.clients[0].chain.get_block_by_height(epoch_length - 1).unwrap();
+    let last_block = env.clients[0]
+        .chain
+        .get_block_by_height(epoch_length - 1)
+        .unwrap();
     let protocol_version = env.clients[0]
         .epoch_manager
         .get_epoch_protocol_version(last_block.header().epoch_id())
         .unwrap();
-    let min_gas_price = env.clients[0].chain.block_economics_config.min_gas_price(protocol_version);
-    let max_gas_price = env.clients[0].chain.block_economics_config.max_gas_price(protocol_version);
+    let min_gas_price = env.clients[0]
+        .chain
+        .block_economics_config
+        .min_gas_price(protocol_version);
+    let max_gas_price = env.clients[0]
+        .chain
+        .block_economics_config
+        .max_gas_price(protocol_version);
     assert!(max_gas_price <= 20 * min_gas_price);
 }

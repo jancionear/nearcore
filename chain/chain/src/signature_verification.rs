@@ -15,9 +15,12 @@ pub fn verify_block_vrf(
     vrf_value: &near_crypto::vrf::Value,
     vrf_proof: &near_crypto::vrf::Proof,
 ) -> Result<(), Error> {
-    let public_key =
-        near_crypto::key_conversion::convert_public_key(validator.public_key().unwrap_as_ed25519())
-            .unwrap();
+    let public_key = near_crypto::key_conversion::convert_public_key(
+        validator
+            .public_key()
+            .unwrap_as_ed25519(),
+    )
+    .unwrap();
 
     if !public_key.is_vrf_valid(&prev_random_value.as_ref(), vrf_value, vrf_proof) {
         return Err(Error::InvalidRandomnessBeaconOutput);
@@ -64,7 +67,10 @@ pub fn verify_chunk_header_signature_with_epoch_manager_and_parts(
     let key = ChunkProductionKey { epoch_id, height_created, shard_id };
     let chunk_producer = epoch_manager.get_chunk_producer_info(&key)?;
     let block_info = epoch_manager.get_block_info(&parent_hash)?;
-    if block_info.slashed().contains_key(chunk_producer.account_id()) {
+    if block_info
+        .slashed()
+        .contains_key(chunk_producer.account_id())
+    {
         return Ok(false);
     }
     Ok(signature.verify(chunk_hash.as_ref(), chunk_producer.public_key()))
@@ -76,5 +82,7 @@ pub fn verify_block_header_signature_with_epoch_manager(
 ) -> Result<bool, Error> {
     let block_producer =
         epoch_manager.get_block_producer_info(header.epoch_id(), header.height())?;
-    Ok(header.signature().verify(header.hash().as_ref(), block_producer.public_key()))
+    Ok(header
+        .signature()
+        .verify(header.hash().as_ref(), block_producer.public_key()))
 }

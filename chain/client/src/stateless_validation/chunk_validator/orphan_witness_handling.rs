@@ -59,7 +59,12 @@ impl Client {
         let witness_size_u64: u64 = witness_size.try_into().map_err(|_| {
             Error::Other(format!("Cannot convert witness size to u64: {}", witness_size))
         })?;
-        if witness_size_u64 > self.config.orphan_state_witness_max_size.as_u64() {
+        if witness_size_u64
+            > self
+                .config
+                .orphan_state_witness_max_size
+                .as_u64()
+        {
             tracing::warn!(
                 target: "client",
                 witness_height,
@@ -73,11 +78,17 @@ impl Client {
 
         // Orphan witness is OK, save it to the pool
         tracing::debug!(target: "client", "Saving an orphaned ChunkStateWitness to orphan pool");
-        self.chunk_validator.orphan_witness_pool.add_orphan_state_witness(witness, witness_size);
+        self.chunk_validator
+            .orphan_witness_pool
+            .add_orphan_state_witness(witness, witness_size);
         Ok(HandleOrphanWitnessOutcome::SavedToPool)
     }
 
-    fn process_ready_orphan_witnesses(&mut self, new_block: &Block, signer: &Arc<ValidatorSigner>) {
+    fn process_ready_orphan_witnesses(
+        &mut self,
+        new_block: &Block,
+        signer: &Arc<ValidatorSigner>,
+    ) {
         let ready_witnesses = self
             .chunk_validator
             .orphan_witness_pool
@@ -119,9 +130,12 @@ impl Client {
         if last_final_block == &CryptoHash::default() {
             return;
         }
-        let last_final_block = match self.chain.get_block_header(last_final_block) {
-            Ok(block_header) => block_header,
-            Err(err) => {
+        let last_final_block = match self
+            .chain
+            .get_block_header(last_final_block)
+        {
+            | Ok(block_header) => block_header,
+            | Err(err) => {
                 tracing::error!(
                     target: "client",
                     ?last_final_block,

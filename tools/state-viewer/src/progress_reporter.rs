@@ -2,7 +2,10 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 pub fn timestamp_ms() -> u64 {
     use std::time::{SystemTime, UNIX_EPOCH};
-    SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as u64
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_millis() as u64
 }
 
 const TGAS: u64 = 1024 * 1024 * 1024 * 1024;
@@ -28,7 +31,11 @@ pub struct ProgressReporter {
 }
 
 impl ProgressReporter {
-    pub fn inc_and_report_progress(&self, block_height: u64, gas_burnt: u64) {
+    pub fn inc_and_report_progress(
+        &self,
+        block_height: u64,
+        gas_burnt: u64,
+    ) {
         let ProgressReporter {
             cnt,
             skipped,

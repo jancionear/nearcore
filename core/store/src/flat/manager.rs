@@ -22,6 +22,12 @@ use super::{
 #[derive(Clone)]
 pub struct FlatStorageManager(Arc<FlatStorageManagerInner>);
 
+/// Stores the reference block hash and min height of all the prev hashes of that block's chunks.
+struct SnapshotBlock {
+    block_hash: CryptoHash,
+    min_chunk_prev_height: BlockHeight,
+}
+
 pub struct FlatStorageManagerInner {
     store: FlatStoreAdapter,
     /// Here we store the flat_storage per shard. The reason why we don't use the same
@@ -35,7 +41,7 @@ pub struct FlatStorageManagerInner {
     flat_storages: Mutex<HashMap<ShardUId, FlatStorage>>,
     /// Set to Some() when there's a state snapshot in progress. Used to signal to the resharding flat
     /// storage catchup code that it shouldn't advance past this block height
-    want_snapshot: Mutex<Option<BlockHeight>>,
+    want_snapshot: Mutex<Option<SnapshotBlock>>,
 }
 
 impl FlatStorageManager {
@@ -59,7 +65,11 @@ impl FlatStorageManager {
         genesis_block: &CryptoHash,
         genesis_height: BlockHeight,
     ) {
-        let flat_storages = self.0.flat_storages.lock().expect(POISONED_LOCK_ERR);
+        let flat_storages = self
+            .0
+            .flat_storages
+            .lock()
+            .expect(POISONED_LOCK_ERR);
         assert!(!flat_storages.contains_key(&shard_uid));
         store_update.set_flat_storage_status(
             shard_uid,
@@ -74,12 +84,23 @@ impl FlatStorageManager {
     /// desired. It needs to allow that to cover a resharding restart case.
     /// TODO (#7327): this behavior may change when we implement support for state sync
     /// and resharding.
-    pub fn create_flat_storage_for_shard(&self, shard_uid: ShardUId) -> Result<(), StorageError> {
+    pub fn create_flat_storage_for_shard(
+        &self,
+        shard_uid: ShardUId,
+    ) -> Result<(), StorageError> {
         tracing::debug!(target: "store", ?shard_uid, "Creating flat storage for shard");
-        let want_snapshot = self.0.want_snapshot.lock().expect(POISONED_LOCK_ERR);
+        let want_snapshot = self
+            .0
+            .want_snapshot
+            .lock()
+            .expect(POISONED_LOCK_ERR);
         let disable_updates = want_snapshot.is_some();
 
-        let mut flat_storages = self.0.flat_storages.lock().expect(POISONED_LOCK_ERR);
+        let mut flat_storages = self
+            .0
+            .flat_storages
+            .lock()
+            .expect(POISONED_LOCK_ERR);
         let flat_storage = FlatStorage::new(self.0.store.clone(), shard_uid)?;
         if disable_updates {
             flat_storage.set_flat_head_update_mode(false);
@@ -98,16 +119,22 @@ impl FlatStorageManager {
     }
 
     /// Sets the status to `Ready` if it's currently `Resharding(CatchingUp)`
-    fn mark_flat_storage_ready(&self, shard_uid: ShardUId) -> Result<(), StorageError> {
+    fn mark_flat_storage_ready(
+        &self,
+        shard_uid: ShardUId,
+    ) -> Result<(), StorageError> {
         // Don't use Self::get_flat_storage_status() because there's no need to panic if this fails, since this is used
         // during state snapshotting where an error isn't critical to node operation.
-        let status = self.0.store.get_flat_storage_status(shard_uid)?;
+        let status = self
+            .0
+            .store
+            .get_flat_storage_status(shard_uid)?;
         let flat_head = match status {
-            FlatStorageStatus::Ready(_) => return Ok(()),
-            FlatStorageStatus::Resharding(FlatStorageReshardingStatus::CatchingUp(flat_head)) => {
+            | FlatStorageStatus::Ready(_) => return Ok(()),
+            | FlatStorageStatus::Resharding(FlatStorageReshardingStatus::CatchingUp(flat_head)) => {
                 flat_head
             }
-            _ => {
+            | _ => {
                 return Err(StorageError::StorageInconsistentState(format!(
                     "Unexpected flat storage status: {:?}",
                     &status
@@ -120,7 +147,9 @@ impl FlatStorageManager {
             FlatStorageStatus::Ready(FlatStorageReadyStatus { flat_head }),
         );
         // TODO: Consider adding a StorageError::IO variant?
-        store_update.commit().map_err(|_| StorageError::StorageInternalError)?;
+        store_update
+            .commit()
+            .map_err(|_| StorageError::StorageInternalError)?;
         Ok(())
     }
 
@@ -210,7 +239,9 @@ impl FlatStorageManager {
 
         let store_update = if let Some(flat_storage) = self.get_flat_storage_for_shard(shard_uid) {
             // If flat storage exists, we add a block to it.
-            flat_storage.add_delta(delta).map_err(|e| StorageError::from(e))?
+            flat_storage
+                .add_delta(delta)
+                .map_err(|e| StorageError::from(e))?
         } else {
             // Otherwise, save delta to disk so it will be used for flat storage creation later.
             debug!(target: "store", %shard_uid, "Add delta for flat storage creation");
@@ -222,8 +253,14 @@ impl FlatStorageManager {
         Ok(store_update)
     }
 
-    pub fn get_flat_storage_status(&self, shard_uid: ShardUId) -> FlatStorageStatus {
-        self.0.store.get_flat_storage_status(shard_uid).expect("failed to read flat storage status")
+    pub fn get_flat_storage_status(
+        &self,
+        shard_uid: ShardUId,
+    ) -> FlatStorageStatus {
+        self.0
+            .store
+            .get_flat_storage_status(shard_uid)
+            .expect("failed to read flat storage status")
     }
 
     /// Creates `FlatStorageChunkView` to access state for `shard_uid` and block `block_hash`.
@@ -236,12 +273,16 @@ impl FlatStorageManager {
         block_hash: CryptoHash,
     ) -> Option<FlatStorageChunkView> {
         let flat_storage = {
-            let flat_storages = self.0.flat_storages.lock().expect(POISONED_LOCK_ERR);
+            let flat_storages = self
+                .0
+                .flat_storages
+                .lock()
+                .expect(POISONED_LOCK_ERR);
             // It is possible that flat storage state does not exist yet because it is being created in
             // background.
             match flat_storages.get(&shard_uid) {
-                Some(flat_storage) => flat_storage.clone(),
-                None => {
+                | Some(flat_storage) => flat_storage.clone(),
+                | None => {
                     debug!(target: "store", "FlatStorage is not ready");
                     return None;
                 }
@@ -251,8 +292,15 @@ impl FlatStorageManager {
     }
 
     // TODO (#7327): consider returning Result<FlatStorage, Error> when we expect flat storage to exist
-    pub fn get_flat_storage_for_shard(&self, shard_uid: ShardUId) -> Option<FlatStorage> {
-        let flat_storages = self.0.flat_storages.lock().expect(POISONED_LOCK_ERR);
+    pub fn get_flat_storage_for_shard(
+        &self,
+        shard_uid: ShardUId,
+    ) -> Option<FlatStorage> {
+        let flat_storages = self
+            .0
+            .flat_storages
+            .lock()
+            .expect(POISONED_LOCK_ERR);
         flat_storages.get(&shard_uid).cloned()
     }
 
@@ -264,7 +312,11 @@ impl FlatStorageManager {
         shard_uid: ShardUId,
         store_update: &mut FlatStoreUpdateAdapter,
     ) -> Result<bool, StorageError> {
-        let mut flat_storages = self.0.flat_storages.lock().expect(POISONED_LOCK_ERR);
+        let mut flat_storages = self
+            .0
+            .flat_storages
+            .lock()
+            .expect(POISONED_LOCK_ERR);
         if let Some(flat_store) = flat_storages.remove(&shard_uid) {
             flat_store.clear_state(store_update)?;
             tracing::info!(target: "store", ?shard_uid, "remove_flat_storage_for_shard successful");
@@ -284,8 +336,12 @@ impl FlatStorageManager {
     ) -> Result<Option<Option<BlockHeight>>, StorageError> {
         let mut ret = None;
         for shard_uid in shard_uids {
-            match self.0.store.get_flat_storage_status(shard_uid)? {
-                FlatStorageStatus::Resharding(FlatStorageReshardingStatus::CatchingUp(
+            match self
+                .0
+                .store
+                .get_flat_storage_status(shard_uid)?
+            {
+                | FlatStorageStatus::Resharding(FlatStorageReshardingStatus::CatchingUp(
                     flat_head,
                 )) => {
                     if let Some(Some(min_height)) = ret {
@@ -294,8 +350,8 @@ impl FlatStorageManager {
                         ret = Some(Some(flat_head.height));
                     }
                 }
-                FlatStorageStatus::Resharding(_) => return Ok(Some(None)),
-                _ => {}
+                | FlatStorageStatus::Resharding(_) => return Ok(Some(None)),
+                | _ => {}
             };
         }
         Ok(ret)
@@ -303,26 +359,59 @@ impl FlatStorageManager {
 
     /// Should be called when we want to take a state snapshot. Disallows flat head updates, and signals to any resharding
     /// flat storage code that it should not advance beyond this hash
-    pub fn want_snapshot(&self, min_chunk_prev_height: BlockHeight) {
+    // TODO(#12919): This sets the currently active snapshot request to `block_hash` in favor of any previous requests. We
+    // should modify this to be sure that the correct block hash that will end up on the canonical chain is taken. Right now
+    // we rely on the canonical one being requested after any other forks, which may not be the case.
+    pub fn want_snapshot(
+        &self,
+        block_hash: CryptoHash,
+        min_chunk_prev_height: BlockHeight,
+    ) {
         {
-            let mut want_snapshot = self.0.want_snapshot.lock().expect(POISONED_LOCK_ERR);
-            *want_snapshot = Some(min_chunk_prev_height);
+            let mut want_snapshot = self
+                .0
+                .want_snapshot
+                .lock()
+                .expect(POISONED_LOCK_ERR);
+            *want_snapshot = Some(SnapshotBlock { block_hash, min_chunk_prev_height });
         }
-        let flat_storages = self.0.flat_storages.lock().expect(POISONED_LOCK_ERR);
+        let flat_storages = self
+            .0
+            .flat_storages
+            .lock()
+            .expect(POISONED_LOCK_ERR);
         for flat_storage in flat_storages.values() {
             flat_storage.set_flat_head_update_mode(false);
         }
         tracing::debug!(target: "store", "Locked flat head updates");
     }
 
-    /// Should be called when we're done taking a state snapshot. Allows flat head updates, and signals to any resharding
-    /// flat storage code that it can advance now.
-    pub fn snapshot_taken(&self) {
+    /// Should be called when we're done taking a state snapshot. If `block_hash` was the most recently requested snapshot, this
+    /// allows flat head updates, and signals to any resharding flat storage code that it can advance now.
+    pub fn snapshot_taken(
+        &self,
+        block_hash: &CryptoHash,
+    ) {
         {
-            let mut want_snapshot = self.0.want_snapshot.lock().expect(POISONED_LOCK_ERR);
+            let mut want_snapshot = self
+                .0
+                .want_snapshot
+                .lock()
+                .expect(POISONED_LOCK_ERR);
+            if let Some(want) = &*want_snapshot {
+                if &want.block_hash != block_hash {
+                    return;
+                }
+            } else {
+                tracing::warn!(target: "store", %block_hash, "State snapshot being marked as taken without a corresponding pending request set");
+            }
             *want_snapshot = None;
         }
-        let flat_storages = self.0.flat_storages.lock().expect(POISONED_LOCK_ERR);
+        let flat_storages = self
+            .0
+            .flat_storages
+            .lock()
+            .expect(POISONED_LOCK_ERR);
         for flat_storage in flat_storages.values() {
             flat_storage.set_flat_head_update_mode(true);
         }
@@ -331,8 +420,26 @@ impl FlatStorageManager {
 
     // Returns Some() if a state snapshot should be taken, and therefore any resharding flat storage code should not advance
     // past the given hash
-    pub fn snapshot_wanted(&self) -> Option<BlockHeight> {
-        let want_snapshot = self.0.want_snapshot.lock().expect(POISONED_LOCK_ERR);
-        *want_snapshot
+    pub fn snapshot_height_wanted(&self) -> Option<BlockHeight> {
+        let want_snapshot = self
+            .0
+            .want_snapshot
+            .lock()
+            .expect(POISONED_LOCK_ERR);
+        want_snapshot
+            .as_ref()
+            .map(|s| s.min_chunk_prev_height)
+    }
+
+    // Returns Some() with the corresponding block hash if a state snapshot has been requested
+    pub fn snapshot_hash_wanted(&self) -> Option<CryptoHash> {
+        let want_snapshot = self
+            .0
+            .want_snapshot
+            .lock()
+            .expect(POISONED_LOCK_ERR);
+        want_snapshot
+            .as_ref()
+            .map(|s| s.block_hash)
     }
 }

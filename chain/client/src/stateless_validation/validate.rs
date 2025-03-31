@@ -28,13 +28,14 @@ const MAX_HEIGHTS_AHEAD: BlockHeightDelta = 5;
 pub fn validate_partial_encoded_state_witness(
     epoch_manager: &dyn EpochManagerAdapter,
     partial_witness: &PartialEncodedStateWitness,
-    validator_account_id: &AccountId,
+    signer: &ValidatorSigner,
     store: &Store,
 ) -> Result<bool, Error> {
     let ChunkProductionKey { shard_id, epoch_id, height_created } =
         partial_witness.chunk_production_key();
-    let num_parts =
-        epoch_manager.get_chunk_validator_assignments(&epoch_id, shard_id, height_created)?.len();
+    let num_parts = epoch_manager
+        .get_chunk_validator_assignments(&epoch_id, shard_id, height_created)?
+        .len();
     if partial_witness.part_ord() >= num_parts {
         return Err(Error::InvalidPartialChunkStateWitness(format!(
             "Invalid part_ord in PartialEncodedStateWitness: {}",
@@ -56,7 +57,7 @@ pub fn validate_partial_encoded_state_witness(
     if !validate_chunk_relevant_as_validator(
         epoch_manager,
         &partial_witness.chunk_production_key(),
-        validator_account_id,
+        signer.validator_id(),
         store,
     )? {
         return Ok(false);
@@ -192,7 +193,11 @@ fn validate_chunk_relevant(
     let epoch_id = chunk_production_key.epoch_id;
     let height_created = chunk_production_key.height_created;
 
-    if !epoch_manager.get_shard_layout(&epoch_id)?.shard_ids().contains(&shard_id) {
+    if !epoch_manager
+        .get_shard_layout(&epoch_id)?
+        .shard_ids()
+        .contains(&shard_id)
+    {
         tracing::error!(
             target: "stateless_validation",
             ?chunk_production_key,

@@ -74,7 +74,10 @@ impl VecU8Freelist {
     }
 
     /// Returns a byte array to the freelist.
-    pub fn free(&mut self, mut vec: ReusableVecU8) {
+    pub fn free(
+        &mut self,
+        mut vec: ReusableVecU8,
+    ) {
         vec.vec.clear();
         self.free.push(vec);
     }

@@ -13,7 +13,10 @@ fn get_addr(port: u16) -> SocketAddr {
     SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), port).into()
 }
 
-fn get_peer_info(peer_id: PeerId, addr: Option<SocketAddr>) -> PeerInfo {
+fn get_peer_info(
+    peer_id: PeerId,
+    addr: Option<SocketAddr>,
+) -> PeerInfo {
     PeerInfo { id: peer_id, addr, account_id: None }
 }
 
@@ -51,7 +54,9 @@ fn ban_store() {
         PeerStore::new(&clock.clock(), make_config(&boot_nodes, Blacklist::default(), false))
             .unwrap();
     assert_eq!(peer_store.healthy_peers(3).len(), 2);
-    peer_store.peer_ban(&clock.clock(), &peer_info_to_ban.id, ReasonForBan::Abusive).unwrap();
+    peer_store
+        .peer_ban(&clock.clock(), &peer_info_to_ban.id, ReasonForBan::Abusive)
+        .unwrap();
     assert_eq!(peer_store.healthy_peers(3).len(), 1);
 }
 
@@ -66,8 +71,12 @@ fn test_unconnected_peer() {
         PeerStore::new(&clock.clock(), make_config(&boot_nodes, Blacklist::default(), false))
             .unwrap();
 
-    assert!(peer_store.unconnected_peer(|_| false, false).is_some());
-    assert!(peer_store.unconnected_peer(|_| true, false).is_none());
+    assert!(peer_store
+        .unconnected_peer(|_| false, false)
+        .is_some());
+    assert!(peer_store
+        .unconnected_peer(|_| true, false)
+        .is_none());
 }
 
 #[test]
@@ -79,10 +88,18 @@ fn test_unknown_vs_not_connected() {
     let peer_info_boot_node = gen_peer_info(2);
     let boot_nodes = vec![peer_info_boot_node.clone()];
 
-    let nodes = [&peer_info_a, &peer_info_b, &peer_info_boot_node];
+    let nodes = [
+        &peer_info_a,
+        &peer_info_b,
+        &peer_info_boot_node,
+    ];
 
     let get_in_memory_status = |peer_store: &PeerStore| {
-        nodes.map(|peer| peer_store.get_peer_state(&peer.id).map(|known_state| known_state.status))
+        nodes.map(|peer| {
+            peer_store
+                .get_peer_state(&peer.id)
+                .map(|known_state| known_state.status)
+        })
     };
 
     let peer_store =
@@ -98,7 +115,14 @@ fn test_unknown_vs_not_connected() {
     peer_store.add_direct_peer(&clock.clock(), peer_info_a.clone());
     peer_store.add_direct_peer(&clock.clock(), peer_info_b.clone());
 
-    assert_eq!(get_in_memory_status(&peer_store), [Some(Unknown), Some(Unknown), Some(Unknown)]);
+    assert_eq!(
+        get_in_memory_status(&peer_store),
+        [
+            Some(Unknown),
+            Some(Unknown),
+            Some(Unknown)
+        ]
+    );
 
     // Connect to both nodes
     for peer_info in [peer_info_a.clone(), peer_info_b.clone()] {
@@ -106,33 +130,54 @@ fn test_unknown_vs_not_connected() {
     }
     assert_eq!(
         get_in_memory_status(&peer_store),
-        [Some(Connected), Some(Connected), Some(Unknown)]
+        [
+            Some(Connected),
+            Some(Connected),
+            Some(Unknown)
+        ]
     );
 
     // Disconnect from 'b'
-    peer_store.peer_disconnected(&clock.clock(), &peer_info_b.id).unwrap();
+    peer_store
+        .peer_disconnected(&clock.clock(), &peer_info_b.id)
+        .unwrap();
 
     assert_eq!(
         get_in_memory_status(&peer_store),
-        [Some(Connected), Some(NotConnected), Some(Unknown)]
+        [
+            Some(Connected),
+            Some(NotConnected),
+            Some(Unknown)
+        ]
     );
 
     // if we prefer 'previously connected' peers - we should keep picking 'b'.
     assert_eq!(
         (0..10)
-            .map(|_| peer_store.unconnected_peer(|_| false, true).unwrap().id)
+            .map(|_| peer_store
+                .unconnected_peer(|_| false, true)
+                .unwrap()
+                .id)
             .collect::<HashSet<PeerId>>(),
-        [peer_info_b.id.clone()].into_iter().collect::<HashSet<_>>()
+        [peer_info_b.id.clone()]
+            .into_iter()
+            .collect::<HashSet<_>>()
     );
 
     // if we don't care, we should pick either 'b' or 'boot'.
     assert_eq!(
         (0..100)
-            .map(|_| peer_store.unconnected_peer(|_| false, false).unwrap().id)
+            .map(|_| peer_store
+                .unconnected_peer(|_| false, false)
+                .unwrap()
+                .id)
             .collect::<HashSet<PeerId>>(),
-        [peer_info_b.id.clone(), peer_info_boot_node.id.clone()]
-            .into_iter()
-            .collect::<HashSet<_>>()
+        [
+            peer_info_b.id.clone(),
+            peer_info_boot_node.id.clone()
+        ]
+        .into_iter()
+        .collect::<HashSet<_>>()
     );
 
     // And fail when trying to reconnect to b.
@@ -145,7 +190,14 @@ fn test_unknown_vs_not_connected() {
         .unwrap();
 
     // It should move 'back' into Unknown state.
-    assert_eq!(get_in_memory_status(&peer_store), [Some(Connected), Some(Unknown), Some(Unknown)]);
+    assert_eq!(
+        get_in_memory_status(&peer_store),
+        [
+            Some(Connected),
+            Some(Unknown),
+            Some(Unknown)
+        ]
+    );
 }
 
 #[test]
@@ -201,8 +253,13 @@ fn check_exist(
     if let Some(peer_info) = inner.peer_states.peek(peer_id) {
         let peer_info = &peer_info.peer_info;
         if let Some((addr, level)) = addr_level {
-            peer_info.addr.is_some_and(|cur_addr| cur_addr == addr)
-                && inner.addr_peers.get(&addr).is_some_and(|verified| verified.trust_level == level)
+            peer_info
+                .addr
+                .is_some_and(|cur_addr| cur_addr == addr)
+                && inner
+                    .addr_peers
+                    .get(&addr)
+                    .is_some_and(|verified| verified.trust_level == level)
         } else {
             peer_info.addr.is_none()
         }
@@ -215,17 +272,30 @@ fn check_integrity(peer_store: &PeerStore) -> bool {
     let inner = peer_store.0.lock();
     inner.peer_states.iter().all(|(k, v)| {
         if let Some(addr) = v.peer_info.addr {
-            if inner.addr_peers.get(&addr).map_or(true, |value| value.peer_id != *k) {
+            if inner
+                .addr_peers
+                .get(&addr)
+                .map_or(true, |value| value.peer_id != *k)
+            {
                 return false;
             }
         }
         true
-    }) && inner.addr_peers.clone().iter().all(|(k, v)| {
-        !inner
-            .peer_states
-            .peek(&v.peer_id)
-            .map_or(true, |value| value.peer_info.addr.map_or(true, |addr| addr != *k))
-    })
+    }) && inner
+        .addr_peers
+        .clone()
+        .iter()
+        .all(|(k, v)| {
+            !inner
+                .peer_states
+                .peek(&v.peer_id)
+                .map_or(true, |value| {
+                    value
+                        .peer_info
+                        .addr
+                        .map_or(true, |addr| addr != *k)
+                })
+        })
 }
 
 /// If we know there is a peer_id A at address #A, and after some time
@@ -236,7 +306,9 @@ fn handle_peer_id_change() {
     let peer_store =
         PeerStore::new(&clock.clock(), make_config(&[], Default::default(), false)).unwrap();
 
-    let peers_id = (0..2).map(|ix| get_peer_id(format!("node{}", ix))).collect::<Vec<_>>();
+    let peers_id = (0..2)
+        .map(|ix| get_peer_id(format!("node{}", ix)))
+        .collect::<Vec<_>>();
     let addr = get_addr(0);
 
     let peer_aa = get_peer_info(peers_id[0].clone(), Some(addr));
@@ -260,7 +332,9 @@ fn dont_handle_address_change() {
     let peer_store =
         PeerStore::new(&clock.clock(), make_config(&[], Default::default(), false)).unwrap();
 
-    let peers_id = (0..1).map(|ix| get_peer_id(format!("node{}", ix))).collect::<Vec<_>>();
+    let peers_id = (0..1)
+        .map(|ix| get_peer_id(format!("node{}", ix)))
+        .collect::<Vec<_>>();
     let addrs = (0..2).map(get_addr).collect::<Vec<_>>();
 
     let peer_aa = get_peer_info(peers_id[0].clone(), Some(addrs[0]));
@@ -280,7 +354,9 @@ fn check_add_peers_overriding() {
         PeerStore::new(&clock.clock(), make_config(&[], Default::default(), false)).unwrap();
 
     // Five peers: A, B, C, D, X, T
-    let peers_id = (0..6).map(|ix| get_peer_id(format!("node{}", ix))).collect::<Vec<_>>();
+    let peers_id = (0..6)
+        .map(|ix| get_peer_id(format!("node{}", ix)))
+        .collect::<Vec<_>>();
     // Five addresses: #A, #B, #C, #D, #X, #T
     let addrs = (0..6).map(get_addr).collect::<Vec<_>>();
 
@@ -357,17 +433,24 @@ fn check_ignore_blacklisted_peers() {
     let clock = time::FakeClock::default();
 
     #[track_caller]
-    fn assert_peers(peer_store: &PeerStore, expected: &[&PeerId]) {
+    fn assert_peers(
+        peer_store: &PeerStore,
+        expected: &[&PeerId],
+    ) {
         let inner = peer_store.0.lock();
         let expected: HashSet<&PeerId> = HashSet::from_iter(expected.iter().cloned());
         let got = HashSet::from_iter(inner.peer_states.iter().map(|(k, _)| k));
         assert_eq!(expected, got);
     }
 
-    let ids = (0..3).map(|ix| get_peer_id(format!("node{}", ix))).collect::<Vec<_>>();
+    let ids = (0..3)
+        .map(|ix| get_peer_id(format!("node{}", ix)))
+        .collect::<Vec<_>>();
 
-    let blacklist: blacklist::Blacklist =
-        ["127.0.0.1:1"].iter().map(|e| e.parse().unwrap()).collect();
+    let blacklist: blacklist::Blacklist = ["127.0.0.1:1"]
+        .iter()
+        .map(|e| e.parse().unwrap())
+        .collect();
 
     let peer_store = PeerStore::new(&clock.clock(), make_config(&[], blacklist, false)).unwrap();
 
@@ -411,7 +494,10 @@ fn test_delete_peers() {
             (id, info)
         })
         .unzip();
-    let peer_addresses = peer_infos.iter().map(|info| info.addr.unwrap()).collect::<Vec<_>>();
+    let peer_addresses = peer_infos
+        .iter()
+        .map(|info| info.addr.unwrap())
+        .collect::<Vec<_>>();
 
     let peer_store =
         PeerStore::new(&clock.clock(), make_config(&[], Default::default(), false)).unwrap();
@@ -419,7 +505,10 @@ fn test_delete_peers() {
     peer_store.add_indirect_peers(&clock.clock(), peer_infos.into_iter());
     assert_peers_in_cache(&peer_store, &peer_ids, &peer_addresses);
 
-    peer_store.0.lock().delete_peers(&peer_ids);
+    peer_store
+        .0
+        .lock()
+        .delete_peers(&peer_ids);
     assert_peers_in_cache(&peer_store, &[], &[]);
 }
 
@@ -437,7 +526,10 @@ fn test_lru_eviction() {
             (id, info)
         })
         .unzip();
-    let peer_addresses = peer_infos.iter().map(|info| info.addr.unwrap()).collect::<Vec<_>>();
+    let peer_addresses = peer_infos
+        .iter()
+        .map(|info| info.addr.unwrap())
+        .collect::<Vec<_>>();
 
     // Fill the peer_store with the first peer_infos
     peer_store.add_indirect_peers(&clock.clock(), peer_infos[0..10].iter().cloned());
@@ -468,7 +560,10 @@ fn test_lru_ignore_duplicate_peers() {
             (id, info)
         })
         .unzip();
-    let peer_addresses = peer_infos.iter().map(|info| info.addr.unwrap()).collect::<Vec<_>>();
+    let peer_addresses = peer_infos
+        .iter()
+        .map(|info| info.addr.unwrap())
+        .collect::<Vec<_>>();
 
     // Fill the peer_store with the first 10 peer_infos
     peer_store.add_indirect_peers(&clock.clock(), peer_infos[0..10].iter().cloned());

@@ -22,8 +22,8 @@ impl ReturnData {
     /// Function to extract value from ReturnData.
     pub fn as_value(self) -> Option<Vec<u8>> {
         match self {
-            ReturnData::Value(value) => Some(value),
-            _ => None,
+            | ReturnData::Value(value) => Some(value),
+            | _ => None,
         }
     }
 }

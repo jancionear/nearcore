@@ -113,8 +113,8 @@ pub enum StoreOpenerError {
 impl From<SnapshotError> for StoreOpenerError {
     fn from(err: SnapshotError) -> Self {
         match err {
-            SnapshotError::AlreadyExists(snap_path) => Self::SnapshotAlreadyExists(snap_path),
-            SnapshotError::IOError(err) => Self::SnapshotError(err),
+            | SnapshotError::AlreadyExists(snap_path) => Self::SnapshotAlreadyExists(snap_path),
+            | SnapshotError::IOError(err) => Self::SnapshotError(err),
         }
     }
 }
@@ -125,31 +125,40 @@ impl From<SnapshotRemoveError> for StoreOpenerError {
     }
 }
 
-fn get_default_kind(archive: bool, temp: Temperature) -> DbKind {
+fn get_default_kind(
+    archive: bool,
+    temp: Temperature,
+) -> DbKind {
     match (temp, archive) {
-        (Temperature::Hot, false) => DbKind::RPC,
-        (Temperature::Hot, true) => DbKind::Hot,
-        (Temperature::Cold, _) => DbKind::Cold,
+        | (Temperature::Hot, false) => DbKind::RPC,
+        | (Temperature::Hot, true) => DbKind::Hot,
+        | (Temperature::Cold, _) => DbKind::Cold,
     }
 }
 
-fn is_valid_kind_temp(kind: DbKind, temp: Temperature) -> bool {
+fn is_valid_kind_temp(
+    kind: DbKind,
+    temp: Temperature,
+) -> bool {
     match (kind, temp) {
-        (DbKind::Cold, Temperature::Cold) => true,
-        (DbKind::RPC, Temperature::Hot) => true,
-        (DbKind::Hot, Temperature::Hot) => true,
-        (DbKind::Archive, Temperature::Hot) => true,
-        _ => false,
+        | (DbKind::Cold, Temperature::Cold) => true,
+        | (DbKind::RPC, Temperature::Hot) => true,
+        | (DbKind::Hot, Temperature::Hot) => true,
+        | (DbKind::Archive, Temperature::Hot) => true,
+        | _ => false,
     }
 }
 
-fn is_valid_kind_archive(kind: DbKind, archive: bool) -> bool {
+fn is_valid_kind_archive(
+    kind: DbKind,
+    archive: bool,
+) -> bool {
     match (kind, archive) {
-        (DbKind::Archive, true) => true,
-        (DbKind::Cold, true) => true,
-        (DbKind::Hot, _) => true,
-        (DbKind::RPC, _) => true,
-        _ => false,
+        | (DbKind::Archive, true) => true,
+        | (DbKind::Cold, true) => true,
+        | (DbKind::Hot, _) => true,
+        | (DbKind::RPC, _) => true,
+        | _ => false,
     }
 }
 
@@ -228,7 +237,10 @@ impl<'a> StoreOpener<'a> {
     /// If the migrator is not configured, the opener will fail to open
     /// databases with older versions.  With migrator configured, it will
     /// attempt to perform migrations.
-    pub fn with_migrator(mut self, migrator: &'a dyn StoreMigrator) -> Self {
+    pub fn with_migrator(
+        mut self,
+        migrator: &'a dyn StoreMigrator,
+    ) -> Self {
         self.migrator = Some(migrator);
         self
     }
@@ -259,12 +271,15 @@ impl<'a> StoreOpener<'a> {
     /// creates a new one unless mode is [`Mode::ReadWriteExisting`].  On the
     /// other hand, if mode is [`Mode::Create`], fails if the database already
     /// exists.
-    pub fn open_in_mode(&self, mode: Mode) -> Result<crate::NodeStorage, StoreOpenerError> {
+    pub fn open_in_mode(
+        &self,
+        mode: Mode,
+    ) -> Result<crate::NodeStorage, StoreOpenerError> {
         {
             let hot_path = self.hot.path.display().to_string();
             let cold_path = match &self.cold {
-                Some(cold) => cold.path.display().to_string(),
-                None => String::from("none"),
+                | Some(cold) => cold.path.display().to_string(),
+                | None => String::from("none"),
             };
             tracing::info!(target: "db_opener", path=hot_path, cold_path=cold_path, "Opening NodeStorage");
         }
@@ -299,12 +314,15 @@ impl<'a> StoreOpener<'a> {
         Ok(storage)
     }
 
-    pub fn create_snapshots(&self, mode: Mode) -> Result<(Snapshot, Snapshot), StoreOpenerError> {
+    pub fn create_snapshots(
+        &self,
+        mode: Mode,
+    ) -> Result<(Snapshot, Snapshot), StoreOpenerError> {
         {
             let hot_path = self.hot.path.display().to_string();
             let cold_path = match &self.cold {
-                Some(cold) => cold.path.display().to_string(),
-                None => String::from("none"),
+                | Some(cold) => cold.path.display().to_string(),
+                | None => String::from("none"),
             };
             tracing::info!(target: "db_opener", path=hot_path, cold_path=cold_path, "Creating NodeStorage snapshots");
         }
@@ -337,17 +355,20 @@ impl<'a> StoreOpener<'a> {
     }
 
     // Creates the DB if it doesn't exist.
-    fn ensure_created(mode: Mode, opener: &DBOpener) -> Result<(), StoreOpenerError> {
+    fn ensure_created(
+        mode: Mode,
+        opener: &DBOpener,
+    ) -> Result<(), StoreOpenerError> {
         let meta = opener.get_metadata()?;
         match meta {
-            Some(_) if !mode.must_create() => {
+            | Some(_) if !mode.must_create() => {
                 tracing::info!(target: "db_opener", path=%opener.path.display(), "The database exists.");
                 return Ok(());
             }
-            Some(_) => {
+            | Some(_) => {
                 return Err(StoreOpenerError::DbAlreadyExists);
             }
-            None if mode.can_create() => {
+            | None if mode.can_create() => {
                 tracing::info!(target: "db_opener", path=%opener.path.display(), "The database doesn't exist, creating it.");
 
                 let db = opener.create()?;
@@ -355,7 +376,7 @@ impl<'a> StoreOpener<'a> {
                 store.set_db_version(DB_VERSION)?;
                 return Ok(());
             }
-            None => {
+            | None => {
                 return Err(StoreOpenerError::DbDoesNotExist);
             }
         }
@@ -455,7 +476,9 @@ impl<'a> StoreOpener<'a> {
             // be better to wrap it in the ColdDB object instead.
 
             let store = Self::open_store(mode, opener, version)?;
-            migrator.migrate(&store, version).map_err(StoreOpenerError::MigrationError)?;
+            migrator
+                .migrate(&store, version)
+                .map_err(StoreOpenerError::MigrationError)?;
             store.set_db_version(version + 1)?;
         }
 
@@ -483,7 +506,10 @@ impl<'a> StoreOpener<'a> {
         Ok(store)
     }
 
-    fn open_store_unsafe(mode: Mode, opener: &DBOpener) -> Result<Store, StoreOpenerError> {
+    fn open_store_unsafe(
+        mode: Mode,
+        opener: &DBOpener,
+    ) -> Result<Store, StoreOpenerError> {
         let db = opener.open_unsafe(mode)?;
         let store = Store { storage: Arc::new(db) };
         Ok(store)
@@ -495,9 +521,16 @@ impl<'a> DBOpener<'a> {
     ///
     /// The path to the database is resolved based on the path in config with
     /// given home_dir as base directory for resolving relative paths.
-    fn new(home_dir: &std::path::Path, config: &'a StoreConfig, temp: Temperature) -> Self {
+    fn new(
+        home_dir: &std::path::Path,
+        config: &'a StoreConfig,
+        temp: Temperature,
+    ) -> Self {
         let path = if temp == Temperature::Hot { "data" } else { "cold-data" };
-        let path = config.path.as_deref().unwrap_or_else(|| std::path::Path::new(path));
+        let path = config
+            .path
+            .as_deref()
+            .unwrap_or_else(|| std::path::Path::new(path));
         let path = home_dir.join(path);
         Self { path, config, temp }
     }
@@ -530,7 +563,11 @@ impl<'a> DBOpener<'a> {
     /// new version.
     ///
     /// Use [`Self::create`] to create a new database.
-    fn open(&self, mode: Mode, want_version: DbVersion) -> std::io::Result<(RocksDB, DbMetadata)> {
+    fn open(
+        &self,
+        mode: Mode,
+        want_version: DbVersion,
+    ) -> std::io::Result<(RocksDB, DbMetadata)> {
         let db = RocksDB::open(&self.path, &self.config, mode, self.temp)?;
         let metadata = DbMetadata::read(&db)?;
         if want_version != metadata.version {
@@ -545,7 +582,10 @@ impl<'a> DBOpener<'a> {
     ///
     /// This is only suitable when creating the database or setting the version
     /// and kind for the first time.
-    fn open_unsafe(&self, mode: Mode) -> std::io::Result<RocksDB> {
+    fn open_unsafe(
+        &self,
+        mode: Mode,
+    ) -> std::io::Result<RocksDB> {
         let db = RocksDB::open(&self.path, &self.config, mode, self.temp)?;
         Ok(db)
     }
@@ -571,7 +611,10 @@ pub trait StoreMigrator {
     /// version [`DB_VERSION`].
     ///
     /// **Panics** if `version` ≥ [`DB_VERSION`].
-    fn check_support(&self, version: DbVersion) -> Result<(), &'static str>;
+    fn check_support(
+        &self,
+        version: DbVersion,
+    ) -> Result<(), &'static str>;
 
     /// Performs database migration from given version to the next one.
     ///
@@ -582,7 +625,11 @@ pub trait StoreMigrator {
     /// **Panics** if `version` is not supported (the caller is supposed to
     /// check support via [`Self::check_support`] method) or if it’s greater or
     /// equal to [`DB_VERSION`].
-    fn migrate(&self, store: &Store, version: DbVersion) -> anyhow::Result<()>;
+    fn migrate(
+        &self,
+        store: &Store,
+        version: DbVersion,
+    ) -> anyhow::Result<()>;
 }
 
 /// Creates checkpoint of hot storage in `home_dir.join(checkpoint_relative_path)`
@@ -602,7 +649,10 @@ pub fn checkpoint_hot_storage_and_cleanup_columns(
     let _span =
         tracing::info_span!(target: "state_snapshot", "checkpoint_hot_storage_and_cleanup_columns")
             .entered();
-    if let Some(storage) = hot_store.storage.copy_if_test(columns_to_keep) {
+    if let Some(storage) = hot_store
+        .storage
+        .copy_if_test(columns_to_keep)
+    {
         return Ok(NodeStorage::new(storage));
     }
     let checkpoint_path = checkpoint_base_path.join("data");
@@ -627,10 +677,14 @@ pub fn checkpoint_hot_storage_and_cleanup_columns(
         transaction.set(
             DBCol::DbVersion,
             crate::metadata::KIND_KEY.to_vec(),
-            <&str>::from(DbKind::RPC).as_bytes().to_vec(),
+            <&str>::from(DbKind::RPC)
+                .as_bytes()
+                .to_vec(),
         );
 
-        node_storage.hot_storage.write(transaction)?;
+        node_storage
+            .hot_storage
+            .write(transaction)?;
     }
 
     Ok(node_storage)
@@ -641,7 +695,12 @@ mod tests {
     use super::*;
     use std::path::PathBuf;
 
-    fn check_keys_existence(store: &Store, column: &DBCol, keys: &Vec<Vec<u8>>, expected: bool) {
+    fn check_keys_existence(
+        store: &Store,
+        column: &DBCol,
+        keys: &Vec<Vec<u8>>,
+        expected: bool,
+    ) {
         for key in keys {
             assert_eq!(store.exists(*column, &key).unwrap(), expected, "Column {:?}", column);
         }
@@ -655,9 +714,15 @@ mod tests {
         assert_eq!(hot_store.get_db_kind().unwrap(), Some(DbKind::RPC));
 
         let keys = vec![vec![0], vec![1], vec![2], vec![3]];
-        let columns = vec![DBCol::Block, DBCol::Chunks, DBCol::BlockHeader];
+        let columns = vec![
+            DBCol::Block,
+            DBCol::Chunks,
+            DBCol::BlockHeader,
+        ];
 
-        let mut store_update = node_storage.get_hot_store().store_update();
+        let mut store_update = node_storage
+            .get_hot_store()
+            .store_update();
         for column in columns {
             for key in &keys {
                 store_update.insert(column, key.clone(), vec![42]);
@@ -667,7 +732,9 @@ mod tests {
 
         let store = checkpoint_hot_storage_and_cleanup_columns(
             &hot_store,
-            &home_dir.path().join(PathBuf::from("checkpoint_none")),
+            &home_dir
+                .path()
+                .join(PathBuf::from("checkpoint_none")),
             None,
         )
         .unwrap();
@@ -677,7 +744,9 @@ mod tests {
 
         let store = checkpoint_hot_storage_and_cleanup_columns(
             &hot_store,
-            &home_dir.path().join(PathBuf::from("checkpoint_some")),
+            &home_dir
+                .path()
+                .join(PathBuf::from("checkpoint_some")),
             Some(&[DBCol::Block]),
         )
         .unwrap();
@@ -687,8 +756,14 @@ mod tests {
 
         let store = checkpoint_hot_storage_and_cleanup_columns(
             &hot_store,
-            &home_dir.path().join(PathBuf::from("checkpoint_all")),
-            Some(&[DBCol::Block, DBCol::Chunks, DBCol::BlockHeader]),
+            &home_dir
+                .path()
+                .join(PathBuf::from("checkpoint_all")),
+            Some(&[
+                DBCol::Block,
+                DBCol::Chunks,
+                DBCol::BlockHeader,
+            ]),
         )
         .unwrap();
         check_keys_existence(&store.get_hot_store(), &DBCol::Block, &keys, true);
@@ -697,7 +772,9 @@ mod tests {
 
         let store = checkpoint_hot_storage_and_cleanup_columns(
             &hot_store,
-            &home_dir.path().join(PathBuf::from("checkpoint_empty")),
+            &home_dir
+                .path()
+                .join(PathBuf::from("checkpoint_empty")),
             Some(&[]),
         )
         .unwrap();

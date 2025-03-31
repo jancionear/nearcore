@@ -22,7 +22,7 @@ fn verify_calculate_tree_distances(
 
     let calculated = inner.calculate_tree_distances(&root, &edges);
     match expected {
-        Some(ref expected) => {
+        | Some(ref expected) => {
             let (distance, first_step) = calculated.unwrap();
 
             // Check for the expected entries
@@ -30,8 +30,9 @@ fn verify_calculate_tree_distances(
                 let id = inner.edge_cache.get_id(node) as usize;
 
                 // Map the expected first step to its internal label
-                let expected_first_step =
-                    expected_first_step.as_ref().map(|peer_id| inner.edge_cache.get_id(&peer_id));
+                let expected_first_step = expected_first_step
+                    .as_ref()
+                    .map(|peer_id| inner.edge_cache.get_id(&peer_id));
 
                 // Expected distance should match the calculated one
                 assert_eq!(*expected_distance, distance[id].unwrap());
@@ -49,7 +50,7 @@ fn verify_calculate_tree_distances(
             }
             assert_eq!(calculated_reachable_nodes, expected.len());
         }
-        None => {
+        | None => {
             assert_eq!(None, calculated);
         }
     }
@@ -218,7 +219,15 @@ fn compute_next_hops() {
             (node3.clone(), vec![node1.clone()]),
         ]
     ));
-    assert_eq!(distance, HashMap::from([(node0, 0), (node1, 1), (node2, 1), (node3, 2)]));
+    assert_eq!(
+        distance,
+        HashMap::from([
+            (node0, 0),
+            (node1, 1),
+            (node2, 1),
+            (node3, 2)
+        ])
+    );
 }
 
 #[test]
@@ -285,7 +294,11 @@ async fn test_process_network_event() {
         .await
         .unwrap();
     graph.verify_own_distance_vector(
-        HashMap::from([(node0.clone(), 0), (node1.clone(), 1), (node2.clone(), 2)]),
+        HashMap::from([
+            (node0.clone(), 0),
+            (node1.clone(), 1),
+            (node2.clone(), 2),
+        ]),
         &distance_vector_update,
     );
 
@@ -297,9 +310,17 @@ async fn test_process_network_event() {
     // This update doesn't trigger a broadcast because node0's available routes haven't changed
     assert_eq!(None, distance_vector_update);
     // node0's locally stored DistanceVector should have the route to node2
-    let distance_vector_update = graph.inner.lock().my_distance_vector.clone();
+    let distance_vector_update = graph
+        .inner
+        .lock()
+        .my_distance_vector
+        .clone();
     graph.verify_own_distance_vector(
-        HashMap::from([(node0.clone(), 0), (node1.clone(), 1), (node2.clone(), 2)]),
+        HashMap::from([
+            (node0.clone(), 0),
+            (node1.clone(), 1),
+            (node2.clone(), 2),
+        ]),
         &distance_vector_update,
     );
 
@@ -344,8 +365,9 @@ async fn test_process_network_event_idempotent() {
         .unwrap();
     graph.verify_own_distance_vector(HashMap::from([(node0.clone(), 0)]), &distance_vector_update);
     // Process the same event without error
-    let distance_vector_update =
-        graph.process_network_event(NetworkTopologyChange::PeerDisconnected(node1.clone())).await;
+    let distance_vector_update = graph
+        .process_network_event(NetworkTopologyChange::PeerDisconnected(node1.clone()))
+        .await;
     // This update doesn't trigger a broadcast because node0's available routes haven't changed
     assert_eq!(None, distance_vector_update);
 }
@@ -380,7 +402,11 @@ async fn test_receive_distance_vector_before_processing_local_connection() {
         .await
         .unwrap();
     graph.verify_own_distance_vector(
-        HashMap::from([(node0.clone(), 0), (node1.clone(), 1), (node2.clone(), 2)]),
+        HashMap::from([
+            (node0.clone(), 0),
+            (node1.clone(), 1),
+            (node2.clone(), 2),
+        ]),
         &distance_vector_update,
     );
 }
@@ -498,7 +524,11 @@ async fn receive_distance_vector_without_route_to_local_node() {
         .await
         .unwrap();
     graph.verify_own_distance_vector(
-        HashMap::from([(node0.clone(), 0), (node1.clone(), 1), (node2.clone(), 2)]),
+        HashMap::from([
+            (node0.clone(), 0),
+            (node1.clone(), 1),
+            (node2.clone(), 2),
+        ]),
         &distance_vector_update,
     );
 
@@ -573,7 +603,12 @@ async fn inconsistent_peers() {
                     AdvertisedPeerDistance { destination: node3.clone(), distance: 1 },
                     AdvertisedPeerDistance { destination: node4.clone(), distance: 2 },
                 ],
-                edges: vec![edge01.clone(), edge12.clone(), edge13.clone(), edge24.clone()],
+                edges: vec![
+                    edge01.clone(),
+                    edge12.clone(),
+                    edge13.clone(),
+                    edge24.clone(),
+                ],
             },
         ))
         .await;
@@ -594,7 +629,11 @@ async fn inconsistent_peers() {
                     AdvertisedPeerDistance { destination: node1.clone(), distance: 1 },
                     AdvertisedPeerDistance { destination: node3.clone(), distance: 2 },
                 ],
-                edges: vec![edge02.clone(), edge12.clone(), edge13.clone()],
+                edges: vec![
+                    edge02.clone(),
+                    edge12.clone(),
+                    edge13.clone(),
+                ],
             },
         ))
         .await
@@ -647,7 +686,9 @@ async fn test_distance_vector_nonce_expiration() {
     clock.advance(PRUNE_EDGES_AFTER + time::Duration::seconds(1));
 
     // Recompute routes
-    graph.recompute_routes(&clock.clock()).await;
+    graph
+        .recompute_routes(&clock.clock())
+        .await;
 
     // Check that the expired distance vector was removed
     assert!(!graph.has_distance_vector(&node1));
@@ -699,7 +740,9 @@ async fn test_distance_vector_nonce_refresh() {
     clock.advance(PRUNE_EDGES_AFTER / 2 + time::Duration::seconds(1));
 
     // Recompute routes and check that the distance vector did not expire
-    graph.recompute_routes(&clock.clock()).await;
+    graph
+        .recompute_routes(&clock.clock())
+        .await;
     assert!(graph.has_distance_vector(&node1));
 
     // Advance the clock again, then refresh only edge01
@@ -715,6 +758,8 @@ async fn test_distance_vector_nonce_refresh() {
     clock.advance(PRUNE_EDGES_AFTER / 2 + time::Duration::seconds(1));
 
     // Recompute routes and check that the distance vector expires
-    graph.recompute_routes(&clock.clock()).await;
+    graph
+        .recompute_routes(&clock.clock())
+        .await;
     assert!(!graph.has_distance_vector(&node1));
 }

@@ -7,7 +7,7 @@
 
 /// Splits `&[u8; L + R]` into `(&[u8; L], &[u8; R])`.
 pub fn split_array<const N: usize, const L: usize, const R: usize>(
-    xs: &[u8; N],
+    xs: &[u8; N]
 ) -> (&[u8; L], &[u8; R]) {
     const {
         if N != L + R {
@@ -20,7 +20,7 @@ pub fn split_array<const N: usize, const L: usize, const R: usize>(
 
 /// Splits `&mut [u8; L + R]` into `(&mut [u8; L], &mut [u8; R])`.
 pub fn split_array_mut<const N: usize, const L: usize, const R: usize>(
-    xs: &mut [u8; N],
+    xs: &mut [u8; N]
 ) -> (&mut [u8; L], &mut [u8; R]) {
     const {
         if N != L + R {
@@ -70,9 +70,14 @@ pub fn as_chunks<const N: usize, T>(slice: &[T]) -> (&[[T; N]], &[T]) {
         }
     };
 
-    let len = slice.len().checked_div(N).expect("static assert above ensures N ≠ 0");
-    let (head, tail) = slice
-        .split_at(len.checked_mul(N).expect("len * N ≤ slice.len() hence can't overflow here"));
+    let len = slice
+        .len()
+        .checked_div(N)
+        .expect("static assert above ensures N ≠ 0");
+    let (head, tail) = slice.split_at(
+        len.checked_mul(N)
+            .expect("len * N ≤ slice.len() hence can't overflow here"),
+    );
 
     // SAFETY: We cast a slice of `len * N` elements into a slice of `len` many
     // `N` elements chunks.
@@ -87,7 +92,10 @@ pub struct InexactChunkingError {
 }
 impl std::error::Error for InexactChunkingError {}
 impl std::fmt::Display for InexactChunkingError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+    ) -> std::fmt::Result {
         write!(
             f,
             "slice of size {} cannot be precisely split into chunks of size {}",

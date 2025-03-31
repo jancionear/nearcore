@@ -123,7 +123,10 @@ pub struct KnownPeerState {
 }
 
 impl KnownPeerState {
-    pub fn new(peer_info: PeerInfo, now: time::Utc) -> Self {
+    pub fn new(
+        peer_info: PeerInfo,
+        now: time::Utc,
+    ) -> Self {
         KnownPeerState {
             peer_info,
             status: KnownPeerStatus::Unknown,
@@ -498,7 +501,10 @@ mod tests {
     #[test]
     fn routed_message_body_compatibility_smoke_test() {
         #[track_caller]
-        fn check(msg: RoutedMessageBody, expected: &[u8]) {
+        fn check(
+            msg: RoutedMessageBody,
+            expected: &[u8],
+        ) {
             let actual = borsh::to_vec(&msg).unwrap();
             assert_eq!(actual.as_slice(), expected);
         }

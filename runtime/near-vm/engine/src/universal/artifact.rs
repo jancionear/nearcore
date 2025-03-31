@@ -52,7 +52,10 @@ unsafe impl Sync for UniversalArtifact {}
 
 impl UniversalArtifact {
     /// Return the extents of the specified local function.
-    pub fn function_extent(&self, index: LocalFunctionIndex) -> Option<FunctionExtent> {
+    pub fn function_extent(
+        &self,
+        index: LocalFunctionIndex,
+    ) -> Option<FunctionExtent> {
         let func = self.functions.get(index)?;
         Some(FunctionExtent { address: func.body, length: usize::try_from(func.length).unwrap() })
     }
@@ -174,7 +177,10 @@ impl Artifact for UniversalArtifact {
         self.start_function
     }
 
-    fn export_field(&self, name: &str) -> Option<near_vm_types::ExportIndex> {
+    fn export_field(
+        &self,
+        name: &str,
+    ) -> Option<near_vm_types::ExportIndex> {
         self.exports.get(name).cloned()
     }
 
@@ -182,10 +188,16 @@ impl Artifact for UniversalArtifact {
         self.signatures.values().as_slice()
     }
 
-    fn function_signature(&self, index: FunctionIndex) -> Option<VMSharedSignatureIndex> {
-        match self.import_counts().local_function_index(index) {
-            Ok(local) => Some(self.functions[local].signature),
-            Err(import) => self
+    fn function_signature(
+        &self,
+        index: FunctionIndex,
+    ) -> Option<VMSharedSignatureIndex> {
+        match self
+            .import_counts()
+            .local_function_index(index)
+        {
+            | Ok(local) => Some(self.functions[local].signature),
+            | Err(import) => self
                 .imports
                 .iter()
                 .filter_map(|im| {

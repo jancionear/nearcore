@@ -24,21 +24,35 @@ const MAX_GAS: u64 = 300_000_000_000_000;
 ///
 /// In particular, compiling our test contract with different versions of
 /// compiler can lead to slightly different WASM output.
-const NONDETERMINISTIC_COSTS: [&str; 2] = ["CONTRACT_LOADING_BYTES", "WASM_INSTRUCTION"];
+const NONDETERMINISTIC_COSTS: [&str; 2] = [
+    "CONTRACT_LOADING_BYTES",
+    "WASM_INSTRUCTION",
+];
 
 fn is_nondeterministic_cost(cost: &str) -> bool {
-    NONDETERMINISTIC_COSTS.iter().find(|&&ndt_cost| ndt_cost == cost).is_some()
+    NONDETERMINISTIC_COSTS
+        .iter()
+        .find(|&&ndt_cost| ndt_cost == cost)
+        .is_some()
 }
 
 fn test_contract_account() -> AccountId {
-    format!("test-contract.{}", alice_account().as_str()).parse().unwrap()
+    format!("test-contract.{}", alice_account().as_str())
+        .parse()
+        .unwrap()
 }
 
 fn setup_runtime_node_with_contract(wasm_binary: &[u8]) -> RuntimeNode {
     // Create a `RuntimeNode`. Load `RuntimeConfig` from `RuntimeConfigStore`
     // to ensure we are using the latest configuration.
-    let mut genesis =
-        Genesis::test(vec![alice_account(), bob_account(), "carol.near".parse().unwrap()], 3);
+    let mut genesis = Genesis::test(
+        vec![
+            alice_account(),
+            bob_account(),
+            "carol.near".parse().unwrap(),
+        ],
+        3,
+    );
     add_test_contract(&mut genesis, &alice_account());
     add_test_contract(&mut genesis, &bob_account());
     let runtime_config_store = RuntimeConfigStore::new(None);
@@ -62,8 +76,9 @@ fn setup_runtime_node_with_contract(wasm_binary: &[u8]) -> RuntimeNode {
     assert_eq!(tx_result.status, FinalExecutionStatus::SuccessValue(Vec::new()));
     assert_eq!(tx_result.receipts_outcome.len(), 2);
 
-    let tx_result =
-        node_user.deploy_contract(test_contract_account(), wasm_binary.to_vec()).unwrap();
+    let tx_result = node_user
+        .deploy_contract(test_contract_account(), wasm_binary.to_vec())
+        .unwrap();
     assert_eq!(tx_result.status, FinalExecutionStatus::SuccessValue(Vec::new()));
     assert_eq!(tx_result.receipts_outcome.len(), 1);
 
@@ -71,17 +86,17 @@ fn setup_runtime_node_with_contract(wasm_binary: &[u8]) -> RuntimeNode {
 }
 
 fn get_receipts_status_with_clear_hash(
-    outcomes: &[ExecutionOutcomeWithIdView],
+    outcomes: &[ExecutionOutcomeWithIdView]
 ) -> Vec<ExecutionStatusView> {
     outcomes
         .iter()
         .map(|outcome| {
             match outcome.outcome.status {
-                ExecutionStatusView::SuccessReceiptId(_) => {
+                | ExecutionStatusView::SuccessReceiptId(_) => {
                     // We don’t control the hash of the receipt so clear it.
                     ExecutionStatusView::SuccessReceiptId(Default::default())
                 }
-                ref status => status.clone(),
+                | ref status => status.clone(),
             }
         })
         .collect::<Vec<_>>()
@@ -124,7 +139,13 @@ fn test_cost_sanity() {
         )
         .unwrap();
     assert_eq!(res.status, FinalExecutionStatus::SuccessValue(Vec::new()));
-    assert_eq!(res.transaction_outcome.outcome.metadata.gas_profile, None);
+    assert_eq!(
+        res.transaction_outcome
+            .outcome
+            .metadata
+            .gas_profile,
+        None
+    );
 
     let receipts_status = get_receipts_status_with_clear_hash(&res.receipts_outcome);
     insta::assert_yaml_snapshot!("receipts_status", receipts_status);
@@ -132,7 +153,14 @@ fn test_cost_sanity() {
     let receipts_gas_profile = res
         .receipts_outcome
         .iter()
-        .map(|outcome| outcome.outcome.metadata.gas_profile.as_ref().unwrap())
+        .map(|outcome| {
+            outcome
+                .outcome
+                .metadata
+                .gas_profile
+                .as_ref()
+                .unwrap()
+        })
         .map(|gas_profile| {
             gas_profile
                 .iter()
@@ -175,7 +203,13 @@ fn test_cost_sanity_nondeterministic() {
         .function_call(alice_account(), test_contract_account(), "main", vec![], MAX_GAS, 0)
         .unwrap();
     assert_eq!(res.status, FinalExecutionStatus::SuccessValue(Vec::new()));
-    assert_eq!(res.transaction_outcome.outcome.metadata.gas_profile, None);
+    assert_eq!(
+        res.transaction_outcome
+            .outcome
+            .metadata
+            .gas_profile,
+        None
+    );
 
     let receipts_status = get_receipts_status_with_clear_hash(&res.receipts_outcome);
     insta::assert_yaml_snapshot!("receipts_status_nondeterministic", receipts_status);
@@ -183,7 +217,14 @@ fn test_cost_sanity_nondeterministic() {
     let receipts_gas_profile = res
         .receipts_outcome
         .iter()
-        .map(|outcome| outcome.outcome.metadata.gas_profile.as_ref().unwrap())
+        .map(|outcome| {
+            outcome
+                .outcome
+                .metadata
+                .gas_profile
+                .as_ref()
+                .unwrap()
+        })
         .collect::<Vec<_>>();
 
     insta::assert_debug_snapshot!(
@@ -199,11 +240,17 @@ fn test_cost_sanity_nondeterministic() {
     let all_costs = {
         let all_costs = receipts_gas_profile
             .iter()
-            .flat_map(|gas_profile| gas_profile.iter().map(|cost| cost.cost.as_str()));
+            .flat_map(|gas_profile| {
+                gas_profile
+                    .iter()
+                    .map(|cost| cost.cost.as_str())
+            });
         HashSet::from_iter(all_costs)
     };
     let ndt_costs = HashSet::from(NONDETERMINISTIC_COSTS);
-    let missing_costs = ndt_costs.difference(&all_costs).collect::<Vec<_>>();
+    let missing_costs = ndt_costs
+        .difference(&all_costs)
+        .collect::<Vec<_>>();
     assert!(
         missing_costs.is_empty(),
         "some nondeterministic costs are not covered: {:?}",
@@ -226,8 +273,8 @@ fn test_sanity_used_gas() {
 
     let num_return_values = 4;
     let returned_bytes = match res.status {
-        FinalExecutionStatus::SuccessValue(v) => v,
-        _ => panic!("Unexpected status: {:?}", res.status),
+        | FinalExecutionStatus::SuccessValue(v) => v,
+        | _ => panic!("Unexpected status: {:?}", res.status),
     };
     assert_eq!(returned_bytes.len(), num_return_values * size_of::<u64>());
 
@@ -237,9 +284,21 @@ fn test_sanity_used_gas() {
         .map(|bytes| u64::from_le_bytes(*bytes))
         .collect::<Vec<_>>();
 
-    let runtime_config = node.client.read().unwrap().runtime_config.clone();
-    let base_cost = runtime_config.wasm_config.ext_costs.gas_cost(ExtCosts::base);
-    let op_cost = match runtime_config.wasm_config.limit_config.contract_prepare_version {
+    let runtime_config = node
+        .client
+        .read()
+        .unwrap()
+        .runtime_config
+        .clone();
+    let base_cost = runtime_config
+        .wasm_config
+        .ext_costs
+        .gas_cost(ExtCosts::base);
+    let op_cost = match runtime_config
+        .wasm_config
+        .limit_config
+        .contract_prepare_version
+    {
         // In old implementations of preparation, all of the contained instructions are paid
         // for upfront when entering a new metered block,
         //
@@ -249,10 +308,14 @@ fn test_sanity_used_gas() {
         //
         // In this test we account for this by setting `op_cost` to zero, but if future tests
         // change test WASM in significant ways, this approach may become incorrect.
-        ContractPrepareVersion::V0 | ContractPrepareVersion::V1 => 0,
+        | ContractPrepareVersion::V0 | ContractPrepareVersion::V1 => 0,
         // Gas accounting is precise and instructions executed between calls to the side-effect-ful
         // `used_gas` host function calls will be observable.
-        ContractPrepareVersion::V2 => u64::from(runtime_config.wasm_config.regular_op_cost),
+        | ContractPrepareVersion::V2 => u64::from(
+            runtime_config
+                .wasm_config
+                .regular_op_cost,
+        ),
     };
 
     // Executing `used_gas` costs `base_cost` plus an instruction to execute the `call` itself.

@@ -81,7 +81,10 @@ impl<E> Output<E> {
         (Self { ctx, send }, recv)
     }
 
-    pub fn send(&self, err: E) {
+    pub fn send(
+        &self,
+        err: E,
+    ) {
         if let Ok(_) = self.send.try_send(err) {
             self.ctx.cancel();
         }
@@ -176,8 +179,8 @@ impl<E: 'static + Send> Inner<E> {
     ) -> tokio::task::JoinHandle<Result<T, ErrTaskCanceled>> {
         tokio::spawn(must_complete(async move {
             match (ctx::CtxFuture { ctx: m.as_ref().borrow().ctx.clone(), inner: f }).await {
-                Ok(v) => Ok(v),
-                Err(err) => {
+                | Ok(v) => Ok(v),
+                | Err(err) => {
                     m.as_ref().borrow().output.send(err);
                     Err(ErrTaskCanceled)
                 }
@@ -223,7 +226,9 @@ pub struct Service<E: 'static>(Weak<Inner<E>>);
 
 impl<E: 'static> Drop for Service<E> {
     fn drop(&mut self) {
-        self.0.upgrade().map(|inner| inner.ctx.cancel());
+        self.0
+            .upgrade()
+            .map(|inner| inner.ctx.cancel());
     }
 }
 
@@ -265,7 +270,10 @@ impl<E: 'static + Send> Service<E> {
     ///
     /// Returns ErrTerminated if the scope has already terminated.
     pub fn new_service(&self) -> Result<Service<E>, ErrTerminated> {
-        self.0.upgrade().map(|m| Inner::new_service(m)).ok_or(ErrTerminated)
+        self.0
+            .upgrade()
+            .map(|m| Inner::new_service(m))
+            .ok_or(ErrTerminated)
     }
 }
 
@@ -314,7 +322,7 @@ impl<'env, E: 'static + Send> Scope<'env, E> {
         f: impl 'env + Send + Future<Output = Result<T, E>>,
     ) -> JoinHandle<'env, T> {
         match self.0.upgrade() {
-            Some(strong) => JoinHandle(
+            | Some(strong) => JoinHandle(
                 Inner::spawn(strong, unsafe { to_static(f.boxed()) }),
                 std::marker::PhantomData,
             ),
@@ -322,7 +330,7 @@ impl<'env, E: 'static + Send> Scope<'env, E> {
             // so the caller is a "background" task. In that case we fall back
             // to spawning a "background" task instead. It is ok, since the distinction
             // between main task and background task disappears, once the scope is canceled.
-            None => self.spawn_bg(f),
+            | None => self.spawn_bg(f),
         }
     }
 
@@ -385,7 +393,10 @@ pub mod internal {
         Scope(Weak::new(), Weak::new(), std::marker::PhantomData)
     }
 
-    pub async fn run<'env, E, T, F, Fut>(scope: &'env mut Scope<'env, E>, f: F) -> Result<T, E>
+    pub async fn run<'env, E, T, F, Fut>(
+        scope: &'env mut Scope<'env, E>,
+        f: F,
+    ) -> Result<T, E>
     where
         E: 'static + Send,
         T: 'static + Send,

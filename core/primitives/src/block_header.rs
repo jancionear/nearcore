@@ -352,13 +352,23 @@ impl Approval {
         Approval { inner, target_height, signature, account_id: signer.validator_id().clone() }
     }
 
-    pub fn get_data_for_sig(inner: &ApprovalInner, target_height: BlockHeight) -> Vec<u8> {
-        [borsh::to_vec(&inner).unwrap().as_ref(), target_height.to_le_bytes().as_ref()].concat()
+    pub fn get_data_for_sig(
+        inner: &ApprovalInner,
+        target_height: BlockHeight,
+    ) -> Vec<u8> {
+        [
+            borsh::to_vec(&inner).unwrap().as_ref(),
+            target_height.to_le_bytes().as_ref(),
+        ]
+        .concat()
     }
 }
 
 impl ApprovalMessage {
-    pub fn new(approval: Approval, target: AccountId) -> Self {
+    pub fn new(
+        approval: Approval,
+        target: AccountId,
+    ) -> Self {
         ApprovalMessage { approval, target }
     }
 }
@@ -559,13 +569,20 @@ pub enum BlockHeader {
 }
 
 impl BlockHeader {
-    pub fn compute_inner_hash(inner_lite: &[u8], inner_rest: &[u8]) -> CryptoHash {
+    pub fn compute_inner_hash(
+        inner_lite: &[u8],
+        inner_rest: &[u8],
+    ) -> CryptoHash {
         let hash_lite = hash(inner_lite);
         let hash_rest = hash(inner_rest);
         combine_hash(&hash_lite, &hash_rest)
     }
 
-    pub fn compute_hash(prev_hash: CryptoHash, inner_lite: &[u8], inner_rest: &[u8]) -> CryptoHash {
+    pub fn compute_hash(
+        prev_hash: CryptoHash,
+        inner_lite: &[u8],
+        inner_rest: &[u8],
+    ) -> CryptoHash {
         let hash_inner = BlockHeader::compute_inner_hash(inner_lite, inner_rest);
 
         combine_hash(&hash_inner, &prev_hash)
@@ -885,7 +902,10 @@ impl BlockHeader {
         // Previously we passed next_epoch_protocol_version here, which is incorrect, but we need
         // to preserve this for archival nodes
         if next_epoch_protocol_version <= 29 {
-            let chunks_included = chunk_mask.iter().map(|val| *val as u64).sum::<u64>();
+            let chunks_included = chunk_mask
+                .iter()
+                .map(|val| *val as u64)
+                .sum::<u64>();
             let inner_rest = BlockHeaderInnerRest {
                 prev_chunk_outgoing_receipts_root,
                 chunk_headers_root,
@@ -995,8 +1015,8 @@ impl BlockHeader {
             &borsh::to_vec(&inner_rest).expect("Failed to serialize"),
         );
         match signature_source {
-            SignatureSource::Signer(signer) => (hash, signer.sign_bytes(hash.as_ref())),
-            SignatureSource::Signature(signature) => (hash, signature),
+            | SignatureSource::Signer(signer) => (hash, signer.sign_bytes(hash.as_ref())),
+            | SignatureSource::Signature(signature) => (hash, signature),
         }
     }
 
@@ -1059,108 +1079,118 @@ impl BlockHeader {
     #[inline]
     pub fn hash(&self) -> &CryptoHash {
         match self {
-            BlockHeader::BlockHeaderV1(header) => &header.hash,
-            BlockHeader::BlockHeaderV2(header) => &header.hash,
-            BlockHeader::BlockHeaderV3(header) => &header.hash,
-            BlockHeader::BlockHeaderV4(header) => &header.hash,
-            BlockHeader::BlockHeaderV5(header) => &header.hash,
+            | BlockHeader::BlockHeaderV1(header) => &header.hash,
+            | BlockHeader::BlockHeaderV2(header) => &header.hash,
+            | BlockHeader::BlockHeaderV3(header) => &header.hash,
+            | BlockHeader::BlockHeaderV4(header) => &header.hash,
+            | BlockHeader::BlockHeaderV5(header) => &header.hash,
         }
     }
 
     #[inline]
     pub fn prev_hash(&self) -> &CryptoHash {
         match self {
-            BlockHeader::BlockHeaderV1(header) => &header.prev_hash,
-            BlockHeader::BlockHeaderV2(header) => &header.prev_hash,
-            BlockHeader::BlockHeaderV3(header) => &header.prev_hash,
-            BlockHeader::BlockHeaderV4(header) => &header.prev_hash,
-            BlockHeader::BlockHeaderV5(header) => &header.prev_hash,
+            | BlockHeader::BlockHeaderV1(header) => &header.prev_hash,
+            | BlockHeader::BlockHeaderV2(header) => &header.prev_hash,
+            | BlockHeader::BlockHeaderV3(header) => &header.prev_hash,
+            | BlockHeader::BlockHeaderV4(header) => &header.prev_hash,
+            | BlockHeader::BlockHeaderV5(header) => &header.prev_hash,
         }
     }
 
     #[inline]
     pub fn signature(&self) -> &Signature {
         match self {
-            BlockHeader::BlockHeaderV1(header) => &header.signature,
-            BlockHeader::BlockHeaderV2(header) => &header.signature,
-            BlockHeader::BlockHeaderV3(header) => &header.signature,
-            BlockHeader::BlockHeaderV4(header) => &header.signature,
-            BlockHeader::BlockHeaderV5(header) => &header.signature,
+            | BlockHeader::BlockHeaderV1(header) => &header.signature,
+            | BlockHeader::BlockHeaderV2(header) => &header.signature,
+            | BlockHeader::BlockHeaderV3(header) => &header.signature,
+            | BlockHeader::BlockHeaderV4(header) => &header.signature,
+            | BlockHeader::BlockHeaderV5(header) => &header.signature,
         }
     }
 
     #[inline]
     pub fn height(&self) -> BlockHeight {
         match self {
-            BlockHeader::BlockHeaderV1(header) => header.inner_lite.height,
-            BlockHeader::BlockHeaderV2(header) => header.inner_lite.height,
-            BlockHeader::BlockHeaderV3(header) => header.inner_lite.height,
-            BlockHeader::BlockHeaderV4(header) => header.inner_lite.height,
-            BlockHeader::BlockHeaderV5(header) => header.inner_lite.height,
+            | BlockHeader::BlockHeaderV1(header) => header.inner_lite.height,
+            | BlockHeader::BlockHeaderV2(header) => header.inner_lite.height,
+            | BlockHeader::BlockHeaderV3(header) => header.inner_lite.height,
+            | BlockHeader::BlockHeaderV4(header) => header.inner_lite.height,
+            | BlockHeader::BlockHeaderV5(header) => header.inner_lite.height,
         }
     }
 
     #[inline]
     pub fn prev_height(&self) -> Option<BlockHeight> {
         match self {
-            BlockHeader::BlockHeaderV1(_) => None,
-            BlockHeader::BlockHeaderV2(_) => None,
-            BlockHeader::BlockHeaderV3(header) => Some(header.inner_rest.prev_height),
-            BlockHeader::BlockHeaderV4(header) => Some(header.inner_rest.prev_height),
-            BlockHeader::BlockHeaderV5(header) => Some(header.inner_rest.prev_height),
+            | BlockHeader::BlockHeaderV1(_) => None,
+            | BlockHeader::BlockHeaderV2(_) => None,
+            | BlockHeader::BlockHeaderV3(header) => Some(header.inner_rest.prev_height),
+            | BlockHeader::BlockHeaderV4(header) => Some(header.inner_rest.prev_height),
+            | BlockHeader::BlockHeaderV5(header) => Some(header.inner_rest.prev_height),
         }
     }
 
     #[inline]
     pub fn epoch_id(&self) -> &EpochId {
         match self {
-            BlockHeader::BlockHeaderV1(header) => &header.inner_lite.epoch_id,
-            BlockHeader::BlockHeaderV2(header) => &header.inner_lite.epoch_id,
-            BlockHeader::BlockHeaderV3(header) => &header.inner_lite.epoch_id,
-            BlockHeader::BlockHeaderV4(header) => &header.inner_lite.epoch_id,
-            BlockHeader::BlockHeaderV5(header) => &header.inner_lite.epoch_id,
+            | BlockHeader::BlockHeaderV1(header) => &header.inner_lite.epoch_id,
+            | BlockHeader::BlockHeaderV2(header) => &header.inner_lite.epoch_id,
+            | BlockHeader::BlockHeaderV3(header) => &header.inner_lite.epoch_id,
+            | BlockHeader::BlockHeaderV4(header) => &header.inner_lite.epoch_id,
+            | BlockHeader::BlockHeaderV5(header) => &header.inner_lite.epoch_id,
         }
     }
 
     #[inline]
     pub fn next_epoch_id(&self) -> &EpochId {
         match self {
-            BlockHeader::BlockHeaderV1(header) => &header.inner_lite.next_epoch_id,
-            BlockHeader::BlockHeaderV2(header) => &header.inner_lite.next_epoch_id,
-            BlockHeader::BlockHeaderV3(header) => &header.inner_lite.next_epoch_id,
-            BlockHeader::BlockHeaderV4(header) => &header.inner_lite.next_epoch_id,
-            BlockHeader::BlockHeaderV5(header) => &header.inner_lite.next_epoch_id,
+            | BlockHeader::BlockHeaderV1(header) => &header.inner_lite.next_epoch_id,
+            | BlockHeader::BlockHeaderV2(header) => &header.inner_lite.next_epoch_id,
+            | BlockHeader::BlockHeaderV3(header) => &header.inner_lite.next_epoch_id,
+            | BlockHeader::BlockHeaderV4(header) => &header.inner_lite.next_epoch_id,
+            | BlockHeader::BlockHeaderV5(header) => &header.inner_lite.next_epoch_id,
         }
     }
 
     #[inline]
     pub fn prev_state_root(&self) -> &MerkleHash {
         match self {
-            BlockHeader::BlockHeaderV1(header) => &header.inner_lite.prev_state_root,
-            BlockHeader::BlockHeaderV2(header) => &header.inner_lite.prev_state_root,
-            BlockHeader::BlockHeaderV3(header) => &header.inner_lite.prev_state_root,
-            BlockHeader::BlockHeaderV4(header) => &header.inner_lite.prev_state_root,
-            BlockHeader::BlockHeaderV5(header) => &header.inner_lite.prev_state_root,
+            | BlockHeader::BlockHeaderV1(header) => &header.inner_lite.prev_state_root,
+            | BlockHeader::BlockHeaderV2(header) => &header.inner_lite.prev_state_root,
+            | BlockHeader::BlockHeaderV3(header) => &header.inner_lite.prev_state_root,
+            | BlockHeader::BlockHeaderV4(header) => &header.inner_lite.prev_state_root,
+            | BlockHeader::BlockHeaderV5(header) => &header.inner_lite.prev_state_root,
         }
     }
 
     #[inline]
     pub fn prev_chunk_outgoing_receipts_root(&self) -> &MerkleHash {
         match self {
-            BlockHeader::BlockHeaderV1(header) => {
-                &header.inner_rest.prev_chunk_outgoing_receipts_root
+            | BlockHeader::BlockHeaderV1(header) => {
+                &header
+                    .inner_rest
+                    .prev_chunk_outgoing_receipts_root
             }
-            BlockHeader::BlockHeaderV2(header) => {
-                &header.inner_rest.prev_chunk_outgoing_receipts_root
+            | BlockHeader::BlockHeaderV2(header) => {
+                &header
+                    .inner_rest
+                    .prev_chunk_outgoing_receipts_root
             }
-            BlockHeader::BlockHeaderV3(header) => {
-                &header.inner_rest.prev_chunk_outgoing_receipts_root
+            | BlockHeader::BlockHeaderV3(header) => {
+                &header
+                    .inner_rest
+                    .prev_chunk_outgoing_receipts_root
             }
-            BlockHeader::BlockHeaderV4(header) => {
-                &header.inner_rest.prev_chunk_outgoing_receipts_root
+            | BlockHeader::BlockHeaderV4(header) => {
+                &header
+                    .inner_rest
+                    .prev_chunk_outgoing_receipts_root
             }
-            BlockHeader::BlockHeaderV5(header) => {
-                &header.inner_rest.prev_chunk_outgoing_receipts_root
+            | BlockHeader::BlockHeaderV5(header) => {
+                &header
+                    .inner_rest
+                    .prev_chunk_outgoing_receipts_root
             }
         }
     }
@@ -1168,236 +1198,252 @@ impl BlockHeader {
     #[inline]
     pub fn chunk_headers_root(&self) -> &MerkleHash {
         match self {
-            BlockHeader::BlockHeaderV1(header) => &header.inner_rest.chunk_headers_root,
-            BlockHeader::BlockHeaderV2(header) => &header.inner_rest.chunk_headers_root,
-            BlockHeader::BlockHeaderV3(header) => &header.inner_rest.chunk_headers_root,
-            BlockHeader::BlockHeaderV4(header) => &header.inner_rest.chunk_headers_root,
-            BlockHeader::BlockHeaderV5(header) => &header.inner_rest.chunk_headers_root,
+            | BlockHeader::BlockHeaderV1(header) => &header.inner_rest.chunk_headers_root,
+            | BlockHeader::BlockHeaderV2(header) => &header.inner_rest.chunk_headers_root,
+            | BlockHeader::BlockHeaderV3(header) => &header.inner_rest.chunk_headers_root,
+            | BlockHeader::BlockHeaderV4(header) => &header.inner_rest.chunk_headers_root,
+            | BlockHeader::BlockHeaderV5(header) => &header.inner_rest.chunk_headers_root,
         }
     }
 
     #[inline]
     pub fn chunk_tx_root(&self) -> &MerkleHash {
         match self {
-            BlockHeader::BlockHeaderV1(header) => &header.inner_rest.chunk_tx_root,
-            BlockHeader::BlockHeaderV2(header) => &header.inner_rest.chunk_tx_root,
-            BlockHeader::BlockHeaderV3(header) => &header.inner_rest.chunk_tx_root,
-            BlockHeader::BlockHeaderV4(header) => &header.inner_rest.chunk_tx_root,
-            BlockHeader::BlockHeaderV5(header) => &header.inner_rest.chunk_tx_root,
+            | BlockHeader::BlockHeaderV1(header) => &header.inner_rest.chunk_tx_root,
+            | BlockHeader::BlockHeaderV2(header) => &header.inner_rest.chunk_tx_root,
+            | BlockHeader::BlockHeaderV3(header) => &header.inner_rest.chunk_tx_root,
+            | BlockHeader::BlockHeaderV4(header) => &header.inner_rest.chunk_tx_root,
+            | BlockHeader::BlockHeaderV5(header) => &header.inner_rest.chunk_tx_root,
         }
     }
 
     pub fn chunks_included(&self) -> u64 {
         let mask = match self {
-            BlockHeader::BlockHeaderV1(header) => return header.inner_rest.chunks_included,
-            BlockHeader::BlockHeaderV2(header) => &header.inner_rest.chunk_mask,
-            BlockHeader::BlockHeaderV3(header) => &header.inner_rest.chunk_mask,
-            BlockHeader::BlockHeaderV4(header) => &header.inner_rest.chunk_mask,
-            BlockHeader::BlockHeaderV5(header) => &header.inner_rest.chunk_mask,
+            | BlockHeader::BlockHeaderV1(header) => return header.inner_rest.chunks_included,
+            | BlockHeader::BlockHeaderV2(header) => &header.inner_rest.chunk_mask,
+            | BlockHeader::BlockHeaderV3(header) => &header.inner_rest.chunk_mask,
+            | BlockHeader::BlockHeaderV4(header) => &header.inner_rest.chunk_mask,
+            | BlockHeader::BlockHeaderV5(header) => &header.inner_rest.chunk_mask,
         };
-        mask.iter().map(|&x| u64::from(x)).sum::<u64>()
+        mask.iter()
+            .map(|&x| u64::from(x))
+            .sum::<u64>()
     }
 
     #[inline]
     pub fn challenges_root(&self) -> &MerkleHash {
         match self {
-            BlockHeader::BlockHeaderV1(header) => &header.inner_rest.challenges_root,
-            BlockHeader::BlockHeaderV2(header) => &header.inner_rest.challenges_root,
-            BlockHeader::BlockHeaderV3(header) => &header.inner_rest.challenges_root,
-            BlockHeader::BlockHeaderV4(header) => &header.inner_rest.challenges_root,
-            BlockHeader::BlockHeaderV5(header) => &header.inner_rest.challenges_root,
+            | BlockHeader::BlockHeaderV1(header) => &header.inner_rest.challenges_root,
+            | BlockHeader::BlockHeaderV2(header) => &header.inner_rest.challenges_root,
+            | BlockHeader::BlockHeaderV3(header) => &header.inner_rest.challenges_root,
+            | BlockHeader::BlockHeaderV4(header) => &header.inner_rest.challenges_root,
+            | BlockHeader::BlockHeaderV5(header) => &header.inner_rest.challenges_root,
         }
     }
 
     #[inline]
     pub fn outcome_root(&self) -> &MerkleHash {
         match self {
-            BlockHeader::BlockHeaderV1(header) => &header.inner_lite.prev_outcome_root,
-            BlockHeader::BlockHeaderV2(header) => &header.inner_lite.prev_outcome_root,
-            BlockHeader::BlockHeaderV3(header) => &header.inner_lite.prev_outcome_root,
-            BlockHeader::BlockHeaderV4(header) => &header.inner_lite.prev_outcome_root,
-            BlockHeader::BlockHeaderV5(header) => &header.inner_lite.prev_outcome_root,
+            | BlockHeader::BlockHeaderV1(header) => &header.inner_lite.prev_outcome_root,
+            | BlockHeader::BlockHeaderV2(header) => &header.inner_lite.prev_outcome_root,
+            | BlockHeader::BlockHeaderV3(header) => &header.inner_lite.prev_outcome_root,
+            | BlockHeader::BlockHeaderV4(header) => &header.inner_lite.prev_outcome_root,
+            | BlockHeader::BlockHeaderV5(header) => &header.inner_lite.prev_outcome_root,
         }
     }
 
     #[inline]
     pub fn block_body_hash(&self) -> Option<CryptoHash> {
         match self {
-            BlockHeader::BlockHeaderV1(_) => None,
-            BlockHeader::BlockHeaderV2(_) => None,
-            BlockHeader::BlockHeaderV3(_) => None,
-            BlockHeader::BlockHeaderV4(header) => Some(header.inner_rest.block_body_hash),
-            BlockHeader::BlockHeaderV5(header) => Some(header.inner_rest.block_body_hash),
+            | BlockHeader::BlockHeaderV1(_) => None,
+            | BlockHeader::BlockHeaderV2(_) => None,
+            | BlockHeader::BlockHeaderV3(_) => None,
+            | BlockHeader::BlockHeaderV4(header) => Some(header.inner_rest.block_body_hash),
+            | BlockHeader::BlockHeaderV5(header) => Some(header.inner_rest.block_body_hash),
         }
     }
 
     #[inline]
     pub fn raw_timestamp(&self) -> u64 {
         match self {
-            BlockHeader::BlockHeaderV1(header) => header.inner_lite.timestamp,
-            BlockHeader::BlockHeaderV2(header) => header.inner_lite.timestamp,
-            BlockHeader::BlockHeaderV3(header) => header.inner_lite.timestamp,
-            BlockHeader::BlockHeaderV4(header) => header.inner_lite.timestamp,
-            BlockHeader::BlockHeaderV5(header) => header.inner_lite.timestamp,
+            | BlockHeader::BlockHeaderV1(header) => header.inner_lite.timestamp,
+            | BlockHeader::BlockHeaderV2(header) => header.inner_lite.timestamp,
+            | BlockHeader::BlockHeaderV3(header) => header.inner_lite.timestamp,
+            | BlockHeader::BlockHeaderV4(header) => header.inner_lite.timestamp,
+            | BlockHeader::BlockHeaderV5(header) => header.inner_lite.timestamp,
         }
     }
 
     #[inline]
     pub fn prev_validator_proposals(&self) -> ValidatorStakeIter {
         match self {
-            BlockHeader::BlockHeaderV1(header) => {
-                ValidatorStakeIter::v1(&header.inner_rest.prev_validator_proposals)
-            }
-            BlockHeader::BlockHeaderV2(header) => {
-                ValidatorStakeIter::v1(&header.inner_rest.prev_validator_proposals)
-            }
-            BlockHeader::BlockHeaderV3(header) => {
-                ValidatorStakeIter::new(&header.inner_rest.prev_validator_proposals)
-            }
-            BlockHeader::BlockHeaderV4(header) => {
-                ValidatorStakeIter::new(&header.inner_rest.prev_validator_proposals)
-            }
-            BlockHeader::BlockHeaderV5(header) => {
-                ValidatorStakeIter::new(&header.inner_rest.prev_validator_proposals)
-            }
+            | BlockHeader::BlockHeaderV1(header) => ValidatorStakeIter::v1(
+                &header
+                    .inner_rest
+                    .prev_validator_proposals,
+            ),
+            | BlockHeader::BlockHeaderV2(header) => ValidatorStakeIter::v1(
+                &header
+                    .inner_rest
+                    .prev_validator_proposals,
+            ),
+            | BlockHeader::BlockHeaderV3(header) => ValidatorStakeIter::new(
+                &header
+                    .inner_rest
+                    .prev_validator_proposals,
+            ),
+            | BlockHeader::BlockHeaderV4(header) => ValidatorStakeIter::new(
+                &header
+                    .inner_rest
+                    .prev_validator_proposals,
+            ),
+            | BlockHeader::BlockHeaderV5(header) => ValidatorStakeIter::new(
+                &header
+                    .inner_rest
+                    .prev_validator_proposals,
+            ),
         }
     }
 
     #[inline]
     pub fn chunk_mask(&self) -> &[bool] {
         match self {
-            BlockHeader::BlockHeaderV1(header) => &header.inner_rest.chunk_mask,
-            BlockHeader::BlockHeaderV2(header) => &header.inner_rest.chunk_mask,
-            BlockHeader::BlockHeaderV3(header) => &header.inner_rest.chunk_mask,
-            BlockHeader::BlockHeaderV4(header) => &header.inner_rest.chunk_mask,
-            BlockHeader::BlockHeaderV5(header) => &header.inner_rest.chunk_mask,
+            | BlockHeader::BlockHeaderV1(header) => &header.inner_rest.chunk_mask,
+            | BlockHeader::BlockHeaderV2(header) => &header.inner_rest.chunk_mask,
+            | BlockHeader::BlockHeaderV3(header) => &header.inner_rest.chunk_mask,
+            | BlockHeader::BlockHeaderV4(header) => &header.inner_rest.chunk_mask,
+            | BlockHeader::BlockHeaderV5(header) => &header.inner_rest.chunk_mask,
         }
     }
 
     #[inline]
     pub fn block_ordinal(&self) -> NumBlocks {
         match self {
-            BlockHeader::BlockHeaderV1(_) => 0, // not applicable
-            BlockHeader::BlockHeaderV2(_) => 0, // not applicable
-            BlockHeader::BlockHeaderV3(header) => header.inner_rest.block_ordinal,
-            BlockHeader::BlockHeaderV4(header) => header.inner_rest.block_ordinal,
-            BlockHeader::BlockHeaderV5(header) => header.inner_rest.block_ordinal,
+            | BlockHeader::BlockHeaderV1(_) => 0, // not applicable
+            | BlockHeader::BlockHeaderV2(_) => 0, // not applicable
+            | BlockHeader::BlockHeaderV3(header) => header.inner_rest.block_ordinal,
+            | BlockHeader::BlockHeaderV4(header) => header.inner_rest.block_ordinal,
+            | BlockHeader::BlockHeaderV5(header) => header.inner_rest.block_ordinal,
         }
     }
 
     #[inline]
     pub fn next_gas_price(&self) -> Balance {
         match self {
-            BlockHeader::BlockHeaderV1(header) => header.inner_rest.next_gas_price,
-            BlockHeader::BlockHeaderV2(header) => header.inner_rest.next_gas_price,
-            BlockHeader::BlockHeaderV3(header) => header.inner_rest.next_gas_price,
-            BlockHeader::BlockHeaderV4(header) => header.inner_rest.next_gas_price,
-            BlockHeader::BlockHeaderV5(header) => header.inner_rest.next_gas_price,
+            | BlockHeader::BlockHeaderV1(header) => header.inner_rest.next_gas_price,
+            | BlockHeader::BlockHeaderV2(header) => header.inner_rest.next_gas_price,
+            | BlockHeader::BlockHeaderV3(header) => header.inner_rest.next_gas_price,
+            | BlockHeader::BlockHeaderV4(header) => header.inner_rest.next_gas_price,
+            | BlockHeader::BlockHeaderV5(header) => header.inner_rest.next_gas_price,
         }
     }
 
     #[inline]
     pub fn total_supply(&self) -> Balance {
         match self {
-            BlockHeader::BlockHeaderV1(header) => header.inner_rest.total_supply,
-            BlockHeader::BlockHeaderV2(header) => header.inner_rest.total_supply,
-            BlockHeader::BlockHeaderV3(header) => header.inner_rest.total_supply,
-            BlockHeader::BlockHeaderV4(header) => header.inner_rest.total_supply,
-            BlockHeader::BlockHeaderV5(header) => header.inner_rest.total_supply,
+            | BlockHeader::BlockHeaderV1(header) => header.inner_rest.total_supply,
+            | BlockHeader::BlockHeaderV2(header) => header.inner_rest.total_supply,
+            | BlockHeader::BlockHeaderV3(header) => header.inner_rest.total_supply,
+            | BlockHeader::BlockHeaderV4(header) => header.inner_rest.total_supply,
+            | BlockHeader::BlockHeaderV5(header) => header.inner_rest.total_supply,
         }
     }
 
     #[inline]
     pub fn random_value(&self) -> &CryptoHash {
         match self {
-            BlockHeader::BlockHeaderV1(header) => &header.inner_rest.random_value,
-            BlockHeader::BlockHeaderV2(header) => &header.inner_rest.random_value,
-            BlockHeader::BlockHeaderV3(header) => &header.inner_rest.random_value,
-            BlockHeader::BlockHeaderV4(header) => &header.inner_rest.random_value,
-            BlockHeader::BlockHeaderV5(header) => &header.inner_rest.random_value,
+            | BlockHeader::BlockHeaderV1(header) => &header.inner_rest.random_value,
+            | BlockHeader::BlockHeaderV2(header) => &header.inner_rest.random_value,
+            | BlockHeader::BlockHeaderV3(header) => &header.inner_rest.random_value,
+            | BlockHeader::BlockHeaderV4(header) => &header.inner_rest.random_value,
+            | BlockHeader::BlockHeaderV5(header) => &header.inner_rest.random_value,
         }
     }
 
     #[inline]
     pub fn last_final_block(&self) -> &CryptoHash {
         match self {
-            BlockHeader::BlockHeaderV1(header) => &header.inner_rest.last_final_block,
-            BlockHeader::BlockHeaderV2(header) => &header.inner_rest.last_final_block,
-            BlockHeader::BlockHeaderV3(header) => &header.inner_rest.last_final_block,
-            BlockHeader::BlockHeaderV4(header) => &header.inner_rest.last_final_block,
-            BlockHeader::BlockHeaderV5(header) => &header.inner_rest.last_final_block,
+            | BlockHeader::BlockHeaderV1(header) => &header.inner_rest.last_final_block,
+            | BlockHeader::BlockHeaderV2(header) => &header.inner_rest.last_final_block,
+            | BlockHeader::BlockHeaderV3(header) => &header.inner_rest.last_final_block,
+            | BlockHeader::BlockHeaderV4(header) => &header.inner_rest.last_final_block,
+            | BlockHeader::BlockHeaderV5(header) => &header.inner_rest.last_final_block,
         }
     }
 
     #[inline]
     pub fn last_ds_final_block(&self) -> &CryptoHash {
         match self {
-            BlockHeader::BlockHeaderV1(header) => &header.inner_rest.last_ds_final_block,
-            BlockHeader::BlockHeaderV2(header) => &header.inner_rest.last_ds_final_block,
-            BlockHeader::BlockHeaderV3(header) => &header.inner_rest.last_ds_final_block,
-            BlockHeader::BlockHeaderV4(header) => &header.inner_rest.last_ds_final_block,
-            BlockHeader::BlockHeaderV5(header) => &header.inner_rest.last_ds_final_block,
+            | BlockHeader::BlockHeaderV1(header) => &header.inner_rest.last_ds_final_block,
+            | BlockHeader::BlockHeaderV2(header) => &header.inner_rest.last_ds_final_block,
+            | BlockHeader::BlockHeaderV3(header) => &header.inner_rest.last_ds_final_block,
+            | BlockHeader::BlockHeaderV4(header) => &header.inner_rest.last_ds_final_block,
+            | BlockHeader::BlockHeaderV5(header) => &header.inner_rest.last_ds_final_block,
         }
     }
 
     #[inline]
     pub fn challenges_result(&self) -> &ChallengesResult {
         match self {
-            BlockHeader::BlockHeaderV1(header) => &header.inner_rest.challenges_result,
-            BlockHeader::BlockHeaderV2(header) => &header.inner_rest.challenges_result,
-            BlockHeader::BlockHeaderV3(header) => &header.inner_rest.challenges_result,
-            BlockHeader::BlockHeaderV4(header) => &header.inner_rest.challenges_result,
-            BlockHeader::BlockHeaderV5(header) => &header.inner_rest.challenges_result,
+            | BlockHeader::BlockHeaderV1(header) => &header.inner_rest.challenges_result,
+            | BlockHeader::BlockHeaderV2(header) => &header.inner_rest.challenges_result,
+            | BlockHeader::BlockHeaderV3(header) => &header.inner_rest.challenges_result,
+            | BlockHeader::BlockHeaderV4(header) => &header.inner_rest.challenges_result,
+            | BlockHeader::BlockHeaderV5(header) => &header.inner_rest.challenges_result,
         }
     }
 
     #[inline]
     pub fn next_bp_hash(&self) -> &CryptoHash {
         match self {
-            BlockHeader::BlockHeaderV1(header) => &header.inner_lite.next_bp_hash,
-            BlockHeader::BlockHeaderV2(header) => &header.inner_lite.next_bp_hash,
-            BlockHeader::BlockHeaderV3(header) => &header.inner_lite.next_bp_hash,
-            BlockHeader::BlockHeaderV4(header) => &header.inner_lite.next_bp_hash,
-            BlockHeader::BlockHeaderV5(header) => &header.inner_lite.next_bp_hash,
+            | BlockHeader::BlockHeaderV1(header) => &header.inner_lite.next_bp_hash,
+            | BlockHeader::BlockHeaderV2(header) => &header.inner_lite.next_bp_hash,
+            | BlockHeader::BlockHeaderV3(header) => &header.inner_lite.next_bp_hash,
+            | BlockHeader::BlockHeaderV4(header) => &header.inner_lite.next_bp_hash,
+            | BlockHeader::BlockHeaderV5(header) => &header.inner_lite.next_bp_hash,
         }
     }
 
     #[inline]
     pub fn block_merkle_root(&self) -> &CryptoHash {
         match self {
-            BlockHeader::BlockHeaderV1(header) => &header.inner_lite.block_merkle_root,
-            BlockHeader::BlockHeaderV2(header) => &header.inner_lite.block_merkle_root,
-            BlockHeader::BlockHeaderV3(header) => &header.inner_lite.block_merkle_root,
-            BlockHeader::BlockHeaderV4(header) => &header.inner_lite.block_merkle_root,
-            BlockHeader::BlockHeaderV5(header) => &header.inner_lite.block_merkle_root,
+            | BlockHeader::BlockHeaderV1(header) => &header.inner_lite.block_merkle_root,
+            | BlockHeader::BlockHeaderV2(header) => &header.inner_lite.block_merkle_root,
+            | BlockHeader::BlockHeaderV3(header) => &header.inner_lite.block_merkle_root,
+            | BlockHeader::BlockHeaderV4(header) => &header.inner_lite.block_merkle_root,
+            | BlockHeader::BlockHeaderV5(header) => &header.inner_lite.block_merkle_root,
         }
     }
 
     #[inline]
     pub fn epoch_sync_data_hash(&self) -> Option<CryptoHash> {
         match self {
-            BlockHeader::BlockHeaderV1(_) => None,
-            BlockHeader::BlockHeaderV2(_) => None,
-            BlockHeader::BlockHeaderV3(header) => header.inner_rest.epoch_sync_data_hash,
-            BlockHeader::BlockHeaderV4(header) => header.inner_rest.epoch_sync_data_hash,
-            BlockHeader::BlockHeaderV5(header) => header.inner_rest.epoch_sync_data_hash,
+            | BlockHeader::BlockHeaderV1(_) => None,
+            | BlockHeader::BlockHeaderV2(_) => None,
+            | BlockHeader::BlockHeaderV3(header) => header.inner_rest.epoch_sync_data_hash,
+            | BlockHeader::BlockHeaderV4(header) => header.inner_rest.epoch_sync_data_hash,
+            | BlockHeader::BlockHeaderV5(header) => header.inner_rest.epoch_sync_data_hash,
         }
     }
 
     #[inline]
     pub fn approvals(&self) -> &[Option<Box<Signature>>] {
         match self {
-            BlockHeader::BlockHeaderV1(header) => &header.inner_rest.approvals,
-            BlockHeader::BlockHeaderV2(header) => &header.inner_rest.approvals,
-            BlockHeader::BlockHeaderV3(header) => &header.inner_rest.approvals,
-            BlockHeader::BlockHeaderV4(header) => &header.inner_rest.approvals,
-            BlockHeader::BlockHeaderV5(header) => &header.inner_rest.approvals,
+            | BlockHeader::BlockHeaderV1(header) => &header.inner_rest.approvals,
+            | BlockHeader::BlockHeaderV2(header) => &header.inner_rest.approvals,
+            | BlockHeader::BlockHeaderV3(header) => &header.inner_rest.approvals,
+            | BlockHeader::BlockHeaderV4(header) => &header.inner_rest.approvals,
+            | BlockHeader::BlockHeaderV5(header) => &header.inner_rest.approvals,
         }
     }
 
     /// Verifies that given public key produced the block.
-    pub fn verify_block_producer(&self, public_key: &PublicKey) -> bool {
-        self.signature().verify(self.hash().as_ref(), public_key)
+    pub fn verify_block_producer(
+        &self,
+        public_key: &PublicKey,
+    ) -> bool {
+        self.signature()
+            .verify(self.hash().as_ref(), public_key)
     }
 
     pub fn timestamp(&self) -> Utc {
@@ -1405,48 +1451,76 @@ impl BlockHeader {
     }
 
     pub fn num_approvals(&self) -> u64 {
-        self.approvals().iter().filter(|x| x.is_some()).count() as u64
+        self.approvals()
+            .iter()
+            .filter(|x| x.is_some())
+            .count() as u64
     }
 
     pub fn verify_chunks_included(&self) -> bool {
         match self {
-            BlockHeader::BlockHeaderV1(header) => {
-                header.inner_rest.chunk_mask.iter().map(|&x| u64::from(x)).sum::<u64>()
+            | BlockHeader::BlockHeaderV1(header) => {
+                header
+                    .inner_rest
+                    .chunk_mask
+                    .iter()
+                    .map(|&x| u64::from(x))
+                    .sum::<u64>()
                     == header.inner_rest.chunks_included
             }
-            BlockHeader::BlockHeaderV2(_header) => true,
-            BlockHeader::BlockHeaderV3(_header) => true,
-            BlockHeader::BlockHeaderV4(_header) => true,
-            BlockHeader::BlockHeaderV5(_header) => true,
+            | BlockHeader::BlockHeaderV2(_header) => true,
+            | BlockHeader::BlockHeaderV3(_header) => true,
+            | BlockHeader::BlockHeaderV4(_header) => true,
+            | BlockHeader::BlockHeaderV5(_header) => true,
         }
     }
 
     #[inline]
     pub fn latest_protocol_version(&self) -> u32 {
         match self {
-            BlockHeader::BlockHeaderV1(header) => header.inner_rest.latest_protocol_version,
-            BlockHeader::BlockHeaderV2(header) => header.inner_rest.latest_protocol_version,
-            BlockHeader::BlockHeaderV3(header) => header.inner_rest.latest_protocol_version,
-            BlockHeader::BlockHeaderV4(header) => header.inner_rest.latest_protocol_version,
-            BlockHeader::BlockHeaderV5(header) => header.inner_rest.latest_protocol_version,
+            | BlockHeader::BlockHeaderV1(header) => {
+                header
+                    .inner_rest
+                    .latest_protocol_version
+            }
+            | BlockHeader::BlockHeaderV2(header) => {
+                header
+                    .inner_rest
+                    .latest_protocol_version
+            }
+            | BlockHeader::BlockHeaderV3(header) => {
+                header
+                    .inner_rest
+                    .latest_protocol_version
+            }
+            | BlockHeader::BlockHeaderV4(header) => {
+                header
+                    .inner_rest
+                    .latest_protocol_version
+            }
+            | BlockHeader::BlockHeaderV5(header) => {
+                header
+                    .inner_rest
+                    .latest_protocol_version
+            }
         }
     }
 
     pub fn inner_lite_bytes(&self) -> Vec<u8> {
         match self {
-            BlockHeader::BlockHeaderV1(header) => {
+            | BlockHeader::BlockHeaderV1(header) => {
                 borsh::to_vec(&header.inner_lite).expect("Failed to serialize")
             }
-            BlockHeader::BlockHeaderV2(header) => {
+            | BlockHeader::BlockHeaderV2(header) => {
                 borsh::to_vec(&header.inner_lite).expect("Failed to serialize")
             }
-            BlockHeader::BlockHeaderV3(header) => {
+            | BlockHeader::BlockHeaderV3(header) => {
                 borsh::to_vec(&header.inner_lite).expect("Failed to serialize")
             }
-            BlockHeader::BlockHeaderV4(header) => {
+            | BlockHeader::BlockHeaderV4(header) => {
                 borsh::to_vec(&header.inner_lite).expect("Failed to serialize")
             }
-            BlockHeader::BlockHeaderV5(header) => {
+            | BlockHeader::BlockHeaderV5(header) => {
                 borsh::to_vec(&header.inner_lite).expect("Failed to serialize")
             }
         }
@@ -1454,19 +1528,19 @@ impl BlockHeader {
 
     pub fn inner_rest_bytes(&self) -> Vec<u8> {
         match self {
-            BlockHeader::BlockHeaderV1(header) => {
+            | BlockHeader::BlockHeaderV1(header) => {
                 borsh::to_vec(&header.inner_rest).expect("Failed to serialize")
             }
-            BlockHeader::BlockHeaderV2(header) => {
+            | BlockHeader::BlockHeaderV2(header) => {
                 borsh::to_vec(&header.inner_rest).expect("Failed to serialize")
             }
-            BlockHeader::BlockHeaderV3(header) => {
+            | BlockHeader::BlockHeaderV3(header) => {
                 borsh::to_vec(&header.inner_rest).expect("Failed to serialize")
             }
-            BlockHeader::BlockHeaderV4(header) => {
+            | BlockHeader::BlockHeaderV4(header) => {
                 borsh::to_vec(&header.inner_rest).expect("Failed to serialize")
             }
-            BlockHeader::BlockHeaderV5(header) => {
+            | BlockHeader::BlockHeaderV5(header) => {
                 borsh::to_vec(&header.inner_rest).expect("Failed to serialize")
             }
         }
@@ -1475,22 +1549,22 @@ impl BlockHeader {
     #[inline]
     pub fn chunk_endorsements(&self) -> Option<&ChunkEndorsementsBitmap> {
         match self {
-            BlockHeader::BlockHeaderV1(_) => None,
-            BlockHeader::BlockHeaderV2(_) => None,
-            BlockHeader::BlockHeaderV3(_) => None,
-            BlockHeader::BlockHeaderV4(_) => None,
-            BlockHeader::BlockHeaderV5(header) => Some(&header.inner_rest.chunk_endorsements),
+            | BlockHeader::BlockHeaderV1(_) => None,
+            | BlockHeader::BlockHeaderV2(_) => None,
+            | BlockHeader::BlockHeaderV3(_) => None,
+            | BlockHeader::BlockHeaderV4(_) => None,
+            | BlockHeader::BlockHeaderV5(header) => Some(&header.inner_rest.chunk_endorsements),
         }
     }
 
     #[inline]
     pub fn inner_lite(&self) -> &BlockHeaderInnerLite {
         match self {
-            BlockHeader::BlockHeaderV1(header) => &header.inner_lite,
-            BlockHeader::BlockHeaderV2(header) => &header.inner_lite,
-            BlockHeader::BlockHeaderV3(header) => &header.inner_lite,
-            BlockHeader::BlockHeaderV4(header) => &header.inner_lite,
-            BlockHeader::BlockHeaderV5(header) => &header.inner_lite,
+            | BlockHeader::BlockHeaderV1(header) => &header.inner_lite,
+            | BlockHeader::BlockHeaderV2(header) => &header.inner_lite,
+            | BlockHeader::BlockHeaderV3(header) => &header.inner_lite,
+            | BlockHeader::BlockHeaderV4(header) => &header.inner_lite,
+            | BlockHeader::BlockHeaderV5(header) => &header.inner_lite,
         }
     }
 }

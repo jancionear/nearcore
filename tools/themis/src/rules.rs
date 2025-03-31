@@ -10,7 +10,11 @@ pub fn has_publish_spec(workspace: &Workspace) -> anyhow::Result<()> {
     let outliers: Vec<_> = workspace
         .members
         .iter()
-        .filter(|pkg| pkg.manifest.read(&["package", "publish"]).is_none())
+        .filter(|pkg| {
+            pkg.manifest
+                .read(&["package", "publish"])
+                .is_none()
+        })
         .map(|pkg| Outlier { path: pkg.parsed.manifest_path.clone(), found: None, extra: None })
         .collect();
 
@@ -31,10 +35,16 @@ pub fn has_rust_version(workspace: &Workspace) -> anyhow::Result<()> {
         .members
         .iter()
         .filter(|pkg| {
-            pkg.manifest.read(&["package", "publish"]) == Some(&toml::Value::Boolean(true))
-                && pkg.manifest.read(&["package", "version", "workspace"])
+            pkg.manifest
+                .read(&["package", "publish"])
+                == Some(&toml::Value::Boolean(true))
+                && pkg
+                    .manifest
+                    .read(&["package", "version", "workspace"])
                     == Some(&toml::Value::Boolean(true))
-                && pkg.manifest.read(&["package", "rust-version", "workspace"])
+                && pkg
+                    .manifest
+                    .read(&["package", "rust-version", "workspace"])
                     == Some(&toml::Value::Boolean(true))
         })
         .map(|pkg| Outlier { path: pkg.parsed.manifest_path.clone(), found: None, extra: None })
@@ -57,11 +67,17 @@ pub fn has_lint_inheritance(workspace: &Workspace) -> anyhow::Result<()> {
     let outliers: Vec<_> = workspace
         .members
         .iter()
-        .filter(|pkg| match pkg.manifest.read(&["lints", "workspace"]) {
-            None | Some(&toml::Value::Boolean(false)) => {
-                pkg.manifest.read(&["workspace"]).is_some()
+        .filter(|pkg| {
+            match pkg
+                .manifest
+                .read(&["lints", "workspace"])
+            {
+                | None | Some(&toml::Value::Boolean(false)) => pkg
+                    .manifest
+                    .read(&["workspace"])
+                    .is_some(),
+                | Some(_) => false,
             }
-            Some(_) => false,
         })
         .map(|pkg| Outlier { path: pkg.parsed.manifest_path.clone(), found: None, extra: None })
         .collect();
@@ -79,21 +95,32 @@ pub fn has_lint_inheritance(workspace: &Workspace) -> anyhow::Result<()> {
 
 /// Ensure rust-version is the same in Cargo.toml and rust-toolchain.toml
 pub fn rust_version_matches_toolchain(workspace: &Workspace) -> anyhow::Result<()> {
-    fn get<'a>(mut val: &'a toml::Value, indexes: &[&str]) -> anyhow::Result<&'a toml::Value> {
+    fn get<'a>(
+        mut val: &'a toml::Value,
+        indexes: &[&str],
+    ) -> anyhow::Result<&'a toml::Value> {
         for &i in indexes {
-            val = val.get(i).ok_or_else(|| anyhow::format_err!("no `{i}` in {val}"))?;
+            val = val
+                .get(i)
+                .ok_or_else(|| anyhow::format_err!("no `{i}` in {val}"))?;
         }
         Ok(val)
     }
 
-    let toolchain_file = match read_toml(&workspace.root.join("rust-toolchain.toml"))? {
-        Some(toolchain_file) => toolchain_file,
-        None => return Ok(()),
+    let toolchain_file = match read_toml(
+        &workspace
+            .root
+            .join("rust-toolchain.toml"),
+    )? {
+        | Some(toolchain_file) => toolchain_file,
+        | None => return Ok(()),
     };
     let toolchain_version = get(&toolchain_file, &["toolchain", "channel"])?;
 
-    let workspace_version =
-        workspace.manifest.read(&["workspace", "package", "rust-version"]).ok_or_else(|| {
+    let workspace_version = workspace
+        .manifest
+        .read(&["workspace", "package", "rust-version"])
+        .ok_or_else(|| {
             anyhow::format_err!("no `workspace.package.rust-version` in the root Cargo.toml")
         })?;
 
@@ -114,7 +141,9 @@ pub fn is_unversioned(workspace: &Workspace) -> anyhow::Result<()> {
         .members
         .iter()
         .filter(|pkg| {
-            !pkg.parsed.metadata["workspaces"]["independent"].as_bool().unwrap_or(false)
+            !pkg.parsed.metadata["workspaces"]["independent"]
+                .as_bool()
+                .unwrap_or(false)
                 && pkg.parsed.version != semver::Version::new(0, 0, 0)
         })
         .map(|pkg| Outlier {
@@ -140,11 +169,15 @@ pub fn has_unified_rust_edition(workspace: &Workspace) -> anyhow::Result<()> {
     let mut edition_groups = HashMap::new();
 
     for pkg in &workspace.members {
-        *edition_groups.entry(&pkg.parsed.edition).or_insert(0) += 1;
+        *edition_groups
+            .entry(&pkg.parsed.edition)
+            .or_insert(0) += 1;
     }
 
-    let (most_common_edition, n_compliant) =
-        edition_groups.into_iter().reduce(|a, b| if a.1 > b.1 { a } else { b }).unwrap();
+    let (most_common_edition, n_compliant) = edition_groups
+        .into_iter()
+        .reduce(|a, b| if a.1 > b.1 { a } else { b })
+        .unwrap();
 
     let outliers = workspace
         .members
@@ -178,7 +211,12 @@ pub fn author_is_near(workspace: &Workspace) -> anyhow::Result<()> {
     let outliers = workspace
         .members
         .iter()
-        .filter(|pkg| !pkg.parsed.authors.iter().any(|author| author == EXPECTED_AUTHOR))
+        .filter(|pkg| {
+            !pkg.parsed
+                .authors
+                .iter()
+                .any(|author| author == EXPECTED_AUTHOR)
+        })
         .map(|pkg| Outlier {
             path: pkg.parsed.manifest_path.clone(),
             found: Some(format!("{:?}", pkg.parsed.authors)),
@@ -238,7 +276,11 @@ pub fn publishable_has_license_file(workspace: &Workspace) -> anyhow::Result<()>
         })
         .map(|pkg| Outlier {
             path: pkg.parsed.manifest_path.clone(),
-            found: pkg.parsed.license_file.as_ref().map(ToString::to_string),
+            found: pkg
+                .parsed
+                .license_file
+                .as_ref()
+                .map(ToString::to_string),
             extra: None,
         })
         .collect::<Vec<_>>();
@@ -269,7 +311,11 @@ pub fn publishable_has_unified_license(workspace: &Workspace) -> anyhow::Result<
         })
         .map(|pkg| Outlier {
             path: pkg.parsed.manifest_path.clone(),
-            found: pkg.parsed.license.as_ref().map(ToString::to_string),
+            found: pkg
+                .parsed
+                .license
+                .as_ref()
+                .map(ToString::to_string),
             extra: None,
         })
         .collect::<Vec<_>>();
@@ -317,7 +363,11 @@ pub fn publishable_has_readme(workspace: &Workspace) -> anyhow::Result<()> {
         })
         .map(|pkg| Outlier {
             path: pkg.parsed.manifest_path.clone(),
-            found: pkg.parsed.readme.as_ref().map(ToString::to_string),
+            found: pkg
+                .parsed
+                .readme
+                .as_ref()
+                .map(ToString::to_string),
             extra: None,
         })
         .collect::<Vec<_>>();
@@ -346,7 +396,11 @@ pub fn publishable_has_near_link(workspace: &Workspace) -> anyhow::Result<()> {
         })
         .map(|pkg| Outlier {
             path: pkg.parsed.manifest_path.clone(),
-            found: pkg.parsed.repository.as_ref().map(ToString::to_string),
+            found: pkg
+                .parsed
+                .repository
+                .as_ref()
+                .map(ToString::to_string),
             extra: None,
         })
         .collect::<Vec<_>>();
@@ -366,10 +420,18 @@ pub fn publishable_has_near_link(workspace: &Workspace) -> anyhow::Result<()> {
 /// Ensure all publishable crates do not depend on private crates
 pub fn recursively_publishable(workspace: &Workspace) -> anyhow::Result<()> {
     let mut outliers = BTreeMap::new();
-    for pkg in workspace.members.iter().filter(|pkg| utils::is_publishable(pkg)) {
+    for pkg in workspace
+        .members
+        .iter()
+        .filter(|pkg| utils::is_publishable(pkg))
+    {
         for dep in &pkg.parsed.dependencies {
             if matches!(dep.kind, DependencyKind::Normal | DependencyKind::Build) {
-                if let Some(dep) = workspace.members.iter().find(|p| p.parsed.name == dep.name) {
+                if let Some(dep) = workspace
+                    .members
+                    .iter()
+                    .find(|p| p.parsed.name == dep.name)
+                {
                     if !utils::is_publishable(dep) {
                         outliers
                             .entry(dep.parsed.manifest_path.clone())
@@ -427,14 +489,19 @@ pub fn no_superfluous_deps(workspace: &Workspace) -> anyhow::Result<()> {
             read_deps(&target_manifest, "build-dependencies");
         }
     }
-    let Some(root_deps) = workspace.manifest.read(&["workspace", "dependencies"]) else {
+    let Some(root_deps) = workspace
+        .manifest
+        .read(&["workspace", "dependencies"])
+    else {
         panic!("Cargo.toml has no [workspace.dependencies]?");
     };
     let Some(root_deps) = root_deps.as_table() else {
         panic!("workspace.dependencies is not a table?");
     };
     let root_deps = BTreeSet::from_iter(root_deps.keys().into_iter().cloned());
-    let diff = root_deps.difference(&workspace_deps).collect::<Vec<_>>();
+    let diff = root_deps
+        .difference(&workspace_deps)
+        .collect::<Vec<_>>();
     if !diff.is_empty() {
         bail!(ComplianceError {
             msg: "These dependencies are not used by any workspace member".to_string(),

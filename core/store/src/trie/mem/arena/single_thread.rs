@@ -11,17 +11,28 @@ pub struct STArenaMemory {
 }
 
 impl ArenaMemory for STArenaMemory {
-    fn raw_slice(&self, pos: ArenaPos, len: usize) -> &[u8] {
+    fn raw_slice(
+        &self,
+        pos: ArenaPos,
+        len: usize,
+    ) -> &[u8] {
         &self.chunks[pos.chunk()][pos.pos()..pos.pos() + len]
     }
 }
 
 impl ArenaMemoryMut for STArenaMemory {
-    fn is_mutable(&self, _pos: ArenaPos) -> bool {
+    fn is_mutable(
+        &self,
+        _pos: ArenaPos,
+    ) -> bool {
         true
     }
 
-    fn raw_slice_mut(&mut self, pos: ArenaPos, len: usize) -> &mut [u8] {
+    fn raw_slice_mut(
+        &mut self,
+        pos: ArenaPos,
+        len: usize,
+    ) -> &mut [u8] {
         &mut self.chunks[pos.chunk()][pos.pos()..pos.pos() + len]
     }
 }
@@ -59,7 +70,9 @@ impl STArena {
                 active_allocs_count,
             ),
         };
-        arena.allocator.update_memory_usage_gauge(&arena.memory);
+        arena
+            .allocator
+            .update_memory_usage_gauge(&arena.memory);
         arena
     }
 
@@ -90,14 +103,23 @@ impl ArenaMut for STArena {
         &mut self.memory
     }
 
-    fn alloc(&mut self, size: usize) -> ArenaSliceMut<Self::Memory> {
-        self.allocator.allocate(&mut self.memory, size)
+    fn alloc(
+        &mut self,
+        size: usize,
+    ) -> ArenaSliceMut<Self::Memory> {
+        self.allocator
+            .allocate(&mut self.memory, size)
     }
 }
 
 impl ArenaWithDealloc for STArena {
-    fn dealloc(&mut self, pos: ArenaPos, len: usize) {
-        self.allocator.deallocate(&mut self.memory, pos, len);
+    fn dealloc(
+        &mut self,
+        pos: ArenaPos,
+        len: usize,
+    ) {
+        self.allocator
+            .deallocate(&mut self.memory, pos, len);
     }
 }
 
@@ -114,13 +136,23 @@ mod tests {
 
         let chunk1 = ArenaPos { chunk: 1, pos: 0 };
 
-        arena.ptr_mut(chunk1.offset_by(8)).slice_mut(4, 16).write_pos_at(6, chunk1.offset_by(123));
+        arena
+            .ptr_mut(chunk1.offset_by(8))
+            .slice_mut(4, 16)
+            .write_pos_at(6, chunk1.offset_by(123));
         assert_eq!(
-            arena.ptr(chunk1.offset_by(8)).slice(4, 16).read_ptr_at(6).raw_pos(),
+            arena
+                .ptr(chunk1.offset_by(8))
+                .slice(4, 16)
+                .read_ptr_at(6)
+                .raw_pos(),
             chunk1.offset_by(123)
         );
         assert_eq!(
-            arena.slice(chunk1.offset_by(18), 8).read_ptr_at(0).raw_pos(),
+            arena
+                .slice(chunk1.offset_by(18), 8)
+                .read_ptr_at(0)
+                .raw_pos(),
             chunk1.offset_by(123)
         );
 
@@ -129,11 +161,18 @@ mod tests {
             .subslice_mut(1, 8)
             .write_pos_at(0, chunk1.offset_by(234));
         assert_eq!(
-            arena.slice(chunk1.offset_by(10), 20).subslice(1, 8).read_ptr_at(0).raw_pos(),
+            arena
+                .slice(chunk1.offset_by(10), 20)
+                .subslice(1, 8)
+                .read_ptr_at(0)
+                .raw_pos(),
             chunk1.offset_by(234)
         );
         assert_eq!(
-            arena.slice(chunk1.offset_by(11), 8).read_ptr_at(0).raw_pos(),
+            arena
+                .slice(chunk1.offset_by(11), 8)
+                .read_ptr_at(0)
+                .raw_pos(),
             chunk1.offset_by(234)
         );
     }

@@ -11,22 +11,29 @@ use std::time::Instant;
 //
 // Please note that the trie is created for the block state with height equal to flat_head
 // flat state can contain deltas after flat_head and can be different from tip of the blockchain.
-pub fn construct_trie_from_flat(store: Store, write_store: Store, shard_uid: ShardUId) {
+pub fn construct_trie_from_flat(
+    store: Store,
+    write_store: Store,
+    shard_uid: ShardUId,
+) {
     let trie_storage = TrieDBStorage::new(store.trie_store(), shard_uid);
     let flat_state_to_trie_kv =
         |entry: Result<(Vec<u8>, FlatStateValue), FlatStorageError>| -> (Vec<u8>, Vec<u8>) {
             let (key, value) = entry.unwrap();
             let value = match value {
-                FlatStateValue::Ref(ref_value) => {
-                    trie_storage.retrieve_raw_bytes(&ref_value.hash).unwrap().to_vec()
-                }
-                FlatStateValue::Inlined(inline_value) => inline_value,
+                | FlatStateValue::Ref(ref_value) => trie_storage
+                    .retrieve_raw_bytes(&ref_value.hash)
+                    .unwrap()
+                    .to_vec(),
+                | FlatStateValue::Inlined(inline_value) => inline_value,
             };
             (key, value)
         };
 
     let store = store.flat_store();
-    let mut iter = store.iter(shard_uid).map(flat_state_to_trie_kv);
+    let mut iter = store
+        .iter(shard_uid)
+        .map(flat_state_to_trie_kv);
 
     // new ShardTries for write storage location
     let tries = ShardTries::new(
@@ -56,7 +63,7 @@ pub fn construct_trie_from_flat(store: Store, write_store: Store, shard_uid: Sha
 }
 
 fn get_trie_update_batch(
-    iter: &mut impl Iterator<Item = (Vec<u8>, Vec<u8>)>,
+    iter: &mut impl Iterator<Item = (Vec<u8>, Vec<u8>)>
 ) -> Option<Vec<(Vec<u8>, Option<Vec<u8>>)>> {
     let size_limit = 500 * 1000_000; // 500 MB
     let mut size = 0;

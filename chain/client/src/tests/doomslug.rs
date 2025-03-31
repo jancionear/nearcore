@@ -24,8 +24,14 @@ fn test_processing_skips_on_forks() {
         .validator_seats(2)
         .mock_epoch_managers()
         .build();
-    let b1 = env.clients[1].produce_block(1).unwrap().unwrap();
-    let b2 = env.clients[0].produce_block(2).unwrap().unwrap();
+    let b1 = env.clients[1]
+        .produce_block(1)
+        .unwrap()
+        .unwrap();
+    let b2 = env.clients[0]
+        .produce_block(2)
+        .unwrap()
+        .unwrap();
     assert_eq!(b1.header().prev_hash(), b2.header().prev_hash());
     env.process_block(1, b1, Provenance::NONE);
     env.process_block(1, b2, Provenance::NONE);
@@ -34,5 +40,9 @@ fn test_processing_skips_on_forks() {
     let approval = Approval::new(CryptoHash::default(), 1, 3, &validator_signer);
     let client_signer = env.clients[1].validator_signer.get();
     env.clients[1].collect_block_approval(&approval, ApprovalType::SelfApproval, &client_signer);
-    assert!(!env.clients[1].doomslug.approval_status_at_height(&3).approvals.is_empty());
+    assert!(!env.clients[1]
+        .doomslug
+        .approval_status_at_height(&3)
+        .approvals
+        .is_empty());
 }

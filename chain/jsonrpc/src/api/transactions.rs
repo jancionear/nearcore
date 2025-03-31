@@ -62,14 +62,14 @@ impl RpcFrom<AsyncSendError> for RpcTransactionError {
 impl RpcFrom<TxStatusError> for RpcTransactionError {
     fn rpc_from(error: TxStatusError) -> Self {
         match error {
-            TxStatusError::ChainError(err) => {
+            | TxStatusError::ChainError(err) => {
                 Self::InternalError { debug_info: format!("{:?}", err) }
             }
-            TxStatusError::MissingTransaction(requested_transaction_hash) => {
+            | TxStatusError::MissingTransaction(requested_transaction_hash) => {
                 Self::UnknownTransaction { requested_transaction_hash }
             }
-            TxStatusError::InternalError(debug_info) => Self::InternalError { debug_info },
-            TxStatusError::TimeoutError => Self::TimeoutError,
+            | TxStatusError::InternalError(debug_info) => Self::InternalError { debug_info },
+            | TxStatusError::TimeoutError => Self::TimeoutError,
         }
     }
 }

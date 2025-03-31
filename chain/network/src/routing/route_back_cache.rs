@@ -96,16 +96,27 @@ impl RouteBackCache {
     }
 
     fn remove_frequent(&mut self) {
-        let (mut size, target) = self.size_per_target.iter().next().cloned().unwrap();
+        let (mut size, target) = self
+            .size_per_target
+            .iter()
+            .next()
+            .cloned()
+            .unwrap();
         let mut removed = 0;
 
-        if let btree_map::Entry::Occupied(mut entry) = self.record_per_target.entry(target.clone())
+        if let btree_map::Entry::Occupied(mut entry) = self
+            .record_per_target
+            .entry(target.clone())
         {
             {
                 let records = entry.get_mut();
 
-                match records.iter().nth(self.remove_frequent_min_size).cloned() {
-                    Some(key) => {
+                match records
+                    .iter()
+                    .nth(self.remove_frequent_min_size)
+                    .cloned()
+                {
+                    | Some(key) => {
                         let mut to_remove = records.split_off(&key);
                         std::mem::swap(&mut to_remove, records);
 
@@ -114,7 +125,7 @@ impl RouteBackCache {
                             removed += 1;
                         }
                     }
-                    None => {
+                    | None => {
                         for record in records.iter() {
                             self.main.remove(&record.1);
                             removed += 1;
@@ -129,23 +140,28 @@ impl RouteBackCache {
             }
         }
 
-        self.size_per_target.remove(&(size, target.clone()));
+        self.size_per_target
+            .remove(&(size, target.clone()));
         // Since self.size is equal to capacity - real_size, adding 1, is equivalent to subtracting 1 from the real size.
         size += removed;
 
         if self.capacity - size != 0 {
-            self.size_per_target.insert((size, target));
+            self.size_per_target
+                .insert((size, target));
         }
     }
 
-    fn remove_evicted(&mut self, clock: &time::Clock) {
+    fn remove_evicted(
+        &mut self,
+        clock: &time::Clock,
+    ) {
         if self.is_full() {
             self.remove_frequent();
 
             let now = clock.now();
             let remove_until = match now.checked_sub_signed(self.evict_timeout) {
-                Some(t) => t,
-                None => return,
+                | Some(t) => t,
+                | None => return,
             };
             let mut remove_empty = vec![];
 
@@ -161,10 +177,12 @@ impl RouteBackCache {
                 let new_size = value.len();
 
                 if prev_size != new_size {
-                    self.size_per_target.remove(&(self.capacity - prev_size, key.clone()));
+                    self.size_per_target
+                        .remove(&(self.capacity - prev_size, key.clone()));
 
                     if new_size > 0 {
-                        self.size_per_target.insert((self.capacity - new_size, key.clone()));
+                        self.size_per_target
+                            .insert((self.capacity - new_size, key.clone()));
                     }
                 }
 
@@ -179,19 +197,33 @@ impl RouteBackCache {
         }
     }
 
-    pub fn get(&self, hash: &CryptoHash) -> Option<&PeerId> {
-        self.main.get(hash).map(|(_, target)| target)
+    pub fn get(
+        &self,
+        hash: &CryptoHash,
+    ) -> Option<&PeerId> {
+        self.main
+            .get(hash)
+            .map(|(_, target)| target)
     }
 
-    pub fn remove(&mut self, clock: &time::Clock, hash: &CryptoHash) -> Option<PeerId> {
+    pub fn remove(
+        &mut self,
+        clock: &time::Clock,
+        hash: &CryptoHash,
+    ) -> Option<PeerId> {
         self.remove_evicted(clock);
 
         if let Some((time, target)) = self.main.remove(hash) {
             // Number of elements associated with this target
-            let mut size = self.record_per_target.get(&target).map(|x| x.len()).unwrap();
+            let mut size = self
+                .record_per_target
+                .get(&target)
+                .map(|x| x.len())
+                .unwrap();
 
             // Remove from `size_per_target` since value is going to be updated
-            self.size_per_target.remove(&(self.capacity - size, target.clone()));
+            self.size_per_target
+                .remove(&(self.capacity - size, target.clone()));
 
             // Remove current hash from the list associated with `record_par_target`
             if let Some(records) = self.record_per_target.get_mut(&target) {
@@ -206,7 +238,8 @@ impl RouteBackCache {
                 self.record_per_target.remove(&target);
             } else {
                 // otherwise, add this peer to `size_per_target` with new size
-                self.size_per_target.insert((self.capacity - size, target.clone()));
+                self.size_per_target
+                    .insert((self.capacity - size, target.clone()));
             }
 
             Some(target)
@@ -215,7 +248,12 @@ impl RouteBackCache {
         }
     }
 
-    pub fn insert(&mut self, clock: &time::Clock, hash: CryptoHash, target: PeerId) {
+    pub fn insert(
+        &mut self,
+        clock: &time::Clock,
+        hash: CryptoHash,
+        target: PeerId,
+    ) {
         if self.main.contains_key(&hash) {
             return;
         }
@@ -224,18 +262,27 @@ impl RouteBackCache {
 
         let now = clock.now();
 
-        self.main.insert(hash, (now, target.clone()));
+        self.main
+            .insert(hash, (now, target.clone()));
 
-        let mut size = self.record_per_target.get(&target).map_or(0, |x| x.len());
+        let mut size = self
+            .record_per_target
+            .get(&target)
+            .map_or(0, |x| x.len());
 
         if size > 0 {
-            self.size_per_target.remove(&(self.capacity - size, target.clone()));
+            self.size_per_target
+                .remove(&(self.capacity - size, target.clone()));
         }
 
-        self.record_per_target.entry(target.clone()).or_default().insert((now, hash));
+        self.record_per_target
+            .entry(target.clone())
+            .or_default()
+            .insert((now, hash));
 
         size += 1;
-        self.size_per_target.insert((self.capacity - size, target));
+        self.size_per_target
+            .insert((self.capacity - size, target));
     }
 }
 
@@ -252,7 +299,14 @@ mod test {
         for (neg_size, target) in cache.size_per_target.iter() {
             let size = cache.capacity - neg_size;
             assert!(size > 0);
-            assert_eq!(size, cache.record_per_target.get(target).map(|x| x.len()).unwrap());
+            assert_eq!(
+                size,
+                cache
+                    .record_per_target
+                    .get(target)
+                    .map(|x| x.len())
+                    .unwrap()
+            );
         }
 
         let mut total = 0;

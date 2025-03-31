@@ -60,7 +60,9 @@ async fn test_spawn_after_dropping_service() {
                     // Even though the service has been cancelled, you can spawn more tasks on it
                     // until it is actually terminated. So it is always OK to spawn new tasks on
                     // a service from another task running on this service.
-                    service.spawn(async { R::Err(5) }).unwrap();
+                    service
+                        .spawn(async { R::Err(5) })
+                        .unwrap();
                     Ok(())
                 }
             })
@@ -78,11 +80,17 @@ async fn test_service_termination() {
     abort_on_panic();
     let res = scope::run!(|s| async {
         let service = s.new_service();
-        service.spawn(async { Ok(ctx::canceled().await) }).unwrap();
-        service.spawn(async { Ok(ctx::canceled().await) }).unwrap();
+        service
+            .spawn(async { Ok(ctx::canceled().await) })
+            .unwrap();
+        service
+            .spawn(async { Ok(ctx::canceled().await) })
+            .unwrap();
         service.terminate().await.unwrap();
         // Spawning after service termination should fail.
-        assert!(service.spawn(async { R::Err(1) }).is_err());
+        assert!(service
+            .spawn(async { R::Err(1) })
+            .is_err());
         Ok(())
     });
     assert_eq!(Ok(()), res);

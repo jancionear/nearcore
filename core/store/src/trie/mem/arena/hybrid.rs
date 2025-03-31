@@ -43,7 +43,11 @@ impl HybridArenaMemory {
 }
 
 impl ArenaMemory for HybridArenaMemory {
-    fn raw_slice(&self, mut pos: ArenaPos, len: usize) -> &[u8] {
+    fn raw_slice(
+        &self,
+        mut pos: ArenaPos,
+        len: usize,
+    ) -> &[u8] {
         debug_assert!(!pos.is_invalid());
         if pos.chunk >= self.chunks_offset() {
             pos.chunk -= self.chunks_offset();
@@ -55,15 +59,23 @@ impl ArenaMemory for HybridArenaMemory {
 }
 
 impl ArenaMemoryMut for HybridArenaMemory {
-    fn is_mutable(&self, pos: ArenaPos) -> bool {
+    fn is_mutable(
+        &self,
+        pos: ArenaPos,
+    ) -> bool {
         pos.chunk >= self.chunks_offset()
     }
 
-    fn raw_slice_mut(&mut self, mut pos: ArenaPos, len: usize) -> &mut [u8] {
+    fn raw_slice_mut(
+        &mut self,
+        mut pos: ArenaPos,
+        len: usize,
+    ) -> &mut [u8] {
         debug_assert!(!pos.is_invalid());
         assert!(pos.chunk >= self.chunks_offset(), "Cannot mutate shared memory");
         pos.chunk -= self.chunks_offset();
-        self.owned_memory.raw_slice_mut(pos, len)
+        self.owned_memory
+            .raw_slice_mut(pos, len)
     }
 }
 
@@ -99,7 +111,10 @@ impl From<STArena> for HybridArena {
 
 impl HybridArena {
     /// Function to create a new HybridArena from an existing instance of shared memory in FrozenArena.
-    pub fn from_frozen(name: String, frozen_arena: FrozenArena) -> Self {
+    pub fn from_frozen(
+        name: String,
+        frozen_arena: FrozenArena,
+    ) -> Self {
         let allocator = Allocator::new_with_initial_stats(
             name,
             frozen_arena.active_allocs_bytes,
@@ -154,19 +169,28 @@ impl ArenaMut for HybridArena {
         &mut self.memory
     }
 
-    fn alloc(&mut self, size: usize) -> ArenaSliceMut<Self::Memory> {
-        let ArenaSliceMut { mut pos, len, .. } =
-            self.allocator.allocate(&mut self.memory.owned_memory, size);
+    fn alloc(
+        &mut self,
+        size: usize,
+    ) -> ArenaSliceMut<Self::Memory> {
+        let ArenaSliceMut { mut pos, len, .. } = self
+            .allocator
+            .allocate(&mut self.memory.owned_memory, size);
         pos.chunk = pos.chunk + self.memory.chunks_offset();
         ArenaSliceMut::new(&mut self.memory, pos, len)
     }
 }
 
 impl ArenaWithDealloc for HybridArena {
-    fn dealloc(&mut self, mut pos: ArenaPos, len: usize) {
+    fn dealloc(
+        &mut self,
+        mut pos: ArenaPos,
+        len: usize,
+    ) {
         assert!(pos.chunk >= self.memory.chunks_offset(), "Cannot deallocate shared memory");
         pos.chunk = pos.chunk - self.memory.chunks_offset();
-        self.allocator.deallocate(&mut self.memory.owned_memory, pos, len);
+        self.allocator
+            .deallocate(&mut self.memory.owned_memory, pos, len);
     }
 }
 
@@ -185,7 +209,9 @@ mod tests {
         // Create and populate STArena with 2 chunks
         let chunks = vec![vec![0; 1000], vec![0; 1000]];
         let mut st_arena = STArena::new_from_existing_chunks("test".to_string(), chunks, 0, 0);
-        let slice = st_arena.memory_mut().raw_slice_mut(pos0, size);
+        let slice = st_arena
+            .memory_mut()
+            .raw_slice_mut(pos0, size);
         for i in 0..size {
             slice[i] = i as u8;
         }
@@ -210,15 +236,25 @@ mod tests {
 
         // Verify written values to frozen arena
         for i in 0..size {
-            let val = frozen_arena.memory.raw_slice(pos0, size)[i];
+            let val = frozen_arena
+                .memory
+                .raw_slice(pos0, size)[i];
             assert_eq!(val, i as u8);
         }
 
         // Verify shared and owned memory written values
-        let shared_slice1 = hybrid_arena1.memory().raw_slice(pos0, size);
-        let shared_slice2 = hybrid_arena2.memory().raw_slice(pos0, size);
-        let slice1 = hybrid_arena1.memory().raw_slice(ArenaPos { chunk: 2, pos: 56 }, size);
-        let slice2 = hybrid_arena2.memory().raw_slice(ArenaPos { chunk: 2, pos: 0 }, size);
+        let shared_slice1 = hybrid_arena1
+            .memory()
+            .raw_slice(pos0, size);
+        let shared_slice2 = hybrid_arena2
+            .memory()
+            .raw_slice(pos0, size);
+        let slice1 = hybrid_arena1
+            .memory()
+            .raw_slice(ArenaPos { chunk: 2, pos: 56 }, size);
+        let slice2 = hybrid_arena2
+            .memory()
+            .raw_slice(ArenaPos { chunk: 2, pos: 0 }, size);
         for i in 0..size {
             assert_eq!(shared_slice1[i], i as u8);
             assert_eq!(shared_slice2[i], i as u8);
@@ -234,6 +270,8 @@ mod tests {
         let st_arena = STArena::new_from_existing_chunks("test".to_string(), chunks, 0, 0);
         let frozen_arena = HybridArena::from(st_arena).freeze();
         let mut hybrid_arena = HybridArena::from_frozen("test".to_string(), frozen_arena);
-        let _slice = hybrid_arena.memory_mut().raw_slice_mut(ArenaPos { chunk: 1, pos: 25 }, 50);
+        let _slice = hybrid_arena
+            .memory_mut()
+            .raw_slice_mut(ArenaPos { chunk: 1, pos: 25 }, 50);
     }
 }

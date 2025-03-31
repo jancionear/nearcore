@@ -78,14 +78,18 @@ impl crate::CongestionStrategy for FancyGlobalTransactionStop {
             }
             let name = format!("outgoing_receipts_{}", shard_id);
             let queue = queue_factory.register_queue(id, &name);
-            self.outgoing_receipts.insert(*shard_id, queue);
+            self.outgoing_receipts
+                .insert(*shard_id, queue);
         }
 
         self.shard_id = Some(id);
         self.all_shards = all_shards.to_vec();
     }
 
-    fn compute_chunk(&mut self, ctx: &mut ChunkExecutionContext) {
+    fn compute_chunk(
+        &mut self,
+        ctx: &mut ChunkExecutionContext,
+    ) {
         self.process_outgoing_receipts(ctx);
 
         self.process_incoming_receipts(ctx);
@@ -100,12 +104,18 @@ impl FancyGlobalTransactionStop {
     // Send the outgoing receipts to other shards. If the other shard is under
     // congestion we limit how much attached gas is allowed to be sent by
     // setting a send_limit limit.
-    fn process_outgoing_receipts(&mut self, ctx: &mut ChunkExecutionContext<'_>) {
+    fn process_outgoing_receipts(
+        &mut self,
+        ctx: &mut ChunkExecutionContext<'_>,
+    ) {
         self.sent_outgoing_receipts_gas.clear();
 
         for (other_shard_id, queue_id) in &self.outgoing_receipts {
             let send_limit = self.get_outgoing_gas_limit(ctx, *other_shard_id);
-            let sent = self.sent_outgoing_receipts_gas.entry(*other_shard_id).or_default();
+            let sent = self
+                .sent_outgoing_receipts_gas
+                .entry(*other_shard_id)
+                .or_default();
             while *sent < send_limit {
                 let Some(receipt) = ctx.queue(*queue_id).pop_front() else {
                     break;
@@ -120,7 +130,10 @@ impl FancyGlobalTransactionStop {
     // Process the incoming receipts. Always process as many receipts as allowed
     // by the GAS_LIMIT. The outgoing receipts are handled the same way as in
     // `process_outgoing_receipts`.
-    fn process_incoming_receipts(&mut self, ctx: &mut ChunkExecutionContext<'_>) {
+    fn process_incoming_receipts(
+        &mut self,
+        ctx: &mut ChunkExecutionContext<'_>,
+    ) {
         while ctx.gas_burnt() < GAS_LIMIT {
             let Some(receipt) = ctx.incoming_receipts().pop_front() else {
                 break;
@@ -136,7 +149,10 @@ impl FancyGlobalTransactionStop {
     // Process new transactions. The processing is limited to the gas_limit
     // and the outgoing receipts are handled the same way as in
     // `process_outgoing_receipts`.
-    fn process_new_transactions(&mut self, ctx: &mut ChunkExecutionContext<'_>) {
+    fn process_new_transactions(
+        &mut self,
+        ctx: &mut ChunkExecutionContext<'_>,
+    ) {
         let gas_limit = self.get_new_tx_gas_limit(ctx);
 
         while ctx.gas_burnt() < gas_limit {
@@ -151,7 +167,11 @@ impl FancyGlobalTransactionStop {
 
     // Forward or queue a receipt.
     // Local receipts are always forwarded. FIXME local congestion
-    fn forward_or_queue(&mut self, ctx: &mut ChunkExecutionContext<'_>, receipt: Receipt) {
+    fn forward_or_queue(
+        &mut self,
+        ctx: &mut ChunkExecutionContext<'_>,
+        receipt: Receipt,
+    ) {
         let shard_id = receipt.receiver;
 
         // If we are the receiver just forward the receipt.
@@ -162,9 +182,13 @@ impl FancyGlobalTransactionStop {
 
         // We are only allowed to send up to send_limit attached gas to the shard_id.
         let send_limit = self.get_outgoing_gas_limit(ctx, shard_id);
-        let sent = self.sent_outgoing_receipts_gas.entry(shard_id).or_default();
+        let sent = self
+            .sent_outgoing_receipts_gas
+            .entry(shard_id)
+            .or_default();
         if *sent >= send_limit {
-            ctx.queue(self.outgoing_receipts[&shard_id]).push_back(receipt);
+            ctx.queue(self.outgoing_receipts[&shard_id])
+                .push_back(receipt);
             return;
         }
 
@@ -179,13 +203,18 @@ impl FancyGlobalTransactionStop {
     // filling up. Keep in mind that by default incoming receipts are always
     // included first so if the incoming receipts queue is full then no new
     // transactions will be included anyway.
-    fn get_new_tx_gas_limit(&self, ctx: &mut ChunkExecutionContext) -> GGas {
+    fn get_new_tx_gas_limit(
+        &self,
+        ctx: &mut ChunkExecutionContext,
+    ) -> GGas {
         // Get the max of the outgoing receipts queues across all shards.
         // This is the same as global transaction stop.
         let max_gas = self.get_global_max_outgoing_receipts_attached_gas(ctx);
 
         // How much remaining space is there in the fullest queue.
-        let remaining = self.outgoing_attached_gas_limit.saturating_sub(max_gas);
+        let remaining = self
+            .outgoing_attached_gas_limit
+            .saturating_sub(max_gas);
 
         // If the fullest queue is less than half full we want to process a full chunk.
         let half_max = self.outgoing_attached_gas_limit / 2;
@@ -210,13 +239,19 @@ impl FancyGlobalTransactionStop {
         ctx: &mut ChunkExecutionContext,
         other_shard_id: ShardId,
     ) -> GGas {
-        let Some(info) = ctx.prev_block_info().get(&other_shard_id) else {
+        let Some(info) = ctx
+            .prev_block_info()
+            .get(&other_shard_id)
+        else {
             return self.outgoing_attached_gas_limit;
         };
-        let info = info.get::<CongestedShardsInfo>().unwrap();
+        let info = info
+            .get::<CongestedShardsInfo>()
+            .unwrap();
 
-        let remaining =
-            self.incoming_attached_gas_limit.saturating_sub(info.incoming_receipts_attached_gas);
+        let remaining = self
+            .incoming_attached_gas_limit
+            .saturating_sub(info.incoming_receipts_attached_gas);
 
         // If the queue is less than half full we want to process a full chunk.
         let half_max = self.incoming_attached_gas_limit / 2;
@@ -232,7 +267,10 @@ impl FancyGlobalTransactionStop {
         self.outgoing_attached_gas_limit * remaining / half_max
     }
 
-    fn get_max_outgoing_receipts_attached_gas(&self, ctx: &mut ChunkExecutionContext) -> GGas {
+    fn get_max_outgoing_receipts_attached_gas(
+        &self,
+        ctx: &mut ChunkExecutionContext,
+    ) -> GGas {
         let mut result: GGas = 0;
         for (_, queue_id) in &self.outgoing_receipts {
             let queue_attached_gas = ctx.queue(*queue_id).attached_gas();
@@ -251,13 +289,18 @@ impl FancyGlobalTransactionStop {
             let Some(info) = ctx.prev_block_info().get(shard_id) else {
                 continue;
             };
-            let info = info.get::<CongestedShardsInfo>().unwrap();
+            let info = info
+                .get::<CongestedShardsInfo>()
+                .unwrap();
             result = result.max(info.max_outgoing_receipts_attached_gas);
         }
         result
     }
 
-    fn update_block_info(&mut self, ctx: &mut ChunkExecutionContext<'_>) {
+    fn update_block_info(
+        &mut self,
+        ctx: &mut ChunkExecutionContext<'_>,
+    ) {
         let info = CongestedShardsInfo {
             incoming_receipts_attached_gas: ctx.incoming_receipts().attached_gas(),
             max_outgoing_receipts_attached_gas: self.get_max_outgoing_receipts_attached_gas(ctx),

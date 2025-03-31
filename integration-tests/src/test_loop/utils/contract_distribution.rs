@@ -7,17 +7,28 @@ use near_vm_runner::get_contract_cache_key;
 
 /// Runs the network until all the nodes contain the given code hash in their compiled-contracts cache.
 /// This is used, for example, to make sure that a deploy action took effect in the network and code was distributed to all nodes.
-pub(crate) fn run_until_caches_contain_contract(env: &mut TestLoopEnv, code_hash: &CryptoHash) {
+pub(crate) fn run_until_caches_contain_contract(
+    env: &mut TestLoopEnv,
+    code_hash: &CryptoHash,
+) {
     env.test_loop.run_until(
         |test_loop_data: &mut TestLoopData| -> bool {
             for i in 0..env.datas.len() {
-                let client_handle = env.datas[i].client_sender.actor_handle();
-                let client = &test_loop_data.get(&client_handle).client;
-                let runtime_config =
-                    client.runtime_adapter.get_runtime_config(PROTOCOL_VERSION).unwrap();
+                let client_handle = env.datas[i]
+                    .client_sender
+                    .actor_handle();
+                let client = &test_loop_data
+                    .get(&client_handle)
+                    .client;
+                let runtime_config = client
+                    .runtime_adapter
+                    .get_runtime_config(PROTOCOL_VERSION)
+                    .unwrap();
                 let cache_key = get_contract_cache_key(*code_hash, &runtime_config.wasm_config);
 
-                let contract_cache = client.runtime_adapter.compiled_contract_cache();
+                let contract_cache = client
+                    .runtime_adapter
+                    .compiled_contract_cache();
                 if !contract_cache.has(&cache_key).unwrap() {
                     return false;
                 }
@@ -35,29 +46,48 @@ pub(crate) fn assert_all_chunk_endorsements_received(
     start_height: u64,
     end_height: u64,
 ) {
-    let client_handle = env.datas[0].client_sender.actor_handle();
-    let client = &env.test_loop.data.get(&client_handle).client;
+    let client_handle = env.datas[0]
+        .client_sender
+        .actor_handle();
+    let client = &env
+        .test_loop
+        .data
+        .get(&client_handle)
+        .client;
     let chain_store = client.chain.chain_store();
     let epoch_manager = &client.epoch_manager;
 
     for height in start_height..=end_height {
-        let header = chain_store.get_block_header_by_height(height).unwrap();
+        let header = chain_store
+            .get_block_header_by_height(height)
+            .unwrap();
 
-        let epoch_id = epoch_manager.get_epoch_id_from_prev_block(header.prev_hash()).unwrap();
-        let shard_layout = epoch_manager.get_shard_layout(&epoch_id).unwrap();
-        let shard_ids =
-            epoch_manager.get_shard_layout(&epoch_id).unwrap().shard_ids().collect_vec();
+        let epoch_id = epoch_manager
+            .get_epoch_id_from_prev_block(header.prev_hash())
+            .unwrap();
+        let shard_layout = epoch_manager
+            .get_shard_layout(&epoch_id)
+            .unwrap();
+        let shard_ids = epoch_manager
+            .get_shard_layout(&epoch_id)
+            .unwrap()
+            .shard_ids()
+            .collect_vec();
         let chunk_mask = header.chunk_mask();
         let endorsements = header.chunk_endorsements().unwrap();
         for shard_id in shard_ids.into_iter() {
-            let shard_index = shard_layout.get_shard_index(shard_id).unwrap();
+            let shard_index = shard_layout
+                .get_shard_index(shard_id)
+                .unwrap();
             let num_validator_assignments = epoch_manager
                 .get_chunk_validator_assignments(&epoch_id, shard_id, height)
                 .unwrap()
                 .ordered_chunk_validators()
                 .len();
-            let num_received_endorsements =
-                endorsements.iter(shard_index).filter(|endorsement| *endorsement).count();
+            let num_received_endorsements = endorsements
+                .iter(shard_index)
+                .filter(|endorsement| *endorsement)
+                .count();
 
             assert!(chunk_mask[shard_index], "Missed chunk at shard index {}", shard_index);
             assert_eq!(
@@ -73,7 +103,9 @@ pub(crate) fn assert_all_chunk_endorsements_received(
 pub(crate) fn clear_compiled_contract_caches(_env: &mut TestLoopEnv) {
     #[cfg(feature = "test_features")]
     for i in 0.._env.datas.len() {
-        let client_handle = _env.datas[i].client_sender.actor_handle();
+        let client_handle = _env.datas[i]
+            .client_sender
+            .actor_handle();
         let contract_cache_handle = _env
             .test_loop
             .data
@@ -81,6 +113,8 @@ pub(crate) fn clear_compiled_contract_caches(_env: &mut TestLoopEnv) {
             .client
             .runtime_adapter
             .compiled_contract_cache();
-        contract_cache_handle.test_only_clear().unwrap();
+        contract_cache_handle
+            .test_only_clear()
+            .unwrap();
     }
 }

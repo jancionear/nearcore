@@ -44,11 +44,14 @@ fn receipt_cost(
     receipt: &Receipt,
 ) -> Result<Balance, IntegerOverflowError> {
     Ok(match receipt.receipt() {
-        ReceiptEnum::Action(action_receipt) | ReceiptEnum::PromiseYield(action_receipt) => {
+        | ReceiptEnum::Action(action_receipt) | ReceiptEnum::PromiseYield(action_receipt) => {
             let mut total_cost = total_deposit(&action_receipt.actions)?;
             if !receipt.predecessor_id().is_system() {
                 let mut total_gas = safe_add_gas(
-                    config.fees.fee(ActionCosts::new_action_receipt).exec_fee(),
+                    config
+                        .fees
+                        .fee(ActionCosts::new_action_receipt)
+                        .exec_fee(),
                     total_prepaid_exec_fees(
                         config,
                         &action_receipt.actions,
@@ -65,7 +68,7 @@ fn receipt_cost(
             }
             total_cost
         }
-        ReceiptEnum::Data(_) | ReceiptEnum::PromiseResume(_) => 0,
+        | ReceiptEnum::Data(_) | ReceiptEnum::PromiseResume(_) => 0,
     })
 }
 
@@ -74,10 +77,12 @@ fn total_receipts_cost(
     config: &RuntimeConfig,
     receipts: &[Receipt],
 ) -> Result<Balance, IntegerOverflowError> {
-    receipts.iter().try_fold(0, |accumulator, receipt| {
-        let cost = receipt_cost(config, receipt)?;
-        safe_add_balance(accumulator, cost)
-    })
+    receipts
+        .iter()
+        .try_fold(0, |accumulator, receipt| {
+            let cost = receipt_cost(config, receipt)?;
+            safe_add_balance(accumulator, cost)
+        })
 }
 
 /// Returns total account balance of all accounts with given ids.
@@ -85,13 +90,15 @@ fn total_accounts_balance(
     state: &dyn TrieAccess,
     accounts_ids: &HashSet<AccountId>,
 ) -> Result<Balance, RuntimeError> {
-    accounts_ids.iter().try_fold(0u128, |accumulator, account_id| {
-        let (amount, locked) = match get_account(state, account_id)? {
-            None => return Ok(accumulator),
-            Some(account) => (account.amount(), account.locked()),
-        };
-        Ok(safe_add_balance_apply!(accumulator, amount, locked))
-    })
+    accounts_ids
+        .iter()
+        .try_fold(0u128, |accumulator, account_id| {
+            let (amount, locked) = match get_account(state, account_id)? {
+                | None => return Ok(accumulator),
+                | Some(account) => (account.amount(), account.locked()),
+            };
+            Ok(safe_add_balance_apply!(accumulator, amount, locked))
+        })
 }
 
 #[derive(Eq, Hash, PartialEq)]
@@ -106,28 +113,30 @@ fn total_postponed_receipts_cost(
     config: &RuntimeConfig,
     receipt_ids: &HashSet<(PostponedReceiptType, AccountId, crate::CryptoHash)>,
 ) -> Result<Balance, RuntimeError> {
-    receipt_ids.iter().try_fold(0, |total, item| {
-        let (receipt_type, account_id, lookup_id) = item;
+    receipt_ids
+        .iter()
+        .try_fold(0, |total, item| {
+            let (receipt_type, account_id, lookup_id) = item;
 
-        let cost = match receipt_type {
-            PostponedReceiptType::Action => {
-                match get_postponed_receipt(state, account_id, *lookup_id)? {
-                    None => return Ok(total),
-                    Some(receipt) => receipt_cost(config, &receipt)?,
+            let cost = match receipt_type {
+                | PostponedReceiptType::Action => {
+                    match get_postponed_receipt(state, account_id, *lookup_id)? {
+                        | None => return Ok(total),
+                        | Some(receipt) => receipt_cost(config, &receipt)?,
+                    }
                 }
-            }
-            PostponedReceiptType::PromiseYield => {
-                match get_promise_yield_receipt(state, account_id, *lookup_id)? {
-                    None => return Ok(total),
-                    Some(receipt) => receipt_cost(config, &receipt)?,
+                | PostponedReceiptType::PromiseYield => {
+                    match get_promise_yield_receipt(state, account_id, *lookup_id)? {
+                        | None => return Ok(total),
+                        | Some(receipt) => receipt_cost(config, &receipt)?,
+                    }
                 }
-            }
-        };
+            };
 
-        safe_add_balance(total, cost).map_err(|_| {
-            RuntimeError::UnexpectedIntegerOverflow("total_postponed_receipts_cost".into())
+            safe_add_balance(total, cost).map_err(|_| {
+                RuntimeError::UnexpectedIntegerOverflow("total_postponed_receipts_cost".into())
+            })
         })
-    })
 }
 
 /// Compute balance going in and out of the outgoing receipt buffer.
@@ -150,19 +159,30 @@ fn buffered_receipts(
         let after = final_buffer.indices();
         // Conservative math check to avoid future problems with merged shards,
         // in which case the final index can be 0 and the initial index larger.
-        if let Some(num_forwarded) = after.first_index.checked_sub(before.first_index) {
+        if let Some(num_forwarded) = after
+            .first_index
+            .checked_sub(before.first_index)
+        {
             // The first n receipts were forwarded.
-            for receipt in initial_buffer.iter(initial_state, true).take(num_forwarded as usize) {
+            for receipt in initial_buffer
+                .iter(initial_state, true)
+                .take(num_forwarded as usize)
+            {
                 let receipt = receipt?;
                 let receipt = receipt.into_receipt();
                 forwarded_receipts.push(receipt)
             }
         }
-        if let Some(num_buffered) =
-            after.next_available_index.checked_sub(before.next_available_index)
+        if let Some(num_buffered) = after
+            .next_available_index
+            .checked_sub(before.next_available_index)
         {
             // The last n receipts are new. ("rev" to take from the back)
-            for receipt in final_buffer.iter(final_state, true).rev().take(num_buffered as usize) {
+            for receipt in final_buffer
+                .iter(final_state, true)
+                .rev()
+                .take(num_buffered as usize)
+            {
                 let receipt = receipt?;
                 let receipt = receipt.into_receipt();
                 new_buffered_receipts.push(receipt)
@@ -185,15 +205,47 @@ fn all_touched_accounts(
     let mut all_accounts_ids: HashSet<AccountId> = transactions
         .iter_nonexpired_transactions()
         .map(|tx| tx.transaction.signer_id().clone())
-        .chain(incoming_receipts.iter().map(|r| r.receiver_id().clone()))
-        .chain(yield_timeout_receipts.iter().map(|r| r.receiver_id().clone()))
-        .chain(processed_delayed_receipts.iter().map(|r| r.receiver_id().clone()))
+        .chain(
+            incoming_receipts
+                .iter()
+                .map(|r| r.receiver_id().clone()),
+        )
+        .chain(
+            yield_timeout_receipts
+                .iter()
+                .map(|r| r.receiver_id().clone()),
+        )
+        .chain(
+            processed_delayed_receipts
+                .iter()
+                .map(|r| r.receiver_id().clone()),
+        )
         .collect();
     if let Some(validator_accounts_update) = validator_accounts_update {
-        all_accounts_ids.extend(validator_accounts_update.stake_info.keys().cloned());
-        all_accounts_ids.extend(validator_accounts_update.validator_rewards.keys().cloned());
-        all_accounts_ids.extend(validator_accounts_update.last_proposals.keys().cloned());
-        all_accounts_ids.extend(validator_accounts_update.slashing_info.keys().cloned());
+        all_accounts_ids.extend(
+            validator_accounts_update
+                .stake_info
+                .keys()
+                .cloned(),
+        );
+        all_accounts_ids.extend(
+            validator_accounts_update
+                .validator_rewards
+                .keys()
+                .cloned(),
+        );
+        all_accounts_ids.extend(
+            validator_accounts_update
+                .last_proposals
+                .keys()
+                .cloned(),
+        );
+        all_accounts_ids.extend(
+            validator_accounts_update
+                .slashing_info
+                .keys()
+                .cloned(),
+        );
         if let Some(account_id) = &validator_accounts_update.protocol_treasury_account_id {
             all_accounts_ids.insert(account_id.clone());
         }
@@ -203,7 +255,7 @@ fn all_touched_accounts(
 }
 
 fn validator_rewards(
-    validator_accounts_update: &ValidatorAccountsUpdate,
+    validator_accounts_update: &ValidatorAccountsUpdate
 ) -> Result<Balance, IntegerOverflowError> {
     validator_accounts_update
         .validator_rewards
@@ -227,12 +279,12 @@ fn potential_postponed_receipt_ids(
         .filter_map(|receipt| {
             let account_id = receipt.receiver_id();
             match receipt.receipt() {
-                ReceiptEnum::Action(_) => Some(Ok((
+                | ReceiptEnum::Action(_) => Some(Ok((
                     PostponedReceiptType::Action,
                     account_id.clone(),
                     *receipt.receipt_id(),
                 ))),
-                ReceiptEnum::Data(data_receipt) => {
+                | ReceiptEnum::Data(data_receipt) => {
                     let result = get(
                         initial_state,
                         &TrieKey::PostponedReceiptId {
@@ -241,19 +293,19 @@ fn potential_postponed_receipt_ids(
                         },
                     );
                     match result {
-                        Err(err) => Some(Err(err)),
-                        Ok(None) => None,
-                        Ok(Some(receipt_id)) => {
+                        | Err(err) => Some(Err(err)),
+                        | Ok(None) => None,
+                        | Ok(Some(receipt_id)) => {
                             Some(Ok((PostponedReceiptType::Action, account_id.clone(), receipt_id)))
                         }
                     }
                 }
-                ReceiptEnum::PromiseYield(action_receipt) => Some(Ok((
+                | ReceiptEnum::PromiseYield(action_receipt) => Some(Ok((
                     PostponedReceiptType::PromiseYield,
                     account_id.clone(),
                     action_receipt.input_data_ids[0],
                 ))),
-                ReceiptEnum::PromiseResume(data_receipt) => Some(Ok((
+                | ReceiptEnum::PromiseResume(data_receipt) => Some(Ok((
                     PostponedReceiptType::PromiseYield,
                     account_id.clone(),
                     data_receipt.data_id,
@@ -312,8 +364,11 @@ pub(crate) fn check_balance(
     let final_accounts_balance = total_accounts_balance(final_state, &all_accounts_ids)?;
 
     // Validator rewards
-    let incoming_validator_rewards =
-        validator_accounts_update.as_ref().map(validator_rewards).transpose()?.unwrap_or(0);
+    let incoming_validator_rewards = validator_accounts_update
+        .as_ref()
+        .map(validator_rewards)
+        .transpose()?
+        .unwrap_or(0);
 
     // Receipts
     let receipts_cost = |receipts: &[Receipt]| -> Result<Balance, IntegerOverflowError> {
@@ -437,7 +492,11 @@ mod tests {
             &RuntimeConfig::test(),
             &final_state,
             &None,
-            &[Receipt::new_balance_refund(&alice_account(), 1000, ReceiptPriority::NoPriority)],
+            &[Receipt::new_balance_refund(
+                &alice_account(),
+                1000,
+                ReceiptPriority::NoPriority,
+            )],
             &[],
             &[],
             SignedValidPeriodTransactions::empty(),
@@ -460,7 +519,10 @@ mod tests {
             let mut trie_update = tries.new_trie_update(shard_uid, Trie::EMPTY_ROOT);
             set_initial_state(&mut trie_update);
             trie_update.commit(StateChangeCause::NotWritableToDisk);
-            let trie_changes = trie_update.finalize().unwrap().trie_changes;
+            let trie_changes = trie_update
+                .finalize()
+                .unwrap()
+                .trie_changes;
             let mut store_update = tries.store_update();
             let root = tries.apply_all(&trie_changes, shard_uid, &mut store_update);
             store_update.commit().unwrap();
@@ -521,10 +583,18 @@ mod tests {
         let gas_price = 100;
         let cfg = RuntimeConfig::test();
         let fees = &cfg.fees;
-        let exec_gas = fees.fee(ActionCosts::new_action_receipt).exec_fee()
-            + fees.fee(ActionCosts::transfer).exec_fee();
-        let send_gas = fees.fee(ActionCosts::new_action_receipt).send_fee(false)
-            + fees.fee(ActionCosts::transfer).send_fee(false);
+        let exec_gas = fees
+            .fee(ActionCosts::new_action_receipt)
+            .exec_fee()
+            + fees
+                .fee(ActionCosts::transfer)
+                .exec_fee();
+        let send_gas = fees
+            .fee(ActionCosts::new_action_receipt)
+            .send_fee(false)
+            + fees
+                .fee(ActionCosts::transfer)
+                .send_fee(false);
         let contract_reward = send_gas as u128 * *fees.burnt_gas_reward.numer() as u128 * gas_price
             / (*fees.burnt_gas_reward.denom() as u128);
         let total_validator_reward = send_gas as Balance * gas_price - contract_reward;
@@ -566,7 +636,11 @@ mod tests {
         .unwrap();
     }
 
-    fn transfer_tx(sender: AccountId, receiver: AccountId, deposit: u128) -> SignedTransaction {
+    fn transfer_tx(
+        sender: AccountId,
+        receiver: AccountId,
+        deposit: u128,
+    ) -> SignedTransaction {
         let signer = InMemorySigner::test_signer(&sender);
         let tx = SignedTransaction::send_money(
             0,
@@ -579,7 +653,11 @@ mod tests {
         tx
     }
 
-    fn extract_transfer_receipt(tx: &SignedTransaction, gas_price: u128, deposit: u128) -> Receipt {
+    fn extract_transfer_receipt(
+        tx: &SignedTransaction,
+        gas_price: u128,
+        deposit: u128,
+    ) -> Receipt {
         Receipt::V0(ReceiptV0 {
             predecessor_id: tx.transaction.signer_id().clone(),
             receiver_id: tx.transaction.receiver_id().clone(),
@@ -590,7 +668,9 @@ mod tests {
                 gas_price,
                 output_data_receivers: vec![],
                 input_data_ids: vec![],
-                actions: vec![Action::Transfer(TransferAction { deposit })],
+                actions: vec![Action::Transfer(TransferAction {
+                    deposit,
+                })],
             }),
         })
     }
@@ -695,10 +775,18 @@ mod tests {
 
         let cfg = RuntimeConfig::test();
         let fees = &cfg.fees;
-        let exec_gas = fees.fee(ActionCosts::new_action_receipt).exec_fee()
-            + fees.fee(ActionCosts::transfer).exec_fee();
-        let send_gas = fees.fee(ActionCosts::new_action_receipt).send_fee(false)
-            + fees.fee(ActionCosts::transfer).send_fee(false);
+        let exec_gas = fees
+            .fee(ActionCosts::new_action_receipt)
+            .exec_fee()
+            + fees
+                .fee(ActionCosts::transfer)
+                .exec_fee();
+        let send_gas = fees
+            .fee(ActionCosts::new_action_receipt)
+            .send_fee(false)
+            + fees
+                .fee(ActionCosts::transfer)
+                .send_fee(false);
 
         let final_state = prepare_state_change(
             |trie_update| {

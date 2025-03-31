@@ -52,16 +52,21 @@ impl<'model> ChunkExecutionContext<'model> {
 
     /// Access the implicitly defined incoming receipts queue.
     pub fn incoming_receipts(&mut self) -> &mut Queue {
-        self.queues.incoming_receipts_mut(self.shard)
+        self.queues
+            .incoming_receipts_mut(self.shard)
     }
 
     /// Access a queue that was created in the init method.
-    pub fn queue(&mut self, id: QueueId) -> &mut Queue {
+    pub fn queue(
+        &mut self,
+        id: QueueId,
+    ) -> &mut Queue {
         self.queues.queue_mut(id)
     }
 
     pub fn incoming_transactions(&mut self) -> &mut VecDeque<TransactionId> {
-        self.queues.incoming_transactions_mut(self.shard)
+        self.queues
+            .incoming_transactions_mut(self.shard)
     }
 
     pub fn gas_burnt(&self) -> GGas {
@@ -69,7 +74,10 @@ impl<'model> ChunkExecutionContext<'model> {
     }
 
     /// Accept a transaction and convert it to a receipt.
-    pub fn accept_transaction(&mut self, tx: TransactionId) -> Receipt {
+    pub fn accept_transaction(
+        &mut self,
+        tx: TransactionId,
+    ) -> Receipt {
         // note: Check the total gas limit, not the TX gas limit because we want
         // to allow changes to how the chunk space is split between transactions
         // and receipts.
@@ -85,7 +93,10 @@ impl<'model> ChunkExecutionContext<'model> {
         new_receipts.pop().unwrap()
     }
 
-    pub fn execute_receipt(&mut self, receipt: Receipt) -> Vec<Receipt> {
+    pub fn execute_receipt(
+        &mut self,
+        receipt: Receipt,
+    ) -> Vec<Receipt> {
         assert!(
             self.gas_burnt < GAS_LIMIT,
             "trying to execute more than receipts than the gas limit allows",
@@ -98,12 +109,18 @@ impl<'model> ChunkExecutionContext<'model> {
         new_receipts
     }
 
-    pub fn drop_receipt(&mut self, receipt: Receipt) {
+    pub fn drop_receipt(
+        &mut self,
+        receipt: Receipt,
+    ) {
         let tx = receipt.transaction_id();
         self.transactions[tx].drop_receipt(receipt, self.round);
     }
 
-    pub fn forward_receipt(&mut self, receipt: Receipt) {
+    pub fn forward_receipt(
+        &mut self,
+        receipt: Receipt,
+    ) {
         self.outgoing_receipts.push(receipt);
     }
 
@@ -119,7 +136,10 @@ impl<'model> ChunkExecutionContext<'model> {
     }
 
     /// Gas cost to convert the transaction to a receipt.
-    pub fn tx_conversion_gas(&self, id: TransactionId) -> GGas {
+    pub fn tx_conversion_gas(
+        &self,
+        id: TransactionId,
+    ) -> GGas {
         self.transactions[id].tx_conversion_cost
     }
 
@@ -128,11 +148,17 @@ impl<'model> ChunkExecutionContext<'model> {
     /// Like in real nearcore, this does not include the conversion cost. Unlike
     /// real nearcore, we are not splitting between action execution gas and
     /// attached gas.
-    pub fn tx_attached_gas(&self, id: TransactionId) -> GGas {
+    pub fn tx_attached_gas(
+        &self,
+        id: TransactionId,
+    ) -> GGas {
         self.transactions[id].initial_receipt_gas()
     }
 
-    pub fn tx_receiver(&self, id: TransactionId) -> ShardId {
+    pub fn tx_receiver(
+        &self,
+        id: TransactionId,
+    ) -> ShardId {
         self.transactions[id].initial_receipt_receiver()
     }
 }

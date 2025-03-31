@@ -39,14 +39,22 @@ pub(crate) fn test_protocol_upgrade(
     let num_validators = 2;
     let num_rpc = 1;
     let epoch_length = 10;
-    let accounts =
-        (0..20).map(|i| format!("account{}", i).parse().unwrap()).collect::<Vec<AccountId>>();
+    let accounts = (0..20)
+        .map(|i| format!("account{}", i).parse().unwrap())
+        .collect::<Vec<AccountId>>();
     let initial_balance = 10000 * ONE_NEAR;
-    let clients = accounts.iter().take(num_clients).cloned().collect_vec();
+    let clients = accounts
+        .iter()
+        .take(num_clients)
+        .cloned()
+        .collect_vec();
 
     // TODO - support different shard layouts, is there a way to make missing chunks generic?
     let boundary_accounts = ["account3", "account5", "account7"];
-    let boundary_accounts = boundary_accounts.iter().map(|a| a.parse().unwrap()).collect();
+    let boundary_accounts = boundary_accounts
+        .iter()
+        .map(|a| a.parse().unwrap())
+        .collect();
     let shard_layout = ShardLayout::multi_shard_custom(boundary_accounts, 1);
 
     // split the clients into producers, validators, and rpc nodes
@@ -56,8 +64,14 @@ pub(crate) fn test_protocol_upgrade(
     let (rpcs, tmp) = tmp.split_at(num_rpc);
     assert!(tmp.is_empty());
 
-    let producers = producers.iter().map(|account| account.as_str()).collect_vec();
-    let validators = validators.iter().map(|account| account.as_str()).collect_vec();
+    let producers = producers
+        .iter()
+        .map(|account| account.as_str())
+        .collect_vec();
+    let validators = validators
+        .iter()
+        .map(|account| account.as_str())
+        .collect_vec();
     let validators_spec = ValidatorsSpec::desired_roles(&producers, &validators);
     let [_rpc_id] = rpcs else { panic!("Expected exactly one rpc node") };
 
@@ -78,10 +92,14 @@ pub(crate) fn test_protocol_upgrade(
         .build();
 
     let mainnet_epoch_config_store = EpochConfigStore::for_chain_id("mainnet", None).unwrap();
-    let mut old_epoch_config: EpochConfig =
-        mainnet_epoch_config_store.get_config(old_protocol).deref().clone();
-    let mut new_epoch_config: EpochConfig =
-        mainnet_epoch_config_store.get_config(new_protocol).deref().clone();
+    let mut old_epoch_config: EpochConfig = mainnet_epoch_config_store
+        .get_config(old_protocol)
+        .deref()
+        .clone();
+    let mut new_epoch_config: EpochConfig = mainnet_epoch_config_store
+        .get_config(new_protocol)
+        .deref()
+        .clone();
 
     // Adjust the epoch configs for the test
     let adjust_epoch_config = |config: &mut EpochConfig| {
@@ -116,7 +134,9 @@ pub(crate) fn test_protocol_upgrade(
         .clients(clients)
         .build();
 
-    let client_handle = node_datas[0].client_sender.actor_handle();
+    let client_handle = node_datas[0]
+        .client_sender
+        .actor_handle();
     let epoch_ids_with_old_protocol = RefCell::new(BTreeSet::new());
     let epoch_ids_with_new_protocol = RefCell::new(BTreeSet::new());
     let first_new_protocol_height = Cell::new(None);
@@ -124,11 +144,16 @@ pub(crate) fn test_protocol_upgrade(
         RefCell::new(BTreeMap::new());
     let last_observed_height = Cell::new(0);
     let success_condition = |test_loop_data: &mut TestLoopData| -> bool {
-        let client = &test_loop_data.get(&client_handle).client;
+        let client = &test_loop_data
+            .get(&client_handle)
+            .client;
         let tip = client.chain.head().unwrap();
 
         // Validate the block
-        let block_header = client.chain.get_block_header(&tip.last_block_hash).unwrap();
+        let block_header = client
+            .chain
+            .get_block_header(&tip.last_block_hash)
+            .unwrap();
         if last_observed_height.get() != block_header.height() {
             if last_observed_height.get() != 0 {
                 // There should be no missing blocks
@@ -138,7 +163,10 @@ pub(crate) fn test_protocol_upgrade(
             last_observed_height.set(block_header.height());
 
             // Record observed missing chunks
-            let shard_layout = client.epoch_manager.get_shard_layout(&tip.epoch_id).unwrap();
+            let shard_layout = client
+                .epoch_manager
+                .get_shard_layout(&tip.epoch_id)
+                .unwrap();
             for shard_info in shard_layout.shard_infos() {
                 let shard_index = shard_info.shard_index();
                 let shard_id = shard_info.shard_id();
@@ -153,12 +181,22 @@ pub(crate) fn test_protocol_upgrade(
         }
 
         // Record current epoch
-        let cur_epoch_info = client.epoch_manager.get_epoch_info(&tip.epoch_id).unwrap();
+        let cur_epoch_info = client
+            .epoch_manager
+            .get_epoch_info(&tip.epoch_id)
+            .unwrap();
         if cur_epoch_info.protocol_version() == old_protocol {
-            epoch_ids_with_old_protocol.borrow_mut().insert(tip.epoch_id);
+            epoch_ids_with_old_protocol
+                .borrow_mut()
+                .insert(tip.epoch_id);
         } else if cur_epoch_info.protocol_version() == new_protocol {
-            epoch_ids_with_new_protocol.borrow_mut().insert(tip.epoch_id);
-            if first_new_protocol_height.get().is_none() {
+            epoch_ids_with_new_protocol
+                .borrow_mut()
+                .insert(tip.epoch_id);
+            if first_new_protocol_height
+                .get()
+                .is_none()
+            {
                 first_new_protocol_height.set(Some(block_header.height()));
             }
         } else {
@@ -171,8 +209,14 @@ pub(crate) fn test_protocol_upgrade(
         }
 
         // Stop the test after observing two epochs with the old version and two epochs with the new version
-        epoch_ids_with_old_protocol.borrow().len() >= 2
-            && epoch_ids_with_new_protocol.borrow().len() >= 2
+        epoch_ids_with_old_protocol
+            .borrow()
+            .len()
+            >= 2
+            && epoch_ids_with_new_protocol
+                .borrow()
+                .len()
+                >= 2
     };
 
     test_loop.run_until(success_condition, Duration::seconds((7 * epoch_length) as i64));
@@ -181,10 +225,16 @@ pub(crate) fn test_protocol_upgrade(
     let upgraded_epoch_start = first_new_protocol_height.get().unwrap();
     let mut expected_missing_chunks = BTreeMap::new();
     for (shard_index, missing_range) in &chunk_ranges_to_drop {
-        let shard_id = shard_layout.get_shard_id(*shard_index).unwrap();
+        let shard_id = shard_layout
+            .get_shard_id(*shard_index)
+            .unwrap();
         let missing_heights: Vec<BlockHeight> = missing_range
             .clone()
-            .map(|delta| (upgraded_epoch_start as i64 + delta).try_into().unwrap())
+            .map(|delta| {
+                (upgraded_epoch_start as i64 + delta)
+                    .try_into()
+                    .unwrap()
+            })
             .collect();
         if !missing_heights.is_empty() {
             expected_missing_chunks.insert(shard_id, missing_heights);
@@ -206,7 +256,15 @@ fn slow_test_protocol_upgrade_with_missing_chunk_one() {
     test_protocol_upgrade(
         PROTOCOL_VERSION - 1,
         PROTOCOL_VERSION,
-        HashMap::from_iter([(0, 0..0), (1, -1..0), (2, 0..1), (3, -1..1)].into_iter()),
+        HashMap::from_iter(
+            [
+                (0, 0..0),
+                (1, -1..0),
+                (2, 0..1),
+                (3, -1..1),
+            ]
+            .into_iter(),
+        ),
     );
 }
 
@@ -215,7 +273,15 @@ fn slow_test_protocol_upgrade_with_missing_chunks_two() {
     test_protocol_upgrade(
         PROTOCOL_VERSION - 1,
         PROTOCOL_VERSION,
-        HashMap::from_iter([(0, 0..0), (1, -2..0), (2, 0..2), (3, -2..2)].into_iter()),
+        HashMap::from_iter(
+            [
+                (0, 0..0),
+                (1, -2..0),
+                (2, 0..2),
+                (3, -2..2),
+            ]
+            .into_iter(),
+        ),
     );
 }
 

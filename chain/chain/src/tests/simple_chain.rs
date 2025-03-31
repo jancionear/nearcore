@@ -43,7 +43,9 @@ fn build_chain() {
         let prev_hash = *chain.head_header().unwrap().hash();
         let prev = chain.get_block(&prev_hash).unwrap();
         let block = TestBlockBuilder::new(clock.clock(), &prev, signer.clone()).build();
-        chain.process_block_test(&None, block).unwrap();
+        chain
+            .process_block_test(&None, block)
+            .unwrap();
         assert_eq!(chain.head().unwrap().height, i as u64);
     }
 
@@ -62,7 +64,9 @@ fn build_chain_with_orphans() {
     init_test_logger();
     let clock = Clock::real();
     let (mut chain, _, _, signer) = setup(clock.clone());
-    let mut blocks = vec![chain.get_block(&chain.genesis().hash().clone()).unwrap()];
+    let mut blocks = vec![chain
+        .get_block(&chain.genesis().hash().clone())
+        .unwrap()];
     for i in 1..4 {
         let block = TestBlockBuilder::new(clock.clone(), &blocks[i - 1], signer.clone()).build();
         blocks.push(block);
@@ -75,7 +79,11 @@ fn build_chain_with_orphans() {
         last_block.header(),
         10,
         last_block.header().block_ordinal() + 1,
-        last_block.chunks().iter_deprecated().cloned().collect(),
+        last_block
+            .chunks()
+            .iter_deprecated()
+            .cloned()
+            .collect(),
         vec![vec![]; last_block.chunks().len()],
         *last_block.header().epoch_id(),
         *last_block.header().next_epoch_id(),
@@ -92,24 +100,36 @@ fn build_chain_with_orphans() {
         CryptoHash::default(),
         clock,
         None,
-        None,
     );
-    assert_matches!(chain.process_block_test(&None, block).unwrap_err(), Error::Orphan);
     assert_matches!(
-        chain.process_block_test(&None, blocks.pop().unwrap()).unwrap_err(),
+        chain
+            .process_block_test(&None, block)
+            .unwrap_err(),
         Error::Orphan
     );
     assert_matches!(
-        chain.process_block_test(&None, blocks.pop().unwrap()).unwrap_err(),
+        chain
+            .process_block_test(&None, blocks.pop().unwrap())
+            .unwrap_err(),
         Error::Orphan
     );
-    chain.process_block_test(&None, blocks.pop().unwrap()).unwrap();
+    assert_matches!(
+        chain
+            .process_block_test(&None, blocks.pop().unwrap())
+            .unwrap_err(),
+        Error::Orphan
+    );
+    chain
+        .process_block_test(&None, blocks.pop().unwrap())
+        .unwrap();
     while wait_for_all_blocks_in_processing(&mut chain) {
         chain.postprocess_ready_blocks(&None, &mut BlockProcessingArtifact::default(), None);
     }
     assert_eq!(chain.head().unwrap().height, 10);
     assert_matches!(
-        chain.process_block_test(&None, blocks.pop().unwrap(),).unwrap_err(),
+        chain
+            .process_block_test(&None, blocks.pop().unwrap(),)
+            .unwrap_err(),
         Error::BlockKnown(BlockKnownError::KnownInStore)
     );
 }
@@ -120,24 +140,60 @@ fn build_chain_with_orphans() {
 fn build_chain_with_skips_and_forks() {
     init_test_logger();
     let (mut chain, _, _, signer) = setup(Clock::real());
-    let genesis = chain.get_block(&chain.genesis().hash().clone()).unwrap();
+    let genesis = chain
+        .get_block(&chain.genesis().hash().clone())
+        .unwrap();
     let b1 = TestBlockBuilder::new(Clock::real(), &genesis, signer.clone()).build();
-    let b2 = TestBlockBuilder::new(Clock::real(), &genesis, signer.clone()).height(2).build();
-    let b3 = TestBlockBuilder::new(Clock::real(), &b1, signer.clone()).height(3).build();
-    let b4 = TestBlockBuilder::new(Clock::real(), &b2, signer.clone()).height(4).build();
+    let b2 = TestBlockBuilder::new(Clock::real(), &genesis, signer.clone())
+        .height(2)
+        .build();
+    let b3 = TestBlockBuilder::new(Clock::real(), &b1, signer.clone())
+        .height(3)
+        .build();
+    let b4 = TestBlockBuilder::new(Clock::real(), &b2, signer.clone())
+        .height(4)
+        .build();
     let b5 = TestBlockBuilder::new(Clock::real(), &b4, signer.clone()).build();
     let b6 = TestBlockBuilder::new(Clock::real(), &b5, signer.clone()).build();
-    assert!(chain.process_block_test(&None, b1).is_ok());
-    assert!(chain.process_block_test(&None, b2).is_ok());
-    assert!(chain.process_block_test(&None, b3.clone()).is_ok());
-    assert!(chain.process_block_test(&None, b4).is_ok());
-    assert!(chain.process_block_test(&None, b5).is_ok());
-    assert!(chain.process_block_test(&None, b6).is_ok());
-    assert!(chain.get_block_header_by_height(1).is_err());
-    assert_eq!(chain.get_block_header_by_height(5).unwrap().height(), 5);
-    assert_eq!(chain.get_block_header_by_height(6).unwrap().height(), 6);
+    assert!(chain
+        .process_block_test(&None, b1)
+        .is_ok());
+    assert!(chain
+        .process_block_test(&None, b2)
+        .is_ok());
+    assert!(chain
+        .process_block_test(&None, b3.clone())
+        .is_ok());
+    assert!(chain
+        .process_block_test(&None, b4)
+        .is_ok());
+    assert!(chain
+        .process_block_test(&None, b5)
+        .is_ok());
+    assert!(chain
+        .process_block_test(&None, b6)
+        .is_ok());
+    assert!(chain
+        .get_block_header_by_height(1)
+        .is_err());
+    assert_eq!(
+        chain
+            .get_block_header_by_height(5)
+            .unwrap()
+            .height(),
+        5
+    );
+    assert_eq!(
+        chain
+            .get_block_header_by_height(6)
+            .unwrap()
+            .height(),
+        6
+    );
 
-    let c4 = TestBlockBuilder::new(Clock::real(), &b3, signer).height(4).build();
+    let c4 = TestBlockBuilder::new(Clock::real(), &b3, signer)
+        .height(4)
+        .build();
     assert_eq!(chain.final_head().unwrap().height, 4);
     assert_matches!(chain.process_block_test(&None, c4), Err(Error::CannotBeFinalized));
 }
@@ -161,20 +217,38 @@ fn blocks_at_height() {
     init_test_logger();
     let (mut chain, _, _, signer) = setup(Clock::real());
     let genesis = chain.get_block_by_height(0).unwrap();
-    let b_1 = TestBlockBuilder::new(Clock::real(), &genesis, signer.clone()).height(1).build();
+    let b_1 = TestBlockBuilder::new(Clock::real(), &genesis, signer.clone())
+        .height(1)
+        .build();
 
-    let b_2 = TestBlockBuilder::new(Clock::real(), &b_1, signer.clone()).height(2).build();
+    let b_2 = TestBlockBuilder::new(Clock::real(), &b_1, signer.clone())
+        .height(2)
+        .build();
 
-    let c_1 = TestBlockBuilder::new(Clock::real(), &genesis, signer.clone()).height(1).build();
-    let c_3 = TestBlockBuilder::new(Clock::real(), &c_1, signer.clone()).height(3).build();
-    let c_4 = TestBlockBuilder::new(Clock::real(), &c_3, signer.clone()).height(4).build();
+    let c_1 = TestBlockBuilder::new(Clock::real(), &genesis, signer.clone())
+        .height(1)
+        .build();
+    let c_3 = TestBlockBuilder::new(Clock::real(), &c_1, signer.clone())
+        .height(3)
+        .build();
+    let c_4 = TestBlockBuilder::new(Clock::real(), &c_3, signer.clone())
+        .height(4)
+        .build();
 
-    let d_3 = TestBlockBuilder::new(Clock::real(), &b_2, signer.clone()).height(3).build();
+    let d_3 = TestBlockBuilder::new(Clock::real(), &b_2, signer.clone())
+        .height(3)
+        .build();
 
-    let d_5 = TestBlockBuilder::new(Clock::real(), &d_3, signer.clone()).height(5).build();
-    let d_6 = TestBlockBuilder::new(Clock::real(), &d_5, signer.clone()).height(6).build();
+    let d_5 = TestBlockBuilder::new(Clock::real(), &d_3, signer.clone())
+        .height(5)
+        .build();
+    let d_6 = TestBlockBuilder::new(Clock::real(), &d_5, signer.clone())
+        .height(6)
+        .build();
 
-    let e_7 = TestBlockBuilder::new(Clock::real(), &b_1, signer).height(7).build();
+    let e_7 = TestBlockBuilder::new(Clock::real(), &b_1, signer)
+        .height(7)
+        .build();
 
     let b_1_hash = *b_1.hash();
     let b_2_hash = *b_2.hash();
@@ -191,71 +265,203 @@ fn blocks_at_height() {
 
     assert_ne!(c_3_hash, d_3_hash);
 
-    chain.process_block_test(&None, b_1).unwrap();
-    chain.process_block_test(&None, b_2).unwrap();
+    chain
+        .process_block_test(&None, b_1)
+        .unwrap();
+    chain
+        .process_block_test(&None, b_2)
+        .unwrap();
     assert_eq!(chain.header_head().unwrap().height, 2);
 
-    assert_eq!(chain.get_block_header_by_height(1).unwrap().hash(), &b_1_hash);
-    assert_eq!(chain.get_block_header_by_height(2).unwrap().hash(), &b_2_hash);
+    assert_eq!(
+        chain
+            .get_block_header_by_height(1)
+            .unwrap()
+            .hash(),
+        &b_1_hash
+    );
+    assert_eq!(
+        chain
+            .get_block_header_by_height(2)
+            .unwrap()
+            .hash(),
+        &b_2_hash
+    );
 
-    chain.process_block_test(&None, c_1).unwrap();
-    chain.process_block_test(&None, c_3).unwrap();
-    chain.process_block_test(&None, c_4).unwrap();
+    chain
+        .process_block_test(&None, c_1)
+        .unwrap();
+    chain
+        .process_block_test(&None, c_3)
+        .unwrap();
+    chain
+        .process_block_test(&None, c_4)
+        .unwrap();
     assert_eq!(chain.header_head().unwrap().height, 4);
 
-    assert_eq!(chain.get_block_header_by_height(1).unwrap().hash(), &c_1_hash);
-    assert!(chain.get_block_header_by_height(2).is_err());
-    assert_eq!(chain.get_block_header_by_height(3).unwrap().hash(), &c_3_hash);
-    assert_eq!(chain.get_block_header_by_height(4).unwrap().hash(), &c_4_hash);
+    assert_eq!(
+        chain
+            .get_block_header_by_height(1)
+            .unwrap()
+            .hash(),
+        &c_1_hash
+    );
+    assert!(chain
+        .get_block_header_by_height(2)
+        .is_err());
+    assert_eq!(
+        chain
+            .get_block_header_by_height(3)
+            .unwrap()
+            .hash(),
+        &c_3_hash
+    );
+    assert_eq!(
+        chain
+            .get_block_header_by_height(4)
+            .unwrap()
+            .hash(),
+        &c_4_hash
+    );
 
-    chain.process_block_test(&None, d_3).unwrap();
-    chain.process_block_test(&None, d_5).unwrap();
-    chain.process_block_test(&None, d_6).unwrap();
+    chain
+        .process_block_test(&None, d_3)
+        .unwrap();
+    chain
+        .process_block_test(&None, d_5)
+        .unwrap();
+    chain
+        .process_block_test(&None, d_6)
+        .unwrap();
     assert_eq!(chain.header_head().unwrap().height, 6);
 
-    assert_eq!(chain.get_block_header_by_height(1).unwrap().hash(), &b_1_hash);
-    assert_eq!(chain.get_block_header_by_height(2).unwrap().hash(), &b_2_hash);
-    assert_eq!(chain.get_block_header_by_height(3).unwrap().hash(), &d_3_hash);
-    assert!(chain.get_block_header_by_height(4).is_err());
-    assert_eq!(chain.get_block_header_by_height(5).unwrap().hash(), &d_5_hash);
-    assert_eq!(chain.get_block_header_by_height(6).unwrap().hash(), &d_6_hash);
+    assert_eq!(
+        chain
+            .get_block_header_by_height(1)
+            .unwrap()
+            .hash(),
+        &b_1_hash
+    );
+    assert_eq!(
+        chain
+            .get_block_header_by_height(2)
+            .unwrap()
+            .hash(),
+        &b_2_hash
+    );
+    assert_eq!(
+        chain
+            .get_block_header_by_height(3)
+            .unwrap()
+            .hash(),
+        &d_3_hash
+    );
+    assert!(chain
+        .get_block_header_by_height(4)
+        .is_err());
+    assert_eq!(
+        chain
+            .get_block_header_by_height(5)
+            .unwrap()
+            .hash(),
+        &d_5_hash
+    );
+    assert_eq!(
+        chain
+            .get_block_header_by_height(6)
+            .unwrap()
+            .hash(),
+        &d_6_hash
+    );
 
-    chain.process_block_test(&None, e_7).unwrap();
+    chain
+        .process_block_test(&None, e_7)
+        .unwrap();
 
-    assert_eq!(chain.get_block_header_by_height(1).unwrap().hash(), &b_1_hash);
+    assert_eq!(
+        chain
+            .get_block_header_by_height(1)
+            .unwrap()
+            .hash(),
+        &b_1_hash
+    );
     for h in 2..=5 {
-        assert!(chain.get_block_header_by_height(h).is_err());
+        assert!(chain
+            .get_block_header_by_height(h)
+            .is_err());
     }
-    assert_eq!(chain.get_block_header_by_height(7).unwrap().hash(), &e_7_hash);
+    assert_eq!(
+        chain
+            .get_block_header_by_height(7)
+            .unwrap()
+            .hash(),
+        &e_7_hash
+    );
 }
 
 #[test]
 fn next_blocks() {
     init_test_logger();
     let (mut chain, _, _, signer) = setup(Clock::real());
-    let genesis = chain.get_block(&chain.genesis().hash().clone()).unwrap();
+    let genesis = chain
+        .get_block(&chain.genesis().hash().clone())
+        .unwrap();
     let b1 = TestBlockBuilder::new(Clock::real(), &genesis, signer.clone()).build();
-    let b2 = TestBlockBuilder::new(Clock::real(), &b1, signer.clone()).height(2).build();
-    let b3 = TestBlockBuilder::new(Clock::real(), &b1, signer.clone()).height(3).build();
-    let b4 = TestBlockBuilder::new(Clock::real(), &b3, signer).height(4).build();
+    let b2 = TestBlockBuilder::new(Clock::real(), &b1, signer.clone())
+        .height(2)
+        .build();
+    let b3 = TestBlockBuilder::new(Clock::real(), &b1, signer.clone())
+        .height(3)
+        .build();
+    let b4 = TestBlockBuilder::new(Clock::real(), &b3, signer)
+        .height(4)
+        .build();
     let b1_hash = *b1.hash();
     let b2_hash = *b2.hash();
     let b3_hash = *b3.hash();
     let b4_hash = *b4.hash();
-    assert!(chain.process_block_test(&None, b1).is_ok());
-    assert!(chain.process_block_test(&None, b2).is_ok());
-    assert_eq!(chain.mut_chain_store().get_next_block_hash(&b1_hash).unwrap(), b2_hash);
-    assert!(chain.process_block_test(&None, b3).is_ok());
-    assert!(chain.process_block_test(&None, b4).is_ok());
-    assert_eq!(chain.mut_chain_store().get_next_block_hash(&b1_hash).unwrap(), b3_hash);
-    assert_eq!(chain.mut_chain_store().get_next_block_hash(&b3_hash).unwrap(), b4_hash);
+    assert!(chain
+        .process_block_test(&None, b1)
+        .is_ok());
+    assert!(chain
+        .process_block_test(&None, b2)
+        .is_ok());
+    assert_eq!(
+        chain
+            .mut_chain_store()
+            .get_next_block_hash(&b1_hash)
+            .unwrap(),
+        b2_hash
+    );
+    assert!(chain
+        .process_block_test(&None, b3)
+        .is_ok());
+    assert!(chain
+        .process_block_test(&None, b4)
+        .is_ok());
+    assert_eq!(
+        chain
+            .mut_chain_store()
+            .get_next_block_hash(&b1_hash)
+            .unwrap(),
+        b3_hash
+    );
+    assert_eq!(
+        chain
+            .mut_chain_store()
+            .get_next_block_hash(&b3_hash)
+            .unwrap(),
+        b4_hash
+    );
 }
 
 #[test]
 fn block_chunk_headers_iter() {
     init_test_logger();
     let (chain, _, _, signer) = setup(Clock::real());
-    let genesis = chain.get_block(&chain.genesis().hash().clone()).unwrap();
+    let genesis = chain
+        .get_block(&chain.genesis().hash().clone())
+        .unwrap();
     let mut block = TestBlockBuilder::new(Clock::real(), &genesis, signer).build();
     let header = block.chunks().get(0).unwrap().clone();
     let mut fake_headers = vec![header; 16];
@@ -272,16 +478,16 @@ fn block_chunk_headers_iter() {
     let new_headers: Vec<&ShardChunkHeader> = chunks
         .iter()
         .filter_map(|chunk| match chunk {
-            MaybeNew::New(chunk) => Some(chunk),
-            _ => None,
+            | MaybeNew::New(chunk) => Some(chunk),
+            | _ => None,
         })
         .collect();
 
     let old_headers: Vec<&ShardChunkHeader> = chunks
         .iter()
         .filter_map(|chunk| match chunk {
-            MaybeNew::Old(chunk) => Some(chunk),
-            _ => None,
+            | MaybeNew::Old(chunk) => Some(chunk),
+            | _ => None,
         })
         .collect();
 

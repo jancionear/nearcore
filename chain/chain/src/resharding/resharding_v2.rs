@@ -52,7 +52,10 @@ pub struct ReshardingRequest {
 // Skip `runtime_adapter`, because it's a complex object that has complex logic
 // and many fields.
 impl Debug for ReshardingRequest {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut Formatter<'_>,
+    ) -> std::fmt::Result {
         f.debug_struct("ReshardingRequest")
             .field("tries", &"<not shown>")
             .field("sync_hash", &self.sync_hash)
@@ -113,7 +116,10 @@ fn get_trie_update_batch(
     let mut entries = Vec::new();
     while let Some(item) = iter.next() {
         let (key, value) = item?;
-        size += key.len() as u64 + value.as_ref().map_or(0, |v| v.len() as u64);
+        size += key.len() as u64
+            + value
+                .as_ref()
+                .map_or(0, |v| v.len() as u64);
         entries.push((key, value));
         if size > config.batch_size.as_u64() {
             break;
@@ -191,15 +197,15 @@ fn apply_promise_yield_timeouts<'a>(
 
 impl Chain {
     pub fn build_state_for_split_shards_v2(
-        resharding_request: ReshardingRequest,
+        resharding_request: ReshardingRequest
     ) -> ReshardingResponse {
         let shard_uid = resharding_request.shard_uid;
         let shard_id = shard_uid.shard_id();
         let sync_hash = resharding_request.sync_hash;
         let new_state_roots = Self::build_state_for_split_shards_impl(resharding_request);
         match &new_state_roots {
-            Ok(_) => {}
-            Err(err) => {
+            | Ok(_) => {}
+            | Err(err) => {
                 tracing::error!(target: "resharding-v2", ?shard_uid, ?err, "Resharding failed, manual recovery is necessary!");
             }
         }
@@ -266,7 +272,7 @@ impl Chain {
     }
 
     fn build_state_for_split_shards_impl(
-        resharding_request: ReshardingRequest,
+        resharding_request: ReshardingRequest
     ) -> Result<HashMap<ShardUId, StateRoot>, Error> {
         let ReshardingRequest {
             tries,
@@ -284,8 +290,10 @@ impl Chain {
         let new_shards = next_epoch_shard_layout
             .get_children_shards_uids(shard_id)
             .ok_or(Error::InvalidShardId(shard_id))?;
-        let mut state_roots: HashMap<_, _> =
-            new_shards.iter().map(|shard_uid| (*shard_uid, Trie::EMPTY_ROOT)).collect();
+        let mut state_roots: HashMap<_, _> = new_shards
+            .iter()
+            .map(|shard_uid| (*shard_uid, Trie::EMPTY_ROOT))
+            .collect();
 
         // function to map account id to shard uid in range of child shards
         let checked_account_id_to_shard_uid =
@@ -348,13 +356,19 @@ impl Chain {
         let sync_hash = target_hash;
         tracing::debug!(target: "resharding-v2", ?shard_id, ?sync_hash, "preprocessing started");
         let block_header = self.get_block_header(sync_hash)?;
-        let shard_layout = self.epoch_manager.get_shard_layout(block_header.epoch_id())?;
+        let shard_layout = self
+            .epoch_manager
+            .get_shard_layout(block_header.epoch_id())?;
         let next_epoch_id = block_header.next_epoch_id();
-        let next_epoch_shard_layout = self.epoch_manager.get_shard_layout(next_epoch_id)?;
+        let next_epoch_shard_layout = self
+            .epoch_manager
+            .get_shard_layout(next_epoch_id)?;
         assert_ne!(shard_layout, next_epoch_shard_layout);
 
         let shard_uid = ShardUId::from_shard_id_and_layout(shard_id, &shard_layout);
-        let state_root = *self.get_chunk_extra(&target_hash, &shard_uid)?.state_root();
+        let state_root = *self
+            .get_chunk_extra(&target_hash, &shard_uid)?
+            .state_root();
 
         let resharding_request = ReshardingRequest {
             tries: Arc::new(self.runtime_adapter.get_tries()),
@@ -366,8 +380,14 @@ impl Chain {
             state_root,
             next_epoch_shard_layout,
             curr_poll_time: Duration::ZERO,
-            config: self.resharding_manager.resharding_config.clone(),
-            handle: self.resharding_manager.resharding_handle.clone(),
+            config: self
+                .resharding_manager
+                .resharding_config
+                .clone(),
+            handle: self
+                .resharding_manager
+                .resharding_handle
+                .clone(),
             on_demand: true,
         };
 

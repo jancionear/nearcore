@@ -35,8 +35,9 @@ impl StorageMutator {
         &mut self,
         account_id: &AccountId,
     ) -> anyhow::Result<&mut SingleShardStorageMutator> {
-        let shard_info =
-            self.epoch_manager.account_id_to_shard_info(&account_id, &self.epoch_id)?;
+        let shard_info = self
+            .epoch_manager
+            .account_id_to_shard_info(&account_id, &self.epoch_id)?;
         Ok(&mut self.mutators[shard_info.shard_index])
     }
 
@@ -45,7 +46,8 @@ impl StorageMutator {
         account_id: &AccountId,
         value: Account,
     ) -> anyhow::Result<()> {
-        self.mutator(account_id)?.set_account(account_id.clone(), value)
+        self.mutator(account_id)?
+            .set_account(account_id.clone(), value)
     }
 
     pub(crate) fn set_access_key(
@@ -54,14 +56,21 @@ impl StorageMutator {
         public_key: PublicKey,
         access_key: AccessKey,
     ) -> anyhow::Result<()> {
-        self.mutator(account_id)?.set_access_key(account_id.clone(), public_key, access_key)
+        self.mutator(account_id)?
+            .set_access_key(account_id.clone(), public_key, access_key)
     }
 
     pub(crate) fn commit(self) -> anyhow::Result<Vec<StateRoot>> {
-        let shard_layout = self.epoch_manager.get_shard_layout(&self.epoch_id)?;
+        let shard_layout = self
+            .epoch_manager
+            .get_shard_layout(&self.epoch_id)?;
         let all_shard_uids = shard_layout.shard_uids();
         let mut state_roots = vec![];
-        for (mutator, shard_uid) in self.mutators.into_iter().zip(all_shard_uids.into_iter()) {
+        for (mutator, shard_uid) in self
+            .mutators
+            .into_iter()
+            .zip(all_shard_uids.into_iter())
+        {
             let state_root = mutator.commit(&shard_uid, 0)?;
             state_roots.push(state_root);
         }

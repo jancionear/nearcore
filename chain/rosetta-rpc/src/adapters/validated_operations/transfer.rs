@@ -38,8 +38,12 @@ impl TryFrom<crate::models::Operation> for TransferOperation {
 
     fn try_from(operation: crate::models::Operation) -> Result<Self, Self::Error> {
         Self::validate_operation_type(operation.type_)?;
-        let amount = operation.amount.ok_or_else(required_fields_error)?;
-        let predecessor_id = operation.metadata.and_then(|metadata| metadata.predecessor_id);
+        let amount = operation
+            .amount
+            .ok_or_else(required_fields_error)?;
+        let predecessor_id = operation
+            .metadata
+            .and_then(|metadata| metadata.predecessor_id);
         Ok(Self { account: operation.account, amount, predecessor_id })
     }
 }

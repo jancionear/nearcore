@@ -44,17 +44,21 @@ pub(super) struct CacheStats {
 
 impl CacheStats {
     /// Digest cache statistics written directly on a single DB operations.
-    pub(super) fn eval_db_op(&mut self, op: &str, size: Option<u64>) {
+    pub(super) fn eval_db_op(
+        &mut self,
+        op: &str,
+        size: Option<u64>,
+    ) {
         match op {
-            "GET" => {
+            | "GET" => {
                 self.num_get += 1;
                 self.total_size_get += size.unwrap_or(0);
             }
-            "SET" => {
+            | "SET" => {
                 self.num_set += 1;
                 self.total_size_set += size.unwrap_or(0);
             }
-            _ => {
+            | _ => {
                 // nop
             }
         }
@@ -69,7 +73,9 @@ impl CacheStats {
         let size = if storage_operation == "storage_has_key" {
             0
         } else {
-            dict.get("size").unwrap_or(&"0").parse()?
+            dict.get("size")
+                .unwrap_or(&"0")
+                .parse()?
         };
         let mut tn_db_reads: u64 = dict
             .get("tn_db_reads")
@@ -80,15 +86,21 @@ impl CacheStats {
             .map(|s| s.parse().unwrap())
             .context("no tn_mem_reads on storage op")?;
 
-        let tn_shard_cache_hits =
-            dict.get("shard_cache_hit").map(|s| s.parse().unwrap()).unwrap_or(0);
-        let tn_shard_cache_misses =
-            dict.get("shard_cache_miss").map(|s| s.parse().unwrap()).unwrap_or(0);
-        let tn_shard_cache_too_large =
-            dict.get("shard_cache_too_large").map(|s| s.parse().unwrap()).unwrap_or(0);
+        let tn_shard_cache_hits = dict
+            .get("shard_cache_hit")
+            .map(|s| s.parse().unwrap())
+            .unwrap_or(0);
+        let tn_shard_cache_misses = dict
+            .get("shard_cache_miss")
+            .map(|s| s.parse().unwrap())
+            .unwrap_or(0);
+        let tn_shard_cache_too_large = dict
+            .get("shard_cache_too_large")
+            .map(|s| s.parse().unwrap())
+            .unwrap_or(0);
 
         match storage_operation {
-            "storage_read" | "storage_has_key" => {
+            | "storage_read" | "storage_has_key" => {
                 self.num_read += 1;
                 self.total_size_read += size;
                 // We are currently counting one node too little, see
@@ -103,11 +115,11 @@ impl CacheStats {
                 }
                 debug_assert_eq!(tn_db_reads, tn_shard_cache_misses + tn_shard_cache_hits)
             }
-            "storage_write" => {
+            | "storage_write" => {
                 self.num_write += 1;
                 self.total_size_write += size;
             }
-            _ => {}
+            | _ => {}
         }
 
         self.num_tn_accounting_cache_hit += tn_mem_reads;
@@ -124,13 +136,22 @@ impl CacheStats {
     /// Labels to look out for here are `process_receipt`, `process_transaction`, or
     /// even just `apply`. They all access the trie also outside of guest-spawned
     /// storage operations.
-    pub(super) fn eval_generic_label(&mut self, dict: &BTreeMap<&str, &str>) {
-        let tn_shard_cache_hits =
-            dict.get("shard_cache_hit").map(|s| s.parse().unwrap()).unwrap_or(0);
-        let tn_shard_cache_misses =
-            dict.get("shard_cache_miss").map(|s| s.parse().unwrap()).unwrap_or(0);
-        let tn_shard_cache_too_large =
-            dict.get("shard_cache_too_large").map(|s| s.parse().unwrap()).unwrap_or(0);
+    pub(super) fn eval_generic_label(
+        &mut self,
+        dict: &BTreeMap<&str, &str>,
+    ) {
+        let tn_shard_cache_hits = dict
+            .get("shard_cache_hit")
+            .map(|s| s.parse().unwrap())
+            .unwrap_or(0);
+        let tn_shard_cache_misses = dict
+            .get("shard_cache_miss")
+            .map(|s| s.parse().unwrap())
+            .unwrap_or(0);
+        let tn_shard_cache_too_large = dict
+            .get("shard_cache_too_large")
+            .map(|s| s.parse().unwrap())
+            .unwrap_or(0);
 
         // there is no accounting cache update here, as we are not in a smart contract execution
         self.num_tn_shard_cache_hit_host += tn_shard_cache_hits;
@@ -138,7 +159,11 @@ impl CacheStats {
         self.num_tn_shard_cache_miss_host += tn_shard_cache_misses;
     }
 
-    pub(super) fn print(&self, out: &mut dyn Write, indent: usize) -> anyhow::Result<()> {
+    pub(super) fn print(
+        &self,
+        out: &mut dyn Write,
+        indent: usize,
+    ) -> anyhow::Result<()> {
         writeln!(
             out,
             "{:indent$}DB GET            {:>5} requests for a total of {:>8} B",

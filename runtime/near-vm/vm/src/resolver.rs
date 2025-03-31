@@ -21,10 +21,10 @@ pub enum Export {
 impl From<Export> for VMExtern {
     fn from(other: Export) -> Self {
         match other {
-            Export::Function(ExportFunction { vm_function, .. }) => Self::Function(vm_function),
-            Export::Memory(vm_memory) => Self::Memory(vm_memory),
-            Export::Table(vm_table) => Self::Table(vm_table),
-            Export::Global(vm_global) => Self::Global(vm_global),
+            | Export::Function(ExportFunction { vm_function, .. }) => Self::Function(vm_function),
+            | Export::Memory(vm_memory) => Self::Memory(vm_memory),
+            | Export::Table(vm_table) => Self::Table(vm_table),
+            | Export::Global(vm_global) => Self::Global(vm_global),
         }
     }
 }
@@ -32,12 +32,12 @@ impl From<Export> for VMExtern {
 impl From<VMExtern> for Export {
     fn from(other: VMExtern) -> Self {
         match other {
-            VMExtern::Function(vm_function) => {
+            | VMExtern::Function(vm_function) => {
                 Self::Function(ExportFunction { vm_function, metadata: None })
             }
-            VMExtern::Memory(vm_memory) => Self::Memory(vm_memory),
-            VMExtern::Table(vm_table) => Self::Table(vm_table),
-            VMExtern::Global(vm_global) => Self::Global(vm_global),
+            | VMExtern::Memory(vm_memory) => Self::Memory(vm_memory),
+            | VMExtern::Table(vm_table) => Self::Table(vm_table),
+            | VMExtern::Global(vm_global) => Self::Global(vm_global),
         }
     }
 }
@@ -182,7 +182,12 @@ pub trait Resolver {
     ///   (import "" "" (func (param i32) (result i32)))
     /// )
     /// ```
-    fn resolve(&self, _index: u32, module: &str, field: &str) -> Option<Export>;
+    fn resolve(
+        &self,
+        _index: u32,
+        module: &str,
+        field: &str,
+    ) -> Option<Export>;
 }
 
 /// Import resolver connects imports with available exported values.
@@ -195,33 +200,54 @@ pub trait NamedResolver {
     ///
     /// It receives the `module` and `field` names and return the [`Export`] in
     /// case it's found.
-    fn resolve_by_name(&self, module: &str, field: &str) -> Option<Export>;
+    fn resolve_by_name(
+        &self,
+        module: &str,
+        field: &str,
+    ) -> Option<Export>;
 }
 
 // All NamedResolvers should extend `Resolver`.
 impl<T: NamedResolver> Resolver for T {
     /// By default this method will be calling [`NamedResolver::resolve_by_name`],
     /// dismissing the provided `index`.
-    fn resolve(&self, _index: u32, module: &str, field: &str) -> Option<Export> {
+    fn resolve(
+        &self,
+        _index: u32,
+        module: &str,
+        field: &str,
+    ) -> Option<Export> {
         self.resolve_by_name(module, field)
     }
 }
 
 impl<T: NamedResolver> NamedResolver for &T {
-    fn resolve_by_name(&self, module: &str, field: &str) -> Option<Export> {
+    fn resolve_by_name(
+        &self,
+        module: &str,
+        field: &str,
+    ) -> Option<Export> {
         (**self).resolve_by_name(module, field)
     }
 }
 
 impl NamedResolver for Box<dyn NamedResolver + Send + Sync> {
-    fn resolve_by_name(&self, module: &str, field: &str) -> Option<Export> {
+    fn resolve_by_name(
+        &self,
+        module: &str,
+        field: &str,
+    ) -> Option<Export> {
         (**self).resolve_by_name(module, field)
     }
 }
 
 impl NamedResolver for () {
     /// Always returns `None`.
-    fn resolve_by_name(&self, _module: &str, _field: &str) -> Option<Export> {
+    fn resolve_by_name(
+        &self,
+        _module: &str,
+        _field: &str,
+    ) -> Option<Export> {
         None
     }
 }
@@ -230,7 +256,12 @@ impl NamedResolver for () {
 pub struct NullResolver {}
 
 impl Resolver for NullResolver {
-    fn resolve(&self, _idx: u32, _module: &str, _field: &str) -> Option<Export> {
+    fn resolve(
+        &self,
+        _idx: u32,
+        _module: &str,
+        _field: &str,
+    ) -> Option<Export> {
         None
     }
 }
@@ -268,7 +299,10 @@ pub trait ChainableNamedResolver: NamedResolver + Sized + Send + Sync {
     /// imports1.chain_front(imports2);
     /// # }
     /// ```
-    fn chain_front<U>(self, other: U) -> NamedResolverChain<U, Self>
+    fn chain_front<U>(
+        self,
+        other: U,
+    ) -> NamedResolverChain<U, Self>
     where
         U: NamedResolver + Send + Sync,
     {
@@ -289,7 +323,10 @@ pub trait ChainableNamedResolver: NamedResolver + Sized + Send + Sync {
     /// imports1.chain_back(imports2);
     /// # }
     /// ```
-    fn chain_back<U>(self, other: U) -> NamedResolverChain<Self, U>
+    fn chain_back<U>(
+        self,
+        other: U,
+    ) -> NamedResolverChain<Self, U>
     where
         U: NamedResolver + Send + Sync,
     {
@@ -305,8 +342,14 @@ where
     A: NamedResolver + Send + Sync,
     B: NamedResolver + Send + Sync,
 {
-    fn resolve_by_name(&self, module: &str, field: &str) -> Option<Export> {
-        self.a.resolve_by_name(module, field).or_else(|| self.b.resolve_by_name(module, field))
+    fn resolve_by_name(
+        &self,
+        module: &str,
+        field: &str,
+    ) -> Option<Export> {
+        self.a
+            .resolve_by_name(module, field)
+            .or_else(|| self.b.resolve_by_name(module, field))
     }
 }
 

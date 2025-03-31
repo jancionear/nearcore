@@ -156,7 +156,10 @@ impl EpochConfig {
         }
     }
 
-    pub fn mock(epoch_length: BlockHeightDelta, shard_layout: ShardLayout) -> Self {
+    pub fn mock(
+        epoch_length: BlockHeightDelta,
+        shard_layout: ShardLayout,
+    ) -> Self {
         Self {
             epoch_length,
             num_block_producer_seats: 2,
@@ -258,7 +261,10 @@ impl AllEpochConfig {
         epoch_length: BlockHeightDelta,
         epoch_config_store: EpochConfigStore,
     ) -> Self {
-        let genesis_epoch_config = epoch_config_store.get_config(PROTOCOL_VERSION).as_ref().clone();
+        let genesis_epoch_config = epoch_config_store
+            .get_config(PROTOCOL_VERSION)
+            .as_ref()
+            .clone();
         Self {
             config_store: Some(epoch_config_store),
             chain_id: chain_id.to_string(),
@@ -308,10 +314,18 @@ impl AllEpochConfig {
         all_epoch_config
     }
 
-    pub fn for_protocol_version(&self, protocol_version: ProtocolVersion) -> EpochConfig {
+    pub fn for_protocol_version(
+        &self,
+        protocol_version: ProtocolVersion,
+    ) -> EpochConfig {
         if self.config_store.is_some() {
-            let mut config =
-                self.config_store.as_ref().unwrap().get_config(protocol_version).as_ref().clone();
+            let mut config = self
+                .config_store
+                .as_ref()
+                .unwrap()
+                .get_config(protocol_version)
+                .as_ref()
+                .clone();
             // TODO(#11265): epoch length is overridden in many tests so we
             // need to support it here. Consider removing `epoch_length` from
             // EpochConfig.
@@ -323,7 +337,10 @@ impl AllEpochConfig {
     }
 
     /// TODO(#11265): Remove this and use the stored configs only.
-    pub fn generate_epoch_config(&self, protocol_version: ProtocolVersion) -> EpochConfig {
+    pub fn generate_epoch_config(
+        &self,
+        protocol_version: ProtocolVersion,
+    ) -> EpochConfig {
         let mut config = self._genesis_epoch_config.clone();
 
         Self::config_mocknet(&mut config, &self.chain_id);
@@ -354,7 +371,10 @@ impl AllEpochConfig {
     }
 
     /// Configures mocknet-specific features only.
-    fn config_mocknet(config: &mut EpochConfig, chain_id: &str) {
+    fn config_mocknet(
+        config: &mut EpochConfig,
+        chain_id: &str,
+    ) {
         if chain_id != near_primitives_core::chains::MOCKNET {
             return;
         }
@@ -369,7 +389,10 @@ impl AllEpochConfig {
     }
 
     /// Configures validator-selection related features.
-    fn config_validator_selection(config: &mut EpochConfig, protocol_version: ProtocolVersion) {
+    fn config_validator_selection(
+        config: &mut EpochConfig,
+        protocol_version: ProtocolVersion,
+    ) {
         // Shuffle shard assignments every epoch, to trigger state sync more
         // frequently to exercise that code path.
         if checked_feature!("stable", ShuffleShardAssignments, protocol_version) {
@@ -377,7 +400,10 @@ impl AllEpochConfig {
         }
     }
 
-    fn config_nightshade(config: &mut EpochConfig, protocol_version: ProtocolVersion) {
+    fn config_nightshade(
+        config: &mut EpochConfig,
+        protocol_version: ProtocolVersion,
+    ) {
         if checked_feature!("stable", SimpleNightshadeV5, protocol_version) {
             Self::config_nightshade_impl(config, ShardLayout::get_simple_nightshade_layout_v5());
             return;
@@ -404,11 +430,19 @@ impl AllEpochConfig {
         }
     }
 
-    fn config_nightshade_impl(config: &mut EpochConfig, shard_layout: ShardLayout) {
+    fn config_nightshade_impl(
+        config: &mut EpochConfig,
+        shard_layout: ShardLayout,
+    ) {
         let num_block_producer_seats = config.num_block_producer_seats;
-        config.num_block_producer_seats_per_shard =
-            shard_layout.shard_ids().map(|_| num_block_producer_seats).collect();
-        config.avg_hidden_validator_seats_per_shard = shard_layout.shard_ids().map(|_| 0).collect();
+        config.num_block_producer_seats_per_shard = shard_layout
+            .shard_ids()
+            .map(|_| num_block_producer_seats)
+            .collect();
+        config.avg_hidden_validator_seats_per_shard = shard_layout
+            .shard_ids()
+            .map(|_| 0)
+            .collect();
         config.shard_layout = shard_layout;
     }
 
@@ -423,8 +457,11 @@ impl AllEpochConfig {
             config.num_block_producer_seats = 100;
             // Technically, after ChunkOnlyProducers is enabled, this field is no longer used
             // We still set it here just in case
-            config.num_block_producer_seats_per_shard =
-                config.shard_layout.shard_ids().map(|_| 100).collect();
+            config.num_block_producer_seats_per_shard = config
+                .shard_layout
+                .shard_ids()
+                .map(|_| 100)
+                .collect();
             config.block_producer_kickout_threshold = 80;
             config.chunk_producer_kickout_threshold = 80;
             config.num_chunk_only_producer_seats = 200;
@@ -441,8 +478,9 @@ impl AllEpochConfig {
             if ProtocolFeature::StatelessValidation.enabled(protocol_version) {
                 config.num_chunk_producer_seats = 20;
             }
-            config.num_block_producer_seats_per_shard =
-                shard_ids.map(|_| config.num_block_producer_seats).collect();
+            config.num_block_producer_seats_per_shard = shard_ids
+                .map(|_| config.num_block_producer_seats)
+                .collect();
             // Decrease the number of chunk producers.
             config.num_chunk_only_producer_seats = 100;
         }
@@ -454,19 +492,28 @@ impl AllEpochConfig {
         }
     }
 
-    fn config_max_kickout_stake(config: &mut EpochConfig, protocol_version: u32) {
+    fn config_max_kickout_stake(
+        config: &mut EpochConfig,
+        protocol_version: u32,
+    ) {
         if checked_feature!("stable", MaxKickoutStake, protocol_version) {
             config.validator_max_kickout_stake_perc = 30;
         }
     }
 
-    fn config_fix_min_stake_ratio(config: &mut EpochConfig, protocol_version: u32) {
+    fn config_fix_min_stake_ratio(
+        config: &mut EpochConfig,
+        protocol_version: u32,
+    ) {
         if checked_feature!("stable", FixMinStakeRatio, protocol_version) {
             config.minimum_stake_ratio = Rational32::new(1, 62_500);
         }
     }
 
-    fn config_chunk_endorsement_thresholds(config: &mut EpochConfig, protocol_version: u32) {
+    fn config_chunk_endorsement_thresholds(
+        config: &mut EpochConfig,
+        protocol_version: u32,
+    ) {
         if ProtocolFeature::ChunkEndorsementsInBlockHeader.enabled(protocol_version) {
             config.chunk_validator_only_kickout_threshold = 70;
         }
@@ -560,7 +607,10 @@ impl EpochConfigStore {
     /// Creates a config store to contain the EpochConfigs for the given chain parsed from the JSON files.
     /// If no configs are found for the given chain, try to load the configs from the file system.
     /// If there are no configs found, return None.
-    pub fn for_chain_id(chain_id: &str, config_dir: Option<PathBuf>) -> Option<Self> {
+    pub fn for_chain_id(
+        chain_id: &str,
+        config_dir: Option<PathBuf>,
+    ) -> Option<Self> {
         let mut store = Self::load_default_epoch_configs(chain_id);
 
         if !store.is_empty() {
@@ -596,7 +646,7 @@ impl EpochConfigStore {
 
     /// Reads the json files from the epoch config directory.
     fn load_epoch_config_from_file_system(
-        directory: &str,
+        directory: &str
     ) -> BTreeMap<ProtocolVersion, Arc<EpochConfig>> {
         let mut store = BTreeMap::new();
         let entries = fs::read_dir(directory).expect("Failed opening epoch config directory");
@@ -606,11 +656,19 @@ impl EpochConfigStore {
                 let path = entry.path();
 
                 // Check if the file has a .json extension
-                if path.extension().and_then(|ext| ext.to_str()) == Some("json") {
+                if path
+                    .extension()
+                    .and_then(|ext| ext.to_str())
+                    == Some("json")
+                {
                     // Extract the file name (without extension)
-                    if let Some(file_stem) = path.file_stem().and_then(|s| s.to_str()) {
-                        let version: ProtocolVersion =
-                            file_stem.parse().expect("Invalid protocol version");
+                    if let Some(file_stem) = path
+                        .file_stem()
+                        .and_then(|s| s.to_str())
+                    {
+                        let version: ProtocolVersion = file_stem
+                            .parse()
+                            .expect("Invalid protocol version");
 
                         let content = fs::read_to_string(&path).expect("Failed to read file");
                         let config: EpochConfig =
@@ -637,7 +695,10 @@ impl EpochConfigStore {
     /// Returns the EpochConfig for the given protocol version.
     /// This panics if no config is found for the given version, thus the initialization via `for_chain_id` should
     /// only be performed for chains with some configs stored in files.
-    pub fn get_config(&self, protocol_version: ProtocolVersion) -> &Arc<EpochConfig> {
+    pub fn get_config(
+        &self,
+        protocol_version: ProtocolVersion,
+    ) -> &Arc<EpochConfig> {
         self.store
             .range((Bound::Unbounded, Bound::Included(protocol_version)))
             .next_back()
@@ -647,7 +708,11 @@ impl EpochConfigStore {
             .1
     }
 
-    fn dump_epoch_config(directory: &str, version: &ProtocolVersion, config: &Arc<EpochConfig>) {
+    fn dump_epoch_config(
+        directory: &str,
+        version: &ProtocolVersion,
+        config: &Arc<EpochConfig>,
+    ) {
         let content = serde_json::to_string_pretty(config.as_ref()).unwrap();
         let path = PathBuf::from(directory).join(format!("{}.json", version));
         fs::write(path, content).unwrap();
@@ -692,7 +757,10 @@ mod tests {
     /// one generated by overrides from genesis config.
     /// If the test fails, it is either a configuration bug or the stored
     /// epoch config must be updated.
-    fn test_epoch_config_store(chain_id: &str, genesis_protocol_version: ProtocolVersion) {
+    fn test_epoch_config_store(
+        chain_id: &str,
+        genesis_protocol_version: ProtocolVersion,
+    ) {
         let genesis_epoch_config = parse_config_file(chain_id, genesis_protocol_version).unwrap();
         let all_epoch_config = AllEpochConfig::new_with_test_overrides(
             true,
@@ -729,7 +797,10 @@ mod tests {
     }
 
     #[allow(unused)]
-    fn generate_epoch_configs(chain_id: &str, genesis_protocol_version: ProtocolVersion) {
+    fn generate_epoch_configs(
+        chain_id: &str,
+        genesis_protocol_version: ProtocolVersion,
+    ) {
         let genesis_epoch_config = parse_config_file(chain_id, genesis_protocol_version).unwrap();
         let all_epoch_config = AllEpochConfig::new_with_test_overrides(
             true,
@@ -753,16 +824,21 @@ mod tests {
     #[test]
     fn test_dump_epoch_configs_mainnet() {
         let tmp_dir = tempfile::tempdir().unwrap();
-        EpochConfigStore::for_chain_id("mainnet", None).unwrap().dump_epoch_configs_between(
-            &55,
-            &68,
-            tmp_dir.path().to_str().unwrap(),
-        );
+        EpochConfigStore::for_chain_id("mainnet", None)
+            .unwrap()
+            .dump_epoch_configs_between(&55, &68, tmp_dir.path().to_str().unwrap());
 
         // Check if tmp dir contains the dumped files. 55, 64, 65.
         let dumped_files = fs::read_dir(tmp_dir.path()).unwrap();
-        let dumped_files: Vec<_> =
-            dumped_files.map(|entry| entry.unwrap().file_name().into_string().unwrap()).collect();
+        let dumped_files: Vec<_> = dumped_files
+            .map(|entry| {
+                entry
+                    .unwrap()
+                    .file_name()
+                    .into_string()
+                    .unwrap()
+            })
+            .collect();
 
         assert!(dumped_files.contains(&String::from("55.json")));
         assert!(dumped_files.contains(&String::from("64.json")));
@@ -788,7 +864,10 @@ mod tests {
     }
 
     #[allow(unused)]
-    fn parse_config_file(chain_id: &str, protocol_version: ProtocolVersion) -> Option<EpochConfig> {
+    fn parse_config_file(
+        chain_id: &str,
+        protocol_version: ProtocolVersion,
+    ) -> Option<EpochConfig> {
         let path = Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("res/epoch_configs")
             .join(chain_id)
@@ -803,7 +882,11 @@ mod tests {
     }
 
     #[allow(unused)]
-    fn dump_config_file(config: &EpochConfig, chain_id: &str, protocol_version: ProtocolVersion) {
+    fn dump_config_file(
+        config: &EpochConfig,
+        chain_id: &str,
+        protocol_version: ProtocolVersion,
+    ) {
         let content = serde_json::to_string_pretty(config).unwrap();
         fs::write(
             Path::new(env!("CARGO_MANIFEST_DIR"))

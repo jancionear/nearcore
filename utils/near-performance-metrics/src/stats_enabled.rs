@@ -73,20 +73,33 @@ impl ThreadStats {
         }
     }
 
-    pub fn log_add_write_buffer(&mut self, bytes: usize, buf_len: usize, buf_capacity: usize) {
+    pub fn log_add_write_buffer(
+        &mut self,
+        bytes: usize,
+        buf_len: usize,
+        buf_capacity: usize,
+    ) {
         self.write_buf_added += ByteSize::b(bytes as u64);
         self.write_buf_len = ByteSize::b(buf_len as u64);
         self.write_buf_capacity = ByteSize::b(buf_capacity as u64);
         self.write_buf_capacity = ByteSize::b(buf_capacity as u64);
     }
 
-    pub fn log_drain_write_buffer(&mut self, bytes: usize, buf_len: usize, buf_capacity: usize) {
+    pub fn log_drain_write_buffer(
+        &mut self,
+        bytes: usize,
+        buf_len: usize,
+        buf_capacity: usize,
+    ) {
         self.write_buf_drained += ByteSize::b(bytes as u64);
         self.write_buf_len = ByteSize::b(buf_len as u64);
         self.write_buf_capacity = ByteSize::b(buf_capacity as u64);
     }
 
-    pub fn pre_log(&mut self, now: Instant) {
+    pub fn pre_log(
+        &mut self,
+        now: Instant,
+    ) {
         self.in_progress_since = Some(now);
     }
 
@@ -104,11 +117,14 @@ impl ThreadStats {
 
         let took_since_last_check = min(took, now.saturating_duration_since(self.last_check));
 
-        let entry = self.stat.entry((msg, line, msg_text)).or_insert_with(|| Entry {
-            cnt: 0,
-            time: Duration::default(),
-            max_time: Duration::default(),
-        });
+        let entry = self
+            .stat
+            .entry((msg, line, msg_text))
+            .or_insert_with(|| Entry {
+                cnt: 0,
+                time: Duration::default(),
+                max_time: Duration::default(),
+            });
         entry.cnt += 1;
         entry.time += took_since_last_check;
         entry.max_time = max(took, entry.max_time);
@@ -229,12 +245,20 @@ impl Stats {
         Self { stats: HashMap::new() }
     }
 
-    pub(crate) fn add_entry(&mut self, local_stats: &Arc<Mutex<ThreadStats>>) {
+    pub(crate) fn add_entry(
+        &mut self,
+        local_stats: &Arc<Mutex<ThreadStats>>,
+    ) {
         let tid = std::thread::current().id();
-        self.stats.entry(tid).or_insert_with(|| Arc::clone(local_stats));
+        self.stats
+            .entry(tid)
+            .or_insert_with(|| Arc::clone(local_stats));
     }
 
-    fn print_stats(&mut self, sleep_time: Duration) {
+    fn print_stats(
+        &mut self,
+        sleep_time: Duration,
+    ) {
         info!(
             "Performance stats {} threads (min ratio = {})",
             self.stats.len(),
@@ -246,8 +270,11 @@ impl Stats {
         let mut other_ratio = 0.0;
         let now = Instant::now();
         for entry in s {
-            let (tmp_ratio, tmp_other_ratio) =
-                entry.1.lock().unwrap().print_stats_and_clear(*entry.0, sleep_time, now);
+            let (tmp_ratio, tmp_other_ratio) = entry
+                .1
+                .lock()
+                .unwrap()
+                .print_stats_and_clear(*entry.0, sleep_time, now);
             ratio += tmp_ratio;
             other_ratio += tmp_other_ratio;
         }
@@ -340,7 +367,10 @@ where
 {
     type Output = ();
 
-    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+    fn poll(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Poll<Self::Output> {
         let this = unsafe { self.get_unchecked_mut() };
 
         let stat = get_thread_stats_logger();
@@ -350,7 +380,9 @@ where
         let res = unsafe { Pin::new_unchecked(&mut this.f) }.poll(cx);
         let ended = Instant::now();
         let took = ended.saturating_duration_since(start);
-        stat.lock().unwrap().log(this.class_name, this.file, this.line, took, ended, "");
+        stat.lock()
+            .unwrap()
+            .log(this.class_name, this.file, this.line, took, ended, "");
 
         if took > SLOW_CALL_THRESHOLD {
             warn!(
@@ -363,18 +395,24 @@ where
             );
         }
         match res {
-            Poll::Ready(x) => {
-                *REF_COUNTER.lock().unwrap().entry((this.file, this.line)).or_insert_with(|| 0) -=
-                    1;
+            | Poll::Ready(x) => {
+                *REF_COUNTER
+                    .lock()
+                    .unwrap()
+                    .entry((this.file, this.line))
+                    .or_insert_with(|| 0) -= 1;
                 Poll::Ready(x)
             }
-            Poll::Pending => Poll::Pending,
+            | Poll::Pending => Poll::Pending,
         }
     }
 }
 
 pub fn print_performance_stats(sleep_time: Duration) {
-    STATS.lock().unwrap().print_stats(sleep_time);
+    STATS
+        .lock()
+        .unwrap()
+        .print_stats(sleep_time);
     info!("Futures waiting for completion");
     for entry in REF_COUNTER.lock().unwrap().iter() {
         if *entry.1 > 0 {

@@ -42,13 +42,19 @@ impl PeerId {
 }
 
 impl fmt::Display for PeerId {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
         write!(f, "{}", self.0)
     }
 }
 
 impl fmt::Debug for PeerId {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
         write!(f, "{}", self.0)
     }
 }
@@ -67,16 +73,24 @@ pub struct AnnounceAccount {
 }
 
 impl AnnounceAccount {
-    pub fn new(signer: &ValidatorSigner, peer_id: PeerId, epoch_id: EpochId) -> Self {
+    pub fn new(
+        signer: &ValidatorSigner,
+        peer_id: PeerId,
+        epoch_id: EpochId,
+    ) -> Self {
         let signature = Self::sign(signer, &peer_id, &epoch_id);
-        Self { account_id: signer.validator_id().clone(), peer_id: peer_id, epoch_id, signature }
+        Self { account_id: signer.validator_id().clone(), peer_id, epoch_id, signature }
     }
 
     pub fn hash(&self) -> CryptoHash {
         Self::build_header_hash(&self.account_id, &self.peer_id, &self.epoch_id)
     }
 
-    fn sign(signer: &ValidatorSigner, peer_id: &PeerId, epoch_id: &EpochId) -> Signature {
+    fn sign(
+        signer: &ValidatorSigner,
+        peer_id: &PeerId,
+        epoch_id: &EpochId,
+    ) -> Signature {
         let hash = Self::build_header_hash(signer.validator_id(), peer_id, epoch_id);
         signer.sign_bytes(hash.as_ref())
     }

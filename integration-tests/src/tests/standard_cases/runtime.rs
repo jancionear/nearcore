@@ -17,17 +17,24 @@ fn create_free_runtime_node() -> RuntimeNode {
 }
 
 fn create_runtime_with_expensive_storage() -> RuntimeNode {
-    let mut genesis =
-        Genesis::test(vec![alice_account(), bob_account(), "carol.near".parse().unwrap()], 1);
+    let mut genesis = Genesis::test(
+        vec![
+            alice_account(),
+            bob_account(),
+            "carol.near".parse().unwrap(),
+        ],
+        1,
+    );
     add_test_contract(&mut genesis, &bob_account());
     // Set expensive state requirements and add alice more money.
     let mut runtime_config = RuntimeConfig::test();
     let fees = Arc::make_mut(&mut runtime_config.fees);
-    fees.storage_usage_config.storage_amount_per_byte = TESTING_INIT_BALANCE / 1000;
+    fees.storage_usage_config
+        .storage_amount_per_byte = TESTING_INIT_BALANCE / 1000;
     let records = genesis.force_read_records().as_mut();
     match &mut records[0] {
-        StateRecord::Account { account, .. } => account.set_amount(TESTING_INIT_BALANCE * 10000),
-        _ => {
+        | StateRecord::Account { account, .. } => account.set_amount(TESTING_INIT_BALANCE * 10000),
+        | _ => {
             panic!("the first record is expected to be alice account creation!");
         }
     }
@@ -346,27 +353,51 @@ fn test_contract_write_key_value_cost_runtime() {
 #[test]
 fn test_accounting_cache_same_common_parent() {
     let node = create_runtime_node();
-    let runtime_config = node.client.as_ref().read().unwrap().runtime_config.clone();
+    let runtime_config = node
+        .client
+        .as_ref()
+        .read()
+        .unwrap()
+        .runtime_config
+        .clone();
     test_accounting_cache_common_parent(node, runtime_config);
 }
 
 #[test]
 fn test_accounting_cache_branch_value_runtime() {
     let node = create_runtime_node();
-    let runtime_config = node.client.as_ref().read().unwrap().runtime_config.clone();
+    let runtime_config = node
+        .client
+        .as_ref()
+        .read()
+        .unwrap()
+        .runtime_config
+        .clone();
     test_accounting_cache_branch_value(node, runtime_config);
 }
 
 #[test]
 fn test_accounting_cache_mode_runtime() {
     let node = create_runtime_node();
-    let runtime_config = node.client.as_ref().read().unwrap().runtime_config.clone();
+    let runtime_config = node
+        .client
+        .as_ref()
+        .read()
+        .unwrap()
+        .runtime_config
+        .clone();
     test_accounting_cache_mode(node, runtime_config);
 }
 
 #[test]
 fn test_storage_read_write_costs_runtime() {
     let node = create_runtime_node();
-    let runtime_config = node.client.as_ref().read().unwrap().runtime_config.clone();
+    let runtime_config = node
+        .client
+        .as_ref()
+        .read()
+        .unwrap()
+        .runtime_config
+        .clone();
     test_storage_read_write_costs(node, runtime_config);
 }

@@ -31,7 +31,10 @@ const LIBS_THRESHOLDS: [(&str, usize); 9] = [
 
 const THRESHOLD_IS_TOO_GENEROUS: usize = 30;
 
-fn get_and_assert_crate_dependencies(name: &str, threshold: usize) -> usize {
+fn get_and_assert_crate_dependencies(
+    name: &str,
+    threshold: usize,
+) -> usize {
     let output: std::process::Output =
         Command::new(std::env::var("CARGO").unwrap_or_else(|_| "cargo".to_string()))
             .arg("tree")

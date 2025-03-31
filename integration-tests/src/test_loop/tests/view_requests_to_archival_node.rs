@@ -54,15 +54,22 @@ fn slow_test_view_requests_to_archival_node() {
         .map(|i| format!("account{}", i).parse().unwrap())
         .collect::<Vec<AccountId>>();
     // Validators take all the roles: block+chunk producer and chunk validator.
-    let validators =
-        accounts.iter().take(NUM_VALIDATORS).map(|account| account.as_str()).collect_vec();
+    let validators = accounts
+        .iter()
+        .take(NUM_VALIDATORS)
+        .map(|account| account.as_str())
+        .collect_vec();
 
     // Contains the accounts of the validators and the non-validator archival node.
-    let all_clients: Vec<AccountId> =
-        accounts.iter().take(NUM_VALIDATORS + 1).cloned().collect_vec();
+    let all_clients: Vec<AccountId> = accounts
+        .iter()
+        .take(NUM_VALIDATORS + 1)
+        .cloned()
+        .collect_vec();
     // Contains the account of the non-validator archival node.
-    let archival_clients: HashSet<AccountId> =
-        vec![all_clients[NUM_VALIDATORS].clone()].into_iter().collect();
+    let archival_clients: HashSet<AccountId> = vec![all_clients[NUM_VALIDATORS].clone()]
+        .into_iter()
+        .collect();
 
     let shard_layout = ShardLayout::simple_v1(&["account3", "account5", "account7"]);
     let (genesis, epoch_config_store) = build_genesis_and_epoch_config_store(
@@ -85,15 +92,24 @@ fn slow_test_view_requests_to_archival_node() {
         .gc_num_epochs_to_keep(GC_NUM_EPOCHS_TO_KEEP)
         .build();
 
-    let non_validator_accounts = accounts.iter().skip(NUM_VALIDATORS).cloned().collect_vec();
+    let non_validator_accounts = accounts
+        .iter()
+        .skip(NUM_VALIDATORS)
+        .cloned()
+        .collect_vec();
     execute_money_transfers(&mut test_loop, &node_datas, &non_validator_accounts).unwrap();
 
     // Run the chain until it garbage collects blocks from the first epoch.
-    let client_handle = node_datas[ARCHIVAL_CLIENT].client_sender.actor_handle();
+    let client_handle = node_datas[ARCHIVAL_CLIENT]
+        .client_sender
+        .actor_handle();
     let target_height: u64 = EPOCH_LENGTH * (GC_NUM_EPOCHS_TO_KEEP + 2) + 6;
     test_loop.run_until(
         |test_loop_data| {
-            let chain = &test_loop_data.get(&client_handle).client.chain;
+            let chain = &test_loop_data
+                .get(&client_handle)
+                .client
+                .chain;
             chain.head().unwrap().height >= target_height
         },
         Duration::seconds(target_height as i64),
@@ -116,7 +132,10 @@ struct ViewClientTester<'a> {
 }
 
 impl<'a> ViewClientTester<'a> {
-    fn new(test_loop: &'a mut TestLoopV2, test_data: &Vec<TestData>) -> Self {
+    fn new(
+        test_loop: &'a mut TestLoopV2,
+        test_data: &Vec<TestData>,
+    ) -> Self {
         Self {
             test_loop,
             // Save the handles for the view client senders.
@@ -129,24 +148,40 @@ impl<'a> ViewClientTester<'a> {
     }
 
     /// Sends a message to the `[ViewClientActorInner]` for the client at position `idx`.
-    fn send<M: actix::Message>(&mut self, request: M, idx: usize) -> M::Result
+    fn send<M: actix::Message>(
+        &mut self,
+        request: M,
+        idx: usize,
+    ) -> M::Result
     where
         M::Result: Send,
         ViewClientActorInner: Handler<M>,
     {
-        let view_client = self.test_loop.data.get_mut(&self.handles[idx]);
+        let view_client = self
+            .test_loop
+            .data
+            .get_mut(&self.handles[idx]);
         view_client.handle(request)
     }
 
     /// Generates variations of the messages to retrieve different kinds of information
     /// and issues them to the view client of the archival node.
-    fn run_tests(&mut self, shard_layout: &ShardLayout) {
+    fn run_tests(
+        &mut self,
+        shard_layout: &ShardLayout,
+    ) {
         // Sanity check: Validators cannot return old blocks after GC (eg. genesis block) but archival node can.
         let genesis_block_request =
             GetBlock(BlockReference::BlockId(BlockId::Height(GENESIS_HEIGHT)));
-        assert!(self.send(genesis_block_request.clone(), 0).is_err());
-        assert!(self.send(genesis_block_request.clone(), 1).is_err());
-        assert!(self.send(genesis_block_request, ARCHIVAL_CLIENT).is_ok());
+        assert!(self
+            .send(genesis_block_request.clone(), 0)
+            .is_err());
+        assert!(self
+            .send(genesis_block_request.clone(), 1)
+            .is_err());
+        assert!(self
+            .send(genesis_block_request, ARCHIVAL_CLIENT)
+            .is_ok());
 
         // Run the tests for various kinds of requests.
         self.check_get_block();
@@ -161,14 +196,18 @@ impl<'a> ViewClientTester<'a> {
         self.check_get_execution_outcomes(shard_layout);
     }
 
-    fn get_block_at_height(&mut self, height: BlockHeight) -> BlockView {
+    fn get_block_at_height(
+        &mut self,
+        height: BlockHeight,
+    ) -> BlockView {
         if let Some(block) = self.block_cache.get(&height) {
             block.clone()
         } else {
             let block = self
                 .send(GetBlock(BlockReference::BlockId(BlockId::Height(height))), ARCHIVAL_CLIENT)
                 .unwrap();
-            self.block_cache.insert(height, block.clone());
+            self.block_cache
+                .insert(height, block.clone());
             block
         }
     }
@@ -176,7 +215,9 @@ impl<'a> ViewClientTester<'a> {
     /// Generates variations of the [`GetBlock`] request and issues them to the view client of the archival node.
     fn check_get_block(&mut self) {
         let mut get_and_check_block = |request: GetBlock| {
-            let block = self.send(request, ARCHIVAL_CLIENT).unwrap();
+            let block = self
+                .send(request, ARCHIVAL_CLIENT)
+                .unwrap();
             assert_eq!(block.header.chunks_included, 4);
             block
         };
@@ -211,20 +252,30 @@ impl<'a> ViewClientTester<'a> {
         let block = self.get_block_at_height(6);
 
         let headers_request = BlockHeadersRequest(vec![block.header.hash]);
-        let headers_response = self.send(headers_request, ARCHIVAL_CLIENT).unwrap();
+        let headers_response = self
+            .send(headers_request, ARCHIVAL_CLIENT)
+            .unwrap();
         assert_eq!(headers_response.len() as u64, EPOCH_LENGTH * (GC_NUM_EPOCHS_TO_KEEP + 2));
     }
 
     /// Generates variations of the [`GetChunk`] request and issues them to the view client of the archival node.
-    fn check_get_chunk(&mut self, shard_layout: &ShardLayout) {
-        let shard_info = shard_layout.shard_infos().next().unwrap();
+    fn check_get_chunk(
+        &mut self,
+        shard_layout: &ShardLayout,
+    ) {
+        let shard_info = shard_layout
+            .shard_infos()
+            .next()
+            .unwrap();
         let shard_id = shard_info.shard_id();
         let shard_index = shard_info.shard_index();
 
         let block = self.get_block_at_height(6);
 
         let mut get_and_check_chunk = |request: GetChunk| {
-            let chunk = self.send(request, ARCHIVAL_CLIENT).unwrap();
+            let chunk = self
+                .send(request, ARCHIVAL_CLIENT)
+                .unwrap();
             assert_eq!(chunk.header.gas_limit, 1_000_000_000_000_000);
             chunk
         };
@@ -241,15 +292,23 @@ impl<'a> ViewClientTester<'a> {
     }
 
     /// Generates variations of the [`GetShardChunk`] request and issues them to the view client of the archival node.
-    fn check_get_shard_chunk(&mut self, shard_layout: &ShardLayout) {
-        let shard_info = shard_layout.shard_infos().next().unwrap();
+    fn check_get_shard_chunk(
+        &mut self,
+        shard_layout: &ShardLayout,
+    ) {
+        let shard_info = shard_layout
+            .shard_infos()
+            .next()
+            .unwrap();
         let shard_id = shard_info.shard_id();
         let shard_index = shard_info.shard_index();
 
         let block = self.get_block_at_height(6);
 
         let mut get_and_check_shard_chunk = |request: GetShardChunk| {
-            let shard_chunk = self.send(request, ARCHIVAL_CLIENT).unwrap();
+            let shard_chunk = self
+                .send(request, ARCHIVAL_CLIENT)
+                .unwrap();
             assert_eq!(shard_chunk.take_header().gas_limit(), 1_000_000_000_000_000);
         };
 
@@ -269,7 +328,9 @@ impl<'a> ViewClientTester<'a> {
         let block = self.get_block_at_height(6);
 
         let mut get_and_check_protocol_config = |request: GetProtocolConfig| {
-            let config = self.send(request, ARCHIVAL_CLIENT).unwrap();
+            let config = self
+                .send(request, ARCHIVAL_CLIENT)
+                .unwrap();
             assert_eq!(config.protocol_version, PROTOCOL_VERSION);
             config
         };
@@ -309,7 +370,9 @@ impl<'a> ViewClientTester<'a> {
         let block = self.get_block_at_height(EPOCH_LENGTH * 2);
 
         let mut get_and_check_validator_info = |request: GetValidatorInfo| {
-            let validator_info = self.send(request, ARCHIVAL_CLIENT).unwrap();
+            let validator_info = self
+                .send(request, ARCHIVAL_CLIENT)
+                .unwrap();
             assert_eq!(validator_info.current_validators.len(), 2);
             validator_info
         };
@@ -339,7 +402,9 @@ impl<'a> ViewClientTester<'a> {
         let block = self.get_block_at_height(EPOCH_LENGTH * 2);
 
         let mut get_and_check_ordered_validators = |request: GetValidatorOrdered| {
-            let validator_info = self.send(request, ARCHIVAL_CLIENT).unwrap();
+            let validator_info = self
+                .send(request, ARCHIVAL_CLIENT)
+                .unwrap();
             assert_eq!(validator_info.len(), 2);
             validator_info
         };
@@ -361,7 +426,9 @@ impl<'a> ViewClientTester<'a> {
         let block = self.get_block_at_height(6);
 
         let state_changes_in_block = GetStateChangesInBlock { block_hash: block.header.hash };
-        let state_changes = self.send(state_changes_in_block, ARCHIVAL_CLIENT).unwrap();
+        let state_changes = self
+            .send(state_changes_in_block, ARCHIVAL_CLIENT)
+            .unwrap();
         assert_eq!(state_changes.len(), 4);
         assert_eq!(
             state_changes[0],
@@ -382,11 +449,16 @@ impl<'a> ViewClientTester<'a> {
     }
 
     /// Generates variations of the [`GetReceipt`] request and issues them to the view client of the archival node.
-    fn check_get_execution_outcomes(&mut self, shard_layout: &ShardLayout) {
+    fn check_get_execution_outcomes(
+        &mut self,
+        shard_layout: &ShardLayout,
+    ) {
         let block = self.get_block_at_height(6);
 
         let request = GetExecutionOutcomesForBlock { block_hash: block.header.hash };
-        let outcomes = self.send(request, ARCHIVAL_CLIENT).unwrap();
+        let outcomes = self
+            .send(request, ARCHIVAL_CLIENT)
+            .unwrap();
         assert_eq!(outcomes.len(), NUM_SHARDS);
 
         let [s0, s1, s2, s3] = shard_layout.shard_ids().collect_vec()[..] else {
@@ -432,7 +504,9 @@ impl<'a> ViewClientTester<'a> {
                 account_ids: accounts,
             },
         };
-        let state_changes = self.send(request, ARCHIVAL_CLIENT).unwrap();
+        let state_changes = self
+            .send(request, ARCHIVAL_CLIENT)
+            .unwrap();
         assert_eq!(state_changes.len(), 2);
         assert!(matches!(
             state_changes[0].cause,

@@ -41,15 +41,24 @@ fn check_tx_processing(
     let tx_hash = tx.get_hash();
     assert_eq!(env.clients[0].process_tx(tx, false, false), ProcessTxResponse::ValidTx);
     let next_height = produce_blocks_from_height(env, blocks_number, height);
-    let final_outcome = env.clients[0].chain.get_final_transaction_result(&tx_hash).unwrap();
+    let final_outcome = env.clients[0]
+        .chain
+        .get_final_transaction_result(&tx_hash)
+        .unwrap();
     println!("{final_outcome:?}");
     assert_matches!(final_outcome.status, FinalExecutionStatus::SuccessValue(_));
     next_height
 }
 
-fn view_request(env: &TestEnv, request: QueryRequest) -> QueryResponse {
+fn view_request(
+    env: &TestEnv,
+    request: QueryRequest,
+) -> QueryResponse {
     let head = env.clients[0].chain.head().unwrap();
-    let head_block = env.clients[0].chain.get_block(&head.last_block_hash).unwrap();
+    let head_block = env.clients[0]
+        .chain
+        .get_block(&head.last_block_hash)
+        .unwrap();
     env.clients[0]
         .runtime_adapter
         .query(
@@ -65,19 +74,26 @@ fn view_request(env: &TestEnv, request: QueryRequest) -> QueryResponse {
         .unwrap()
 }
 
-pub fn view_balance(env: &TestEnv, account: &AccountIdRef) -> u128 {
+pub fn view_balance(
+    env: &TestEnv,
+    account: &AccountIdRef,
+) -> u128 {
     let request = QueryRequest::ViewAccount { account_id: account.into() };
     match view_request(&env, request).kind {
-        QueryResponseKind::ViewAccount(view) => view.amount,
-        _ => panic!("wrong query response"),
+        | QueryResponseKind::ViewAccount(view) => view.amount,
+        | _ => panic!("wrong query response"),
     }
 }
 
-fn view_nonce(env: &TestEnv, account: &AccountIdRef, pk: PublicKey) -> u64 {
+fn view_nonce(
+    env: &TestEnv,
+    account: &AccountIdRef,
+    pk: PublicKey,
+) -> u64 {
     let request = QueryRequest::ViewAccessKey { account_id: account.into(), public_key: pk };
     match view_request(&env, request).kind {
-        QueryResponseKind::AccessKey(view) => view.nonce,
-        _ => panic!("wrong query response"),
+        | QueryResponseKind::AccessKey(view) => view.nonce,
+        | _ => panic!("wrong query response"),
     }
 }
 
@@ -87,9 +103,20 @@ fn test_eth_implicit_account_creation() {
     if !checked_feature!("stable", EthImplicitAccounts, PROTOCOL_VERSION) {
         return;
     }
-    let genesis = Genesis::test(vec!["test0".parse().unwrap(), "test1".parse().unwrap()], 1);
-    let mut env = TestEnv::builder(&genesis.config).nightshade_runtimes(&genesis).build();
-    let genesis_block = env.clients[0].chain.get_block_by_height(0).unwrap();
+    let genesis = Genesis::test(
+        vec![
+            "test0".parse().unwrap(),
+            "test1".parse().unwrap(),
+        ],
+        1,
+    );
+    let mut env = TestEnv::builder(&genesis.config)
+        .nightshade_runtimes(&genesis)
+        .build();
+    let genesis_block = env.clients[0]
+        .chain
+        .get_block_by_height(0)
+        .unwrap();
     let chain_id = &genesis.config.chain_id;
 
     let signer = InMemorySigner::test_signer(&"test0".parse().unwrap());
@@ -115,23 +142,23 @@ fn test_eth_implicit_account_creation() {
     // Check that the account storage fits within zero balance account limit.
     let request = QueryRequest::ViewAccount { account_id: eth_implicit_account_id.clone() };
     match view_request(&env, request).kind {
-        QueryResponseKind::ViewAccount(view) => {
+        | QueryResponseKind::ViewAccount(view) => {
             assert_eq!(view.amount, 0);
             assert_eq!(view.code_hash, *magic_bytes.hash());
             assert!(view.storage_usage <= ZERO_BALANCE_ACCOUNT_STORAGE_LIMIT)
         }
-        _ => panic!("wrong query response"),
+        | _ => panic!("wrong query response"),
     }
 
     // Verify that contract code deployed to the ETH-implicit account is near[wallet contract hash].
     let request = QueryRequest::ViewCode { account_id: eth_implicit_account_id };
     match view_request(&env, request).kind {
-        QueryResponseKind::ViewCode(view) => {
+        | QueryResponseKind::ViewCode(view) => {
             let contract_code = ContractCode::new(view.code, None);
             assert_eq!(contract_code.hash(), magic_bytes.hash());
             assert_eq!(contract_code.code(), magic_bytes.code());
         }
-        _ => panic!("wrong query response"),
+        | _ => panic!("wrong query response"),
     }
 }
 
@@ -141,9 +168,20 @@ fn test_transaction_from_eth_implicit_account_fail() {
     if !checked_feature!("stable", EthImplicitAccounts, PROTOCOL_VERSION) {
         return;
     }
-    let genesis = Genesis::test(vec!["test0".parse().unwrap(), "test1".parse().unwrap()], 1);
-    let mut env = TestEnv::builder(&genesis.config).nightshade_runtimes(&genesis).build();
-    let genesis_block = env.clients[0].chain.get_block_by_height(0).unwrap();
+    let genesis = Genesis::test(
+        vec![
+            "test0".parse().unwrap(),
+            "test1".parse().unwrap(),
+        ],
+        1,
+    );
+    let mut env = TestEnv::builder(&genesis.config)
+        .nightshade_runtimes(&genesis)
+        .build();
+    let genesis_block = env.clients[0]
+        .chain
+        .get_block_by_height(0)
+        .unwrap();
     let chain_id = &genesis.config.chain_id;
     let deposit_for_account_creation = NEAR_BASE;
     let mut height = 1;
@@ -167,7 +205,10 @@ fn test_transaction_from_eth_implicit_account_fail() {
     );
     // Check for tx success status and get new block height.
     height = check_tx_processing(&mut env, send_money_tx, height, blocks_number);
-    let block = env.clients[0].chain.get_block_by_height(height - 1).unwrap();
+    let block = env.clients[0]
+        .chain
+        .get_block_by_height(height - 1)
+        .unwrap();
 
     // Try to send money from ETH-implicit account using `(block_height - 1) * 1e6` as a nonce.
     // That would be a good nonce for any access key, but the transaction should fail nonetheless because there is no access key.
@@ -220,13 +261,18 @@ fn test_transaction_from_eth_implicit_account_fail() {
 
     // Try to deploy the Wallet Contract again to the ETH-implicit account. Should fail because there is no access key.
     let magic_bytes = wallet_contract_magic_bytes(&chain_id, PROTOCOL_VERSION);
-    let wallet_contract_code = wallet_contract(*magic_bytes.hash()).unwrap().code().to_vec();
+    let wallet_contract_code = wallet_contract(*magic_bytes.hash())
+        .unwrap()
+        .code()
+        .to_vec();
     let add_access_key_to_eth_implicit_account_tx = SignedTransaction::from_actions(
         nonce,
         eth_implicit_account_id.clone(),
         eth_implicit_account_id,
         &eth_implicit_account_signer,
-        vec![Action::DeployContract(DeployContractAction { code: wallet_contract_code })],
+        vec![Action::DeployContract(
+            DeployContractAction { code: wallet_contract_code },
+        )],
         *block.hash(),
         0,
     );
@@ -241,10 +287,22 @@ fn test_wallet_contract_interaction() {
         return;
     }
 
-    let genesis = Genesis::test(vec!["test0".parse().unwrap(), alice_account(), bob_account()], 1);
-    let mut env = TestEnv::builder(&genesis.config).nightshade_runtimes(&genesis).build();
+    let genesis = Genesis::test(
+        vec![
+            "test0".parse().unwrap(),
+            alice_account(),
+            bob_account(),
+        ],
+        1,
+    );
+    let mut env = TestEnv::builder(&genesis.config)
+        .nightshade_runtimes(&genesis)
+        .build();
 
-    let genesis_block = env.clients[0].chain.get_block_by_height(0).unwrap();
+    let genesis_block = env.clients[0]
+        .chain
+        .get_block_by_height(0)
+        .unwrap();
     let mut height = 1;
     let blocks_number = 10;
 
@@ -265,7 +323,9 @@ fn test_wallet_contract_interaction() {
     // Although ETH-implicit account can be zero-balance, we pick a non-zero amount
     // here in order to make transfer later from this account.
     let deposit_for_account_creation = NEAR_BASE;
-    let actions = vec![Action::Transfer(TransferAction { deposit: deposit_for_account_creation })];
+    let actions = vec![Action::Transfer(TransferAction {
+        deposit: deposit_for_account_creation,
+    })];
     let nonce = view_nonce(&env, relayer_signer.account_id, relayer_signer.signer.public_key()) + 1;
     let block_hash = *genesis_block.hash();
     let signed_transaction = SignedTransaction::from_actions(
@@ -348,17 +408,17 @@ pub fn create_rlp_execute_tx(
 
     // Construct Eth transaction from user's intended action
     let value = match &mut action {
-        Action::Transfer(tx) => {
+        | Action::Transfer(tx) => {
             let raw_amount = tx.deposit;
             tx.deposit = raw_amount % MAX_YOCTO_NEAR;
             Wei::new_u128(raw_amount / MAX_YOCTO_NEAR)
         }
-        Action::FunctionCall(fn_call) => {
+        | Action::FunctionCall(fn_call) => {
             let raw_amount = fn_call.deposit;
             fn_call.deposit = raw_amount % MAX_YOCTO_NEAR;
             Wei::new_u128(raw_amount / MAX_YOCTO_NEAR)
         }
-        _ => Wei::zero(),
+        | _ => Wei::zero(),
     };
     let tx_data = abi_encode(target.to_string(), action);
     let transaction = Transaction2930 {
@@ -383,14 +443,20 @@ pub fn create_rlp_execute_tx(
     .into_bytes();
 
     // Construct Near transaction to `rlp_execute` method
-    let actions = vec![Action::FunctionCall(Box::new(FunctionCallAction {
-        method_name: "rlp_execute".into(),
-        args,
-        gas: 300_000_000_000_000,
-        deposit: 0,
-    }))];
+    let actions = vec![Action::FunctionCall(Box::new(
+        FunctionCallAction {
+            method_name: "rlp_execute".into(),
+            args,
+            gas: 300_000_000_000_000,
+            deposit: 0,
+        },
+    ))];
     let nonce = view_nonce(env, near_signer.account_id, near_signer.signer.public_key()) + 1;
-    let block_hash = *env.clients[0].chain.get_head_block().unwrap().hash();
+    let block_hash = *env.clients[0]
+        .chain
+        .get_head_block()
+        .unwrap()
+        .hash();
     SignedTransaction::from_actions(
         nonce,
         near_signer.account_id.into(),
@@ -407,23 +473,28 @@ pub struct NearSigner<'a> {
     pub signer: Signer,
 }
 
-fn abi_encode(target: String, action: Action) -> Vec<u8> {
+fn abi_encode(
+    target: String,
+    action: Action,
+) -> Vec<u8> {
     const ADD_KEY_SELECTOR: &[u8] = &[0x75, 0x3c, 0xe5, 0xab];
     const TRANSFER_SELECTOR: &[u8] = &[0x3e, 0xd6, 0x41, 0x24];
 
     let mut buf = Vec::new();
     match action {
-        Action::AddKey(add_key) => {
+        | Action::AddKey(add_key) => {
             buf.extend_from_slice(ADD_KEY_SELECTOR);
             let (public_key_kind, public_key) = match add_key.public_key {
-                PublicKey::ED25519(key) => (0, key.as_ref().to_vec()),
-                PublicKey::SECP256K1(key) => (1, key.as_ref().to_vec()),
+                | PublicKey::ED25519(key) => (0, key.as_ref().to_vec()),
+                | PublicKey::SECP256K1(key) => (1, key.as_ref().to_vec()),
             };
             let nonce = add_key.access_key.nonce;
             let (is_full_access, is_limited_allowance, allowance, receiver_id, method_names) =
                 match add_key.access_key.permission {
-                    AccessKeyPermission::FullAccess => (true, false, 0, String::new(), Vec::new()),
-                    AccessKeyPermission::FunctionCall(permission) => (
+                    | AccessKeyPermission::FullAccess => {
+                        (true, false, 0, String::new(), Vec::new())
+                    }
+                    | AccessKeyPermission::FunctionCall(permission) => (
                         false,
                         permission.allowance.is_some(),
                         permission.allowance.unwrap_or_default(),
@@ -440,29 +511,40 @@ fn abi_encode(target: String, action: Action) -> Vec<u8> {
                 ethabi::Token::Bool(is_limited_allowance),
                 ethabi::Token::Uint(allowance.into()),
                 ethabi::Token::String(receiver_id),
-                ethabi::Token::Array(method_names.into_iter().map(ethabi::Token::String).collect()),
+                ethabi::Token::Array(
+                    method_names
+                        .into_iter()
+                        .map(ethabi::Token::String)
+                        .collect(),
+                ),
             ];
             buf.extend_from_slice(&ethabi::encode(tokens));
         }
-        Action::Transfer(tx) => {
+        | Action::Transfer(tx) => {
             buf.extend_from_slice(TRANSFER_SELECTOR);
-            let tokens = &[ethabi::Token::String(target), ethabi::Token::Uint(tx.deposit.into())];
+            let tokens = &[
+                ethabi::Token::String(target),
+                ethabi::Token::Uint(tx.deposit.into()),
+            ];
             buf.extend_from_slice(&ethabi::encode(tokens));
         }
-        _ => unimplemented!(),
+        | _ => unimplemented!(),
     }
     buf
 }
 
-fn sign_eth_transaction(transaction: Transaction2930, sk: &SecretKey) -> EthTransactionKind {
+fn sign_eth_transaction(
+    transaction: Transaction2930,
+    sk: &SecretKey,
+) -> EthTransactionKind {
     let mut rlp_stream = rlp::RlpStream::new();
     rlp_stream.append(&aurora_engine_transactions::eip_2930::TYPE_BYTE);
     transaction.rlp_append_unsigned(&mut rlp_stream);
     let message_hash = keccak256(rlp_stream.as_raw());
     let signature = sk.sign(&message_hash);
     let bytes: [u8; 65] = match signature {
-        near_crypto::Signature::SECP256K1(x) => x.into(),
-        _ => panic!("Expected SECP256K1 key"),
+        | near_crypto::Signature::SECP256K1(x) => x.into(),
+        | _ => panic!("Expected SECP256K1 key"),
     };
     let v = bytes[64];
     let r = U256::from_big_endian(&bytes[0..32]);

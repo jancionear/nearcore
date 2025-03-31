@@ -118,8 +118,10 @@ impl ChainStore {
         .entered();
 
         let serialized_witness = borsh::to_vec(witness)?;
-        let serialized_witness_size: u64 =
-            serialized_witness.len().try_into().expect("Cannot convert usize to u64");
+        let serialized_witness_size: u64 = serialized_witness
+            .len()
+            .try_into()
+            .expect("Cannot convert usize to u64");
 
         if serialized_witness_size > SINGLE_LATEST_WITNESS_MAX_SIZE.as_u64() {
             tracing::warn!(
@@ -194,9 +196,14 @@ impl ChainStore {
         // Commit the transaction
         store_update.commit()?;
 
-        let store_commit_time = start_time.elapsed().saturating_sub(store_update_time);
+        let store_commit_time = start_time
+            .elapsed()
+            .saturating_sub(store_update_time);
 
-        let shard_id_str = witness.chunk_header.shard_id().to_string();
+        let shard_id_str = witness
+            .chunk_header
+            .shard_id()
+            .to_string();
         stateless_validation::metrics::SAVE_LATEST_WITNESS_GENERATE_UPDATE_TIME
             .with_label_values(&[shard_id_str.as_str()])
             .observe(store_update_time.as_secs_f64());

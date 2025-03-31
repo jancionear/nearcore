@@ -19,7 +19,10 @@ use std::fmt::{Formatter, Result as FmtResult};
 struct Version;
 
 impl serde::Serialize for Version {
-    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+    fn serialize<S: Serializer>(
+        &self,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error> {
         serializer.serialize_str("2.0")
     }
 }
@@ -30,14 +33,20 @@ impl<'de> serde::Deserialize<'de> for Version {
         impl<'de> Visitor<'de> for VersionVisitor {
             type Value = Version;
 
-            fn expecting(&self, formatter: &mut Formatter<'_>) -> FmtResult {
+            fn expecting(
+                &self,
+                formatter: &mut Formatter<'_>,
+            ) -> FmtResult {
                 formatter.write_str("a version string")
             }
 
-            fn visit_str<E: Error>(self, value: &str) -> Result<Version, E> {
+            fn visit_str<E: Error>(
+                self,
+                value: &str,
+            ) -> Result<Version, E> {
                 match value {
-                    "2.0" => Ok(Version),
-                    _ => Err(E::invalid_value(Unexpected::Str(value), &"value 2.0")),
+                    | "2.0" => Ok(Version),
+                    | _ => Err(E::invalid_value(Unexpected::Str(value), &"value 2.0")),
                 }
             }
         }
@@ -60,11 +69,17 @@ impl Request {
     /// Answer the request with a (positive) reply.
     ///
     /// The ID is taken from the request.
-    pub fn reply(&self, reply: Value) -> Message {
+    pub fn reply(
+        &self,
+        reply: Value,
+    ) -> Message {
         Message::Response(Response { jsonrpc: Version, result: Ok(reply), id: self.id.clone() })
     }
     /// Answer the request with an error.
-    pub fn error(&self, error: RpcError) -> Message {
+    pub fn error(
+        &self,
+        error: RpcError,
+    ) -> Message {
         Message::Response(Response { jsonrpc: Version, result: Err(error), id: self.id.clone() })
     }
 }
@@ -80,12 +95,15 @@ pub struct Response {
 }
 
 impl serde::Serialize for Response {
-    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+    fn serialize<S: Serializer>(
+        &self,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error> {
         let mut sub = serializer.serialize_struct("Response", 3)?;
         sub.serialize_field("jsonrpc", &self.jsonrpc)?;
         match self.result {
-            Ok(ref value) => sub.serialize_field("result", value),
-            Err(ref err) => sub.serialize_field("error", err),
+            | Ok(ref value) => sub.serialize_field("result", value),
+            | Err(ref err) => sub.serialize_field("error", err),
         }?;
         sub.serialize_field("id", &self.id)?;
         sub.end()
@@ -121,9 +139,9 @@ impl<'de> serde::Deserialize<'de> for Response {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         let wr: WireResponse = serde::Deserialize::deserialize(deserializer)?;
         let result = match (wr.result, wr.error) {
-            (Some(res), None) => Ok(res),
-            (None, Some(err)) => Err(err),
-            _ => {
+            | (Some(res), None) => Ok(res),
+            | (None, Some(err)) => Err(err),
+            | _ => {
                 let err = D::Error::custom("Either 'error' or 'result' is expected, but not both");
                 return Err(err);
             }
@@ -184,7 +202,10 @@ impl Message {
     /// A constructor for a request.
     ///
     /// The ID is auto-generated.
-    pub fn request(method: String, params: Value) -> Self {
+    pub fn request(
+        method: String,
+        params: Value,
+    ) -> Self {
         let id = Value::from(near_primitives::utils::generate_random_string(9));
         Message::Request(Request { jsonrpc: Version, method, params, id })
     }
@@ -193,18 +214,24 @@ impl Message {
         Message::Response(Response { jsonrpc: Version, result: Err(error), id: Value::Null })
     }
     /// A constructor for a notification.
-    pub fn notification(method: String, params: Value) -> Self {
+    pub fn notification(
+        method: String,
+        params: Value,
+    ) -> Self {
         Message::Notification(Notification { jsonrpc: Version, method, params })
     }
     /// A constructor for a response.
-    pub fn response(id: Value, result: Result<Value, RpcError>) -> Self {
+    pub fn response(
+        id: Value,
+        result: Result<Value, RpcError>,
+    ) -> Self {
         Message::Response(Response { jsonrpc: Version, result, id })
     }
     /// Returns id or Null if there is no id.
     pub fn id(&self) -> Value {
         match self {
-            Message::Request(req) => req.id.clone(),
-            _ => Value::Null,
+            | Message::Request(req) => req.id.clone(),
+            | _ => Value::Null,
         }
     }
 }
@@ -229,10 +256,10 @@ impl Broken {
     /// with the right values.
     pub fn reply(&self) -> Message {
         match *self {
-            Broken::Unmatched(_) => Message::error(RpcError::parse_error(
+            | Broken::Unmatched(_) => Message::error(RpcError::parse_error(
                 "JSON RPC Request format was expected".to_owned(),
             )),
-            Broken::SyntaxError(ref e) => Message::error(RpcError::parse_error(e.clone())),
+            | Broken::SyntaxError(ref e) => Message::error(RpcError::parse_error(e.clone())),
         }
     }
 }
@@ -247,10 +274,10 @@ pub enum WireMessage {
 
 pub fn decoded_to_parsed(res: JsonResult<WireMessage>) -> Parsed {
     match res {
-        Ok(WireMessage::Message(Message::UnmatchedSub(value))) => Err(Broken::Unmatched(value)),
-        Ok(WireMessage::Message(m)) => Ok(m),
-        Ok(WireMessage::Broken(b)) => Err(b),
-        Err(e) => Err(Broken::SyntaxError(e.to_string())),
+        | Ok(WireMessage::Message(Message::UnmatchedSub(value))) => Err(Broken::Unmatched(value)),
+        | Ok(WireMessage::Message(m)) => Ok(m),
+        | Ok(WireMessage::Broken(b)) => Err(b),
+        | Err(e) => Err(Broken::SyntaxError(e.to_string())),
     }
 }
 
@@ -300,7 +327,10 @@ mod tests {
     #[test]
     fn message_serde() {
         // A helper for running one message test
-        fn one(input: &str, expected: &Message) {
+        fn one(
+            input: &str,
+            expected: &Message,
+        ) {
             let parsed: Message = from_str(input).unwrap();
             assert_eq!(*expected, parsed);
             let serialized = to_vec(&parsed).unwrap();
@@ -422,8 +452,8 @@ mod tests {
         fn one(input: &str) {
             let msg = from_str(input);
             match msg {
-                Err(Broken::Unmatched(_)) => (),
-                _ => panic!("{} recognized as an RPC message: {:?}!", input, msg),
+                | Err(Broken::Unmatched(_)) => (),
+                | _ => panic!("{} recognized as an RPC message: {:?}!", input, msg),
             }
         }
 
@@ -441,8 +471,8 @@ mod tests {
         one(r#"{"x": [1, 2, 3]}"#);
 
         match from_str(r#"{]"#) {
-            Err(Broken::SyntaxError(_)) => (),
-            other => panic!("Something unexpected: {:?}", other),
+            | Err(Broken::SyntaxError(_)) => (),
+            | other => panic!("Something unexpected: {:?}", other),
         };
     }
 

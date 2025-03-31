@@ -41,18 +41,18 @@ fn main() -> anyhow::Result<()> {
     let db = Db::open(&cli_args.db)?;
 
     match cli_args.cmd {
-        SubCommand::Estimate(config) => {
+        | SubCommand::Estimate(config) => {
             run_estimation(&db, &config)?;
         }
-        SubCommand::Import(config) => {
+        | SubCommand::Import(config) => {
             let mut buf = String::new();
             io::stdin().read_to_string(&mut buf)?;
             db.import_json_lines(&config, &buf)?;
         }
-        SubCommand::Check(config) => {
+        | SubCommand::Check(config) => {
             check(&db, &config)?;
         }
-        SubCommand::Stats => {
+        | SubCommand::Stats => {
             let stats = generate_stats(&db)?;
             eprintln!("{stats}");
         }

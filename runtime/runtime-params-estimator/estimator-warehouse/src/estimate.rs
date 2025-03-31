@@ -33,16 +33,24 @@ pub(crate) enum Mode {
     Fast,
 }
 
-pub(crate) fn run_estimation(db: &Db, config: &EstimateConfig) -> anyhow::Result<()> {
+pub(crate) fn run_estimation(
+    db: &Db,
+    config: &EstimateConfig,
+) -> anyhow::Result<()> {
     let sh = Shell::new()?;
 
     let mut _maybe_tmp = None;
 
     let estimator_home = match &config.home {
-        Some(home) => home,
-        None => {
+        | Some(home) => home,
+        | None => {
             _maybe_tmp = Some(tempfile::tempdir()?);
-            _maybe_tmp.as_ref().unwrap().path().to_str().unwrap()
+            _maybe_tmp
+                .as_ref()
+                .unwrap()
+                .path()
+                .to_str()
+                .unwrap()
         }
     };
 
@@ -72,7 +80,11 @@ pub(crate) fn run_estimation(db: &Db, config: &EstimateConfig) -> anyhow::Result
     let iters = config.mode.iters();
     let warmup_iters = config.mode.warmup_iters();
 
-    if config.metrics.iter().any(|m| m == "time") {
+    if config
+        .metrics
+        .iter()
+        .any(|m| m == "time")
+    {
         let mut optional_args = vec![];
 
         #[cfg(target_family = "unix")]
@@ -94,7 +106,11 @@ pub(crate) fn run_estimation(db: &Db, config: &EstimateConfig) -> anyhow::Result
         )?;
     }
 
-    if config.metrics.iter().any(|m| m == "icount") {
+    if config
+        .metrics
+        .iter()
+        .any(|m| m == "icount")
+    {
         let estimation_output =
             cmd!(sh,
                 "{estimator_binary} --iters {iters} --warmup-iters {warmup_iters} --json-output --home {estimator_home} --metric icount --containerize"
@@ -111,29 +127,29 @@ pub(crate) fn run_estimation(db: &Db, config: &EstimateConfig) -> anyhow::Result
 impl Mode {
     fn iters(self) -> &'static str {
         match self {
-            Mode::Default => "5",
-            Mode::Fast => "1",
+            | Mode::Default => "5",
+            | Mode::Fast => "1",
         }
     }
 
     fn warmup_iters(self) -> &'static str {
         match self {
-            Mode::Default => "1",
-            Mode::Fast => "0",
+            | Mode::Default => "1",
+            | Mode::Fast => "0",
         }
     }
 
     fn cargo_profile(self) -> &'static str {
         match self {
-            Mode::Default => "release",
-            Mode::Fast => "dev-release",
+            | Mode::Default => "release",
+            | Mode::Fast => "dev-release",
         }
     }
 
     fn optional_args_time_metric(self) -> Vec<&'static str> {
         match self {
-            Mode::Default => vec![],
-            Mode::Fast => vec![
+            | Mode::Default => vec![],
+            | Mode::Fast => vec![
                 "--in-memory-db",
                 "--additional-accounts-num=1000",
                 "--accounts-num=1000",

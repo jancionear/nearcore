@@ -22,8 +22,13 @@ fn verify_contract_limits_upgrade(
     let epoch_length = 5;
     // Prepare TestEnv with a contract at the old protocol version.
     let mut env = {
-        let mut genesis =
-            Genesis::test(vec!["test0".parse().unwrap(), "test1".parse().unwrap()], 1);
+        let mut genesis = Genesis::test(
+            vec![
+                "test0".parse().unwrap(),
+                "test1".parse().unwrap(),
+            ],
+            1,
+        );
         genesis.config.epoch_length = epoch_length;
         genesis.config.protocol_version = old_protocol_version;
         let mut env = TestEnv::builder(&genesis.config)
@@ -57,14 +62,14 @@ fn verify_contract_limits_upgrade(
 
     assert_matches!(old_outcome.status, FinalExecutionStatus::SuccessValue(_));
     let e = match new_outcome.status {
-        FinalExecutionStatus::Failure(TxExecutionError::ActionError(e)) => e,
-        status => panic!("expected transaction to fail, got {:?}", status),
+        | FinalExecutionStatus::Failure(TxExecutionError::ActionError(e)) => e,
+        | status => panic!("expected transaction to fail, got {:?}", status),
     };
     match e.kind {
-        ActionErrorKind::FunctionCallError(FunctionCallError::CompilationError(
+        | ActionErrorKind::FunctionCallError(FunctionCallError::CompilationError(
             CompilationError::PrepareError(e),
         )) if e == expected_prepare_err => (),
-        kind => panic!("got unexpected action error kind: {:?}", kind),
+        | kind => panic!("got unexpected action error kind: {:?}", kind),
     }
 }
 

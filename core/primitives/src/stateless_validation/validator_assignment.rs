@@ -17,7 +17,10 @@ pub struct ChunkEndorsementsState {
     pub signatures: ChunkEndorsementSignatures,
 }
 
-fn has_enough_stake(total_stake: Balance, endorsed_stake: Balance) -> bool {
+fn has_enough_stake(
+    total_stake: Balance,
+    endorsed_stake: Balance,
+) -> bool {
     endorsed_stake >= required_stake(total_stake)
 }
 
@@ -33,7 +36,10 @@ pub struct ChunkValidatorAssignments {
 
 impl ChunkValidatorAssignments {
     pub fn new(assignments: Vec<(AccountId, Balance)>) -> Self {
-        let chunk_validators = assignments.iter().map(|(id, _)| id.clone()).collect();
+        let chunk_validators = assignments
+            .iter()
+            .map(|(id, _)| id.clone())
+            .collect();
         Self { assignments, chunk_validators }
     }
 
@@ -41,12 +47,19 @@ impl ChunkValidatorAssignments {
         self.assignments.len()
     }
 
-    pub fn contains(&self, account_id: &AccountId) -> bool {
-        self.chunk_validators.contains(account_id)
+    pub fn contains(
+        &self,
+        account_id: &AccountId,
+    ) -> bool {
+        self.chunk_validators
+            .contains(account_id)
     }
 
     pub fn ordered_chunk_validators(&self) -> Vec<AccountId> {
-        self.assignments.iter().map(|(id, _)| id.clone()).collect()
+        self.assignments
+            .iter()
+            .map(|(id, _)| id.clone())
+            .collect()
     }
 
     pub fn assignments(&self) -> &Vec<(AccountId, Balance)> {
@@ -64,12 +77,12 @@ impl ChunkValidatorAssignments {
         for (account_id, stake) in &self.assignments {
             total_stake += stake;
             match validator_signatures.remove(account_id) {
-                Some(signature) => {
+                | Some(signature) => {
                     endorsed_stake += stake;
                     endorsed_validators_count += 1;
                     signatures.push(Some(Box::new(signature)));
                 }
-                None => signatures.push(None),
+                | None => signatures.push(None),
             }
         }
         // Signatures are empty if the chunk is not endorsed

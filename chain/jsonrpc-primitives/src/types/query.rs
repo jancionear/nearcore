@@ -87,8 +87,8 @@ impl From<RpcQueryError> for crate::errors::RpcError {
     fn from(error: RpcQueryError) -> Self {
         let error_data = Some(serde_json::Value::String(error.to_string()));
         let error_data_value = match serde_json::to_value(error) {
-            Ok(value) => value,
-            Err(err) => {
+            | Ok(value) => value,
+            | Err(err) => {
                 return Self::new_internal_error(
                     None,
                     format!("Failed to serialize RpcQueryError: {:?}", err),

@@ -20,15 +20,18 @@ impl ApplyChunkReason {
     /// Returns a static, short string representation of the reason, to be used for metrics.
     pub fn as_str(&self) -> &'static str {
         match self {
-            ApplyChunkReason::UpdateTrackedShard => "update_shard",
-            ApplyChunkReason::ValidateChunkStateWitness => "validate_chunk",
-            ApplyChunkReason::ViewTrackedShard => "view_shard",
+            | ApplyChunkReason::UpdateTrackedShard => "update_shard",
+            | ApplyChunkReason::ValidateChunkStateWitness => "validate_chunk",
+            | ApplyChunkReason::ViewTrackedShard => "view_shard",
         }
     }
 }
 
 impl Display for ApplyChunkReason {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
+    fn fmt(
+        &self,
+        f: &mut Formatter<'_>,
+    ) -> Result<(), std::fmt::Error> {
         f.write_str(self.as_str())
     }
 }

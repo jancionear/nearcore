@@ -109,11 +109,14 @@ impl AccountDataCacheSnapshot {
     ///   so that the node literally never signs AccountsData with colliding versions.
     ///   This assumption is fragile as long as validators migrate their nodes without copying over
     ///   the whole storage.
-    fn is_new(&self, d: &SignedAccountData) -> bool {
+    fn is_new(
+        &self,
+        d: &SignedAccountData,
+    ) -> bool {
         self.keys.contains(&d.account_key)
             && match self.data.get(&d.account_key) {
-                Some(old) if (old.version, old.timestamp) >= (d.version, d.timestamp) => false,
-                _ => true,
+                | Some(old) if (old.version, old.timestamp) >= (d.version, d.timestamp) => false,
+                | _ => true,
             }
     }
 
@@ -134,7 +137,7 @@ impl AccountDataCacheSnapshot {
             return None;
         }
         let d = match &self.local {
-            Some(local) if d.account_key == local.signer.public_key() => Arc::new(
+            | Some(local) if d.account_key == local.signer.public_key() => Arc::new(
                 VersionedAccountData {
                     data: local.data.as_ref().clone(),
                     account_key: local.signer.public_key(),
@@ -144,9 +147,10 @@ impl AccountDataCacheSnapshot {
                 .sign(local.signer.as_ref())
                 .unwrap(),
             ),
-            _ => d,
+            | _ => d,
         };
-        self.data.insert(d.account_key.clone(), d.clone());
+        self.data
+            .insert(d.account_key.clone(), d.clone());
         Some(d)
     }
 
@@ -170,13 +174,17 @@ impl AccountDataCacheSnapshot {
     ) -> Option<Arc<SignedAccountData>> {
         let account_key = local.signer.public_key();
         let result = match self.keys.contains(&account_key) {
-            false => None,
-            true => {
+            | false => None,
+            | true => {
                 let d = Arc::new(
                     VersionedAccountData {
                         data: local.data.as_ref().clone(),
                         account_key: account_key.clone(),
-                        version: self.data.get(&account_key).map_or(0, |d| d.version) + 1,
+                        version: self
+                            .data
+                            .get(&account_key)
+                            .map_or(0, |d| d.version)
+                            + 1,
                         timestamp: clock.now_utc(),
                     }
                     .sign(local.signer.as_ref())
@@ -210,7 +218,10 @@ impl AccountDataCache {
     ///   (i.e. in case self.local.signer was not present in the old key set, but is in the new)
     ///   so a call to set_local afterwards is required to do that. For now it is fine because
     ///   the AccountDataCache owner is expected to call set_local periodically anyway.
-    pub fn set_keys(&self, keys_by_id: Arc<AccountKeys>) -> bool {
+    pub fn set_keys(
+        &self,
+        keys_by_id: Arc<AccountKeys>,
+    ) -> bool {
         self.0
             .try_update(|mut inner| {
                 // Skip further processing if the key set didn't change.
@@ -219,8 +230,15 @@ impl AccountDataCache {
                     return Err(());
                 }
                 inner.keys_by_id = keys_by_id;
-                inner.keys = inner.keys_by_id.values().flatten().cloned().collect();
-                inner.data.retain(|k, _| inner.keys.contains(k));
+                inner.keys = inner
+                    .keys_by_id
+                    .values()
+                    .flatten()
+                    .cloned()
+                    .collect();
+                inner
+                    .data
+                    .retain(|k, _| inner.keys.contains(k));
                 Ok(((), inner))
             })
             .is_ok()
@@ -262,8 +280,8 @@ impl AccountDataCache {
         let (data, ok) = concurrency::rayon::run(move || {
             concurrency::rayon::try_map(new_data.into_values().par_bridge(), |d| {
                 match d.payload().verify(&d.account_key) {
-                    Ok(()) => Some(d),
-                    Err(()) => None,
+                    | Ok(()) => Some(d),
+                    | Err(()) => None,
                 }
             })
         })
@@ -298,7 +316,10 @@ impl AccountDataCache {
         let (data, err) = this.verify(data).await;
         // Insert the successfully verified data, even if an error has been encountered.
         let inserted = self.0.update(|mut inner| {
-            let inserted = data.into_iter().filter_map(|d| inner.try_insert(clock, d)).collect();
+            let inserted = data
+                .into_iter()
+                .filter_map(|d| inner.try_insert(clock, d))
+                .collect();
             (inserted, inner)
         });
         // Return the inserted data.

@@ -34,16 +34,16 @@ pub struct RpcValidatorResponse {
 impl From<RpcValidatorError> for crate::errors::RpcError {
     fn from(error: RpcValidatorError) -> Self {
         let error_data = match &error {
-            RpcValidatorError::UnknownEpoch => Some(Value::String("Unknown Epoch".to_string())),
-            RpcValidatorError::ValidatorInfoUnavailable => {
+            | RpcValidatorError::UnknownEpoch => Some(Value::String("Unknown Epoch".to_string())),
+            | RpcValidatorError::ValidatorInfoUnavailable => {
                 Some(Value::String("Validator info unavailable".to_string()))
             }
-            RpcValidatorError::InternalError { .. } => Some(Value::String(error.to_string())),
+            | RpcValidatorError::InternalError { .. } => Some(Value::String(error.to_string())),
         };
 
         let error_data_value = match serde_json::to_value(error) {
-            Ok(value) => value,
-            Err(err) => {
+            | Ok(value) => value,
+            | Err(err) => {
                 return Self::new_internal_error(
                     None,
                     format!("Failed to serialize RpcValidatorError: {:?}", err),

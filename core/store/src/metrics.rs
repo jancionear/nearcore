@@ -15,7 +15,9 @@ pub(crate) static DATABASE_OP_LATENCY_HIST: LazyLock<HistogramVec> = LazyLock::n
         "near_database_op_latency_by_op_and_column",
         "Database operations latency by operation and column.",
         &["op", "column"],
-        Some(vec![0.00002, 0.0001, 0.0002, 0.0005, 0.0008, 0.001, 0.002, 0.004, 0.008, 0.1]),
+        Some(vec![
+            0.00002, 0.0001, 0.0002, 0.0005, 0.0008, 0.001, 0.002, 0.004, 0.008, 0.1,
+        ]),
     )
     .unwrap()
 });
@@ -567,7 +569,10 @@ pub static STORAGE_MISSING_CONTRACTS_COUNT: LazyLock<IntCounterVec> = LazyLock::
     .unwrap()
 });
 
-fn export_store_stats(store: &Store, temperature: Temperature) {
+fn export_store_stats(
+    store: &Store,
+    temperature: Temperature,
+) {
     if let Some(stats) = store.get_store_statistics() {
         tracing::debug!(target:"metrics", "Exporting the db metrics for {temperature:?} store.");
         export_stats_as_metrics(stats, temperature);
@@ -618,7 +623,10 @@ mod test {
 
     use super::spawn_db_metrics_loop;
 
-    fn stat(name: &str, count: i64) -> (String, Vec<StatsValue>) {
+    fn stat(
+        name: &str,
+        count: i64,
+    ) -> (String, Vec<StatsValue>) {
         (name.into(), vec![StatsValue::Count(count)])
     }
 
@@ -674,7 +682,8 @@ mod test {
         init_test_logger();
 
         let sys = actix::System::new();
-        sys.block_on(test_db_metrics_loop_impl()).expect("test impl failed");
+        sys.block_on(test_db_metrics_loop_impl())
+            .expect("test impl failed");
 
         actix::System::current().stop();
         sys.run().unwrap();

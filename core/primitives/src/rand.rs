@@ -66,7 +66,10 @@ impl WeightedIndex {
         Self { weight_sum, no_alias_odds, aliases: aliases.get_aliases() }
     }
 
-    pub fn sample(&self, seed: [u8; 32]) -> usize {
+    pub fn sample(
+        &self,
+        seed: [u8; 32],
+    ) -> usize {
         let usize_seed = Self::copy_8_bytes(&seed[0..8]);
         let balance_seed = Self::copy_16_bytes(&seed[8..24]);
         let uniform_index = usize::from_le_bytes(usize_seed) % self.aliases.len();
@@ -113,7 +116,10 @@ mod aliases {
             Self { aliases: vec![0; n], smalls: Vec::with_capacity(n), bigs: Vec::with_capacity(n) }
         }
 
-        pub fn push_big(&mut self, b: usize) {
+        pub fn push_big(
+            &mut self,
+            b: usize,
+        ) {
             self.bigs.push(b);
         }
 
@@ -125,7 +131,10 @@ mod aliases {
             self.bigs.is_empty()
         }
 
-        pub fn push_small(&mut self, s: usize) {
+        pub fn push_small(
+            &mut self,
+            s: usize,
+        ) {
             self.smalls.push(s);
         }
 
@@ -137,12 +146,19 @@ mod aliases {
             self.smalls.is_empty()
         }
 
-        pub fn set_alias(&mut self, index: usize, alias: usize) {
+        pub fn set_alias(
+            &mut self,
+            index: usize,
+            alias: usize,
+        ) {
             self.aliases[index] = alias;
         }
 
         pub fn get_aliases(self) -> Vec<u64> {
-            self.aliases.into_iter().map(|a| a as u64).collect()
+            self.aliases
+                .into_iter()
+                .map(|a| a as u64)
+                .collect()
         }
     }
 }
@@ -183,7 +199,10 @@ mod test {
 
     /// Assert y is within 0.5% of x.
     #[track_caller]
-    fn assert_relative_closeness(x: i32, y: i32) {
+    fn assert_relative_closeness(
+        x: i32,
+        y: i32,
+    ) {
         let diff = (y - x).abs();
         let relative_diff = f64::from(diff) / f64::from(x);
         assert!(relative_diff < 0.005);

@@ -59,8 +59,13 @@ fn setup_runtime(
     gas_limit: Gas,
 ) -> (Runtime, ShardTries, CryptoHash, ApplyState, Vec<Arc<Signer>>, impl EpochInfoProvider) {
     let epoch_info_provider = MockEpochInfoProvider::default();
-    let shard_layout = epoch_info_provider.shard_layout(&EpochId::default()).unwrap();
-    let shard_uid = shard_layout.shard_uids().next().unwrap();
+    let shard_layout = epoch_info_provider
+        .shard_layout(&EpochId::default())
+        .unwrap();
+    let shard_uid = shard_layout
+        .shard_uids()
+        .next()
+        .unwrap();
     let (runtime, tries, state_root, apply_state, signers) = setup_runtime_for_shard(
         initial_accounts,
         initial_balance,
@@ -102,14 +107,19 @@ fn setup_runtime_for_shard(
         signers.push(signer);
     }
     initial_state.commit(StateChangeCause::InitialState);
-    let trie_changes = initial_state.finalize().unwrap().trie_changes;
+    let trie_changes = initial_state
+        .finalize()
+        .unwrap()
+        .trie_changes;
     let mut store_update = tries.store_update();
     let root = tries.apply_all(&trie_changes, shard_uid, &mut store_update);
     store_update.commit().unwrap();
     let contract_cache = FilesystemContractRuntimeCache::test().unwrap();
     let shards_congestion_info = if ProtocolFeature::CongestionControl.enabled(PROTOCOL_VERSION) {
         let shard_ids = shard_layout.shard_ids();
-        shard_ids.map(|shard_id| (shard_id, ExtendedCongestionInfo::default())).collect()
+        shard_ids
+            .map(|shard_id| (shard_id, ExtendedCongestionInfo::default()))
+            .collect()
     } else {
         [].into()
     };
@@ -165,8 +175,12 @@ fn test_apply_check_balance_validation_rewards() {
         setup_runtime(vec![alice_account()], to_yocto(1_000_000), initial_locked, 10u64.pow(15));
 
     let validator_accounts_update = ValidatorAccountsUpdate {
-        stake_info: vec![(alice_account(), initial_locked)].into_iter().collect(),
-        validator_rewards: vec![(alice_account(), reward)].into_iter().collect(),
+        stake_info: vec![(alice_account(), initial_locked)]
+            .into_iter()
+            .collect(),
+        validator_rewards: vec![(alice_account(), reward)]
+            .into_iter()
+            .collect(),
         last_proposals: Default::default(),
         protocol_treasury_account_id: None,
         slashing_info: HashMap::default(),
@@ -218,7 +232,9 @@ fn test_apply_refund_receipts() {
             .unwrap();
         root = commit_apply_result(&apply_result, &mut apply_state, &tries, shard_uid);
         let state = tries.new_trie_update(shard_uid, root);
-        let account = get_account(&state, &alice_account()).unwrap().unwrap();
+        let account = get_account(&state, &alice_account())
+            .unwrap()
+            .unwrap();
         let capped_i = std::cmp::min(i, n);
         assert_eq!(
             account.amount(),
@@ -263,7 +279,9 @@ fn test_apply_delayed_receipts_feed_all_at_once() {
         root = commit_apply_result(&apply_result, &mut apply_state, &tries, shard_uid);
 
         let state = tries.new_trie_update(shard_uid, root);
-        let account = get_account(&state, &alice_account()).unwrap().unwrap();
+        let account = get_account(&state, &alice_account())
+            .unwrap()
+            .unwrap();
         let capped_i = std::cmp::min(i, n);
         assert_eq!(
             account.amount(),
@@ -282,8 +300,16 @@ fn test_apply_delayed_receipts_add_more_using_chunks() {
     let (runtime, tries, mut root, mut apply_state, _, epoch_info_provider) =
         setup_runtime(vec![alice_account(), bob_account()], initial_balance, initial_locked, 1);
 
-    let receipt_gas_cost = apply_state.config.fees.fee(ActionCosts::new_action_receipt).exec_fee()
-        + apply_state.config.fees.fee(ActionCosts::transfer).exec_fee();
+    let receipt_gas_cost = apply_state
+        .config
+        .fees
+        .fee(ActionCosts::new_action_receipt)
+        .exec_fee()
+        + apply_state
+            .config
+            .fees
+            .fee(ActionCosts::transfer)
+            .exec_fee();
     apply_state.gas_limit = Some(receipt_gas_cost * 3);
 
     let n = 40;
@@ -293,7 +319,9 @@ fn test_apply_delayed_receipts_add_more_using_chunks() {
 
     // Every time we'll process 3 receipts, so we need n / 3 rounded up. Then we do 3 extra.
     for i in 1..=n / 3 + 3 {
-        let prev_receipts: &[Receipt] = receipt_chunks.next().unwrap_or_default();
+        let prev_receipts: &[Receipt] = receipt_chunks
+            .next()
+            .unwrap_or_default();
         let apply_result = runtime
             .apply(
                 tries.get_trie_for_shard(shard_uid, root),
@@ -307,7 +335,9 @@ fn test_apply_delayed_receipts_add_more_using_chunks() {
             .unwrap();
         root = commit_apply_result(&apply_result, &mut apply_state, &tries, shard_uid);
         let state = tries.new_trie_update(shard_uid, root);
-        let account = get_account(&state, &alice_account()).unwrap().unwrap();
+        let account = get_account(&state, &alice_account())
+            .unwrap()
+            .unwrap();
         let capped_i = std::cmp::min(i * 3, n);
         assert_eq!(
             account.amount(),
@@ -326,8 +356,16 @@ fn test_apply_delayed_receipts_adjustable_gas_limit() {
     let (runtime, tries, mut root, mut apply_state, _, epoch_info_provider) =
         setup_runtime(vec![alice_account(), bob_account()], initial_balance, initial_locked, 1);
 
-    let receipt_gas_cost = apply_state.config.fees.fee(ActionCosts::new_action_receipt).exec_fee()
-        + apply_state.config.fees.fee(ActionCosts::transfer).exec_fee();
+    let receipt_gas_cost = apply_state
+        .config
+        .fees
+        .fee(ActionCosts::new_action_receipt)
+        .exec_fee()
+        + apply_state
+            .config
+            .fees
+            .fee(ActionCosts::transfer)
+            .exec_fee();
 
     let n = 120;
     let receipts = generate_receipts(small_transfer, n);
@@ -345,7 +383,9 @@ fn test_apply_delayed_receipts_adjustable_gas_limit() {
             num_receipts_per_block -= 1;
         }
         apply_state.gas_limit = Some(num_receipts_per_block * receipt_gas_cost);
-        let prev_receipts: &[Receipt] = receipt_chunks.next().unwrap_or_default();
+        let prev_receipts: &[Receipt] = receipt_chunks
+            .next()
+            .unwrap_or_default();
         num_receipts_given += prev_receipts.len() as u64;
         let apply_result = runtime
             .apply(
@@ -361,7 +401,9 @@ fn test_apply_delayed_receipts_adjustable_gas_limit() {
         root = commit_apply_result(&apply_result, &mut apply_state, &tries, shard_uid);
         let state = tries.new_trie_update(shard_uid, root);
         num_receipts_processed += apply_result.outcomes.len() as u64;
-        let account = get_account(&state, &alice_account()).unwrap().unwrap();
+        let account = get_account(&state, &alice_account())
+            .unwrap()
+            .unwrap();
         assert_eq!(
             account.amount(),
             initial_balance
@@ -381,7 +423,10 @@ fn test_apply_delayed_receipts_adjustable_gas_limit() {
     }
 }
 
-fn generate_receipts(small_transfer: u128, n: u64) -> Vec<Receipt> {
+fn generate_receipts(
+    small_transfer: u128,
+    n: u64,
+) -> Vec<Receipt> {
     let mut receipt_id = CryptoHash::default();
     (0..n)
         .map(|i| {
@@ -405,7 +450,10 @@ fn generate_receipts(small_transfer: u128, n: u64) -> Vec<Receipt> {
         .collect()
 }
 
-fn generate_refund_receipts(small_transfer: u128, n: u64) -> Vec<Receipt> {
+fn generate_refund_receipts(
+    small_transfer: u128,
+    n: u64,
+) -> Vec<Receipt> {
     let mut receipt_id = CryptoHash::default();
     (0..n)
         .map(|i| {
@@ -419,7 +467,10 @@ fn generate_refund_receipts(small_transfer: u128, n: u64) -> Vec<Receipt> {
         .collect()
 }
 
-fn generate_delegate_actions(deposit: u128, n: u64) -> Vec<Receipt> {
+fn generate_delegate_actions(
+    deposit: u128,
+    n: u64,
+) -> Vec<Receipt> {
     // Setup_runtime only creates alice_account() in state, hence we use the
     // id as relayer and sender. This allows the delegate action to execute
     // successfully. But the inner function call will fail, since the
@@ -430,12 +481,14 @@ fn generate_delegate_actions(deposit: u128, n: u64) -> Vec<Receipt> {
     let signer = Arc::new(InMemorySigner::test_signer(&sender_id));
     (0..n)
         .map(|i| {
-            let inner_actions = [Action::FunctionCall(Box::new(FunctionCallAction {
-                method_name: "foo".to_string(),
-                args: b"arg".to_vec(),
-                gas: MAX_ATTACHED_GAS,
-                deposit,
-            }))];
+            let inner_actions = [Action::FunctionCall(Box::new(
+                FunctionCallAction {
+                    method_name: "foo".to_string(),
+                    args: b"arg".to_vec(),
+                    gas: MAX_ATTACHED_GAS,
+                    deposit,
+                },
+            ))];
 
             let delegate_action = DelegateAction {
                 sender_id: sender_id.clone(),
@@ -449,7 +502,11 @@ fn generate_delegate_actions(deposit: u128, n: u64) -> Vec<Receipt> {
                 public_key: signer.public_key(),
             };
             let signed_delegate_action = Action::Delegate(Box::new(SignedDelegateAction {
-                signature: signer.sign(delegate_action.get_nep461_hash().as_bytes()),
+                signature: signer.sign(
+                    delegate_action
+                        .get_nep461_hash()
+                        .as_bytes(),
+                ),
                 delegate_action,
             }));
             let receipt_id = hash(&i.to_le_bytes());
@@ -522,7 +579,11 @@ fn test_apply_delayed_receipts_local_tx() {
     root = commit_apply_result(&apply_result, &mut apply_state, &tries, shard_uid);
 
     assert_eq!(
-        apply_result.outcomes.iter().map(|o| o.id).collect::<Vec<_>>(),
+        apply_result
+            .outcomes
+            .iter()
+            .map(|o| o.id)
+            .collect::<Vec<_>>(),
         vec![
             local_transactions[0].get_hash(), // tx 0
             local_transactions[1].get_hash(), // tx 1
@@ -573,7 +634,11 @@ fn test_apply_delayed_receipts_local_tx() {
     store_update.commit().unwrap();
 
     assert_eq!(
-        apply_result.outcomes.iter().map(|o| o.id).collect::<Vec<_>>(),
+        apply_result
+            .outcomes
+            .iter()
+            .map(|o| o.id)
+            .collect::<Vec<_>>(),
         vec![
             local_transactions[4].get_hash(), // tx 4
             create_receipt_id_from_transaction(
@@ -615,7 +680,11 @@ fn test_apply_delayed_receipts_local_tx() {
     store_update.commit().unwrap();
 
     assert_eq!(
-        apply_result.outcomes.iter().map(|o| o.id).collect::<Vec<_>>(),
+        apply_result
+            .outcomes
+            .iter()
+            .map(|o| o.id)
+            .collect::<Vec<_>>(),
         vec![
             local_transactions[5].get_hash(), // tx 5
             local_transactions[6].get_hash(), // tx 6
@@ -666,7 +735,11 @@ fn test_apply_delayed_receipts_local_tx() {
     store_update.commit().unwrap();
 
     assert_eq!(
-        apply_result.outcomes.iter().map(|o| o.id).collect::<Vec<_>>(),
+        apply_result
+            .outcomes
+            .iter()
+            .map(|o| o.id)
+            .collect::<Vec<_>>(),
         vec![
             *receipts[1].receipt_id(), // receipt #1
             *receipts[2].receipt_id(), // receipt #2
@@ -697,7 +770,11 @@ fn test_apply_delayed_receipts_local_tx() {
         .unwrap();
 
     assert_eq!(
-        apply_result.outcomes.iter().map(|o| o.id).collect::<Vec<_>>(),
+        apply_result
+            .outcomes
+            .iter()
+            .map(|o| o.id)
+            .collect::<Vec<_>>(),
         vec![
             *receipts[3].receipt_id(), // receipt #3
             *receipts[4].receipt_id(), // receipt #4
@@ -722,7 +799,11 @@ fn test_apply_deficit_gas_for_transfer() {
 
     let n = 1;
     let mut receipts = generate_receipts(small_transfer, n);
-    if let ReceiptEnum::Action(action_receipt) = receipts.get_mut(0).unwrap().receipt_mut() {
+    if let ReceiptEnum::Action(action_receipt) = receipts
+        .get_mut(0)
+        .unwrap()
+        .receipt_mut()
+    {
         action_receipt.gas_price = GAS_PRICE / 10;
     }
 
@@ -754,15 +835,21 @@ fn test_apply_deficit_gas_for_function_call_covered() {
 
     let gas = 2 * 10u64.pow(14);
     let gas_price = GAS_PRICE / 10;
-    let actions = vec![Action::FunctionCall(Box::new(FunctionCallAction {
-        method_name: "hello".to_string(),
-        args: b"world".to_vec(),
-        gas,
-        deposit: 0,
-    }))];
+    let actions = vec![Action::FunctionCall(Box::new(
+        FunctionCallAction {
+            method_name: "hello".to_string(),
+            args: b"world".to_vec(),
+            gas,
+            deposit: 0,
+        },
+    ))];
 
     let expected_gas_burnt = safe_add_gas(
-        apply_state.config.fees.fee(ActionCosts::new_action_receipt).exec_fee(),
+        apply_state
+            .config
+            .fees
+            .fee(ActionCosts::new_action_receipt)
+            .exec_fee(),
         total_prepaid_exec_fees(&apply_state.config, &actions, &alice_account()).unwrap(),
     )
     .unwrap();
@@ -798,12 +885,12 @@ fn test_apply_deficit_gas_for_function_call_covered() {
     assert_eq!(result.stats.gas_deficit_amount, 0);
     // The refund is less than the received amount.
     match result.outgoing_receipts[0].receipt() {
-        ReceiptEnum::Action(ActionReceipt { actions, .. }) => {
+        | ReceiptEnum::Action(ActionReceipt { actions, .. }) => {
             assert!(
                 matches!(actions[0], Action::Transfer(TransferAction { deposit }) if deposit == expected_refund)
             );
         }
-        _ => unreachable!(),
+        | _ => unreachable!(),
     };
 }
 
@@ -821,15 +908,21 @@ fn test_apply_deficit_gas_for_function_call_partial() {
 
     let gas = 1_000_000;
     let gas_price = GAS_PRICE / 10;
-    let actions = vec![Action::FunctionCall(Box::new(FunctionCallAction {
-        method_name: "hello".to_string(),
-        args: b"world".to_vec(),
-        gas,
-        deposit: 0,
-    }))];
+    let actions = vec![Action::FunctionCall(Box::new(
+        FunctionCallAction {
+            method_name: "hello".to_string(),
+            args: b"world".to_vec(),
+            gas,
+            deposit: 0,
+        },
+    ))];
 
     let expected_gas_burnt = safe_add_gas(
-        apply_state.config.fees.fee(ActionCosts::new_action_receipt).exec_fee(),
+        apply_state
+            .config
+            .fees
+            .fee(ActionCosts::new_action_receipt)
+            .exec_fee(),
         total_prepaid_exec_fees(&apply_state.config, &actions, &alice_account()).unwrap(),
     )
     .unwrap();
@@ -874,7 +967,9 @@ fn test_delete_key_add_key() {
         setup_runtime(vec![alice_account()], to_yocto(1_000_000), initial_locked, 10u64.pow(15));
 
     let state_update = tries.new_trie_update(ShardUId::single_shard(), root);
-    let initial_account_state = get_account(&state_update, &alice_account()).unwrap().unwrap();
+    let initial_account_state = get_account(&state_update, &alice_account())
+        .unwrap()
+        .unwrap();
 
     let actions = vec![
         Action::DeleteKey(Box::new(DeleteKeyAction { public_key: signers[0].public_key() })),
@@ -884,7 +979,11 @@ fn test_delete_key_add_key() {
         })),
     ];
 
-    let receipts = vec![create_receipt_with_actions(alice_account(), signers[0].clone(), actions)];
+    let receipts = vec![create_receipt_with_actions(
+        alice_account(),
+        signers[0].clone(),
+        actions,
+    )];
 
     let apply_result = runtime
         .apply(
@@ -903,7 +1002,9 @@ fn test_delete_key_add_key() {
     store_update.commit().unwrap();
 
     let state_update = tries.new_trie_update(ShardUId::single_shard(), root);
-    let final_account_state = get_account(&state_update, &alice_account()).unwrap().unwrap();
+    let final_account_state = get_account(&state_update, &alice_account())
+        .unwrap()
+        .unwrap();
 
     assert_eq!(initial_account_state.storage_usage(), final_account_state.storage_usage());
 }
@@ -915,19 +1016,29 @@ fn test_delete_key_underflow() {
         setup_runtime(vec![alice_account()], to_yocto(1_000_000), initial_locked, 10u64.pow(15));
 
     let mut state_update = tries.new_trie_update(ShardUId::single_shard(), root);
-    let mut initial_account_state = get_account(&state_update, &alice_account()).unwrap().unwrap();
+    let mut initial_account_state = get_account(&state_update, &alice_account())
+        .unwrap()
+        .unwrap();
     initial_account_state.set_storage_usage(10);
     set_account(&mut state_update, alice_account(), &initial_account_state);
     state_update.commit(StateChangeCause::InitialState);
-    let trie_changes = state_update.finalize().unwrap().trie_changes;
+    let trie_changes = state_update
+        .finalize()
+        .unwrap()
+        .trie_changes;
     let mut store_update = tries.store_update();
     let root = tries.apply_all(&trie_changes, ShardUId::single_shard(), &mut store_update);
     store_update.commit().unwrap();
 
-    let actions =
-        vec![Action::DeleteKey(Box::new(DeleteKeyAction { public_key: signers[0].public_key() }))];
+    let actions = vec![Action::DeleteKey(Box::new(
+        DeleteKeyAction { public_key: signers[0].public_key() },
+    ))];
 
-    let receipts = vec![create_receipt_with_actions(alice_account(), signers[0].clone(), actions)];
+    let receipts = vec![create_receipt_with_actions(
+        alice_account(),
+        signers[0].clone(),
+        actions,
+    )];
 
     let apply_result = runtime
         .apply(
@@ -946,7 +1057,9 @@ fn test_delete_key_underflow() {
     store_update.commit().unwrap();
 
     let state_update = tries.new_trie_update(ShardUId::single_shard(), root);
-    let final_account_state = get_account(&state_update, &alice_account()).unwrap().unwrap();
+    let final_account_state = get_account(&state_update, &alice_account())
+        .unwrap()
+        .unwrap();
 
     assert_eq!(final_account_state.storage_usage(), 0);
 }
@@ -964,9 +1077,15 @@ fn test_contract_precompilation() {
         setup_runtime(vec![alice_account()], initial_balance, initial_locked, gas_limit);
 
     let wasm_code = near_test_contracts::rs_contract().to_vec();
-    let actions = vec![Action::DeployContract(DeployContractAction { code: wasm_code.clone() })];
+    let actions = vec![Action::DeployContract(
+        DeployContractAction { code: wasm_code.clone() },
+    )];
 
-    let receipts = vec![create_receipt_with_actions(alice_account(), signers[0].clone(), actions)];
+    let receipts = vec![create_receipt_with_actions(
+        alice_account(),
+        signers[0].clone(),
+        actions,
+    )];
 
     let apply_result = runtime
         .apply(
@@ -1010,31 +1129,35 @@ fn test_compute_usage_limit() {
     let deploy_contract_receipt = create_receipt_with_actions(
         alice_account(),
         signers[0].clone(),
-        vec![Action::DeployContract(DeployContractAction {
-            code: near_test_contracts::rs_contract().to_vec(),
-        })],
+        vec![Action::DeployContract(
+            DeployContractAction { code: near_test_contracts::rs_contract().to_vec() },
+        )],
     );
 
     let first_call_receipt = create_receipt_with_actions(
         alice_account(),
         signers[0].clone(),
-        vec![Action::FunctionCall(Box::new(FunctionCallAction {
-            method_name: "ext_sha256".to_string(),
-            args: b"first".to_vec(),
-            gas: sha256_cost.gas,
-            deposit: 0,
-        }))],
+        vec![Action::FunctionCall(Box::new(
+            FunctionCallAction {
+                method_name: "ext_sha256".to_string(),
+                args: b"first".to_vec(),
+                gas: sha256_cost.gas,
+                deposit: 0,
+            },
+        ))],
     );
 
     let second_call_receipt = create_receipt_with_actions(
         alice_account(),
         signers[0].clone(),
-        vec![Action::FunctionCall(Box::new(FunctionCallAction {
-            method_name: "ext_sha256".to_string(),
-            args: b"second".to_vec(),
-            gas: sha256_cost.gas,
-            deposit: 0,
-        }))],
+        vec![Action::FunctionCall(Box::new(
+            FunctionCallAction {
+                method_name: "ext_sha256".to_string(),
+                args: b"second".to_vec(),
+                gas: sha256_cost.gas,
+                deposit: 0,
+            },
+        ))],
     );
 
     let apply_result = runtime
@@ -1092,20 +1215,22 @@ fn test_compute_usage_limit_with_failed_receipt() {
     let deploy_contract_receipt = create_receipt_with_actions(
         alice_account(),
         signers[0].clone(),
-        vec![Action::DeployContract(DeployContractAction {
-            code: near_test_contracts::rs_contract().to_vec(),
-        })],
+        vec![Action::DeployContract(
+            DeployContractAction { code: near_test_contracts::rs_contract().to_vec() },
+        )],
     );
 
     let first_call_receipt = create_receipt_with_actions(
         alice_account(),
         signers[0].clone(),
-        vec![Action::FunctionCall(Box::new(FunctionCallAction {
-            method_name: "ext_sha256".to_string(),
-            args: b"first".to_vec(),
-            gas: 1,
-            deposit: 0,
-        }))],
+        vec![Action::FunctionCall(Box::new(
+            FunctionCallAction {
+                method_name: "ext_sha256".to_string(),
+                args: b"first".to_vec(),
+                gas: 1,
+                deposit: 0,
+            },
+        ))],
     );
 
     let apply_result = runtime
@@ -1113,7 +1238,10 @@ fn test_compute_usage_limit_with_failed_receipt() {
             tries.get_trie_for_shard(ShardUId::single_shard(), root),
             &None,
             &apply_state,
-            &[deploy_contract_receipt.clone(), first_call_receipt.clone()],
+            &[
+                deploy_contract_receipt.clone(),
+                first_call_receipt.clone(),
+            ],
             SignedValidPeriodTransactions::empty(),
             &epoch_info_provider,
             Default::default(),
@@ -1145,16 +1273,19 @@ fn test_main_storage_proof_size_soft_limit() {
         create_receipt_with_actions(
             account_id,
             signer,
-            vec![Action::DeployContract(DeployContractAction {
-                code: contract_code.code().to_vec(),
-            })],
+            vec![Action::DeployContract(
+                DeployContractAction { code: contract_code.code().to_vec() },
+            )],
         )
     };
 
     let trie = tries
         .get_trie_for_shard(ShardUId::single_shard(), root)
         .recording_reads_with_proof_size_limit(
-            apply_state.config.witness_config.main_storage_proof_size_soft_limit,
+            apply_state
+                .config
+                .witness_config
+                .main_storage_proof_size_soft_limit,
         );
     let apply_result = runtime
         .apply(
@@ -1181,26 +1312,33 @@ fn test_main_storage_proof_size_soft_limit() {
     // Change main_storage_proof_size_soft_limit to the storage size in order to let
     // the first receipt go through but not the second one.
     let mut runtime_config = RuntimeConfig::free();
-    runtime_config.witness_config.main_storage_proof_size_soft_limit = 300;
+    runtime_config
+        .witness_config
+        .main_storage_proof_size_soft_limit = 300;
     apply_state.config = Arc::new(runtime_config);
 
     let function_call_fn = |account_id: AccountId, signer: Arc<Signer>| {
         create_receipt_with_actions(
             account_id,
             signer,
-            vec![Action::FunctionCall(Box::new(FunctionCallAction {
-                method_name: "ext_sha256".to_string(),
-                args: b"first".to_vec(),
-                gas: 1,
-                deposit: 0,
-            }))],
+            vec![Action::FunctionCall(Box::new(
+                FunctionCallAction {
+                    method_name: "ext_sha256".to_string(),
+                    args: b"first".to_vec(),
+                    gas: 1,
+                    deposit: 0,
+                },
+            ))],
         )
     };
 
     let trie = tries
         .get_trie_for_shard(ShardUId::single_shard(), root)
         .recording_reads_with_proof_size_limit(
-            apply_state.config.witness_config.main_storage_proof_size_soft_limit,
+            apply_state
+                .config
+                .witness_config
+                .main_storage_proof_size_soft_limit,
         );
 
     // The function call to bob_account should hit the main_storage_proof_size_soft_limit
@@ -1252,7 +1390,9 @@ fn test_exclude_contract_code_from_witness() {
     // Set the storage proof soft-limit to the size of the contract.
     // Since contract code is not included in the storage proof, both function calls below pass the proof soft-limit.
     let mut runtime_config = RuntimeConfig::test();
-    runtime_config.witness_config.main_storage_proof_size_soft_limit = CONTRACT_SIZE;
+    runtime_config
+        .witness_config
+        .main_storage_proof_size_soft_limit = CONTRACT_SIZE;
     apply_state.config = Arc::new(runtime_config);
 
     let contract_code =
@@ -1261,15 +1401,17 @@ fn test_exclude_contract_code_from_witness() {
         create_receipt_with_actions(
             account_id,
             signer,
-            vec![Action::DeployContract(DeployContractAction {
-                code: contract_code.code().to_vec(),
-            })],
+            vec![Action::DeployContract(
+                DeployContractAction { code: contract_code.code().to_vec() },
+            )],
         )
     };
 
     let apply_result = runtime
         .apply(
-            tries.get_trie_for_shard(ShardUId::single_shard(), root).recording_reads_new_recorder(),
+            tries
+                .get_trie_for_shard(ShardUId::single_shard(), root)
+                .recording_reads_new_recorder(),
             &None,
             &apply_state,
             &[
@@ -1283,10 +1425,17 @@ fn test_exclude_contract_code_from_witness() {
         .unwrap();
 
     assert_eq!(apply_result.delayed_receipts_count, 0);
-    assert_eq!(apply_result.contract_updates.contract_accesses, HashSet::new());
+    assert_eq!(
+        apply_result
+            .contract_updates
+            .contract_accesses,
+        HashSet::new()
+    );
     // Since both accounts deploy the same contract, we expect only one contract deploy.
     assert_eq!(
-        apply_result.contract_updates.contract_deploy_hashes(),
+        apply_result
+            .contract_updates
+            .contract_deploy_hashes(),
         HashSet::from([CodeHash(*contract_code.hash())])
     );
 
@@ -1299,19 +1448,23 @@ fn test_exclude_contract_code_from_witness() {
         create_receipt_with_actions(
             account_id,
             signer,
-            vec![Action::FunctionCall(Box::new(FunctionCallAction {
-                method_name: "main".to_string(),
-                args: Vec::new(),
-                gas: 1,
-                deposit: 0,
-            }))],
+            vec![Action::FunctionCall(Box::new(
+                FunctionCallAction {
+                    method_name: "main".to_string(),
+                    args: Vec::new(),
+                    gas: 1,
+                    deposit: 0,
+                },
+            ))],
         )
     };
 
     // The function call to bob_account should hit the main_storage_proof_size_soft_limit
     let apply_result = runtime
         .apply(
-            tries.get_trie_for_shard(ShardUId::single_shard(), root).recording_reads_new_recorder(),
+            tries
+                .get_trie_for_shard(ShardUId::single_shard(), root)
+                .recording_reads_new_recorder(),
             &None,
             &apply_state,
             &[
@@ -1330,15 +1483,25 @@ fn test_exclude_contract_code_from_witness() {
     assert_eq!(apply_result.delayed_receipts_count, 0);
     // Since both accounts call the same contract, we expect only one contract access.
     assert_eq!(
-        apply_result.contract_updates.contract_accesses,
+        apply_result
+            .contract_updates
+            .contract_accesses,
         HashSet::from([CodeHash(*contract_code.hash())])
     );
-    assert_eq!(apply_result.contract_updates.contract_deploy_hashes(), HashSet::new());
+    assert_eq!(
+        apply_result
+            .contract_updates
+            .contract_deploy_hashes(),
+        HashSet::new()
+    );
 
     // Check that the proof size is less than the contract size (since it is not included in the storage proof).
     let partial_storage = apply_result.proof.unwrap();
     let PartialState::TrieValues(storage_proof) = partial_storage.nodes.clone();
-    let total_size: usize = storage_proof.iter().map(|v| v.len()).sum();
+    let total_size: usize = storage_proof
+        .iter()
+        .map(|v| v.len())
+        .sum();
     assert!(total_size < CONTRACT_SIZE);
 
     // Check that both contracts are excluded from the storage proof.
@@ -1375,15 +1538,17 @@ fn test_exclude_contract_code_from_witness_with_failed_call() {
         create_receipt_with_actions(
             account_id,
             signer,
-            vec![Action::DeployContract(DeployContractAction {
-                code: contract_code.code().to_vec(),
-            })],
+            vec![Action::DeployContract(
+                DeployContractAction { code: contract_code.code().to_vec() },
+            )],
         )
     };
 
     let apply_result = runtime
         .apply(
-            tries.get_trie_for_shard(ShardUId::single_shard(), root).recording_reads_new_recorder(),
+            tries
+                .get_trie_for_shard(ShardUId::single_shard(), root)
+                .recording_reads_new_recorder(),
             &None,
             &apply_state,
             &[
@@ -1397,10 +1562,17 @@ fn test_exclude_contract_code_from_witness_with_failed_call() {
         .unwrap();
 
     assert_eq!(apply_result.delayed_receipts_count, 0);
-    assert_eq!(apply_result.contract_updates.contract_accesses, HashSet::new());
+    assert_eq!(
+        apply_result
+            .contract_updates
+            .contract_accesses,
+        HashSet::new()
+    );
     // Since both accounts deploy the same contract, we expect only one contract deploy.
     assert_eq!(
-        apply_result.contract_updates.contract_deploy_hashes(),
+        apply_result
+            .contract_updates
+            .contract_deploy_hashes(),
         HashSet::from([CodeHash(*contract_code.hash())])
     );
 
@@ -1413,18 +1585,22 @@ fn test_exclude_contract_code_from_witness_with_failed_call() {
         create_receipt_with_actions(
             account_id,
             signer,
-            vec![Action::FunctionCall(Box::new(FunctionCallAction {
-                method_name: "ext_sha256".to_string(),
-                args: b"first".to_vec(),
-                gas: sha256_cost.gas,
-                deposit: 0,
-            }))],
+            vec![Action::FunctionCall(Box::new(
+                FunctionCallAction {
+                    method_name: "ext_sha256".to_string(),
+                    args: b"first".to_vec(),
+                    gas: sha256_cost.gas,
+                    deposit: 0,
+                },
+            ))],
         )
     };
 
     let apply_result = runtime
         .apply(
-            tries.get_trie_for_shard(ShardUId::single_shard(), root).recording_reads_new_recorder(),
+            tries
+                .get_trie_for_shard(ShardUId::single_shard(), root)
+                .recording_reads_new_recorder(),
             &None,
             &apply_state,
             &[
@@ -1440,10 +1616,17 @@ fn test_exclude_contract_code_from_witness_with_failed_call() {
     assert_eq!(apply_result.delayed_receipts_count, 1);
     // Since both accounts call the same contract, we expect only one contract access.
     assert_eq!(
-        apply_result.contract_updates.contract_accesses,
+        apply_result
+            .contract_updates
+            .contract_accesses,
         HashSet::from([CodeHash(*contract_code.hash())])
     );
-    assert_eq!(apply_result.contract_updates.contract_deploy_hashes(), HashSet::new());
+    assert_eq!(
+        apply_result
+            .contract_updates
+            .contract_deploy_hashes(),
+        HashSet::new()
+    );
 
     // Check that both contracts are excluded from the storage proof.
     let partial_storage = apply_result.proof.unwrap();
@@ -1480,47 +1663,56 @@ fn test_deploy_and_call_different_contracts() {
     let first_deploy_receipt = create_receipt_with_actions(
         alice_account(),
         signers[0].clone(),
-        vec![Action::DeployContract(DeployContractAction {
-            code: first_contract_code.code().to_vec(),
-        })],
+        vec![Action::DeployContract(
+            DeployContractAction { code: first_contract_code.code().to_vec() },
+        )],
     );
 
     let first_call_receipt = create_receipt_with_actions(
         alice_account(),
         signers[0].clone(),
-        vec![Action::FunctionCall(Box::new(FunctionCallAction {
-            method_name: "ext_sha256".to_string(),
-            args: b"first".to_vec(),
-            gas: 1,
-            deposit: 0,
-        }))],
+        vec![Action::FunctionCall(Box::new(
+            FunctionCallAction {
+                method_name: "ext_sha256".to_string(),
+                args: b"first".to_vec(),
+                gas: 1,
+                deposit: 0,
+            },
+        ))],
     );
 
     let second_deploy_receipt = create_receipt_with_actions(
         bob_account(),
         signers[1].clone(),
-        vec![Action::DeployContract(DeployContractAction {
-            code: second_contract_code.code().to_vec(),
-        })],
+        vec![Action::DeployContract(
+            DeployContractAction { code: second_contract_code.code().to_vec() },
+        )],
     );
 
     let second_call_receipt = create_receipt_with_actions(
         bob_account(),
         signers[1].clone(),
-        vec![Action::FunctionCall(Box::new(FunctionCallAction {
-            method_name: "main".to_string(),
-            args: Vec::new(),
-            gas: 1,
-            deposit: 0,
-        }))],
+        vec![Action::FunctionCall(Box::new(
+            FunctionCallAction {
+                method_name: "main".to_string(),
+                args: Vec::new(),
+                gas: 1,
+                deposit: 0,
+            },
+        ))],
     );
 
     let apply_result = runtime
         .apply(
-            tries.get_trie_for_shard(ShardUId::single_shard(), root).recording_reads_new_recorder(),
+            tries
+                .get_trie_for_shard(ShardUId::single_shard(), root)
+                .recording_reads_new_recorder(),
             &None,
             &apply_state,
-            &[first_deploy_receipt, second_deploy_receipt],
+            &[
+                first_deploy_receipt,
+                second_deploy_receipt,
+            ],
             SignedValidPeriodTransactions::empty(),
             &epoch_info_provider,
             Default::default(),
@@ -1528,9 +1720,16 @@ fn test_deploy_and_call_different_contracts() {
         .unwrap();
 
     assert_eq!(apply_result.delayed_receipts_count, 0);
-    assert_eq!(apply_result.contract_updates.contract_accesses, HashSet::new());
     assert_eq!(
-        apply_result.contract_updates.contract_deploy_hashes(),
+        apply_result
+            .contract_updates
+            .contract_accesses,
+        HashSet::new()
+    );
+    assert_eq!(
+        apply_result
+            .contract_updates
+            .contract_deploy_hashes(),
         HashSet::from([
             CodeHash(*first_contract_code.hash()),
             CodeHash(*second_contract_code.hash())
@@ -1544,7 +1743,9 @@ fn test_deploy_and_call_different_contracts() {
 
     let apply_result = runtime
         .apply(
-            tries.get_trie_for_shard(ShardUId::single_shard(), root).recording_reads_new_recorder(),
+            tries
+                .get_trie_for_shard(ShardUId::single_shard(), root)
+                .recording_reads_new_recorder(),
             &None,
             &apply_state,
             &[first_call_receipt, second_call_receipt],
@@ -1556,13 +1757,20 @@ fn test_deploy_and_call_different_contracts() {
 
     assert_eq!(apply_result.delayed_receipts_count, 0);
     assert_eq!(
-        apply_result.contract_updates.contract_accesses,
+        apply_result
+            .contract_updates
+            .contract_accesses,
         HashSet::from([
             CodeHash(*first_contract_code.hash()),
             CodeHash(*second_contract_code.hash())
         ])
     );
-    assert_eq!(apply_result.contract_updates.contract_deploy_hashes(), HashSet::new());
+    assert_eq!(
+        apply_result
+            .contract_updates
+            .contract_deploy_hashes(),
+        HashSet::new()
+    );
 }
 
 // Similar to test_deploy_and_call_different_contracts, but one of the function calls fails.
@@ -1586,47 +1794,56 @@ fn test_deploy_and_call_different_contracts_with_failed_call() {
     let first_deploy_receipt = create_receipt_with_actions(
         alice_account(),
         signers[0].clone(),
-        vec![Action::DeployContract(DeployContractAction {
-            code: first_contract_code.code().to_vec(),
-        })],
+        vec![Action::DeployContract(
+            DeployContractAction { code: first_contract_code.code().to_vec() },
+        )],
     );
 
     let first_call_receipt = create_receipt_with_actions(
         alice_account(),
         signers[0].clone(),
-        vec![Action::FunctionCall(Box::new(FunctionCallAction {
-            method_name: "ext_sha256".to_string(),
-            args: b"first".to_vec(),
-            gas: sha256_cost.gas,
-            deposit: 0,
-        }))],
+        vec![Action::FunctionCall(Box::new(
+            FunctionCallAction {
+                method_name: "ext_sha256".to_string(),
+                args: b"first".to_vec(),
+                gas: sha256_cost.gas,
+                deposit: 0,
+            },
+        ))],
     );
 
     let second_deploy_receipt = create_receipt_with_actions(
         bob_account(),
         signers[1].clone(),
-        vec![Action::DeployContract(DeployContractAction {
-            code: second_contract_code.code().to_vec(),
-        })],
+        vec![Action::DeployContract(
+            DeployContractAction { code: second_contract_code.code().to_vec() },
+        )],
     );
 
     let second_call_receipt = create_receipt_with_actions(
         bob_account(),
         signers[1].clone(),
-        vec![Action::FunctionCall(Box::new(FunctionCallAction {
-            method_name: "main".to_string(),
-            args: Vec::new(),
-            gas: 1,
-            deposit: 0,
-        }))],
+        vec![Action::FunctionCall(Box::new(
+            FunctionCallAction {
+                method_name: "main".to_string(),
+                args: Vec::new(),
+                gas: 1,
+                deposit: 0,
+            },
+        ))],
     );
 
     let apply_result = runtime
         .apply(
-            tries.get_trie_for_shard(ShardUId::single_shard(), root).recording_reads_new_recorder(),
+            tries
+                .get_trie_for_shard(ShardUId::single_shard(), root)
+                .recording_reads_new_recorder(),
             &None,
             &apply_state,
-            &[first_deploy_receipt, second_deploy_receipt],
+            &[
+                first_deploy_receipt,
+                second_deploy_receipt,
+            ],
             SignedValidPeriodTransactions::empty(),
             &epoch_info_provider,
             Default::default(),
@@ -1634,9 +1851,16 @@ fn test_deploy_and_call_different_contracts_with_failed_call() {
         .unwrap();
 
     assert_eq!(apply_result.delayed_receipts_count, 0);
-    assert_eq!(apply_result.contract_updates.contract_accesses, HashSet::new());
     assert_eq!(
-        apply_result.contract_updates.contract_deploy_hashes(),
+        apply_result
+            .contract_updates
+            .contract_accesses,
+        HashSet::new()
+    );
+    assert_eq!(
+        apply_result
+            .contract_updates
+            .contract_deploy_hashes(),
         HashSet::from([
             CodeHash(*first_contract_code.hash()),
             CodeHash(*second_contract_code.hash())
@@ -1650,7 +1874,9 @@ fn test_deploy_and_call_different_contracts_with_failed_call() {
 
     let apply_result = runtime
         .apply(
-            tries.get_trie_for_shard(ShardUId::single_shard(), root).recording_reads_new_recorder(),
+            tries
+                .get_trie_for_shard(ShardUId::single_shard(), root)
+                .recording_reads_new_recorder(),
             &None,
             &apply_state,
             &[first_call_receipt, second_call_receipt],
@@ -1663,10 +1889,17 @@ fn test_deploy_and_call_different_contracts_with_failed_call() {
     assert_eq!(apply_result.delayed_receipts_count, 1);
     // Since the second call fails due to insufficient gas, only the first call is recorded.
     assert_eq!(
-        apply_result.contract_updates.contract_accesses,
+        apply_result
+            .contract_updates
+            .contract_accesses,
         HashSet::from([CodeHash(*first_contract_code.hash())])
     );
-    assert_eq!(apply_result.contract_updates.contract_deploy_hashes(), HashSet::new());
+    assert_eq!(
+        apply_result
+            .contract_updates
+            .contract_deploy_hashes(),
+        HashSet::new()
+    );
 }
 
 // Tests excluding contract code from state witness and recording of contract deployments and function calls
@@ -1690,47 +1923,58 @@ fn test_deploy_and_call_in_apply() {
     let first_deploy_receipt = create_receipt_with_actions(
         alice_account(),
         signers[0].clone(),
-        vec![Action::DeployContract(DeployContractAction {
-            code: first_contract_code.code().to_vec(),
-        })],
+        vec![Action::DeployContract(
+            DeployContractAction { code: first_contract_code.code().to_vec() },
+        )],
     );
 
     let first_call_receipt = create_receipt_with_actions(
         alice_account(),
         signers[0].clone(),
-        vec![Action::FunctionCall(Box::new(FunctionCallAction {
-            method_name: "ext_sha256".to_string(),
-            args: b"first".to_vec(),
-            gas: 1,
-            deposit: 0,
-        }))],
+        vec![Action::FunctionCall(Box::new(
+            FunctionCallAction {
+                method_name: "ext_sha256".to_string(),
+                args: b"first".to_vec(),
+                gas: 1,
+                deposit: 0,
+            },
+        ))],
     );
 
     let second_deploy_receipt = create_receipt_with_actions(
         bob_account(),
         signers[1].clone(),
-        vec![Action::DeployContract(DeployContractAction {
-            code: second_contract_code.code().to_vec(),
-        })],
+        vec![Action::DeployContract(
+            DeployContractAction { code: second_contract_code.code().to_vec() },
+        )],
     );
 
     let second_call_receipt = create_receipt_with_actions(
         bob_account(),
         signers[1].clone(),
-        vec![Action::FunctionCall(Box::new(FunctionCallAction {
-            method_name: "main".to_string(),
-            args: Vec::new(),
-            gas: 1,
-            deposit: 0,
-        }))],
+        vec![Action::FunctionCall(Box::new(
+            FunctionCallAction {
+                method_name: "main".to_string(),
+                args: Vec::new(),
+                gas: 1,
+                deposit: 0,
+            },
+        ))],
     );
 
     let apply_result = runtime
         .apply(
-            tries.get_trie_for_shard(ShardUId::single_shard(), root).recording_reads_new_recorder(),
+            tries
+                .get_trie_for_shard(ShardUId::single_shard(), root)
+                .recording_reads_new_recorder(),
             &None,
             &apply_state,
-            &[first_deploy_receipt, second_deploy_receipt, first_call_receipt, second_call_receipt],
+            &[
+                first_deploy_receipt,
+                second_deploy_receipt,
+                first_call_receipt,
+                second_call_receipt,
+            ],
             SignedValidPeriodTransactions::empty(),
             &epoch_info_provider,
             Default::default(),
@@ -1738,9 +1982,16 @@ fn test_deploy_and_call_in_apply() {
         .unwrap();
 
     assert_eq!(apply_result.delayed_receipts_count, 0);
-    assert_eq!(apply_result.contract_updates.contract_accesses, HashSet::new());
     assert_eq!(
-        apply_result.contract_updates.contract_deploy_hashes(),
+        apply_result
+            .contract_updates
+            .contract_accesses,
+        HashSet::new()
+    );
+    assert_eq!(
+        apply_result
+            .contract_updates
+            .contract_deploy_hashes(),
         HashSet::from([
             CodeHash(*first_contract_code.hash()),
             CodeHash(*second_contract_code.hash())
@@ -1769,47 +2020,58 @@ fn test_deploy_and_call_in_apply_with_failed_call() {
     let first_deploy_receipt = create_receipt_with_actions(
         alice_account(),
         signers[0].clone(),
-        vec![Action::DeployContract(DeployContractAction {
-            code: first_contract_code.code().to_vec(),
-        })],
+        vec![Action::DeployContract(
+            DeployContractAction { code: first_contract_code.code().to_vec() },
+        )],
     );
 
     let first_call_receipt = create_receipt_with_actions(
         alice_account(),
         signers[0].clone(),
-        vec![Action::FunctionCall(Box::new(FunctionCallAction {
-            method_name: "ext_sha256".to_string(),
-            args: b"first".to_vec(),
-            gas: sha256_cost.gas,
-            deposit: 0,
-        }))],
+        vec![Action::FunctionCall(Box::new(
+            FunctionCallAction {
+                method_name: "ext_sha256".to_string(),
+                args: b"first".to_vec(),
+                gas: sha256_cost.gas,
+                deposit: 0,
+            },
+        ))],
     );
 
     let second_deploy_receipt = create_receipt_with_actions(
         bob_account(),
         signers[1].clone(),
-        vec![Action::DeployContract(DeployContractAction {
-            code: second_contract_code.code().to_vec(),
-        })],
+        vec![Action::DeployContract(
+            DeployContractAction { code: second_contract_code.code().to_vec() },
+        )],
     );
 
     let second_call_receipt = create_receipt_with_actions(
         bob_account(),
         signers[1].clone(),
-        vec![Action::FunctionCall(Box::new(FunctionCallAction {
-            method_name: "main".to_string(),
-            args: Vec::new(),
-            gas: 1,
-            deposit: 0,
-        }))],
+        vec![Action::FunctionCall(Box::new(
+            FunctionCallAction {
+                method_name: "main".to_string(),
+                args: Vec::new(),
+                gas: 1,
+                deposit: 0,
+            },
+        ))],
     );
 
     let apply_result = runtime
         .apply(
-            tries.get_trie_for_shard(ShardUId::single_shard(), root).recording_reads_new_recorder(),
+            tries
+                .get_trie_for_shard(ShardUId::single_shard(), root)
+                .recording_reads_new_recorder(),
             &None,
             &apply_state,
-            &[first_deploy_receipt, second_deploy_receipt, first_call_receipt, second_call_receipt],
+            &[
+                first_deploy_receipt,
+                second_deploy_receipt,
+                first_call_receipt,
+                second_call_receipt,
+            ],
             SignedValidPeriodTransactions::empty(),
             &epoch_info_provider,
             Default::default(),
@@ -1817,10 +2079,17 @@ fn test_deploy_and_call_in_apply_with_failed_call() {
         .unwrap();
 
     assert_eq!(apply_result.delayed_receipts_count, 1);
-    assert_eq!(apply_result.contract_updates.contract_accesses, HashSet::new());
+    assert_eq!(
+        apply_result
+            .contract_updates
+            .contract_accesses,
+        HashSet::new()
+    );
     // We record both deployments even if the function call to one of them fails.
     assert_eq!(
-        apply_result.contract_updates.contract_deploy_hashes(),
+        apply_result
+            .contract_updates
+            .contract_deploy_hashes(),
         HashSet::from([
             CodeHash(*first_contract_code.hash()),
             CodeHash(*second_contract_code.hash())
@@ -1846,22 +2115,28 @@ fn test_deploy_existing_contract_to_different_account() {
     let first_deploy_receipt = create_receipt_with_actions(
         alice_account(),
         signers[0].clone(),
-        vec![Action::DeployContract(DeployContractAction { code: contract_code.code().to_vec() })],
+        vec![Action::DeployContract(
+            DeployContractAction { code: contract_code.code().to_vec() },
+        )],
     );
     let first_call_receipt = create_receipt_with_actions(
         alice_account(),
         signers[0].clone(),
-        vec![Action::FunctionCall(Box::new(FunctionCallAction {
-            method_name: "ext_sha256".to_string(),
-            args: b"first".to_vec(),
-            gas: 1,
-            deposit: 0,
-        }))],
+        vec![Action::FunctionCall(Box::new(
+            FunctionCallAction {
+                method_name: "ext_sha256".to_string(),
+                args: b"first".to_vec(),
+                gas: 1,
+                deposit: 0,
+            },
+        ))],
     );
 
     let apply_result = runtime
         .apply(
-            tries.get_trie_for_shard(ShardUId::single_shard(), root).recording_reads_new_recorder(),
+            tries
+                .get_trie_for_shard(ShardUId::single_shard(), root)
+                .recording_reads_new_recorder(),
             &None,
             &apply_state,
             &[first_deploy_receipt, first_call_receipt],
@@ -1873,9 +2148,16 @@ fn test_deploy_existing_contract_to_different_account() {
 
     assert_eq!(apply_result.delayed_receipts_count, 0);
     // No contract access is recorded because it was newly deployed.
-    assert_eq!(apply_result.contract_updates.contract_accesses, HashSet::new());
     assert_eq!(
-        apply_result.contract_updates.contract_deploy_hashes(),
+        apply_result
+            .contract_updates
+            .contract_accesses,
+        HashSet::new()
+    );
+    assert_eq!(
+        apply_result
+            .contract_updates
+            .contract_deploy_hashes(),
         HashSet::from([CodeHash(*contract_code.hash())])
     );
 
@@ -1888,25 +2170,34 @@ fn test_deploy_existing_contract_to_different_account() {
     let second_deploy_receipt = create_receipt_with_actions(
         bob_account(),
         signers[1].clone(),
-        vec![Action::DeployContract(DeployContractAction { code: contract_code.code().to_vec() })],
+        vec![Action::DeployContract(
+            DeployContractAction { code: contract_code.code().to_vec() },
+        )],
     );
     let second_call_receipt = create_receipt_with_actions(
         bob_account(),
         signers[1].clone(),
-        vec![Action::FunctionCall(Box::new(FunctionCallAction {
-            method_name: "ext_sha256".to_string(),
-            args: b"first".to_vec(),
-            gas: 1,
-            deposit: 0,
-        }))],
+        vec![Action::FunctionCall(Box::new(
+            FunctionCallAction {
+                method_name: "ext_sha256".to_string(),
+                args: b"first".to_vec(),
+                gas: 1,
+                deposit: 0,
+            },
+        ))],
     );
 
     let apply_result = runtime
         .apply(
-            tries.get_trie_for_shard(ShardUId::single_shard(), root).recording_reads_new_recorder(),
+            tries
+                .get_trie_for_shard(ShardUId::single_shard(), root)
+                .recording_reads_new_recorder(),
             &None,
             &apply_state,
-            &[second_deploy_receipt, second_call_receipt],
+            &[
+                second_deploy_receipt,
+                second_call_receipt,
+            ],
             SignedValidPeriodTransactions::empty(),
             &epoch_info_provider,
             Default::default(),
@@ -1915,10 +2206,17 @@ fn test_deploy_existing_contract_to_different_account() {
 
     assert_eq!(apply_result.delayed_receipts_count, 0);
     // No contract access is recorded because it was newly deployed.
-    assert_eq!(apply_result.contract_updates.contract_accesses, HashSet::new());
+    assert_eq!(
+        apply_result
+            .contract_updates
+            .contract_accesses,
+        HashSet::new()
+    );
     // The contract deployment is still recorded even if it was deployed to another account before.
     assert_eq!(
-        apply_result.contract_updates.contract_deploy_hashes(),
+        apply_result
+            .contract_updates
+            .contract_deploy_hashes(),
         HashSet::from([CodeHash(*contract_code.hash())])
     );
 }
@@ -1952,7 +2250,9 @@ fn test_deploy_and_call_in_same_receipt() {
 
     let apply_result = runtime
         .apply(
-            tries.get_trie_for_shard(ShardUId::single_shard(), root).recording_reads_new_recorder(),
+            tries
+                .get_trie_for_shard(ShardUId::single_shard(), root)
+                .recording_reads_new_recorder(),
             &None,
             &apply_state,
             &[receipt],
@@ -1963,9 +2263,16 @@ fn test_deploy_and_call_in_same_receipt() {
         .unwrap();
 
     assert_eq!(apply_result.delayed_receipts_count, 0);
-    assert_eq!(apply_result.contract_updates.contract_accesses, HashSet::new());
     assert_eq!(
-        apply_result.contract_updates.contract_deploy_hashes(),
+        apply_result
+            .contract_updates
+            .contract_accesses,
+        HashSet::new()
+    );
+    assert_eq!(
+        apply_result
+            .contract_updates
+            .contract_deploy_hashes(),
         HashSet::from([CodeHash(*contract_code.hash()),])
     );
 }
@@ -2001,7 +2308,9 @@ fn test_deploy_and_call_in_same_receipt_with_failed_call() {
 
     let apply_result = runtime
         .apply(
-            tries.get_trie_for_shard(ShardUId::single_shard(), root).recording_reads_new_recorder(),
+            tries
+                .get_trie_for_shard(ShardUId::single_shard(), root)
+                .recording_reads_new_recorder(),
             &None,
             &apply_state,
             &[receipt],
@@ -2012,8 +2321,18 @@ fn test_deploy_and_call_in_same_receipt_with_failed_call() {
         .unwrap();
 
     assert_eq!(apply_result.delayed_receipts_count, 0);
-    assert_eq!(apply_result.contract_updates.contract_accesses, HashSet::new());
-    assert_eq!(apply_result.contract_updates.contract_deploy_hashes(), HashSet::new());
+    assert_eq!(
+        apply_result
+            .contract_updates
+            .contract_accesses,
+        HashSet::new()
+    );
+    assert_eq!(
+        apply_result
+            .contract_updates
+            .contract_deploy_hashes(),
+        HashSet::new()
+    );
 }
 
 // Tests the case in which a function call is made to an account with no contract deployed.
@@ -2027,17 +2346,21 @@ fn test_call_account_without_contract() {
     let receipt = create_receipt_with_actions(
         alice_account(),
         signers[0].clone(),
-        vec![Action::FunctionCall(Box::new(FunctionCallAction {
-            method_name: "main".to_string(),
-            args: vec![],
-            gas: 1,
-            deposit: 0,
-        }))],
+        vec![Action::FunctionCall(Box::new(
+            FunctionCallAction {
+                method_name: "main".to_string(),
+                args: vec![],
+                gas: 1,
+                deposit: 0,
+            },
+        ))],
     );
 
     let apply_result = runtime
         .apply(
-            tries.get_trie_for_shard(ShardUId::single_shard(), root).recording_reads_new_recorder(),
+            tries
+                .get_trie_for_shard(ShardUId::single_shard(), root)
+                .recording_reads_new_recorder(),
             &None,
             &apply_state,
             &[receipt],
@@ -2048,8 +2371,18 @@ fn test_call_account_without_contract() {
         .unwrap();
 
     assert_eq!(apply_result.delayed_receipts_count, 0);
-    assert_eq!(apply_result.contract_updates.contract_accesses, HashSet::new());
-    assert_eq!(apply_result.contract_updates.contract_deploy_hashes(), HashSet::new());
+    assert_eq!(
+        apply_result
+            .contract_updates
+            .contract_accesses,
+        HashSet::new()
+    );
+    assert_eq!(
+        apply_result
+            .contract_updates
+            .contract_deploy_hashes(),
+        HashSet::new()
+    );
 }
 
 /// Tests that we do not record the contract accesses when validating the chunk.
@@ -2065,23 +2398,29 @@ fn test_contract_accesses_when_validating_chunk() {
     let deploy_receipt = create_receipt_with_actions(
         alice_account(),
         signers[0].clone(),
-        vec![Action::DeployContract(DeployContractAction { code: contract_code.code().to_vec() })],
+        vec![Action::DeployContract(
+            DeployContractAction { code: contract_code.code().to_vec() },
+        )],
     );
 
     let call_receipt = create_receipt_with_actions(
         alice_account(),
         signers[0].clone(),
-        vec![Action::FunctionCall(Box::new(FunctionCallAction {
-            method_name: "ext_sha256".to_string(),
-            args: b"first".to_vec(),
-            gas: 1,
-            deposit: 0,
-        }))],
+        vec![Action::FunctionCall(Box::new(
+            FunctionCallAction {
+                method_name: "ext_sha256".to_string(),
+                args: b"first".to_vec(),
+                gas: 1,
+                deposit: 0,
+            },
+        ))],
     );
 
     let apply_result = runtime
         .apply(
-            tries.get_trie_for_shard(ShardUId::single_shard(), root).recording_reads_new_recorder(),
+            tries
+                .get_trie_for_shard(ShardUId::single_shard(), root)
+                .recording_reads_new_recorder(),
             &None,
             &apply_state,
             &[deploy_receipt],
@@ -2093,7 +2432,9 @@ fn test_contract_accesses_when_validating_chunk() {
 
     assert_eq!(apply_result.delayed_receipts_count, 0);
     assert_eq!(
-        apply_result.contract_updates.contract_deploy_hashes(),
+        apply_result
+            .contract_updates
+            .contract_deploy_hashes(),
         HashSet::from([CodeHash(*contract_code.hash())])
     );
 
@@ -2107,7 +2448,9 @@ fn test_contract_accesses_when_validating_chunk() {
 
     let apply_result = runtime
         .apply(
-            tries.get_trie_for_shard(ShardUId::single_shard(), root).recording_reads_new_recorder(),
+            tries
+                .get_trie_for_shard(ShardUId::single_shard(), root)
+                .recording_reads_new_recorder(),
             &None,
             &apply_state,
             &[call_receipt.clone()],
@@ -2119,7 +2462,9 @@ fn test_contract_accesses_when_validating_chunk() {
 
     assert_eq!(apply_result.delayed_receipts_count, 0);
     assert_eq!(
-        apply_result.contract_updates.contract_accesses,
+        apply_result
+            .contract_updates
+            .contract_accesses,
         HashSet::from([CodeHash(*contract_code.hash())])
     );
 
@@ -2128,7 +2473,9 @@ fn test_contract_accesses_when_validating_chunk() {
 
     let apply_result = runtime
         .apply(
-            tries.get_trie_for_shard(ShardUId::single_shard(), root).recording_reads_new_recorder(),
+            tries
+                .get_trie_for_shard(ShardUId::single_shard(), root)
+                .recording_reads_new_recorder(),
             &None,
             &apply_state,
             &[call_receipt],
@@ -2139,7 +2486,12 @@ fn test_contract_accesses_when_validating_chunk() {
         .unwrap();
 
     assert_eq!(apply_result.delayed_receipts_count, 0);
-    assert_eq!(apply_result.contract_updates.contract_accesses, HashSet::new());
+    assert_eq!(
+        apply_result
+            .contract_updates
+            .contract_accesses,
+        HashSet::new()
+    );
 }
 
 /// Tests that the existing contract is not recorded in the state witness for a deploy-contract action.
@@ -2159,7 +2511,9 @@ fn test_exclude_existing_contract_code_for_deploy_action() {
     let deploy_receipt1 = create_receipt_with_actions(
         alice_account(),
         signers[0].clone(),
-        vec![Action::DeployContract(DeployContractAction { code: contract_code1.code().to_vec() })],
+        vec![Action::DeployContract(
+            DeployContractAction { code: contract_code1.code().to_vec() },
+        )],
     );
 
     // Deploy a different contract by creating one with a different size.
@@ -2170,12 +2524,16 @@ fn test_exclude_existing_contract_code_for_deploy_action() {
     let deploy_receipt2 = create_receipt_with_actions(
         alice_account(),
         signers[0].clone(),
-        vec![Action::DeployContract(DeployContractAction { code: contract_code2.code().to_vec() })],
+        vec![Action::DeployContract(
+            DeployContractAction { code: contract_code2.code().to_vec() },
+        )],
     );
 
     let apply_result = runtime
         .apply(
-            tries.get_trie_for_shard(ShardUId::single_shard(), root).recording_reads_new_recorder(),
+            tries
+                .get_trie_for_shard(ShardUId::single_shard(), root)
+                .recording_reads_new_recorder(),
             &None,
             &apply_state,
             &[deploy_receipt1],
@@ -2186,9 +2544,16 @@ fn test_exclude_existing_contract_code_for_deploy_action() {
         .unwrap();
 
     assert_eq!(apply_result.delayed_receipts_count, 0);
-    assert_eq!(apply_result.contract_updates.contract_accesses, HashSet::new());
     assert_eq!(
-        apply_result.contract_updates.contract_deploy_hashes(),
+        apply_result
+            .contract_updates
+            .contract_accesses,
+        HashSet::new()
+    );
+    assert_eq!(
+        apply_result
+            .contract_updates
+            .contract_deploy_hashes(),
         HashSet::from([CodeHash(*contract_code1.hash())])
     );
 
@@ -2199,7 +2564,9 @@ fn test_exclude_existing_contract_code_for_deploy_action() {
 
     let apply_result = runtime
         .apply(
-            tries.get_trie_for_shard(ShardUId::single_shard(), root).recording_reads_new_recorder(),
+            tries
+                .get_trie_for_shard(ShardUId::single_shard(), root)
+                .recording_reads_new_recorder(),
             &None,
             &apply_state,
             &[deploy_receipt2],
@@ -2210,15 +2577,25 @@ fn test_exclude_existing_contract_code_for_deploy_action() {
         .unwrap();
 
     assert_eq!(apply_result.delayed_receipts_count, 0);
-    assert_eq!(apply_result.contract_updates.contract_accesses, HashSet::new());
     assert_eq!(
-        apply_result.contract_updates.contract_deploy_hashes(),
+        apply_result
+            .contract_updates
+            .contract_accesses,
+        HashSet::new()
+    );
+    assert_eq!(
+        apply_result
+            .contract_updates
+            .contract_deploy_hashes(),
         HashSet::from([CodeHash(*contract_code2.hash())])
     );
 
     let partial_storage = apply_result.proof.unwrap();
     let PartialState::TrieValues(storage_proof) = partial_storage.nodes;
-    let total_size: usize = storage_proof.iter().map(|v| v.len()).sum();
+    let total_size: usize = storage_proof
+        .iter()
+        .map(|v| v.len())
+        .sum();
     // Contract size is much larger than the rest of the storage proof, so we compare them to check if the contract is excluded.
     if ProtocolFeature::ExcludeExistingCodeFromWitnessForCodeLen.enabled(PROTOCOL_VERSION) {
         assert!(
@@ -2246,8 +2623,10 @@ fn test_exclude_existing_contract_code_for_delete_account_action() {
     apply_state.config = Arc::new(RuntimeConfig::free());
 
     // Information about the test account (of predecessor "alice.near") that will be used for create, deploy, and delete actions.
-    let test_account_id: AccountId =
-        ("fake.".to_owned() + alice_account().as_str()).as_str().parse().unwrap();
+    let test_account_id: AccountId = ("fake.".to_owned() + alice_account().as_str())
+        .as_str()
+        .parse()
+        .unwrap();
     let test_account_signer: Arc<Signer> = Arc::new(InMemorySigner::test_signer(&test_account_id));
 
     // Choose a contract size that is much more than rest of the storage proof size so that we can show that
@@ -2265,18 +2644,24 @@ fn test_exclude_existing_contract_code_for_delete_account_action() {
     let deploy_receipt = create_receipt_with_actions(
         test_account_id.clone(),
         test_account_signer.clone(),
-        vec![Action::DeployContract(DeployContractAction { code: contract_code.code().to_vec() })],
+        vec![Action::DeployContract(
+            DeployContractAction { code: contract_code.code().to_vec() },
+        )],
     );
 
     let delete_account_receipt = create_receipt_with_actions(
         test_account_id,
         test_account_signer,
-        vec![Action::DeleteAccount(DeleteAccountAction { beneficiary_id: alice_account() })],
+        vec![Action::DeleteAccount(
+            DeleteAccountAction { beneficiary_id: alice_account() },
+        )],
     );
 
     let apply_result = runtime
         .apply(
-            tries.get_trie_for_shard(ShardUId::single_shard(), root).recording_reads_new_recorder(),
+            tries
+                .get_trie_for_shard(ShardUId::single_shard(), root)
+                .recording_reads_new_recorder(),
             &None,
             &apply_state,
             &[create_account_receipt, deploy_receipt],
@@ -2287,9 +2672,16 @@ fn test_exclude_existing_contract_code_for_delete_account_action() {
         .unwrap();
 
     assert_eq!(apply_result.delayed_receipts_count, 0);
-    assert_eq!(apply_result.contract_updates.contract_accesses, HashSet::new());
     assert_eq!(
-        apply_result.contract_updates.contract_deploy_hashes(),
+        apply_result
+            .contract_updates
+            .contract_accesses,
+        HashSet::new()
+    );
+    assert_eq!(
+        apply_result
+            .contract_updates
+            .contract_deploy_hashes(),
         HashSet::from([CodeHash(*contract_code.hash())])
     );
 
@@ -2300,7 +2692,9 @@ fn test_exclude_existing_contract_code_for_delete_account_action() {
 
     let apply_result = runtime
         .apply(
-            tries.get_trie_for_shard(ShardUId::single_shard(), root).recording_reads_new_recorder(),
+            tries
+                .get_trie_for_shard(ShardUId::single_shard(), root)
+                .recording_reads_new_recorder(),
             &None,
             &apply_state,
             &[delete_account_receipt],
@@ -2311,12 +2705,25 @@ fn test_exclude_existing_contract_code_for_delete_account_action() {
         .unwrap();
 
     assert_eq!(apply_result.delayed_receipts_count, 0);
-    assert_eq!(apply_result.contract_updates.contract_accesses, HashSet::new());
-    assert_eq!(apply_result.contract_updates.contract_deploy_hashes(), HashSet::new());
+    assert_eq!(
+        apply_result
+            .contract_updates
+            .contract_accesses,
+        HashSet::new()
+    );
+    assert_eq!(
+        apply_result
+            .contract_updates
+            .contract_deploy_hashes(),
+        HashSet::new()
+    );
 
     let partial_storage = apply_result.proof.unwrap();
     let PartialState::TrieValues(storage_proof) = partial_storage.nodes;
-    let total_size: usize = storage_proof.iter().map(|v| v.len()).sum();
+    let total_size: usize = storage_proof
+        .iter()
+        .map(|v| v.len())
+        .sum();
     // Contract size is much larger than the rest of the storage proof, so we compare them to check if the contract is excluded.
     if ProtocolFeature::ExcludeExistingCodeFromWitnessForCodeLen.enabled(PROTOCOL_VERSION) {
         assert!(
@@ -2460,8 +2867,10 @@ fn test_congestion_buffering() {
     // this test only checks that receipt buffering works. Unit tests
     // congestion_info.rs test that the congestion level is picked up for all
     // possible congestion conditions.
-    let max_congestion_incoming_gas: Gas =
-        apply_state.config.congestion_control_config.max_congestion_incoming_gas;
+    let max_congestion_incoming_gas: Gas = apply_state
+        .config
+        .congestion_control_config
+        .max_congestion_incoming_gas;
     apply_state
         .congestion_info
         .get_mut(&receiver_shard)
@@ -2476,7 +2885,9 @@ fn test_congestion_buffering() {
         .unwrap()
         .congestion_info
         .set_allowed_shard(receiver_shard.into());
-    apply_state.congestion_info.insert(local_shard, Default::default());
+    apply_state
+        .congestion_info
+        .insert(local_shard, Default::default());
 
     // We need receipts that produce an outgoing receipt. Function calls and
     // delegate actions are currently the two only choices. We use delegate
@@ -2512,7 +2923,12 @@ fn test_congestion_buffering() {
         let buffers = ShardsOutgoingReceiptBuffer::load(&state).unwrap();
         let capped_i = std::cmp::min(i, n);
         assert_eq!(0, apply_result.outgoing_receipts.len());
-        assert_eq!(capped_i, buffers.buffer_len(receiver_shard).unwrap());
+        assert_eq!(
+            capped_i,
+            buffers
+                .buffer_len(receiver_shard)
+                .unwrap()
+        );
         let congestion = apply_result.congestion_info.unwrap();
         assert!(congestion.buffered_receipts_gas() > 0);
         assert!(congestion.receipt_bytes() > 0);
@@ -2533,7 +2949,10 @@ fn test_congestion_buffering() {
         .remove_delayed_receipt_gas(100)
         .unwrap();
 
-    let min_outgoing_gas: Gas = apply_state.config.congestion_control_config.min_outgoing_gas;
+    let min_outgoing_gas: Gas = apply_state
+        .config
+        .congestion_control_config
+        .min_outgoing_gas;
     // Check congestion is less than 1.0
     let congestion = apply_state.congestion_control(receiver_shard, 0);
     assert!(congestion.congestion_level() < 1.0);
@@ -2567,7 +2986,12 @@ fn test_congestion_buffering() {
         // (b) check receipts are removed from the buffer
         let max_forwarded = i * forwarded_per_chunk;
         let expected_num_in_buffer = n.saturating_sub(max_forwarded);
-        assert_eq!(expected_num_in_buffer, buffers.buffer_len(receiver_shard).unwrap());
+        assert_eq!(
+            expected_num_in_buffer,
+            buffers
+                .buffer_len(receiver_shard)
+                .unwrap()
+        );
 
         let prev_max_forwarded = (i - 1) * forwarded_per_chunk;
         if prev_max_forwarded >= n {
@@ -2594,7 +3018,9 @@ fn commit_apply_result(
     assert_eq!(shard_uid.shard_id(), apply_state.shard_id);
     if let Some(congestion_info) = apply_result.congestion_info {
         let extended = ExtendedCongestionInfo::new(congestion_info, 0);
-        apply_state.congestion_info.insert(shard_uid.shard_id(), extended);
+        apply_state
+            .congestion_info
+            .insert(shard_uid.shard_id(), extended);
     }
     let mut store_update = tries.store_update();
     let root = tries.apply_all(&apply_result.trie_changes, shard_uid, &mut store_update);
@@ -2603,10 +3029,17 @@ fn commit_apply_result(
 }
 
 impl ApplyState {
-    fn congestion_control(&self, shard_id: ShardId, missed_chunks: u64) -> CongestionControl {
+    fn congestion_control(
+        &self,
+        shard_id: ShardId,
+        missed_chunks: u64,
+    ) -> CongestionControl {
         CongestionControl::new(
             self.config.congestion_control_config,
-            self.congestion_info.get(&shard_id).unwrap().congestion_info,
+            self.congestion_info
+                .get(&shard_id)
+                .unwrap()
+                .congestion_info,
             missed_chunks,
         )
     }
@@ -2615,7 +3048,10 @@ impl ApplyState {
 /// Create a scenario where `apply` is called without congestion info but
 /// cross-shard congestion control is enabled, then check what congestion
 /// info is in the apply result.
-fn check_congestion_info_bootstrapping(is_new_chunk: bool, want: Option<CongestionInfo>) {
+fn check_congestion_info_bootstrapping(
+    is_new_chunk: bool,
+    want: Option<CongestionInfo>,
+) {
     let initial_balance = to_yocto(1_000_000);
     let initial_locked = to_yocto(500_000);
     let gas_limit = 10u64.pow(15);
@@ -2732,9 +3168,9 @@ fn test_deploy_and_call_local_receipts() {
         alice_account(),
         alice_account(),
         &*signers[0],
-        vec![Action::DeployContract(DeployContractAction {
-            code: near_test_contracts::rs_contract().to_vec(),
-        })],
+        vec![Action::DeployContract(
+            DeployContractAction { code: near_test_contracts::rs_contract().to_vec() },
+        )],
         CryptoHash::default(),
         0,
     );

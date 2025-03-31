@@ -63,7 +63,10 @@ impl FlatStorageInner {
 
     /// Creates `BlockNotSupported` error for the given block.
     /// In the context of updating the flat head, the error is handled gracefully.
-    fn create_block_not_supported_error(&self, block_hash: &CryptoHash) -> FlatStorageError {
+    fn create_block_not_supported_error(
+        &self,
+        block_hash: &CryptoHash,
+    ) -> FlatStorageError {
         FlatStorageError::BlockNotSupported((self.flat_head.hash, *block_hash))
     }
 
@@ -103,11 +106,11 @@ impl FlatStorageInner {
 
             // Maybe skip to the previous block with changes.
             block_hash = match metadata.prev_block_with_changes {
-                None => {
+                | None => {
                     blocks.push(block_hash);
                     metadata.block.prev_hash
                 }
-                Some(prev_block_with_changes) => {
+                | Some(prev_block_with_changes) => {
                     // Don't include blocks with no changes in the result,
                     // unless it's the target block.
                     if &block_hash == target_block_hash {
@@ -198,7 +201,7 @@ impl FlatStorageInner {
                 .ok_or_else(|| self.create_block_not_supported_error(&new_head))?
                 .metadata;
             new_head = match metadata.prev_block_with_changes {
-                None => {
+                | None => {
                     // The block has flat state changes.
                     blocks_with_changes += 1;
                     if blocks_with_changes == Self::BLOCKS_WITH_CHANGES_FLAT_HEAD_GAP {
@@ -206,7 +209,7 @@ impl FlatStorageInner {
                     }
                     metadata.block.prev_hash
                 }
-                Some(BlockWithChangesInfo { hash, height, .. }) => {
+                | Some(BlockWithChangesInfo { hash, height, .. }) => {
                     // The block has no flat state changes.
                     if height <= current_flat_head_height {
                         return Ok(current_flat_head_hash);
@@ -232,14 +235,17 @@ impl FlatStorage {
     /// Create a new FlatStorage for `shard_uid` using flat head if it is stored on storage.
     /// We also load all blocks with height between flat head to `latest_block_height`
     /// including those on forks into the returned FlatStorage.
-    pub fn new(store: FlatStoreAdapter, shard_uid: ShardUId) -> Result<Self, StorageError> {
+    pub fn new(
+        store: FlatStoreAdapter,
+        shard_uid: ShardUId,
+    ) -> Result<Self, StorageError> {
         let shard_id = shard_uid.shard_id();
         let flat_head = match store.get_flat_storage_status(shard_uid) {
-            Ok(FlatStorageStatus::Ready(ready_status)) => ready_status.flat_head,
-            Ok(FlatStorageStatus::Resharding(FlatStorageReshardingStatus::SplittingParent(
+            | Ok(FlatStorageStatus::Ready(ready_status)) => ready_status.flat_head,
+            | Ok(FlatStorageStatus::Resharding(FlatStorageReshardingStatus::SplittingParent(
                 split_parent_status,
             ))) => split_parent_status.flat_head,
-            status => {
+            | status => {
                 return Err(StorageError::StorageInconsistentState(format!(
                     "Cannot create flat storage for shard {shard_id} with status {status:?}"
                 )));
@@ -248,9 +254,11 @@ impl FlatStorage {
         let metrics = FlatStorageMetrics::new(shard_uid);
         metrics.set_flat_head_height(flat_head.height);
 
-        let deltas_metadata = store.get_all_deltas_metadata(shard_uid).unwrap_or_else(|_| {
-            panic!("Cannot read flat state deltas metadata for shard {shard_id} from storage")
-        });
+        let deltas_metadata = store
+            .get_all_deltas_metadata(shard_uid)
+            .unwrap_or_else(|_| {
+                panic!("Cannot read flat state deltas metadata for shard {shard_id} from storage")
+            });
         let mut deltas = HashMap::new();
         for delta_metadata in deltas_metadata {
             let block_hash = delta_metadata.block.hash;
@@ -290,7 +298,10 @@ impl FlatStorage {
         &self,
         target_block_hash: &CryptoHash,
     ) -> Result<Vec<CryptoHash>, FlatStorageError> {
-        let guard = self.0.read().expect(super::POISONED_LOCK_ERR);
+        let guard = self
+            .0
+            .read()
+            .expect(super::POISONED_LOCK_ERR);
         guard.get_blocks_to_head(target_block_hash)
     }
 
@@ -299,16 +310,19 @@ impl FlatStorage {
         block_hash: &CryptoHash,
         key: &[u8],
     ) -> Result<Option<FlatStateValue>, crate::StorageError> {
-        let guard = self.0.read().expect(super::POISONED_LOCK_ERR);
+        let guard = self
+            .0
+            .read()
+            .expect(super::POISONED_LOCK_ERR);
         let blocks_to_head = guard.get_blocks_to_head(block_hash)?;
         for block_hash in blocks_to_head.iter() {
             // If we found a key in changes, we can return a value because it is the most recent key update.
             let changes = guard.get_block_changes(block_hash)?;
             match changes.get(key) {
-                Some(value_ref) => {
+                | Some(value_ref) => {
                     return Ok((*value_ref).map(|value_ref| FlatStateValue::Ref(value_ref)));
                 }
-                None => {}
+                | None => {}
             };
         }
 
@@ -322,19 +336,25 @@ impl FlatStorage {
         block_hash: &CryptoHash,
         key: &[u8],
     ) -> Result<bool, crate::StorageError> {
-        let guard = self.0.read().expect(super::POISONED_LOCK_ERR);
-        let blocks_to_head =
-            guard.get_blocks_to_head(block_hash).map_err(|e| StorageError::from(e))?;
+        let guard = self
+            .0
+            .read()
+            .expect(super::POISONED_LOCK_ERR);
+        let blocks_to_head = guard
+            .get_blocks_to_head(block_hash)
+            .map_err(|e| StorageError::from(e))?;
         for block_hash in blocks_to_head.iter() {
             // If we found a key in changes, we can return a value because it is the most recent key update.
             let changes = guard.get_block_changes(block_hash)?;
             match changes.get(key) {
-                Some(value_ref) => return Ok(value_ref.is_some()),
-                None => {}
+                | Some(value_ref) => return Ok(value_ref.is_some()),
+                | None => {}
             };
         }
 
-        Ok(guard.store.exists(guard.shard_uid, key)?)
+        Ok(guard
+            .store
+            .exists(guard.shard_uid, key)?)
     }
 
     // TODO(#11601): Direct call is DEPRECATED, consider removing non-strict mode.
@@ -366,7 +386,10 @@ impl FlatStorage {
         block_hash: &CryptoHash,
         strict: bool,
     ) -> Result<(), FlatStorageError> {
-        let mut guard = self.0.write().expect(crate::flat::POISONED_LOCK_ERR);
+        let mut guard = self
+            .0
+            .write()
+            .expect(crate::flat::POISONED_LOCK_ERR);
         if !guard.move_head_enabled {
             return Ok(());
         }
@@ -404,7 +427,9 @@ impl FlatStorage {
                 FlatStorageStatus::Ready(FlatStorageReadyStatus { flat_head: block }),
             );
 
-            guard.metrics.set_flat_head_height(block.height);
+            guard
+                .metrics
+                .set_flat_head_height(block.height);
             guard.flat_head = block;
 
             // Remove old deltas from disk and memory.
@@ -437,7 +462,10 @@ impl FlatStorage {
     /// in memory and on disk and updating the flat state to reflect the state
     /// at the new head. If updating to given head is not possible, returns an
     /// error.
-    pub fn update_flat_head(&self, block_hash: &CryptoHash) -> Result<(), FlatStorageError> {
+    pub fn update_flat_head(
+        &self,
+        block_hash: &CryptoHash,
+    ) -> Result<(), FlatStorageError> {
         self.update_flat_head_impl(block_hash, true)
     }
 
@@ -450,13 +478,20 @@ impl FlatStorage {
         &self,
         delta: FlatStateDelta,
     ) -> Result<FlatStoreUpdateAdapter<'static>, FlatStorageError> {
-        let mut guard = self.0.write().expect(super::POISONED_LOCK_ERR);
+        let mut guard = self
+            .0
+            .write()
+            .expect(super::POISONED_LOCK_ERR);
         let shard_uid = guard.shard_uid;
         let block = &delta.metadata.block;
         let block_hash = block.hash;
         let block_height = block.height;
         debug!(target: "store", %shard_uid, %block_hash, %block_height, "Adding block to flat storage");
-        if block.prev_hash != guard.flat_head.hash && !guard.deltas.contains_key(&block.prev_hash) {
+        if block.prev_hash != guard.flat_head.hash
+            && !guard
+                .deltas
+                .contains_key(&block.prev_hash)
+        {
             return Err(guard.create_block_not_supported_error(&block_hash));
         }
         let mut store_update = guard.store.store_update();
@@ -476,7 +511,10 @@ impl FlatStorage {
         &self,
         store_update: &mut FlatStoreUpdateAdapter,
     ) -> Result<(), StorageError> {
-        let guard = self.0.write().expect(super::POISONED_LOCK_ERR);
+        let guard = self
+            .0
+            .write()
+            .expect(super::POISONED_LOCK_ERR);
         let shard_uid = guard.shard_uid;
         store_update.remove_all_values(shard_uid);
         store_update.remove_all_deltas(shard_uid);
@@ -486,18 +524,33 @@ impl FlatStorage {
     }
 
     pub(crate) fn get_head_hash(&self) -> CryptoHash {
-        let guard = self.0.read().expect(super::POISONED_LOCK_ERR);
+        let guard = self
+            .0
+            .read()
+            .expect(super::POISONED_LOCK_ERR);
         guard.flat_head.hash
     }
 
     pub(crate) fn shard_uid(&self) -> ShardUId {
-        let guard = self.0.read().expect(super::POISONED_LOCK_ERR);
+        let guard = self
+            .0
+            .read()
+            .expect(super::POISONED_LOCK_ERR);
         guard.shard_uid
     }
 
-    /// Updates `move_head_enabled` and returns whether the change was done.
-    pub fn set_flat_head_update_mode(&self, enabled: bool) {
-        let mut guard = self.0.write().expect(crate::flat::POISONED_LOCK_ERR);
+    /// Updates `move_head_enabled`. If false, this will prevent flat storage updates and deltas will accumulate
+    /// until this is called again with `enabled=true`.
+    /// TODO: This could be improved by setting a maximum block height instead of a bool that disables all updates,
+    /// by using the `want_snapshot` field of the flat storage manager we already have.
+    pub fn set_flat_head_update_mode(
+        &self,
+        enabled: bool,
+    ) {
+        let mut guard = self
+            .0
+            .write()
+            .expect(crate::flat::POISONED_LOCK_ERR);
         guard.move_head_enabled = enabled;
     }
 }
@@ -553,8 +606,12 @@ mod tests {
         store_update.commit().unwrap();
 
         let flat_storage_manager = FlatStorageManager::new(store.clone());
-        flat_storage_manager.create_flat_storage_for_shard(shard_uid).unwrap();
-        let flat_storage = flat_storage_manager.get_flat_storage_for_shard(shard_uid).unwrap();
+        flat_storage_manager
+            .create_flat_storage_for_shard(shard_uid)
+            .unwrap();
+        let flat_storage = flat_storage_manager
+            .get_flat_storage_for_shard(shard_uid)
+            .unwrap();
 
         // Check `BlockNotSupported` errors which are fine to occur during regular block processing.
         // First, check that flat head can be moved to block 1.
@@ -631,8 +688,12 @@ mod tests {
         store_update.commit().unwrap();
 
         let flat_storage_manager = FlatStorageManager::new(store);
-        flat_storage_manager.create_flat_storage_for_shard(shard_uid).unwrap();
-        let flat_storage = flat_storage_manager.get_flat_storage_for_shard(shard_uid).unwrap();
+        flat_storage_manager
+            .create_flat_storage_for_shard(shard_uid)
+            .unwrap();
+        let flat_storage = flat_storage_manager
+            .get_flat_storage_for_shard(shard_uid)
+            .unwrap();
 
         // Simulates an actual sequence of calls to `update_flat_head()` in the
         // presence of forks.
@@ -674,8 +735,12 @@ mod tests {
 
         // Check that flat storage state is created correctly for chain which has skipped heights.
         let flat_storage_manager = FlatStorageManager::new(store);
-        flat_storage_manager.create_flat_storage_for_shard(shard_uid).unwrap();
-        let flat_storage = flat_storage_manager.get_flat_storage_for_shard(shard_uid).unwrap();
+        flat_storage_manager
+            .create_flat_storage_for_shard(shard_uid)
+            .unwrap();
+        let flat_storage = flat_storage_manager
+            .get_flat_storage_for_shard(shard_uid)
+            .unwrap();
 
         // Check that flat head can be moved to block 8.
         let flat_head_hash = chain.get_block_hash(8);
@@ -715,15 +780,23 @@ mod tests {
         store_update.commit().unwrap();
 
         let flat_storage_manager = FlatStorageManager::new(store.clone());
-        flat_storage_manager.create_flat_storage_for_shard(shard_uid).unwrap();
-        let flat_storage = flat_storage_manager.get_flat_storage_for_shard(shard_uid).unwrap();
+        flat_storage_manager
+            .create_flat_storage_for_shard(shard_uid)
+            .unwrap();
+        let flat_storage = flat_storage_manager
+            .get_flat_storage_for_shard(shard_uid)
+            .unwrap();
 
         // 2. Check that the chunk_view at block i reads the value of key &[1] as &[i]
         for i in 0..10 {
             let block_hash = chain.get_block_hash(i);
-            let blocks = flat_storage.get_blocks_to_head(&block_hash).unwrap();
+            let blocks = flat_storage
+                .get_blocks_to_head(&block_hash)
+                .unwrap();
             assert_eq!(blocks.len(), i as usize);
-            let chunk_view = flat_storage_manager.chunk_view(shard_uid, block_hash).unwrap();
+            let chunk_view = flat_storage_manager
+                .chunk_view(shard_uid, block_hash)
+                .unwrap();
             assert_eq!(
                 chunk_view.get_value(&[1]).unwrap(),
                 Some(FlatStateValue::value_ref(&[i as u8]))
@@ -749,24 +822,42 @@ mod tests {
 
         // 4. Create a flat_state0 at block 10 and flat_state1 at block 4
         //    Verify that they return the correct values
-        let blocks = flat_storage.get_blocks_to_head(&chain.get_block_hash(10)).unwrap();
+        let blocks = flat_storage
+            .get_blocks_to_head(&chain.get_block_hash(10))
+            .unwrap();
         assert_eq!(blocks.len(), 10);
-        let chunk_view0 =
-            flat_storage_manager.chunk_view(shard_uid, chain.get_block_hash(10)).unwrap();
-        let chunk_view1 =
-            flat_storage_manager.chunk_view(shard_uid, chain.get_block_hash(4)).unwrap();
+        let chunk_view0 = flat_storage_manager
+            .chunk_view(shard_uid, chain.get_block_hash(10))
+            .unwrap();
+        let chunk_view1 = flat_storage_manager
+            .chunk_view(shard_uid, chain.get_block_hash(4))
+            .unwrap();
         assert_eq!(chunk_view0.get_value(&[1]).unwrap(), None);
         assert_eq!(chunk_view0.get_value(&[2]).unwrap(), Some(FlatStateValue::value_ref(&[1])));
         assert_eq!(chunk_view1.get_value(&[1]).unwrap(), Some(FlatStateValue::value_ref(&[4])));
         assert_eq!(chunk_view1.get_value(&[2]).unwrap(), None);
-        assert_matches!(store.get_delta(shard_uid, chain.get_block_hash(5)).unwrap(), Some(_));
-        assert_matches!(store.get_delta(shard_uid, chain.get_block_hash(10)).unwrap(), Some(_));
+        assert_matches!(
+            store
+                .get_delta(shard_uid, chain.get_block_hash(5))
+                .unwrap(),
+            Some(_)
+        );
+        assert_matches!(
+            store
+                .get_delta(shard_uid, chain.get_block_hash(10))
+                .unwrap(),
+            Some(_)
+        );
 
         // 5. Move the flat head to block 5, verify that chunk_view0 still returns the same values
         // and chunk_view1 returns an error. Also check that DBCol::FlatState is updated correctly
-        flat_storage.update_flat_head_impl(&chain.get_block_hash(5), true).unwrap();
+        flat_storage
+            .update_flat_head_impl(&chain.get_block_hash(5), true)
+            .unwrap();
         assert_eq!(store.get(shard_uid, &[1]).unwrap(), Some(FlatStateValue::value_ref(&[5])));
-        let blocks = flat_storage.get_blocks_to_head(&chain.get_block_hash(10)).unwrap();
+        let blocks = flat_storage
+            .get_blocks_to_head(&chain.get_block_hash(10))
+            .unwrap();
         assert_eq!(blocks.len(), 5);
         assert_eq!(chunk_view0.get_value(&[1]).unwrap(), None);
         assert_eq!(chunk_view0.get_value(&[2]).unwrap(), Some(FlatStateValue::value_ref(&[1])));
@@ -774,19 +865,38 @@ mod tests {
             chunk_view1.get_value(&[1]),
             Err(StorageError::FlatStorageBlockNotSupported(_))
         );
-        assert_matches!(store.get_delta(shard_uid, chain.get_block_hash(5)).unwrap(), None);
-        assert_matches!(store.get_delta(shard_uid, chain.get_block_hash(10)).unwrap(), Some(_));
+        assert_matches!(
+            store
+                .get_delta(shard_uid, chain.get_block_hash(5))
+                .unwrap(),
+            None
+        );
+        assert_matches!(
+            store
+                .get_delta(shard_uid, chain.get_block_hash(10))
+                .unwrap(),
+            Some(_)
+        );
 
         // 6. Move the flat head to block 10, verify that chunk_view0 still returns the same values
         //    Also checks that DBCol::FlatState is updated correctly.
-        flat_storage.update_flat_head_impl(&chain.get_block_hash(10), true).unwrap();
-        let blocks = flat_storage.get_blocks_to_head(&chain.get_block_hash(10)).unwrap();
+        flat_storage
+            .update_flat_head_impl(&chain.get_block_hash(10), true)
+            .unwrap();
+        let blocks = flat_storage
+            .get_blocks_to_head(&chain.get_block_hash(10))
+            .unwrap();
         assert_eq!(blocks.len(), 0);
         assert_eq!(store.get(shard_uid, &[1]).unwrap(), None);
         assert_eq!(store.get(shard_uid, &[2]).unwrap(), Some(FlatStateValue::value_ref(&[1])));
         assert_eq!(chunk_view0.get_value(&[1]).unwrap(), None);
         assert_eq!(chunk_view0.get_value(&[2]).unwrap(), Some(FlatStateValue::value_ref(&[1])));
-        assert_matches!(store.get_delta(shard_uid, chain.get_block_hash(10)).unwrap(), None);
+        assert_matches!(
+            store
+                .get_delta(shard_uid, chain.get_block_hash(10))
+                .unwrap(),
+            None
+        );
     }
 
     #[test]
@@ -840,14 +950,22 @@ mod tests {
         }
 
         let flat_storage_manager = FlatStorageManager::new(store.clone());
-        flat_storage_manager.create_flat_storage_for_shard(shard_uid).unwrap();
-        let flat_storage = flat_storage_manager.get_flat_storage_for_shard(shard_uid).unwrap();
+        flat_storage_manager
+            .create_flat_storage_for_shard(shard_uid)
+            .unwrap();
+        let flat_storage = flat_storage_manager
+            .get_flat_storage_for_shard(shard_uid)
+            .unwrap();
 
         // 2. Check that the chunk_view at block i reads the value of key &[1] as &[round_down_to_a_multiple_of_3(i)]
         for i in 0..num_blocks as BlockHeight {
             let block_hash = chain.get_block_hash(i);
-            let blocks = flat_storage.get_blocks_to_head(&block_hash).unwrap();
-            let chunk_view = flat_storage_manager.chunk_view(shard_uid, block_hash).unwrap();
+            let blocks = flat_storage
+                .get_blocks_to_head(&block_hash)
+                .unwrap();
+            let chunk_view = flat_storage_manager
+                .chunk_view(shard_uid, block_hash)
+                .unwrap();
             let value = chunk_view.get_value(&[1]).unwrap();
             tracing::info!(?i, ?block_hash, ?value, blocks_to_head = ?blocks);
             assert_eq!(value, Some(FlatStateValue::value_ref(&[((i / 3) * 3) as u8])));
@@ -855,7 +973,10 @@ mod tests {
             // Don't check the first block because it may be a block with no changes.
             for i in 1..blocks.len() {
                 let block_hash = blocks[i];
-                let delta = store.get_delta(shard_uid, block_hash).unwrap().unwrap();
+                let delta = store
+                    .get_delta(shard_uid, block_hash)
+                    .unwrap()
+                    .unwrap();
                 assert!(
                     !delta.0.is_empty(),
                     "i: {i}, block_hash: {block_hash:?}, delta: {delta:?}"
@@ -868,10 +989,14 @@ mod tests {
         // resulting in <=4 blocks on the way from the tip to the chosen head.
         for i in 2..num_blocks as BlockHeight {
             let final_block_hash = chain.get_block_hash(i - 2);
-            flat_storage.update_flat_head_impl(&final_block_hash, false).unwrap();
+            flat_storage
+                .update_flat_head_impl(&final_block_hash, false)
+                .unwrap();
 
             let block_hash = chain.get_block_hash(i);
-            let blocks = flat_storage.get_blocks_to_head(&block_hash).unwrap();
+            let blocks = flat_storage
+                .get_blocks_to_head(&block_hash)
+                .unwrap();
 
             assert!(
                 blocks.len() <= 2 + FlatStorageInner::BLOCKS_WITH_CHANGES_FLAT_HEAD_GAP as usize
@@ -920,15 +1045,21 @@ mod tests {
         }
 
         let flat_storage_manager = FlatStorageManager::new(store);
-        flat_storage_manager.create_flat_storage_for_shard(shard_uid).unwrap();
-        let flat_storage = flat_storage_manager.get_flat_storage_for_shard(shard_uid).unwrap();
+        flat_storage_manager
+            .create_flat_storage_for_shard(shard_uid)
+            .unwrap();
+        let flat_storage = flat_storage_manager
+            .get_flat_storage_for_shard(shard_uid)
+            .unwrap();
 
         let hashes = (0..num_blocks as BlockHeight)
             .map(|height| (chain.get_block_hash(height), height))
             .collect::<HashMap<CryptoHash, BlockHeight>>();
 
         let block_hash = chain.get_block_hash((num_blocks - 1) as BlockHeight);
-        flat_storage.update_flat_head_impl(&block_hash, true).unwrap();
+        flat_storage
+            .update_flat_head_impl(&block_hash, true)
+            .unwrap();
 
         let flat_head_hash = flat_storage.get_head_hash();
         let flat_head_height = hashes.get(&flat_head_hash).unwrap();
@@ -988,8 +1119,12 @@ mod tests {
         }
 
         let flat_storage_manager = FlatStorageManager::new(store.clone());
-        flat_storage_manager.create_flat_storage_for_shard(shard_uid).unwrap();
-        let flat_storage = flat_storage_manager.get_flat_storage_for_shard(shard_uid).unwrap();
+        flat_storage_manager
+            .create_flat_storage_for_shard(shard_uid)
+            .unwrap();
+        let flat_storage = flat_storage_manager
+            .get_flat_storage_for_shard(shard_uid)
+            .unwrap();
 
         let hashes = (0..num_blocks as BlockHeight)
             .map(|height| (chain.get_block_hash(height), height))
@@ -999,17 +1134,24 @@ mod tests {
         let mut max_lag = None;
         for i in 2..num_blocks as BlockHeight {
             let final_block_hash = chain.get_block_hash(i - 2);
-            flat_storage.update_flat_head_impl(&final_block_hash, false).unwrap();
+            flat_storage
+                .update_flat_head_impl(&final_block_hash, false)
+                .unwrap();
 
             let block_hash = chain.get_block_hash(i);
-            let blocks = flat_storage.get_blocks_to_head(&block_hash).unwrap();
+            let blocks = flat_storage
+                .get_blocks_to_head(&block_hash)
+                .unwrap();
             assert!(
                 blocks.len() <= 2 + FlatStorageInner::BLOCKS_WITH_CHANGES_FLAT_HEAD_GAP as usize
             );
             // Don't check the first block because it may be a block with no changes.
             for i in 1..blocks.len() {
                 let block_hash = blocks[i];
-                let delta = store.get_delta(shard_uid, block_hash).unwrap().unwrap();
+                let delta = store
+                    .get_delta(shard_uid, block_hash)
+                    .unwrap()
+                    .unwrap();
                 assert!(
                     !delta.0.is_empty(),
                     "i: {i}, block_hash: {block_hash:?}, delta: {delta:?}"
@@ -1020,7 +1162,10 @@ mod tests {
             let flat_head_height = hashes.get(&flat_head_hash).unwrap();
 
             let flat_head_lag = i - flat_head_height;
-            let delta = store.get_delta(shard_uid, block_hash).unwrap().unwrap();
+            let delta = store
+                .get_delta(shard_uid, block_hash)
+                .unwrap()
+                .unwrap();
             let has_changes = !delta.0.is_empty();
             tracing::info!(?i, has_changes, ?flat_head_lag);
             max_lag = max_lag.max(Some(flat_head_lag));
@@ -1068,13 +1213,22 @@ mod tests {
             }
 
             let flat_storage_manager = FlatStorageManager::new(store);
-            flat_storage_manager.create_flat_storage_for_shard(shard_uid).unwrap();
-            let flat_storage = flat_storage_manager.get_flat_storage_for_shard(shard_uid).unwrap();
-            let guard = flat_storage.0.write().expect(crate::flat::POISONED_LOCK_ERR);
+            flat_storage_manager
+                .create_flat_storage_for_shard(shard_uid)
+                .unwrap();
+            let flat_storage = flat_storage_manager
+                .get_flat_storage_for_shard(shard_uid)
+                .unwrap();
+            let guard = flat_storage
+                .0
+                .write()
+                .expect(crate::flat::POISONED_LOCK_ERR);
 
             for i in 0..num_blocks as BlockHeight {
                 let block_hash = chain.get_block_hash(i);
-                let new_head = guard.test_get_new_flat_head(block_hash, false).unwrap();
+                let new_head = guard
+                    .test_get_new_flat_head(block_hash, false)
+                    .unwrap();
                 tracing::info!(i, ?block_hash, ?new_head);
                 if i == 0 {
                     assert_eq!(new_head, chain.get_block_hash(0));
@@ -1133,15 +1287,24 @@ mod tests {
             }
 
             let flat_storage_manager = FlatStorageManager::new(store);
-            flat_storage_manager.create_flat_storage_for_shard(shard_uid).unwrap();
-            let flat_storage = flat_storage_manager.get_flat_storage_for_shard(shard_uid).unwrap();
-            let guard = flat_storage.0.write().expect(crate::flat::POISONED_LOCK_ERR);
+            flat_storage_manager
+                .create_flat_storage_for_shard(shard_uid)
+                .unwrap();
+            let flat_storage = flat_storage_manager
+                .get_flat_storage_for_shard(shard_uid)
+                .unwrap();
+            let guard = flat_storage
+                .0
+                .write()
+                .expect(crate::flat::POISONED_LOCK_ERR);
 
             // A chain looks like this:
             // X-O-X-O-X-O-...
             // where X is a block with flat state changes and O is a block without flat state changes.
             for i in 0..num_blocks as BlockHeight {
-                let new_head = guard.get_new_flat_head(chain.get_block_hash(i), false).unwrap();
+                let new_head = guard
+                    .get_new_flat_head(chain.get_block_hash(i), false)
+                    .unwrap();
                 if i <= 3 {
                     assert_eq!(new_head, chain.get_block_hash(0));
                 } else {
@@ -1218,12 +1381,21 @@ mod tests {
             }
 
             let flat_storage_manager = FlatStorageManager::new(store);
-            flat_storage_manager.create_flat_storage_for_shard(shard_uid).unwrap();
-            let flat_storage = flat_storage_manager.get_flat_storage_for_shard(shard_uid).unwrap();
-            let guard = flat_storage.0.write().expect(crate::flat::POISONED_LOCK_ERR);
+            flat_storage_manager
+                .create_flat_storage_for_shard(shard_uid)
+                .unwrap();
+            let flat_storage = flat_storage_manager
+                .get_flat_storage_for_shard(shard_uid)
+                .unwrap();
+            let guard = flat_storage
+                .0
+                .write()
+                .expect(crate::flat::POISONED_LOCK_ERR);
 
             for i in 0..num_blocks as BlockHeight {
-                let new_head = guard.get_new_flat_head(chain.get_block_hash(i), false).unwrap();
+                let new_head = guard
+                    .get_new_flat_head(chain.get_block_hash(i), false)
+                    .unwrap();
                 // if i%3 == 0
                 //             i
                 //             |

@@ -40,15 +40,15 @@ impl BaseTunables {
         let pointer_width: PointerWidth = triple.pointer_width().unwrap();
         let (static_memory_bound, static_memory_offset_guard_size): (Pages, u64) =
             match pointer_width {
-                PointerWidth::U16 => (0x400.into(), 0x1000),
-                PointerWidth::U32 => (0x4000.into(), 0x1_0000),
+                | PointerWidth::U16 => (0x400.into(), 0x1000),
+                | PointerWidth::U32 => (0x4000.into(), 0x1_0000),
                 // Static Memory Bound:
                 //   Allocating 4 GiB of address space let us avoid the
                 //   need for explicit bounds checks.
                 // Static Memory Guard size:
                 //   Allocating 2 GiB of address space lets us translate wasm
                 //   offsets into x86 offsets as aggressively as we can.
-                PointerWidth::U64 => (0x1_0000.into(), 0x8000_0000),
+                | PointerWidth::U64 => (0x1_0000.into(), 0x8000_0000),
             };
 
         // Allocate a small guard to optimize common cases but without
@@ -70,7 +70,10 @@ impl BaseTunables {
     }
 
     /// Set the regular op cost for this compiler
-    pub fn set_regular_op_cost(&mut self, cost: u64) -> &mut Self {
+    pub fn set_regular_op_cost(
+        &mut self,
+        cost: u64,
+    ) -> &mut Self {
         self.regular_op_cost = cost;
         self
     }
@@ -78,12 +81,17 @@ impl BaseTunables {
 
 impl Tunables for BaseTunables {
     /// Get a `MemoryStyle` for the provided `MemoryType`
-    fn memory_style(&self, memory: &MemoryType) -> MemoryStyle {
+    fn memory_style(
+        &self,
+        memory: &MemoryType,
+    ) -> MemoryStyle {
         // A heap with a maximum that doesn't exceed the static memory bound specified by the
         // tunables make it static.
         //
         // If the module doesn't declare an explicit maximum treat it as 4GiB.
-        let maximum = memory.maximum.unwrap_or_else(Pages::max_value);
+        let maximum = memory
+            .maximum
+            .unwrap_or_else(Pages::max_value);
         if maximum <= self.static_memory_bound {
             MemoryStyle::Static {
                 // Bound can be larger than the maximum for performance reasons
@@ -96,7 +104,10 @@ impl Tunables for BaseTunables {
     }
 
     /// Get a [`TableStyle`] for the provided [`TableType`].
-    fn table_style(&self, _table: &TableType) -> TableStyle {
+    fn table_style(
+        &self,
+        _table: &TableType,
+    ) -> TableStyle {
         TableStyle::CallerChecksSignature
     }
 
@@ -146,7 +157,10 @@ impl Tunables for BaseTunables {
         Ok(Arc::new(LinearTable::from_definition(&ty, &style, vm_definition_location)?))
     }
 
-    fn stack_init_gas_cost(&self, stack_size: u64) -> u64 {
+    fn stack_init_gas_cost(
+        &self,
+        stack_size: u64,
+    ) -> u64 {
         (self.regular_op_cost / 8).saturating_mul(stack_size)
     }
 
@@ -164,15 +178,18 @@ impl Tunables for BaseTunables {
 struct SimpleMaxStackCfg;
 
 impl finite_wasm::max_stack::SizeConfig for SimpleMaxStackCfg {
-    fn size_of_value(&self, ty: finite_wasm::wasmparser::ValType) -> u8 {
+    fn size_of_value(
+        &self,
+        ty: finite_wasm::wasmparser::ValType,
+    ) -> u8 {
         use finite_wasm::wasmparser::ValType;
         match ty {
-            ValType::I32 => 4,
-            ValType::I64 => 8,
-            ValType::F32 => 4,
-            ValType::F64 => 8,
-            ValType::V128 => 16,
-            ValType::Ref(_) => 8,
+            | ValType::I32 => 4,
+            | ValType::I64 => 8,
+            | ValType::F32 => 4,
+            | ValType::F64 => 8,
+            | ValType::V128 => 16,
+            | ValType::Ref(_) => 8,
         }
     }
     fn size_of_function_activation(
@@ -180,7 +197,10 @@ impl finite_wasm::max_stack::SizeConfig for SimpleMaxStackCfg {
         locals: &prefix_sum_vec::PrefixSumVec<finite_wasm::wasmparser::ValType, u32>,
     ) -> u64 {
         let mut res = 0;
-        res += locals.max_index().map_or(0, |l| u64::from(*l).saturating_add(1)) * 8;
+        res += locals
+            .max_index()
+            .map_or(0, |l| u64::from(*l).saturating_add(1))
+            * 8;
         // TODO: make the above take into account the types of locals by adding an iter on PrefixSumVec that returns (count, type)
         res += 64; // Rough accounting for rip, rbp and some registers spilled. Not exact.
         res
@@ -234,27 +254,27 @@ mod tests {
         let requested = MemoryType::new(3, None, true);
         let style = tunables.memory_style(&requested);
         match style {
-            MemoryStyle::Dynamic { offset_guard_size } => assert_eq!(offset_guard_size, 256),
-            s => panic!("Unexpected memory style: {:?}", s),
+            | MemoryStyle::Dynamic { offset_guard_size } => assert_eq!(offset_guard_size, 256),
+            | s => panic!("Unexpected memory style: {:?}", s),
         }
 
         // Large maximum
         let requested = MemoryType::new(3, Some(5_000_000), true);
         let style = tunables.memory_style(&requested);
         match style {
-            MemoryStyle::Dynamic { offset_guard_size } => assert_eq!(offset_guard_size, 256),
-            s => panic!("Unexpected memory style: {:?}", s),
+            | MemoryStyle::Dynamic { offset_guard_size } => assert_eq!(offset_guard_size, 256),
+            | s => panic!("Unexpected memory style: {:?}", s),
         }
 
         // Small maximum
         let requested = MemoryType::new(3, Some(16), true);
         let style = tunables.memory_style(&requested);
         match style {
-            MemoryStyle::Static { bound, offset_guard_size } => {
+            | MemoryStyle::Static { bound, offset_guard_size } => {
                 assert_eq!(bound, Pages(2048));
                 assert_eq!(offset_guard_size, 128);
             }
-            s => panic!("Unexpected memory style: {:?}", s),
+            | s => panic!("Unexpected memory style: {:?}", s),
         }
     }
 }

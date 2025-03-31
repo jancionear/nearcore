@@ -38,7 +38,11 @@ pub struct TransactionBuilder {
 }
 
 impl TransactionBuilder {
-    pub fn new(id: TransactionId, sender_shard: ShardId, round: Round) -> Self {
+    pub fn new(
+        id: TransactionId,
+        sender_shard: ShardId,
+        round: Round,
+    ) -> Self {
         TransactionBuilder {
             id,
             round,
@@ -103,7 +107,11 @@ impl TransactionBuilder {
     ///    b | c
     ///     \|/
     ///      d
-    pub fn new_dependency(&mut self, predecessor: ReceiptId, successor: ReceiptId) {
+    pub fn new_dependency(
+        &mut self,
+        predecessor: ReceiptId,
+        successor: ReceiptId,
+    ) {
         self.assert_transaction_id(predecessor);
         self.assert_transaction_id(successor);
         self.outgoing[predecessor.1].push(successor);
@@ -196,7 +204,10 @@ impl TransactionBuilder {
     }
 
     /// Add a receipt to the transaction and assign a [`ReceiptId`] to it.
-    fn add_receipt(&mut self, def: ReceiptDefinition) -> ReceiptId {
+    fn add_receipt(
+        &mut self,
+        def: ReceiptDefinition,
+    ) -> ReceiptId {
         let id = ReceiptId(self.id, self.receipts.len());
         self.receipts.push(def);
         self.outgoing.push(vec![]);
@@ -205,7 +216,10 @@ impl TransactionBuilder {
     }
 
     #[track_caller]
-    fn assert_transaction_id(&self, id: ReceiptId) {
+    fn assert_transaction_id(
+        &self,
+        id: ReceiptId,
+    ) {
         assert_eq!(id.0, self.id, "receipt belongs to a different transaction");
     }
 }

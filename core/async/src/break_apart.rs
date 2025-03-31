@@ -6,7 +6,10 @@ pub struct BreakApart<M: 'static> {
 }
 
 impl<S, M: From<S> + 'static> CanSend<S> for BreakApart<M> {
-    fn send(&self, message: S) {
+    fn send(
+        &self,
+        message: S,
+    ) {
         self.sender.send(M::from(message))
     }
 }

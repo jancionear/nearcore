@@ -37,13 +37,13 @@ use wasmparser::{
 /// Helper function translating wasmparser types to Wasm Type.
 pub fn wptype_to_type(ty: WPValType) -> WasmResult<Type> {
     match ty {
-        WPValType::I32 => Ok(Type::I32),
-        WPValType::I64 => Ok(Type::I64),
-        WPValType::F32 => Ok(Type::F32),
-        WPValType::F64 => Ok(Type::F64),
-        WPValType::V128 => Ok(Type::V128),
-        WPValType::ExternRef => Ok(Type::ExternRef),
-        WPValType::FuncRef => Ok(Type::FuncRef),
+        | WPValType::I32 => Ok(Type::I32),
+        | WPValType::I64 => Ok(Type::I64),
+        | WPValType::F32 => Ok(Type::F32),
+        | WPValType::F64 => Ok(Type::F64),
+        | WPValType::V128 => Ok(Type::V128),
+        | WPValType::ExternRef => Ok(Type::ExternRef),
+        | WPValType::FuncRef => Ok(Type::FuncRef),
     }
 }
 
@@ -76,7 +76,9 @@ pub fn parse_type_section(
                 .collect();
             let sig = FunctionType::new(sig_params, sig_results);
             environ.declare_signature(sig)?;
-            module_translation_state.wasm_types.push((params, results));
+            module_translation_state
+                .wasm_types
+                .push((params, results));
         } else {
             unimplemented!("module linking not implemented yet")
         }
@@ -98,26 +100,28 @@ pub fn parse_import_section<'data>(
         let field_name = import.name;
 
         match import.ty {
-            TypeRef::Func(sig) => {
+            | TypeRef::Func(sig) => {
                 environ.declare_func_import(
                     SignatureIndex::from_u32(sig),
                     module_name,
                     field_name,
                 )?;
             }
-            TypeRef::Memory(mem) => {
+            | TypeRef::Memory(mem) => {
                 assert!(!mem.memory64, "64bit memory not implemented yet");
                 environ.declare_memory_import(
                     MemoryType {
                         minimum: Pages(mem.initial.try_into().unwrap()),
-                        maximum: mem.maximum.map(|m| Pages(m.try_into().unwrap())),
+                        maximum: mem
+                            .maximum
+                            .map(|m| Pages(m.try_into().unwrap())),
                         shared: mem.shared,
                     },
                     module_name,
                     field_name,
                 )?;
             }
-            TypeRef::Global(ref ty) => {
+            | TypeRef::Global(ref ty) => {
                 environ.declare_global_import(
                     GlobalType {
                         ty: wptype_to_type(ty.content_type).unwrap(),
@@ -127,7 +131,7 @@ pub fn parse_import_section<'data>(
                     field_name,
                 )?;
             }
-            TypeRef::Table(ref tab) => {
+            | TypeRef::Table(ref tab) => {
                 environ.declare_table_import(
                     TableType {
                         ty: wptype_to_type(tab.element_type).unwrap(),
@@ -138,7 +142,7 @@ pub fn parse_import_section<'data>(
                     field_name,
                 )?;
             }
-            TypeRef::Tag(_) => panic!("exception handling proposal is not implemented yet"),
+            | TypeRef::Tag(_) => panic!("exception handling proposal is not implemented yet"),
         }
     }
 
@@ -199,7 +203,9 @@ pub fn parse_memory_section(
 
         environ.declare_memory(MemoryType {
             minimum: Pages(mem.initial.try_into().unwrap()),
-            maximum: mem.maximum.map(|m| Pages(m.try_into().unwrap())),
+            maximum: mem
+                .maximum
+                .map(|m| Pages(m.try_into().unwrap())),
             shared: mem.shared,
         })?;
     }
@@ -218,19 +224,19 @@ pub fn parse_global_section(
         let wasmparser::Global { ty: WPGlobalType { content_type, mutable }, init_expr } = entry?;
         let mut init_expr_reader = init_expr.get_binary_reader();
         let initializer = match init_expr_reader.read_operator()? {
-            Operator::I32Const { value } => GlobalInit::I32Const(value),
-            Operator::I64Const { value } => GlobalInit::I64Const(value),
-            Operator::F32Const { value } => GlobalInit::F32Const(f32::from_bits(value.bits())),
-            Operator::F64Const { value } => GlobalInit::F64Const(f64::from_bits(value.bits())),
-            Operator::V128Const { value } => GlobalInit::V128Const(V128::from(*value.bytes())),
-            Operator::RefNull { ty: _ } => GlobalInit::RefNullConst,
-            Operator::RefFunc { function_index } => {
+            | Operator::I32Const { value } => GlobalInit::I32Const(value),
+            | Operator::I64Const { value } => GlobalInit::I64Const(value),
+            | Operator::F32Const { value } => GlobalInit::F32Const(f32::from_bits(value.bits())),
+            | Operator::F64Const { value } => GlobalInit::F64Const(f64::from_bits(value.bits())),
+            | Operator::V128Const { value } => GlobalInit::V128Const(V128::from(*value.bytes())),
+            | Operator::RefNull { ty: _ } => GlobalInit::RefNullConst,
+            | Operator::RefFunc { function_index } => {
                 GlobalInit::RefFunc(FunctionIndex::from_u32(function_index))
             }
-            Operator::GlobalGet { global_index } => {
+            | Operator::GlobalGet { global_index } => {
                 GlobalInit::GetGlobal(GlobalIndex::from_u32(global_index))
             }
-            ref s => {
+            | ref s => {
                 return Err(wasm_unsupported!("unsupported init expr in global section: {:?}", s));
             }
         };
@@ -259,11 +265,15 @@ pub fn parse_export_section<'data>(
         // becomes a concern here.
         let index = index as usize;
         match *kind {
-            ExternalKind::Func => environ.declare_func_export(FunctionIndex::new(index), name)?,
-            ExternalKind::Table => environ.declare_table_export(TableIndex::new(index), name)?,
-            ExternalKind::Memory => environ.declare_memory_export(MemoryIndex::new(index), name)?,
-            ExternalKind::Global => environ.declare_global_export(GlobalIndex::new(index), name)?,
-            ExternalKind::Tag => panic!("exception handling proposal is not implemented yet"),
+            | ExternalKind::Func => environ.declare_func_export(FunctionIndex::new(index), name)?,
+            | ExternalKind::Table => environ.declare_table_export(TableIndex::new(index), name)?,
+            | ExternalKind::Memory => {
+                environ.declare_memory_export(MemoryIndex::new(index), name)?
+            }
+            | ExternalKind::Global => {
+                environ.declare_global_export(GlobalIndex::new(index), name)?
+            }
+            | ExternalKind::Tag => panic!("exception handling proposal is not implemented yet"),
         }
     }
 
@@ -272,18 +282,24 @@ pub fn parse_export_section<'data>(
 }
 
 /// Parses the Start section of the wasm module.
-pub fn parse_start_section(index: u32, environ: &mut ModuleEnvironment) -> WasmResult<()> {
+pub fn parse_start_section(
+    index: u32,
+    environ: &mut ModuleEnvironment,
+) -> WasmResult<()> {
     environ.declare_start_function(FunctionIndex::from_u32(index))?;
     Ok(())
 }
 
 fn read_elems(items: &ElementItems) -> WasmResult<Box<[FunctionIndex]>> {
     match items.clone() {
-        ElementItems::Functions(items) => items
+        | ElementItems::Functions(items) => items
             .into_iter()
-            .map(|v| v.map(FunctionIndex::from_u32).map_err(WasmError::from))
+            .map(|v| {
+                v.map(FunctionIndex::from_u32)
+                    .map_err(WasmError::from)
+            })
             .collect(),
-        ElementItems::Expressions(items) => {
+        | ElementItems::Expressions(items) => {
             let mut elems = Vec::with_capacity(usize::try_from(items.count()).unwrap());
             for item in items.into_iter() {
                 let mut reader = item?.get_operators_reader();
@@ -292,11 +308,11 @@ fn read_elems(items: &ElementItems) -> WasmResult<Box<[FunctionIndex]>> {
                 reader.ensure_end()?;
                 use Operator::*;
                 match (op, end) {
-                    (RefFunc { function_index }, End) => {
+                    | (RefFunc { function_index }, End) => {
                         elems.push(FunctionIndex::from_u32(function_index))
                     }
-                    (RefNull { .. }, End) => elems.push(FunctionIndex::reserved_value()),
-                    _ => todo!("unexpected syntax for elems item initializer"),
+                    | (RefNull { .. }, End) => elems.push(FunctionIndex::reserved_value()),
+                    | _ => todo!("unexpected syntax for elems item initializer"),
                 }
             }
             Ok(elems.into_boxed_slice())
@@ -318,14 +334,14 @@ pub fn parse_element_section<'data>(
         }
         let segments = read_elems(&items)?;
         match kind {
-            ElementKind::Active { table_index, offset_expr } => {
+            | ElementKind::Active { table_index, offset_expr } => {
                 let mut offset_expr_reader = offset_expr.get_binary_reader();
                 let (base, offset) = match offset_expr_reader.read_operator()? {
-                    Operator::I32Const { value } => (None, value as u32 as usize),
-                    Operator::GlobalGet { global_index } => {
+                    | Operator::I32Const { value } => (None, value as u32 as usize),
+                    | Operator::GlobalGet { global_index } => {
                         (Some(GlobalIndex::from_u32(global_index)), 0)
                     }
-                    ref s => {
+                    | ref s => {
                         return Err(wasm_unsupported!(
                             "unsupported init expr in element section: {:?}",
                             s
@@ -339,11 +355,11 @@ pub fn parse_element_section<'data>(
                     segments,
                 )?
             }
-            ElementKind::Passive => {
+            | ElementKind::Passive => {
                 let index = ElemIndex::from_u32(index as u32);
                 environ.declare_passive_element(index, segments)?;
             }
-            ElementKind::Declared => (),
+            | ElementKind::Declared => (),
         }
     }
     Ok(())
@@ -359,14 +375,14 @@ pub fn parse_data_section<'data>(
     for (index, entry) in data.into_iter().enumerate() {
         let Data { kind, data, .. } = entry?;
         match kind {
-            DataKind::Active { memory_index, offset_expr } => {
+            | DataKind::Active { memory_index, offset_expr } => {
                 let mut offset_expr_reader = offset_expr.get_binary_reader();
                 let (base, offset) = match offset_expr_reader.read_operator()? {
-                    Operator::I32Const { value } => (None, value as u32 as usize),
-                    Operator::GlobalGet { global_index } => {
+                    | Operator::I32Const { value } => (None, value as u32 as usize),
+                    | Operator::GlobalGet { global_index } => {
                         (Some(GlobalIndex::from_u32(global_index)), 0)
                     }
-                    ref s => {
+                    | ref s => {
                         return Err(wasm_unsupported!(
                             "unsupported init expr in data section: {:?}",
                             s
@@ -380,7 +396,7 @@ pub fn parse_data_section<'data>(
                     data,
                 )?;
             }
-            DataKind::Passive => {
+            | DataKind::Passive => {
                 let index = DataIndex::from_u32(index as u32);
                 environ.declare_passive_data(index, data)?;
             }
@@ -399,32 +415,32 @@ pub fn parse_name_section<'data>(
     while let Some(subsection) = names.next() {
         let subsection = subsection?;
         match subsection {
-            Name::Function(function_subsection) => {
+            | Name::Function(function_subsection) => {
                 if let Some(function_names) = parse_function_name_subsection(function_subsection) {
                     for (index, name) in function_names {
                         environ.declare_function_name(index, name)?;
                     }
                 }
             }
-            Name::Module { name, .. } => {
+            | Name::Module { name, .. } => {
                 environ.declare_module_name(name)?;
             }
-            Name::Local(_) => {}
-            Name::Label(_) => {}
-            Name::Type(_) => {}
-            Name::Table(_) => {}
-            Name::Memory(_) => {}
-            Name::Global(_) => {}
-            Name::Element(_) => {}
-            Name::Data(_) => {}
-            Name::Unknown { .. } => {}
+            | Name::Local(_) => {}
+            | Name::Label(_) => {}
+            | Name::Type(_) => {}
+            | Name::Table(_) => {}
+            | Name::Memory(_) => {}
+            | Name::Global(_) => {}
+            | Name::Element(_) => {}
+            | Name::Data(_) => {}
+            | Name::Unknown { .. } => {}
         };
     }
     Ok(())
 }
 
 fn parse_function_name_subsection(
-    naming_reader: NameMap<'_>,
+    naming_reader: NameMap<'_>
 ) -> Option<HashMap<FunctionIndex, &str>> {
     let mut function_names = HashMap::new();
     for name in naming_reader.into_iter() {
@@ -434,7 +450,10 @@ fn parse_function_name_subsection(
             return None;
         }
 
-        if function_names.insert(FunctionIndex::from_u32(index), name).is_some() {
+        if function_names
+            .insert(FunctionIndex::from_u32(index), name)
+            .is_some()
+        {
             // If the function index has been previously seen, then we
             // break out of the loop and early return `None`, because these
             // should be unique.

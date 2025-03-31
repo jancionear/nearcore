@@ -50,7 +50,12 @@ fn test_contract_distribution_cross_shard() {
     // Then take two accounts from each shard (one with a contract deployed and one without) and
     // make them call both the contracts, so we cover same-shard and cross-shard contract calls.
     let contract_ids = [&accounts[0], &accounts[4]];
-    let sender_ids = [&accounts[0], &accounts[1], &accounts[4], &accounts[5]];
+    let sender_ids = [
+        &accounts[0],
+        &accounts[1],
+        &accounts[4],
+        &accounts[5],
+    ];
 
     let start_height = get_head_height(&mut env);
 
@@ -78,14 +83,19 @@ fn setup(accounts: &Vec<AccountId>) -> (TestLoopEnv, AccountId) {
     let builder = TestLoopBuilder::new();
 
     // All block_and_chunk_producers will be both block and chunk validators.
-    let block_and_chunk_producers =
-        (0..NUM_BLOCK_AND_CHUNK_PRODUCERS).map(|idx| accounts[idx].as_str()).collect_vec();
+    let block_and_chunk_producers = (0..NUM_BLOCK_AND_CHUNK_PRODUCERS)
+        .map(|idx| accounts[idx].as_str())
+        .collect_vec();
     // These are the accounts that are only chunk validators, but not block/chunk producers.
     let chunk_validators_only = (NUM_BLOCK_AND_CHUNK_PRODUCERS..NUM_VALIDATORS)
         .map(|idx| accounts[idx].as_str())
         .collect_vec();
 
-    let clients = accounts.iter().take(NUM_VALIDATORS + NUM_RPC).cloned().collect_vec();
+    let clients = accounts
+        .iter()
+        .take(NUM_VALIDATORS + NUM_RPC)
+        .cloned()
+        .collect_vec();
     let rpc_id = accounts[NUM_VALIDATORS].clone();
 
     let shard_layout = ShardLayout::simple_v1(&["account4"]);
@@ -101,7 +111,9 @@ fn setup(accounts: &Vec<AccountId>) -> (TestLoopEnv, AccountId) {
             accounts: &accounts,
         },
         |genesis_builder| {
-            genesis_builder.genesis_height(GENESIS_HEIGHT).transaction_validity_period(1000)
+            genesis_builder
+                .genesis_height(GENESIS_HEIGHT)
+                .transaction_validity_period(1000)
         },
         |epoch_config_builder| {
             epoch_config_builder
@@ -110,8 +122,11 @@ fn setup(accounts: &Vec<AccountId>) -> (TestLoopEnv, AccountId) {
         },
     );
 
-    let env =
-        builder.genesis(genesis).epoch_config_store(epoch_config_store).clients(clients).build();
+    let env = builder
+        .genesis(genesis)
+        .epoch_config_store(epoch_config_store)
+        .clients(clients)
+        .build();
     (env, rpc_id)
 }
 
@@ -142,7 +157,8 @@ fn deploy_contracts(
         *nonce += 1;
         contracts.push(contract);
     }
-    env.test_loop.run_for(Duration::seconds(2));
+    env.test_loop
+        .run_for(Duration::seconds(2));
     check_txs(&env.test_loop.data, &env.datas, rpc_id, &txs);
     contracts
 }
@@ -174,6 +190,7 @@ fn call_contracts(
             *nonce += 1;
         }
     }
-    env.test_loop.run_for(Duration::seconds(2));
+    env.test_loop
+        .run_for(Duration::seconds(2));
     check_txs(&env.test_loop.data, &env.datas, &rpc_id, &txs);
 }

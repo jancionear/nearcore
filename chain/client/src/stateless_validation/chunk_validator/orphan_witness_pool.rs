@@ -45,12 +45,19 @@ impl OrphanStateWitnessPool {
     /// shard_id, size, epoch_id and distance from the tip. The pool would still work without it, but without
     /// validation it'd be possible to fill the whole cache with spam.
     /// `witness_size` is only used for metrics, it's okay to pass 0 if you don't care about the metrics.
-    pub fn add_orphan_state_witness(&mut self, witness: ChunkStateWitness, witness_size: usize) {
+    pub fn add_orphan_state_witness(
+        &mut self,
+        witness: ChunkStateWitness,
+        witness_size: usize,
+    ) {
         // Insert the new ChunkStateWitness into the cache
         let cache_key = witness.chunk_production_key();
         let metrics_tracker = OrphanWitnessMetricsTracker::new(&witness, witness_size);
         let cache_entry = CacheEntry { witness, _metrics_tracker: metrics_tracker };
-        if let Some((_, ejected_entry)) = self.witness_cache.push(cache_key, cache_entry) {
+        if let Some((_, ejected_entry)) = self
+            .witness_cache
+            .push(cache_key, cache_entry)
+        {
             // Another witness has been ejected from the cache due to capacity limit
             let header = &ejected_entry.witness.chunk_header;
             tracing::debug!(
@@ -72,7 +79,12 @@ impl OrphanStateWitnessPool {
     ) -> Vec<ChunkStateWitness> {
         let mut to_remove: Vec<ChunkProductionKey> = Vec::new();
         for (cache_key, cache_entry) in self.witness_cache.iter() {
-            if cache_entry.witness.chunk_header.prev_block_hash() == prev_block {
+            if cache_entry
+                .witness
+                .chunk_header
+                .prev_block_hash()
+                == prev_block
+            {
                 to_remove.push(cache_key.clone());
             }
         }
@@ -90,7 +102,10 @@ impl OrphanStateWitnessPool {
     /// Remove all witnesses below the given height from the pool.
     /// Orphan witnesses below the final height of the chain won't be needed anymore,
     /// so they can be removed from the pool to free up memory.
-    pub fn remove_witnesses_below_final_height(&mut self, final_height: BlockHeight) {
+    pub fn remove_witnesses_below_final_height(
+        &mut self,
+        final_height: BlockHeight,
+    ) {
         let mut to_remove: Vec<ChunkProductionKey> = Vec::new();
         for (cache_key, cache_entry) in self.witness_cache.iter() {
             let witness_height = cache_key.height_created;
@@ -141,7 +156,10 @@ mod metrics_tracker {
             witness: &ChunkStateWitness,
             witness_size: usize,
         ) -> OrphanWitnessMetricsTracker {
-            let shard_id = witness.chunk_header.shard_id().to_string();
+            let shard_id = witness
+                .chunk_header
+                .shard_id()
+                .to_string();
             metrics::ORPHAN_CHUNK_STATE_WITNESSES_TOTAL_COUNT
                 .with_label_values(&[shard_id.as_str()])
                 .inc();
@@ -194,13 +212,13 @@ mod tests {
     ) -> ChunkStateWitness {
         let mut witness = ChunkStateWitness::new_dummy(height, shard_id, prev_block_hash);
         match &mut witness.chunk_header {
-            ShardChunkHeader::V3(header) => match &mut header.inner {
-                ShardChunkHeaderInner::V1(_) => unimplemented!(),
-                ShardChunkHeaderInner::V2(inner) => inner.encoded_length = encoded_length,
-                ShardChunkHeaderInner::V3(inner) => inner.encoded_length = encoded_length,
-                ShardChunkHeaderInner::V4(inner) => inner.encoded_length = encoded_length,
+            | ShardChunkHeader::V3(header) => match &mut header.inner {
+                | ShardChunkHeaderInner::V1(_) => unimplemented!(),
+                | ShardChunkHeaderInner::V2(inner) => inner.encoded_length = encoded_length,
+                | ShardChunkHeaderInner::V3(inner) => inner.encoded_length = encoded_length,
+                | ShardChunkHeaderInner::V4(inner) => inner.encoded_length = encoded_length,
             },
-            _ => unimplemented!(),
+            | _ => unimplemented!(),
         }
         witness
     }
@@ -211,7 +229,10 @@ mod tests {
     }
 
     /// Assert that both vec are equal after sorting. It's order-independent, unlike the standard assert_eq!
-    fn assert_contents(mut observed: Vec<ChunkStateWitness>, mut expected: Vec<ChunkStateWitness>) {
+    fn assert_contents(
+        mut observed: Vec<ChunkStateWitness>,
+        mut expected: Vec<ChunkStateWitness>,
+    ) {
         let sort_comparator = |witness1: &ChunkStateWitness, witness2: &ChunkStateWitness| {
             let bytes1 = borsh::to_vec(witness1).unwrap();
             let bytes2 = borsh::to_vec(witness2).unwrap();

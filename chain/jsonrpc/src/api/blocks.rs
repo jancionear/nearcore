@@ -26,10 +26,10 @@ impl RpcFrom<AsyncSendError> for RpcBlockError {
 impl RpcFrom<GetBlockError> for RpcBlockError {
     fn rpc_from(error: GetBlockError) -> Self {
         match error {
-            GetBlockError::UnknownBlock { error_message } => Self::UnknownBlock { error_message },
-            GetBlockError::NotSyncedYet => Self::NotSyncedYet,
-            GetBlockError::IOError { error_message } => Self::InternalError { error_message },
-            GetBlockError::Unreachable { ref error_message } => {
+            | GetBlockError::UnknownBlock { error_message } => Self::UnknownBlock { error_message },
+            | GetBlockError::NotSyncedYet => Self::NotSyncedYet,
+            | GetBlockError::IOError { error_message } => Self::InternalError { error_message },
+            | GetBlockError::Unreachable { ref error_message } => {
                 tracing::warn!(target: "jsonrpc", "Unreachable error occurred: {}", error_message);
                 crate::metrics::RPC_UNREACHABLE_ERROR_COUNT
                     .with_label_values(&["RpcBlockError"])

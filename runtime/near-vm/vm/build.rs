@@ -8,7 +8,12 @@ fn main() {
     cc::Build::new()
         .warnings(true)
         .define(
-            &format!("CFG_TARGET_OS_{}", env::var("CARGO_CFG_TARGET_OS").unwrap().to_uppercase()),
+            &format!(
+                "CFG_TARGET_OS_{}",
+                env::var("CARGO_CFG_TARGET_OS")
+                    .unwrap()
+                    .to_uppercase()
+            ),
             None,
         )
         .file("src/trap/handlers.c")

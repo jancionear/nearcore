@@ -308,22 +308,22 @@ impl Parameter {
 impl From<ActionCosts> for FeeParameter {
     fn from(other: ActionCosts) -> Self {
         match other {
-            ActionCosts::create_account => Self::ActionCreateAccount,
-            ActionCosts::delete_account => Self::ActionDeleteAccount,
-            ActionCosts::delegate => Self::ActionDelegate,
-            ActionCosts::deploy_contract_base => Self::ActionDeployContract,
-            ActionCosts::deploy_contract_byte => Self::ActionDeployContractPerByte,
-            ActionCosts::function_call_base => Self::ActionFunctionCall,
-            ActionCosts::function_call_byte => Self::ActionFunctionCallPerByte,
-            ActionCosts::transfer => Self::ActionTransfer,
-            ActionCosts::stake => Self::ActionStake,
-            ActionCosts::add_full_access_key => Self::ActionAddFullAccessKey,
-            ActionCosts::add_function_call_key_base => Self::ActionAddFunctionCallKey,
-            ActionCosts::add_function_call_key_byte => Self::ActionAddFunctionCallKeyPerByte,
-            ActionCosts::delete_key => Self::ActionDeleteKey,
-            ActionCosts::new_action_receipt => Self::ActionReceiptCreation,
-            ActionCosts::new_data_receipt_base => Self::DataReceiptCreationBase,
-            ActionCosts::new_data_receipt_byte => Self::DataReceiptCreationPerByte,
+            | ActionCosts::create_account => Self::ActionCreateAccount,
+            | ActionCosts::delete_account => Self::ActionDeleteAccount,
+            | ActionCosts::delegate => Self::ActionDelegate,
+            | ActionCosts::deploy_contract_base => Self::ActionDeployContract,
+            | ActionCosts::deploy_contract_byte => Self::ActionDeployContractPerByte,
+            | ActionCosts::function_call_base => Self::ActionFunctionCall,
+            | ActionCosts::function_call_byte => Self::ActionFunctionCallPerByte,
+            | ActionCosts::transfer => Self::ActionTransfer,
+            | ActionCosts::stake => Self::ActionStake,
+            | ActionCosts::add_full_access_key => Self::ActionAddFullAccessKey,
+            | ActionCosts::add_function_call_key_base => Self::ActionAddFunctionCallKey,
+            | ActionCosts::add_function_call_key_byte => Self::ActionAddFunctionCallKeyPerByte,
+            | ActionCosts::delete_key => Self::ActionDeleteKey,
+            | ActionCosts::new_action_receipt => Self::ActionReceiptCreation,
+            | ActionCosts::new_data_receipt_base => Self::DataReceiptCreationBase,
+            | ActionCosts::new_data_receipt_byte => Self::DataReceiptCreationPerByte,
         }
     }
 }

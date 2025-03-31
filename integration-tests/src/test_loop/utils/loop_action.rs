@@ -44,7 +44,10 @@ pub enum LoopActionStatus {
 
 impl LoopAction {
     /// The `succeeded` flag should be shared with `action_fn` that will update the flag at some point.
-    pub fn new(action_fn: LoopActionFn, succeeded: Rc<Cell<bool>>) -> LoopAction {
+    pub fn new(
+        action_fn: LoopActionFn,
+        succeeded: Rc<Cell<bool>>,
+    ) -> LoopAction {
         LoopAction { action_fn, started: Cell::new(false), succeeded }
     }
 

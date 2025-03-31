@@ -50,8 +50,8 @@ enum ChunkExclusionReason {
 impl ChunkExclusionReason {
     fn prometheus_label_value(&self) -> &'static str {
         match self {
-            Self::ChunkUnavailable => "chunk_unavailable",
-            Self::InsufficientEndorsement => "insufficient_endorsement",
+            | Self::ChunkUnavailable => "chunk_unavailable",
+            | Self::InsufficientEndorsement => "insufficient_endorsement",
         }
     }
 }
@@ -76,15 +76,19 @@ impl ChunkInclusionTracker {
         chunk_producer: AccountId,
     ) {
         let prev_block_hash = chunk_header.prev_block_hash();
-        if let Some(entry) = self.prev_block_to_chunk_hash_ready.get_mut(prev_block_hash) {
+        if let Some(entry) = self
+            .prev_block_to_chunk_hash_ready
+            .get_mut(prev_block_hash)
+        {
             // If prev_block_hash entry exists, add the new chunk to the entry.
             entry.insert(chunk_header.shard_id(), chunk_header.chunk_hash());
         } else {
             let new_entry = HashMap::from([(chunk_header.shard_id(), chunk_header.chunk_hash())]);
             // Call to prev_block_to_chunk_hash_ready.push might evict an entry from LRU cache.
             // In case of an eviction, cleanup entries in chunk_hash_to_chunk_info
-            let maybe_evicted_entry =
-                self.prev_block_to_chunk_hash_ready.push(*prev_block_hash, new_entry);
+            let maybe_evicted_entry = self
+                .prev_block_to_chunk_hash_ready
+                .push(*prev_block_hash, new_entry);
             if let Some((_, evicted_entry)) = maybe_evicted_entry {
                 self.process_evicted_entry(evicted_entry);
             }
@@ -97,20 +101,30 @@ impl ChunkInclusionTracker {
             chunk_producer,
             endorsements: ChunkEndorsementsState::default(),
         };
-        self.chunk_hash_to_chunk_info.insert(chunk_hash, chunk_info);
+        self.chunk_hash_to_chunk_info
+            .insert(chunk_hash, chunk_info);
     }
 
     // once a set of ChunkHash is evicted from prev_block_to_chunk_hash_ready, cleanup chunk_hash_to_chunk_info
-    fn process_evicted_entry(&mut self, evicted_entry: HashMap<ShardId, ChunkHash>) {
+    fn process_evicted_entry(
+        &mut self,
+        evicted_entry: HashMap<ShardId, ChunkHash>,
+    ) {
         for (_, chunk_hash) in evicted_entry.into_iter() {
-            self.chunk_hash_to_chunk_info.remove(&chunk_hash);
+            self.chunk_hash_to_chunk_info
+                .remove(&chunk_hash);
         }
     }
 
     /// Add account_id to the list of banned chunk producers for the given epoch.
     /// This would typically happen for cases when a validator has produced an invalid chunk.
-    pub fn ban_chunk_producer(&mut self, epoch_id: EpochId, account_id: AccountId) {
-        self.banned_chunk_producers.put((epoch_id, account_id), ());
+    pub fn ban_chunk_producer(
+        &mut self,
+        epoch_id: EpochId,
+        account_id: AccountId,
+    ) {
+        self.banned_chunk_producers
+            .put((epoch_id, account_id), ());
     }
 
     /// Update signatures in chunk_info
@@ -119,21 +133,32 @@ impl ChunkInclusionTracker {
         prev_block_hash: &CryptoHash,
         endorsement_tracker: &mut ChunkEndorsementTracker,
     ) -> Result<(), Error> {
-        let Some(entry) = self.prev_block_to_chunk_hash_ready.get(prev_block_hash) else {
+        let Some(entry) = self
+            .prev_block_to_chunk_hash_ready
+            .get(prev_block_hash)
+        else {
             return Ok(());
         };
 
         for chunk_hash in entry.values() {
-            let chunk_info = self.chunk_hash_to_chunk_info.get_mut(chunk_hash).unwrap();
+            let chunk_info = self
+                .chunk_hash_to_chunk_info
+                .get_mut(chunk_hash)
+                .unwrap();
             chunk_info.endorsements =
                 endorsement_tracker.collect_chunk_endorsements(&chunk_info.chunk_header)?;
         }
         Ok(())
     }
 
-    fn is_banned(&self, epoch_id: &EpochId, chunk_info: &ChunkInfo) -> bool {
-        let banned =
-            self.banned_chunk_producers.contains(&(*epoch_id, chunk_info.chunk_producer.clone()));
+    fn is_banned(
+        &self,
+        epoch_id: &EpochId,
+        chunk_info: &ChunkInfo,
+    ) -> bool {
+        let banned = self
+            .banned_chunk_producers
+            .contains(&(*epoch_id, chunk_info.chunk_producer.clone()));
         if banned {
             tracing::warn!(
                 target: "client",
@@ -154,13 +179,19 @@ impl ChunkInclusionTracker {
         epoch_id: &EpochId,
         prev_block_hash: &CryptoHash,
     ) -> HashMap<ShardId, ChunkHash> {
-        let Some(entry) = self.prev_block_to_chunk_hash_ready.peek(prev_block_hash) else {
+        let Some(entry) = self
+            .prev_block_to_chunk_hash_ready
+            .peek(prev_block_hash)
+        else {
             return HashMap::new();
         };
 
         let mut chunk_headers_ready_for_inclusion = HashMap::new();
         for (shard_id, chunk_hash) in entry {
-            let chunk_info = self.chunk_hash_to_chunk_info.get(chunk_hash).unwrap();
+            let chunk_info = self
+                .chunk_hash_to_chunk_info
+                .get(chunk_hash)
+                .unwrap();
             let banned = self.is_banned(epoch_id, &chunk_info);
             let is_endorsed = chunk_info.endorsements.is_endorsed;
             if !is_endorsed {
@@ -186,22 +217,33 @@ impl ChunkInclusionTracker {
         epoch_id: &EpochId,
         prev_block_hash: &CryptoHash,
     ) -> usize {
-        self.get_chunk_headers_ready_for_inclusion(epoch_id, prev_block_hash).len()
+        self.get_chunk_headers_ready_for_inclusion(epoch_id, prev_block_hash)
+            .len()
     }
 
     pub fn get_banned_chunk_producers(&self) -> Vec<(EpochId, Vec<AccountId>)> {
         let mut banned_chunk_producers: HashMap<EpochId, Vec<_>> = HashMap::new();
         for ((epoch_id, account_id), _) in self.banned_chunk_producers.iter() {
-            banned_chunk_producers.entry(*epoch_id).or_default().push(account_id.clone());
+            banned_chunk_producers
+                .entry(*epoch_id)
+                .or_default()
+                .push(account_id.clone());
         }
-        banned_chunk_producers.into_iter().collect_vec()
+        banned_chunk_producers
+            .into_iter()
+            .collect_vec()
     }
 
-    fn get_chunk_info(&self, chunk_hash: &ChunkHash) -> Result<&ChunkInfo, Error> {
+    fn get_chunk_info(
+        &self,
+        chunk_hash: &ChunkHash,
+    ) -> Result<&ChunkInfo, Error> {
         // It should never happen that we are missing the key in chunk_hash_to_chunk_info
-        self.chunk_hash_to_chunk_info.get(chunk_hash).ok_or_else(|| {
-            Error::Other(format!("missing key {:?} in ChunkInclusionTracker", chunk_hash))
-        })
+        self.chunk_hash_to_chunk_info
+            .get(chunk_hash)
+            .ok_or_else(|| {
+                Error::Other(format!("missing key {:?} in ChunkInclusionTracker", chunk_hash))
+            })
     }
 
     pub fn get_chunk_header_and_endorsements(
@@ -210,7 +252,10 @@ impl ChunkInclusionTracker {
     ) -> Result<(ShardChunkHeader, ChunkEndorsementSignatures), Error> {
         let chunk_info = self.get_chunk_info(chunk_hash)?;
         let chunk_header = chunk_info.chunk_header.clone();
-        let signatures = chunk_info.endorsements.signatures.clone();
+        let signatures = chunk_info
+            .endorsements
+            .signatures
+            .clone();
         Ok((chunk_header, signatures))
     }
 
@@ -222,14 +267,23 @@ impl ChunkInclusionTracker {
         Ok((chunk_info.chunk_producer.clone(), chunk_info.received_time))
     }
 
-    pub fn record_endorsement_metrics(&self, prev_block_hash: &CryptoHash, all_shards: &[ShardId]) {
-        let maybe_entry = self.prev_block_to_chunk_hash_ready.peek(prev_block_hash);
+    pub fn record_endorsement_metrics(
+        &self,
+        prev_block_hash: &CryptoHash,
+        all_shards: &[ShardId],
+    ) {
+        let maybe_entry = self
+            .prev_block_to_chunk_hash_ready
+            .peek(prev_block_hash);
         for shard_id in all_shards {
             let Some(chunk_hash) = maybe_entry.and_then(|entry| entry.get(shard_id)) else {
                 record_chunk_excluded_metric(ChunkExclusionReason::ChunkUnavailable, *shard_id);
                 continue;
             };
-            let Some(chunk_info) = self.chunk_hash_to_chunk_info.get(chunk_hash) else {
+            let Some(chunk_info) = self
+                .chunk_hash_to_chunk_info
+                .get(chunk_hash)
+            else {
                 log_assert_fail!("Chunk info is missing for shard {shard_id} chunk {chunk_hash:?}");
                 continue;
             };
@@ -245,7 +299,9 @@ impl ChunkInclusionTracker {
             metrics::BLOCK_PRODUCER_MISSING_ENDORSEMENT_COUNT
                 .with_label_values(label_values)
                 .observe(
-                    (stats.total_validators_count.saturating_sub(stats.endorsed_validators_count))
+                    (stats
+                        .total_validators_count
+                        .saturating_sub(stats.endorsed_validators_count))
                         as f64,
                 );
             if !stats.is_endorsed {
@@ -258,8 +314,14 @@ impl ChunkInclusionTracker {
     }
 }
 
-fn record_chunk_excluded_metric(reason: ChunkExclusionReason, shard_id: ShardId) {
+fn record_chunk_excluded_metric(
+    reason: ChunkExclusionReason,
+    shard_id: ShardId,
+) {
     metrics::BLOCK_PRODUCER_EXCLUDED_CHUNKS_COUNT
-        .with_label_values(&[&shard_id.to_string(), reason.prometheus_label_value()])
+        .with_label_values(&[
+            &shard_id.to_string(),
+            reason.prometheus_label_value(),
+        ])
         .inc();
 }

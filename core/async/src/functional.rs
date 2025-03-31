@@ -15,7 +15,10 @@ impl<M: 'static, F: Fn(M) + Send + Sync + 'static> SendFunction<M, F> {
 }
 
 impl<M: 'static, F: Fn(M) + Send + Sync + 'static> CanSend<M> for SendFunction<M, F> {
-    fn send(&self, message: M) {
+    fn send(
+        &self,
+        message: M,
+    ) {
         (self.send)(message)
     }
 }
@@ -37,7 +40,10 @@ impl<M: 'static, R: Send + 'static, F: Fn(M) -> R + Send + Sync + 'static>
 impl<M: 'static, R: Send + 'static, F: Fn(M) -> R + Send + Sync + 'static>
     CanSend<MessageWithCallback<M, R>> for SendAsyncFunction<M, R, F>
 {
-    fn send(&self, message: MessageWithCallback<M, R>) {
+    fn send(
+        &self,
+        message: MessageWithCallback<M, R>,
+    ) {
         let MessageWithCallback { message, callback: responder } = message;
         let result = Ok((self.f)(message));
         responder(async move { result }.boxed());

@@ -58,17 +58,23 @@ impl Compiler for SinglepassCompiler {
         if target.triple().architecture != Architecture::X86_64 {
             return Err(CompileError::UnsupportedTarget(target.triple().architecture.to_string()));
         }
-        if !target.cpu_features().contains(CpuFeature::AVX) {
+        if !target
+            .cpu_features()
+            .contains(CpuFeature::AVX)
+        {
             return Err(CompileError::UnsupportedTarget("x86_64 without AVX".to_string()));
         }
         if compile_info.features.multi_value {
             return Err(CompileError::UnsupportedFeature("multivalue".to_string()));
         }
-        let calling_convention = match target.triple().default_calling_convention() {
-            Ok(CallingConvention::WindowsFastcall) => CallingConvention::WindowsFastcall,
-            Ok(CallingConvention::SystemV) => CallingConvention::SystemV,
+        let calling_convention = match target
+            .triple()
+            .default_calling_convention()
+        {
+            | Ok(CallingConvention::WindowsFastcall) => CallingConvention::WindowsFastcall,
+            | Ok(CallingConvention::SystemV) => CallingConvention::SystemV,
             //Ok(CallingConvention::AppleAarch64) => AppleAarch64,
-            _ => panic!("Unsupported Calling convention for Singlepass compiler"),
+            | _ => panic!("Unsupported Calling convention for Singlepass compiler"),
         };
 
         let table_styles = &compile_info.table_styles;
@@ -149,16 +155,21 @@ impl Compiler for SinglepassCompiler {
                         generator.feed_local(count, ty);
                     }
 
-                    generator.emit_head().map_err(to_compile_error)?;
+                    generator
+                        .emit_head()
+                        .map_err(to_compile_error)?;
 
-                    let mut operator_reader =
-                        reader.get_operators_reader()?.into_iter_with_offsets();
+                    let mut operator_reader = reader
+                        .get_operators_reader()?
+                        .into_iter_with_offsets();
                     while generator.has_control_frames() {
                         let (op, pos) =
                             tracing::trace_span!(target: "near_vm", "parsing-next-operator")
                                 .in_scope(|| operator_reader.next().unwrap())?;
                         generator.set_srcloc(pos as u32);
-                        generator.feed_operator(op).map_err(to_compile_error)?;
+                        generator
+                            .feed_operator(op)
+                            .map_err(to_compile_error)?;
                     }
 
                     Ok(generator.finalize(&input))
@@ -274,8 +285,8 @@ mod tests {
             &analysis,
         );
         match result.unwrap_err() {
-            CompileError::UnsupportedTarget(name) => assert_eq!(name, "i686"),
-            error => panic!("Unexpected error: {:?}", error),
+            | CompileError::UnsupportedTarget(name) => assert_eq!(name, "i686"),
+            | error => panic!("Unexpected error: {:?}", error),
         };
 
         // Compile for win32
@@ -289,8 +300,8 @@ mod tests {
             &analysis,
         );
         match result.unwrap_err() {
-            CompileError::UnsupportedTarget(name) => assert_eq!(name, "i686"), // Windows should be checked before architecture
-            error => panic!("Unexpected error: {:?}", error),
+            | CompileError::UnsupportedTarget(name) => assert_eq!(name, "i686"), // Windows should be checked before architecture
+            | error => panic!("Unexpected error: {:?}", error),
         };
     }
 }

@@ -31,20 +31,23 @@ pub enum SnapshotError {
 }
 
 impl std::fmt::Display for SnapshotError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+    ) -> std::fmt::Result {
         match self {
-            SnapshotError::IncorrectSnapshotRequested(requested, available) => write!(
+            | SnapshotError::IncorrectSnapshotRequested(requested, available) => write!(
                 f,
                 "Wrong snapshot hash. Requested: {:?}, Available: {:?}",
                 requested, available
             ),
-            SnapshotError::SnapshotNotFound(hash) => {
+            | SnapshotError::SnapshotNotFound(hash) => {
                 write!(f, "No state snapshot available. Requested: {:?}", hash)
             }
-            SnapshotError::LockWouldBlock => {
+            | SnapshotError::LockWouldBlock => {
                 write!(f, "Accessing state snapshot would block. Retry in a few seconds.")
             }
-            SnapshotError::Other(err_msg) => write!(f, "{}", err_msg),
+            | SnapshotError::Other(err_msg) => write!(f, "{}", err_msg),
         }
     }
 }
@@ -60,8 +63,8 @@ impl From<SnapshotError> for StorageError {
 impl<T> From<TryLockError<T>> for SnapshotError {
     fn from(err: TryLockError<T>) -> Self {
         match err {
-            TryLockError::Poisoned(_) => SnapshotError::Other("Poisoned lock".to_string()),
-            TryLockError::WouldBlock => SnapshotError::LockWouldBlock,
+            | TryLockError::Poisoned(_) => SnapshotError::Other("Poisoned lock".to_string()),
+            | TryLockError::WouldBlock => SnapshotError::LockWouldBlock,
         }
     }
 }
@@ -95,8 +98,9 @@ impl StateSnapshot {
                 continue;
             }
             if let Some(block) = block {
-                let flat_storage =
-                    flat_storage_manager.get_flat_storage_for_shard(shard_uid).unwrap();
+                let flat_storage = flat_storage_manager
+                    .get_flat_storage_for_shard(shard_uid)
+                    .unwrap();
                 let current_flat_head = flat_storage.get_head_hash();
                 tracing::debug!(target: "state_snapshot", ?shard_uid, ?current_flat_head, block_hash = ?block.header().hash(), block_height = block.header().height(), "Moving FlatStorage head of the snapshot");
                 let _timer = metrics::MOVE_STATE_SNAPSHOT_FLAT_HEAD_ELAPSED
@@ -107,11 +111,11 @@ impl StateSnapshot {
                     // replay the last chunk of the shard.
                     let desired_flat_head = chunk.prev_block_hash();
                     match flat_storage.update_flat_head(desired_flat_head) {
-                        Ok(_) => {
+                        | Ok(_) => {
                             tracing::debug!(target: "state_snapshot", ?shard_uid, ?current_flat_head, ?desired_flat_head, "Successfully moved FlatStorage head of the snapshot");
                             included_shard_uids.push(shard_uid);
                         }
-                        Err(err) => {
+                        | Err(err) => {
                             tracing::error!(target: "state_snapshot", ?shard_uid, ?err, ?current_flat_head, ?desired_flat_head, "Failed to move FlatStorage head of the snapshot");
                         }
                     }
@@ -129,8 +133,12 @@ impl StateSnapshot {
     }
 
     /// Returns status of a shard of a flat storage in the state snapshot.
-    pub fn get_flat_storage_status(&self, shard_uid: ShardUId) -> FlatStorageStatus {
-        self.flat_storage_manager.get_flat_storage_status(shard_uid)
+    pub fn get_flat_storage_status(
+        &self,
+        shard_uid: ShardUId,
+    ) -> FlatStorageStatus {
+        self.flat_storage_manager
+            .get_flat_storage_status(shard_uid)
     }
 }
 
@@ -165,7 +173,9 @@ impl ShardTries {
     ) -> Result<(TrieStoreAdapter, FlatStorageManager), SnapshotError> {
         // Taking this lock can last up to 10 seconds, if the snapshot happens to be re-created.
         let guard = self.state_snapshot().try_read()?;
-        let data = guard.as_ref().ok_or(SnapshotError::SnapshotNotFound(*block_hash))?;
+        let data = guard
+            .as_ref()
+            .ok_or(SnapshotError::SnapshotNotFound(*block_hash))?;
         if &data.prev_block_hash != block_hash {
             return Err(SnapshotError::IncorrectSnapshotRequested(
                 *block_hash,
@@ -236,8 +246,8 @@ impl ShardTries {
             let mut store_update = self.store_update();
             store_update.set_state_snapshot_hash(Some(prev_block_hash));
             match store_update.commit() {
-                Ok(_) => {}
-                Err(err) => {
+                | Ok(_) => {}
+                | Err(err) => {
                     tracing::error!(target: "state_snapshot", ?err, "Failed to set the new state snapshot for BlockMisc::STATE_SNAPSHOT_KEY in rocksdb");
                 }
             }
@@ -245,7 +255,12 @@ impl ShardTries {
 
         metrics::HAS_STATE_SNAPSHOT.set(1);
         tracing::info!(target: "state_snapshot", ?prev_block_hash, "Made a checkpoint");
-        Ok(Some(state_snapshot_lock.as_ref().unwrap().get_included_shard_uids()))
+        Ok(Some(
+            state_snapshot_lock
+                .as_ref()
+                .unwrap()
+                .get_included_shard_uids(),
+        ))
     }
 
     /// Deletes all snapshots and unset the STATE_SNAPSHOT_KEY.
@@ -266,8 +281,8 @@ impl ShardTries {
         // This will delete all existing snapshots from file system. Will retry 3 times
         for _ in 0..3 {
             match self.delete_all_state_snapshots(home_dir, hot_store_path, state_snapshot_subdir) {
-                Ok(_) => break,
-                Err(err) => {
+                | Ok(_) => break,
+                | Err(err) => {
                     tracing::error!(target: "state_snapshot", ?err, "Failed to delete the old state snapshot from file system or from rocksdb")
                 }
             }
@@ -278,8 +293,8 @@ impl ShardTries {
             let mut store_update = self.store_update();
             store_update.set_state_snapshot_hash(None);
             match store_update.commit() {
-                Ok(_) => break,
-                Err(err) => {
+                | Ok(_) => break,
+                | Err(err) => {
                     tracing::error!(target: "state_snapshot", ?err, "Failed to delete the old state snapshot for BlockMisc::STATE_SNAPSHOT_KEY in rocksdb")
                 }
             }
@@ -297,7 +312,9 @@ impl ShardTries {
     ) -> Result<(), io::Error> {
         let _span =
             tracing::info_span!(target: "state_snapshot", "delete_all_state_snapshots").entered();
-        let path = home_dir.join(hot_store_path).join(state_snapshot_subdir);
+        let path = home_dir
+            .join(hot_store_path)
+            .join(state_snapshot_subdir);
         if path.exists() {
             std::fs::remove_dir_all(&path)?
         }
@@ -313,7 +330,10 @@ impl ShardTries {
         // Assumptions:
         // * RocksDB checkpoints are taken instantly and for free, because the filesystem supports hard links.
         // * The best place for checkpoints is within the `hot_store_path`, because that directory is often a separate disk.
-        home_dir.join(hot_store_path).join(state_snapshot_subdir).join(format!("{prev_block_hash}"))
+        home_dir
+            .join(hot_store_path)
+            .join(state_snapshot_subdir)
+            .join(format!("{prev_block_hash}"))
     }
 
     /// Read RocksDB for the latest available snapshot hash, if available, open base_path+snapshot_hash for the state snapshot

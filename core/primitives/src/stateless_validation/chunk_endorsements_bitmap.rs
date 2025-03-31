@@ -55,20 +55,30 @@ impl ChunkEndorsementsBitmap {
     // Creates an endorsement bitmap for all the shards.
     pub fn from_endorsements(shards_to_endorsements: Vec<Vec<bool>>) -> Self {
         let mut bitmap = ChunkEndorsementsBitmap::new(shards_to_endorsements.len());
-        for (shard_index, endorsements) in shards_to_endorsements.into_iter().enumerate() {
+        for (shard_index, endorsements) in shards_to_endorsements
+            .into_iter()
+            .enumerate()
+        {
             bitmap.add_endorsements(shard_index, endorsements);
         }
         bitmap
     }
 
     /// Adds the provided endorsements to the bitmap for the specified shard.
-    pub fn add_endorsements(&mut self, shard_index: usize, endorsements: Vec<bool>) {
+    pub fn add_endorsements(
+        &mut self,
+        shard_index: usize,
+        endorsements: Vec<bool>,
+    ) {
         let bitvec: BitVecType = endorsements.iter().collect();
         self.inner[shard_index] = bitvec.into();
     }
 
     /// Returns an iterator over the endorsements (yields true if the endorsement for the respective position was received).
-    pub fn iter(&self, shard_index: usize) -> Box<dyn Iterator<Item = bool>> {
+    pub fn iter(
+        &self,
+        shard_index: usize,
+    ) -> Box<dyn Iterator<Item = bool>> {
         let bitvec = BitVecType::from_vec(self.inner[shard_index].clone());
         Box::new(bitvec.into_iter())
     }
@@ -80,8 +90,13 @@ impl ChunkEndorsementsBitmap {
 
     /// Returns the full length of the bitmap for a given shard.
     /// Note that the size may be greater than the number of validator assignments.
-    pub fn len(&self, shard_index: usize) -> Option<usize> {
-        self.inner.get(shard_index).map(|v| v.len() * 8)
+    pub fn len(
+        &self,
+        shard_index: usize,
+    ) -> Option<usize> {
+        self.inner
+            .get(shard_index)
+            .map(|v| v.len() * 8)
     }
 }
 
@@ -115,7 +130,10 @@ mod tests {
         }
     }
 
-    fn run_bitmap_test(num_assignments: usize, num_produced: usize) {
+    fn run_bitmap_test(
+        num_assignments: usize,
+        num_produced: usize,
+    ) {
         let mut rng = rand::thread_rng();
         let mut bitmap = ChunkEndorsementsBitmap::new(NUM_SHARDS);
         let mut expected_endorsements = vec![];

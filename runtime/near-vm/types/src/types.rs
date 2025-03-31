@@ -61,7 +61,10 @@ impl Type {
 }
 
 impl fmt::Display for Type {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter,
+    ) -> fmt::Result {
         write!(f, "{:?}", self)
     }
 }
@@ -176,7 +179,10 @@ pub struct FunctionType {
 
 impl FunctionType {
     /// Creates a new Function Type with the given parameter and return types.
-    pub fn new<Params, Returns>(params: Params, returns: Returns) -> Self
+    pub fn new<Params, Returns>(
+        params: Params,
+        returns: Returns,
+    ) -> Self
     where
         Params: Into<Arc<[Type]>>,
         Returns: Into<Arc<[Type]>>,
@@ -196,10 +202,22 @@ impl FunctionType {
 }
 
 impl fmt::Display for FunctionType {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let params = self.params.iter().map(|p| format!("{:?}", p)).collect::<Vec<_>>().join(", ");
-        let results =
-            self.results.iter().map(|p| format!("{:?}", p)).collect::<Vec<_>>().join(", ");
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter,
+    ) -> fmt::Result {
+        let params = self
+            .params
+            .iter()
+            .map(|p| format!("{:?}", p))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let results = self
+            .results
+            .iter()
+            .map(|p| format!("{:?}", p))
+            .collect::<Vec<_>>()
+            .join(", ");
         write!(f, "[{}] -> [{}]", params, results)
     }
 }
@@ -247,7 +265,10 @@ pub struct FunctionTypeRef<'a> {
 
 impl<'a> FunctionTypeRef<'a> {
     /// Create a new temporary function type.
-    pub fn new(params: &'a [Type], results: &'a [Type]) -> Self {
+    pub fn new(
+        params: &'a [Type],
+        results: &'a [Type],
+    ) -> Self {
         Self { params, results }
     }
 
@@ -289,8 +310,8 @@ impl Mutability {
     /// Returns a boolean indicating if the enum is set to mutable.
     pub fn is_mutable(self) -> bool {
         match self {
-            Self::Const => false,
-            Self::Var => true,
+            | Self::Const => false,
+            | Self::Var => true,
         }
     }
 }
@@ -324,16 +345,22 @@ impl GlobalType {
     /// // An I64 mutable global
     /// let global = GlobalType::new(Type::I64, Mutability::Var);
     /// ```
-    pub fn new(ty: Type, mutability: Mutability) -> Self {
+    pub fn new(
+        ty: Type,
+        mutability: Mutability,
+    ) -> Self {
         Self { ty, mutability }
     }
 }
 
 impl fmt::Display for GlobalType {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter,
+    ) -> fmt::Result {
         let mutability = match self.mutability {
-            Mutability::Const => "constant",
-            Mutability::Var => "mutable",
+            | Mutability::Const => "constant",
+            | Mutability::Var => "mutable",
         };
         write!(f, "{} ({})", self.ty, mutability)
     }
@@ -369,21 +396,21 @@ impl GlobalInit {
     /// Get the `GlobalInit` from a given `Value`
     pub fn from_value<T: WasmValueType>(value: Value<T>) -> Self {
         match value {
-            Value::I32(i) => Self::I32Const(i),
-            Value::I64(i) => Self::I64Const(i),
-            Value::F32(f) => Self::F32Const(f),
-            Value::F64(f) => Self::F64Const(f),
-            _ => unimplemented!("GlobalInit from_value for {:?}", value),
+            | Value::I32(i) => Self::I32Const(i),
+            | Value::I64(i) => Self::I64Const(i),
+            | Value::F32(f) => Self::F32Const(f),
+            | Value::F64(f) => Self::F64Const(f),
+            | _ => unimplemented!("GlobalInit from_value for {:?}", value),
         }
     }
     /// Get the `Value` from the Global init value
     pub fn to_value<T: WasmValueType>(&self) -> Value<T> {
         match self {
-            Self::I32Const(i) => Value::I32(*i),
-            Self::I64Const(i) => Value::I64(*i),
-            Self::F32Const(f) => Value::F32(*f),
-            Self::F64Const(f) => Value::F64(*f),
-            _ => unimplemented!("GlobalInit to_value for {:?}", self),
+            | Self::I32Const(i) => Value::I32(*i),
+            | Self::I64Const(i) => Value::I64(*i),
+            | Self::F32Const(f) => Value::F32(*f),
+            | Self::F64Const(f) => Value::F64(*f),
+            | _ => unimplemented!("GlobalInit to_value for {:?}", self),
         }
     }
 }
@@ -410,13 +437,20 @@ pub struct TableType {
 impl TableType {
     /// Creates a new table descriptor which will contain the specified
     /// `element` and have the `limits` applied to its length.
-    pub fn new(ty: Type, minimum: u32, maximum: Option<u32>) -> Self {
+    pub fn new(
+        ty: Type,
+        minimum: u32,
+        maximum: Option<u32>,
+    ) -> Self {
         Self { ty, minimum, maximum }
     }
 }
 
 impl fmt::Display for TableType {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter,
+    ) -> fmt::Result {
         if let Some(maximum) = self.maximum {
             write!(f, "{} ({}..{})", self.ty, self.minimum, maximum)
         } else {
@@ -446,7 +480,11 @@ pub struct MemoryType {
 impl MemoryType {
     /// Creates a new descriptor for a WebAssembly memory given the specified
     /// limits of the memory.
-    pub fn new<IntoPages>(minimum: IntoPages, maximum: Option<IntoPages>, shared: bool) -> Self
+    pub fn new<IntoPages>(
+        minimum: IntoPages,
+        maximum: Option<IntoPages>,
+        shared: bool,
+    ) -> Self
     where
         IntoPages: Into<Pages>,
     {
@@ -455,7 +493,10 @@ impl MemoryType {
 }
 
 impl fmt::Display for MemoryType {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter,
+    ) -> fmt::Result {
         let shared = if self.shared { "shared" } else { "not shared" };
         if let Some(maximum) = self.maximum {
             write!(f, "{} ({:?}..{:?})", shared, self.minimum, maximum)
@@ -484,7 +525,12 @@ pub struct Import<S = String, T = ExternType> {
 impl<S: AsRef<str>, T> Import<S, T> {
     /// Creates a new import descriptor which comes from `module` and `name` and
     /// is of type `ty`.
-    pub fn new(module: S, name: S, index: u32, ty: T) -> Self {
+    pub fn new(
+        module: S,
+        name: S,
+        index: u32,
+        ty: T,
+    ) -> Self {
         Self { module, name, index, ty }
     }
 
@@ -530,7 +576,10 @@ pub struct ExportType<T = ExternType> {
 impl<T> ExportType<T> {
     /// Creates a new export which is exported with the given `name` and has the
     /// given `ty`.
-    pub fn new(name: &str, ty: T) -> Self {
+    pub fn new(
+        name: &str,
+        ty: T,
+    ) -> Self {
         Self { name: name.to_string(), ty }
     }
 
@@ -573,7 +622,10 @@ impl FastGasCounter {
 }
 
 impl fmt::Display for FastGasCounter {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter,
+    ) -> fmt::Result {
         write!(f, "burnt: {} limit: {} ", self.burnt(), self.gas_limit,)
     }
 }
@@ -598,7 +650,10 @@ impl InstanceConfig {
     /// Create instance configuration with an external gas counter, unsafe as it creates
     /// an alias on raw memory of gas_counter. This memory could be accessed until
     /// instance configured with this `InstanceConfig` exists.
-    pub unsafe fn with_counter(mut self, gas_counter: *mut FastGasCounter) -> Self {
+    pub unsafe fn with_counter(
+        mut self,
+        gas_counter: *mut FastGasCounter,
+    ) -> Self {
         self.gas_counter = gas_counter;
         self.default_gas_counter = None;
         self

@@ -86,7 +86,10 @@ impl WaitOrTimeoutActor {
         WaitOrTimeoutActor { f, check_interval_ms, max_wait_ms, ms_slept: 0 }
     }
 
-    fn wait_or_timeout(&mut self, ctx: &mut Context<Self>) {
+    fn wait_or_timeout(
+        &mut self,
+        ctx: &mut Context<Self>,
+    ) {
         (self.f)(ctx);
 
         near_performance_metrics::actix::run_later(
@@ -107,7 +110,10 @@ impl WaitOrTimeoutActor {
 impl Actor for WaitOrTimeoutActor {
     type Context = Context<Self>;
 
-    fn started(&mut self, ctx: &mut Context<Self>) {
+    fn started(
+        &mut self,
+        ctx: &mut Context<Self>,
+    ) {
         self.wait_or_timeout(ctx);
     }
 }
@@ -163,8 +169,8 @@ pub fn expected_routing_tables(
 
     for (target, want_peers) in want {
         let got_peers = match got.get(target) {
-            Some(ps) => ps,
-            None => {
+            | Some(ps) => ps,
+            | None => {
                 return false;
             }
         };
@@ -188,7 +194,11 @@ pub struct GetInfo {}
 impl Handler<WithSpanContext<GetInfo>> for PeerManagerActor {
     type Result = crate::types::NetworkInfo;
 
-    fn handle(&mut self, msg: WithSpanContext<GetInfo>, _ctx: &mut Context<Self>) -> Self::Result {
+    fn handle(
+        &mut self,
+        msg: WithSpanContext<GetInfo>,
+        _ctx: &mut Context<Self>,
+    ) -> Self::Result {
         let (_span, _msg) = handler_debug_span!(target: "network", msg);
         self.get_network_info()
     }
@@ -240,7 +250,10 @@ impl CanSend<MessageWithCallback<PeerManagerMessageRequest, PeerManagerMessageRe
         &self,
         message: MessageWithCallback<PeerManagerMessageRequest, PeerManagerMessageResponse>,
     ) {
-        self.requests.write().unwrap().push_back(message.message);
+        self.requests
+            .write()
+            .unwrap()
+            .push_back(message.message);
         self.notify.notify_one();
         (message.callback)(
             std::future::ready(Ok(PeerManagerMessageResponse::NetworkResponses(
@@ -252,33 +265,63 @@ impl CanSend<MessageWithCallback<PeerManagerMessageRequest, PeerManagerMessageRe
 }
 
 impl CanSend<PeerManagerMessageRequest> for MockPeerManagerAdapter {
-    fn send(&self, msg: PeerManagerMessageRequest) {
-        self.requests.write().unwrap().push_back(msg);
+    fn send(
+        &self,
+        msg: PeerManagerMessageRequest,
+    ) {
+        self.requests
+            .write()
+            .unwrap()
+            .push_back(msg);
         self.notify.notify_one();
     }
 }
 
 impl CanSend<SetChainInfo> for MockPeerManagerAdapter {
-    fn send(&self, _msg: SetChainInfo) {}
+    fn send(
+        &self,
+        _msg: SetChainInfo,
+    ) {
+    }
 }
 
 impl CanSend<StateSyncEvent> for MockPeerManagerAdapter {
-    fn send(&self, _msg: StateSyncEvent) {}
+    fn send(
+        &self,
+        _msg: StateSyncEvent,
+    ) {
+    }
 }
 
 impl CanSend<Tier3Request> for MockPeerManagerAdapter {
-    fn send(&self, _msg: Tier3Request) {}
+    fn send(
+        &self,
+        _msg: Tier3Request,
+    ) {
+    }
 }
 
 impl MockPeerManagerAdapter {
     pub fn pop(&self) -> Option<PeerManagerMessageRequest> {
-        self.requests.write().unwrap().pop_front()
+        self.requests
+            .write()
+            .unwrap()
+            .pop_front()
     }
     pub fn pop_most_recent(&self) -> Option<PeerManagerMessageRequest> {
-        self.requests.write().unwrap().pop_back()
+        self.requests
+            .write()
+            .unwrap()
+            .pop_back()
     }
-    pub fn put_back_most_recent(&self, request: PeerManagerMessageRequest) {
-        self.requests.write().unwrap().push_back(request);
+    pub fn put_back_most_recent(
+        &self,
+        request: PeerManagerMessageRequest,
+    ) {
+        self.requests
+            .write()
+            .unwrap()
+            .push_back(request);
     }
     /// Calls the handler for each message, but removing only those for which the handler returns
     /// None (or else the returned message gets requeued; the returned message should be the same
@@ -294,9 +337,17 @@ impl MockPeerManagerAdapter {
         let num_requests = self.requests.read().unwrap().len();
         let mut handled = false;
         for _ in 0..num_requests {
-            let request = self.requests.write().unwrap().pop_front().unwrap();
+            let request = self
+                .requests
+                .write()
+                .unwrap()
+                .pop_front()
+                .unwrap();
             if let Some(request) = f(request) {
-                self.requests.write().unwrap().push_back(request);
+                self.requests
+                    .write()
+                    .unwrap()
+                    .push_back(request);
             } else {
                 handled = true;
             }

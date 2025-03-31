@@ -10,8 +10,8 @@ use near_primitives::{shard_layout::ShardUId, types::StateRoot};
 
 use crate::test_utils::TestTriesBuilder;
 use crate::trie::mem::iter::MemTrieIterator;
-use crate::trie::mem::memtrie_update::TrackingMode;
-use crate::trie::mem::memtries::MemTries;
+use crate::trie::mem::mem_trie_update::TrackingMode;
+use crate::trie::mem::mem_tries::MemTries;
 use crate::trie::mem::nibbles_utils::{
     all_two_nibble_nibbles, hex_to_nibbles, multi_hex_to_nibbles,
 };
@@ -30,7 +30,11 @@ fn generate_native_result(
     // Generate naive result and state root.
     let mut retain_result_naive = initial_entries
         .iter()
-        .filter(|&(key, _)| retain_multi_ranges.iter().any(|range| range.contains(key)))
+        .filter(|&(key, _)| {
+            retain_multi_ranges
+                .iter()
+                .any(|range| range.contains(key))
+        })
         .cloned()
         .collect_vec();
     retain_result_naive.sort();
@@ -54,8 +58,10 @@ fn generate_native_result(
 fn setup_tries(initial_entries: Vec<(Vec<u8>, Vec<u8>)>) -> (Trie, MemTries) {
     // Setup Trie
     let shard_tries = TestTriesBuilder::new().build();
-    let initial_changes =
-        initial_entries.iter().map(|(key, value)| (key.clone(), Some(value.clone()))).collect_vec();
+    let initial_changes = initial_entries
+        .iter()
+        .map(|(key, value)| (key.clone(), Some(value.clone())))
+        .collect_vec();
     let trie_state_root = crate::test_utils::test_populate_trie(
         &shard_tries,
         &Trie::EMPTY_ROOT,
@@ -66,11 +72,13 @@ fn setup_tries(initial_entries: Vec<(Vec<u8>, Vec<u8>)>) -> (Trie, MemTries) {
 
     // Setup memtrie
     let mut memtries = MemTries::new(ShardUId::single_shard());
-    let mut update = memtries.update(Trie::EMPTY_ROOT, TrackingMode::None).unwrap();
+    let mut update = memtries
+        .update(Trie::EMPTY_ROOT, TrackingMode::None)
+        .unwrap();
     for (key, value) in initial_entries {
         update.insert(&key, value).unwrap();
     }
-    let memtrie_changes = update.to_memtrie_changes_only();
+    let memtrie_changes = update.to_mem_trie_changes_only();
     let memtrie_state_root = memtries.apply_memtrie_changes(0, &memtrie_changes);
 
     assert_eq!(trie_state_root, memtrie_state_root);
@@ -82,16 +90,23 @@ fn retain_split_shard_custom_ranges_for_trie(
     retain_multi_ranges: &Vec<Range<Vec<u8>>>,
 ) -> CryptoHash {
     let mut trie_update = TrieStorageUpdate::new(trie);
-    let root_node = trie.move_node_to_mutable(&mut trie_update, &trie.root).unwrap();
+    let root_node = trie
+        .move_node_to_mutable(&mut trie_update, &trie.root)
+        .unwrap();
     retain_split_shard_custom_ranges(&mut trie_update, retain_multi_ranges);
-    let result = trie_update.flatten_nodes(&trie.root, root_node.0).unwrap();
+    let result = trie_update
+        .flatten_nodes(&trie.root, root_node.0)
+        .unwrap();
     result.new_root
 }
 
 // Logic for a single test.
 // Creates trie from initial entries, applies retain multi range to it and
 // compares the result with naive approach.
-fn run(initial_entries: Vec<(Vec<u8>, Vec<u8>)>, retain_multi_ranges: Vec<Range<Vec<u8>>>) {
+fn run(
+    initial_entries: Vec<(Vec<u8>, Vec<u8>)>,
+    retain_multi_ranges: Vec<Range<Vec<u8>>>,
+) {
     let (retain_result_naive, expected_naive_state_root) =
         generate_native_result(&initial_entries, &retain_multi_ranges);
 
@@ -106,10 +121,15 @@ fn run(initial_entries: Vec<(Vec<u8>, Vec<u8>)>, retain_multi_ranges: Vec<Range<
     // Split memtrie and track proof
     let mut trie_recorder = TrieRecorder::new(None);
     let mode = TrackingMode::RefcountsAndAccesses(&mut trie_recorder);
-    let mut update = memtries.update(initial_state_root, mode).unwrap();
+    let mut update = memtries
+        .update(initial_state_root, mode)
+        .unwrap();
     retain_split_shard_custom_ranges(&mut update, &retain_multi_ranges);
     let mut trie_changes = update.to_trie_changes();
-    let memtrie_changes = trie_changes.memtrie_changes.take().unwrap();
+    let memtrie_changes = trie_changes
+        .memtrie_changes
+        .take()
+        .unwrap();
     let mem_state_root = memtries.apply_memtrie_changes(1, &memtrie_changes);
     let proof = trie_recorder.recorded_storage();
 
@@ -119,9 +139,13 @@ fn run(initial_entries: Vec<(Vec<u8>, Vec<u8>)>, retain_multi_ranges: Vec<Range<
         retain_split_shard_custom_ranges_for_trie(&partial_trie, &retain_multi_ranges);
 
     let entries = if mem_state_root != StateRoot::default() {
-        let state_root_ptr = memtries.get_root(&mem_state_root).unwrap();
+        let state_root_ptr = memtries
+            .get_root(&mem_state_root)
+            .unwrap();
         let trie = Trie::new(Arc::new(TrieMemoryPartialStorage::default()), mem_state_root, None);
-        MemTrieIterator::new(Some(state_root_ptr), &trie).map(|e| e.unwrap()).collect_vec()
+        MemTrieIterator::new(Some(state_root_ptr), &trie)
+            .map(|e| e.unwrap())
+            .collect_vec()
     } else {
         vec![]
     };
@@ -164,8 +188,10 @@ fn test_retain_two_ranges() {
         (b"frank".to_vec(), vec![6]),
     ];
     // cspell:ignore daaa
-    let retain_ranges =
-        vec![b"bill".to_vec()..b"bowl".to_vec(), b"daaa".to_vec()..b"france".to_vec()];
+    let retain_ranges = vec![
+        b"bill".to_vec()..b"bowl".to_vec(),
+        b"daaa".to_vec()..b"france".to_vec(),
+    ];
     run(initial_entries, retain_ranges);
 }
 
@@ -184,8 +210,11 @@ fn test_empty_result() {
 #[test]
 /// Checks case when all keys are retained.
 fn test_full_result() {
-    let initial_entries =
-        vec![(b"f23".to_vec(), vec![1]), (b"f32".to_vec(), vec![2]), (b"f44".to_vec(), vec![3])];
+    let initial_entries = vec![
+        (b"f23".to_vec(), vec![1]),
+        (b"f32".to_vec(), vec![2]),
+        (b"f44".to_vec(), vec![3]),
+    ];
     let retain_ranges = vec![b"f11".to_vec()..b"f45".to_vec()];
     run(initial_entries, retain_ranges);
 }
@@ -218,7 +247,10 @@ fn test_prefixes() {
 /// removed.
 fn test_descend_and_remove() {
     let keys = multi_hex_to_nibbles("00 0000 0011");
-    let initial_entries = keys.into_iter().map(|key| (key, vec![1])).collect_vec();
+    let initial_entries = keys
+        .into_iter()
+        .map(|key| (key, vec![1]))
+        .collect_vec();
     let retain_ranges = vec![hex_to_nibbles("0001")..hex_to_nibbles("0010")];
     run(initial_entries, retain_ranges);
 }
@@ -227,7 +259,10 @@ fn test_descend_and_remove() {
 /// Checks case when branch is converted to leaf.
 fn test_branch_to_leaf() {
     let keys = multi_hex_to_nibbles("ba bc ca");
-    let initial_entries = keys.into_iter().map(|key| (key, vec![1])).collect_vec();
+    let initial_entries = keys
+        .into_iter()
+        .map(|key| (key, vec![1]))
+        .collect_vec();
     let retain_ranges = vec![hex_to_nibbles("bc")..hex_to_nibbles("be")];
     run(initial_entries, retain_ranges);
 }
@@ -236,7 +271,10 @@ fn test_branch_to_leaf() {
 /// Checks case when branch with value is converted to leaf.
 fn test_branch_with_value_to_leaf() {
     let keys = multi_hex_to_nibbles("d4 d4a3 d4b9 d5 e6");
-    let initial_entries = keys.into_iter().map(|key| (key, vec![1])).collect_vec();
+    let initial_entries = keys
+        .into_iter()
+        .map(|key| (key, vec![1]))
+        .collect_vec();
     let retain_ranges = vec![hex_to_nibbles("d4")..hex_to_nibbles("d4a0")];
     run(initial_entries, retain_ranges);
 }
@@ -245,7 +283,10 @@ fn test_branch_with_value_to_leaf() {
 /// Checks case when branch without value is converted to extension.
 fn test_branch_to_extension() {
     let keys = multi_hex_to_nibbles("21 2200 2201");
-    let initial_entries = keys.into_iter().map(|key| (key, vec![1])).collect_vec();
+    let initial_entries = keys
+        .into_iter()
+        .map(|key| (key, vec![1]))
+        .collect_vec();
     let retain_ranges = vec![hex_to_nibbles("2200")..hex_to_nibbles("2202")];
     run(initial_entries, retain_ranges);
 }
@@ -256,7 +297,10 @@ fn test_branch_to_extension() {
 fn test_extend_extensions() {
     // cspell:ignore ddddde
     let keys = multi_hex_to_nibbles("dd d0 d1 dddd00 dddd01 dddddd");
-    let initial_entries = keys.into_iter().map(|key| (key, vec![1])).collect_vec();
+    let initial_entries = keys
+        .into_iter()
+        .map(|key| (key, vec![1]))
+        .collect_vec();
     let retain_ranges = vec![hex_to_nibbles("dddddd")..hex_to_nibbles("ddddde")];
     run(initial_entries, retain_ranges);
 }
@@ -265,7 +309,10 @@ fn test_extend_extensions() {
 /// Checks case when branch is visited but not restructured.
 fn test_branch_not_restructured() {
     let keys = multi_hex_to_nibbles("60 61 62 70");
-    let initial_entries = keys.into_iter().map(|key| (key, vec![1])).collect_vec();
+    let initial_entries = keys
+        .into_iter()
+        .map(|key| (key, vec![1]))
+        .collect_vec();
     let retain_ranges = vec![hex_to_nibbles("61")..hex_to_nibbles("71")];
     run(initial_entries, retain_ranges);
 }
@@ -296,7 +343,10 @@ fn test_branch_prefixes() {
             000000000011
             ",
     );
-    let initial_entries = keys.into_iter().map(|key| (key, vec![1])).collect_vec();
+    let initial_entries = keys
+        .into_iter()
+        .map(|key| (key, vec![1]))
+        .collect_vec();
     let retain_ranges = vec![hex_to_nibbles("0000")..hex_to_nibbles("00000000")];
     run(initial_entries, retain_ranges);
 }
@@ -305,7 +355,10 @@ fn test_branch_prefixes() {
 /// Checks multiple ranges retain on full 16-ary tree.
 fn test_full_16ary() {
     let keys = all_two_nibble_nibbles();
-    let initial_entries = keys.into_iter().map(|key| (key, vec![1])).collect_vec();
+    let initial_entries = keys
+        .into_iter()
+        .map(|key| (key, vec![1]))
+        .collect_vec();
     let retain_ranges = vec![
         hex_to_nibbles("0f")..hex_to_nibbles("10"),
         hex_to_nibbles("20")..hex_to_nibbles("2fff"),
@@ -318,7 +371,10 @@ fn test_full_16ary() {
     run(initial_entries, retain_ranges);
 }
 
-fn random_key(max_key_len: usize, rng: &mut StdRng) -> Vec<u8> {
+fn random_key(
+    max_key_len: usize,
+    rng: &mut StdRng,
+) -> Vec<u8> {
     let key_len = rng.gen_range(0..=max_key_len);
     let mut key = Vec::new();
     for _ in 0..key_len {
@@ -328,7 +384,11 @@ fn random_key(max_key_len: usize, rng: &mut StdRng) -> Vec<u8> {
     key
 }
 
-fn check_random(max_key_len: usize, max_keys_count: usize, test_count: usize) {
+fn check_random(
+    max_key_len: usize,
+    max_keys_count: usize,
+    test_count: usize,
+) {
     let mut rng = StdRng::seed_from_u64(442);
     for _ in 0..test_count {
         let key_cnt = rng.gen_range(1..=max_keys_count);
@@ -348,7 +408,10 @@ fn check_random(max_key_len: usize, max_keys_count: usize, test_count: usize) {
         if boundary_left > boundary_right {
             std::mem::swap(&mut boundary_left, &mut boundary_right);
         }
-        let initial_entries = keys.into_iter().map(|key| (key, vec![1])).collect_vec();
+        let initial_entries = keys
+            .into_iter()
+            .map(|key| (key, vec![1]))
+            .collect_vec();
         let retain_ranges = vec![boundary_left..boundary_right];
         run(initial_entries, retain_ranges);
     }

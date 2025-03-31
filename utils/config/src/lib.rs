@@ -49,36 +49,67 @@ impl ValidationErrors {
         self.0.is_empty()
     }
 
-    pub fn push_errors(&mut self, error: ValidationError) {
+    pub fn push_errors(
+        &mut self,
+        error: ValidationError,
+    ) {
         self.0.push(error)
     }
 
-    pub fn push_config_semantics_error(&mut self, error_message: String) {
-        self.0.push(ValidationError::ConfigSemanticsError { error_message: error_message })
+    pub fn push_config_semantics_error(
+        &mut self,
+        error_message: String,
+    ) {
+        self.0
+            .push(ValidationError::ConfigSemanticsError { error_message })
     }
 
-    pub fn push_config_file_error(&mut self, error_message: String) {
-        self.0.push(ValidationError::ConfigFileError { error_message: error_message })
+    pub fn push_config_file_error(
+        &mut self,
+        error_message: String,
+    ) {
+        self.0
+            .push(ValidationError::ConfigFileError { error_message })
     }
 
-    pub fn push_genesis_semantics_error(&mut self, error_message: String) {
-        self.0.push(ValidationError::GenesisSemanticsError { error_message: error_message })
+    pub fn push_genesis_semantics_error(
+        &mut self,
+        error_message: String,
+    ) {
+        self.0
+            .push(ValidationError::GenesisSemanticsError { error_message })
     }
 
-    pub fn push_genesis_file_error(&mut self, error_message: String) {
-        self.0.push(ValidationError::GenesisFileError { error_message: error_message })
+    pub fn push_genesis_file_error(
+        &mut self,
+        error_message: String,
+    ) {
+        self.0
+            .push(ValidationError::GenesisFileError { error_message })
     }
 
-    pub fn push_node_key_file_error(&mut self, error_message: String) {
-        self.0.push(ValidationError::NodeKeyFileError { error_message: error_message })
+    pub fn push_node_key_file_error(
+        &mut self,
+        error_message: String,
+    ) {
+        self.0
+            .push(ValidationError::NodeKeyFileError { error_message })
     }
 
-    pub fn push_validator_key_file_error(&mut self, error_message: String) {
-        self.0.push(ValidationError::ValidatorKeyFileError { error_message: error_message })
+    pub fn push_validator_key_file_error(
+        &mut self,
+        error_message: String,
+    ) {
+        self.0
+            .push(ValidationError::ValidatorKeyFileError { error_message })
     }
 
-    pub fn push_cross_file_semantics_error(&mut self, error_message: String) {
-        self.0.push(ValidationError::CrossFileSematicError { error_message: error_message })
+    pub fn push_cross_file_semantics_error(
+        &mut self,
+        error_message: String,
+    ) {
+        self.0
+            .push(ValidationError::CrossFileSematicError { error_message })
     }
 
     /// only to be used in panic_if_errors()
@@ -91,13 +122,13 @@ impl ValidationErrors {
                 final_error_message += "\n";
 
                 match error {
-                    ValidationError::ConfigSemanticsError { error_message }
+                    | ValidationError::ConfigSemanticsError { error_message }
                     | ValidationError::GenesisSemanticsError { error_message } => {
                         // the final error_message is concatenation of GenesisSemanticsError or ConfigSemanticsError's ever seen
                         // not including the whole error.to_string() makes the final error message less confusing to read
                         final_error_message += error_message
                     }
-                    _ => final_error_message += &error.to_string(),
+                    | _ => final_error_message += &error.to_string(),
                 };
             }
             Some(final_error_message)
@@ -150,9 +181,9 @@ pub enum DownloadConfigType {
 impl ToString for DownloadConfigType {
     fn to_string(&self) -> String {
         match self {
-            DownloadConfigType::Validator => "validator".to_string(),
-            DownloadConfigType::RPC => "rpc".to_string(),
-            DownloadConfigType::Archival => "archival".to_string(),
+            | DownloadConfigType::Validator => "validator".to_string(),
+            | DownloadConfigType::RPC => "rpc".to_string(),
+            | DownloadConfigType::Archival => "archival".to_string(),
         }
     }
 }
@@ -162,10 +193,10 @@ impl FromStr for DownloadConfigType {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.trim().to_lowercase().as_str() {
-            "validator" => Ok(DownloadConfigType::Validator),
-            "rpc" => Ok(DownloadConfigType::RPC),
-            "archival" => Ok(DownloadConfigType::Archival),
-            _ => anyhow::bail!(
+            | "validator" => Ok(DownloadConfigType::Validator),
+            | "rpc" => Ok(DownloadConfigType::RPC),
+            | "archival" => Ok(DownloadConfigType::Archival),
+            | _ => anyhow::bail!(
                 "Flag download_config must be one of the following: validator, rpc, archival"
             ),
         }

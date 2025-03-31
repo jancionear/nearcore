@@ -34,9 +34,9 @@ pub struct TrieConfig {
     pub kaiching_prefetch_config: Vec<PrefetchConfig>,
 
     /// List of shards we will load into memory.
-    pub load_memtries_for_shards: Vec<ShardUId>,
+    pub load_mem_tries_for_shards: Vec<ShardUId>,
     /// Whether mem-trie should be loaded for each tracked shard.
-    pub load_memtries_for_tracked_shards: bool,
+    pub load_mem_tries_for_tracked_shards: bool,
 }
 
 impl TrieConfig {
@@ -50,20 +50,27 @@ impl TrieConfig {
         this.enable_receipt_prefetching = config.enable_receipt_prefetching;
         for account in &config.sweat_prefetch_receivers {
             match AccountId::from_str(account) {
-                Ok(account_id) => this.sweat_prefetch_receivers.push(account_id),
-                Err(e) => error!(target: "config", "invalid account id {account}: {e}"),
+                | Ok(account_id) => this
+                    .sweat_prefetch_receivers
+                    .push(account_id),
+                | Err(e) => error!(target: "config", "invalid account id {account}: {e}"),
             }
         }
         for account in &config.sweat_prefetch_senders {
             match AccountId::from_str(account) {
-                Ok(account_id) => this.sweat_prefetch_senders.push(account_id),
-                Err(e) => error!(target: "config", "invalid account id {account}: {e}"),
+                | Ok(account_id) => this
+                    .sweat_prefetch_senders
+                    .push(account_id),
+                | Err(e) => error!(target: "config", "invalid account id {account}: {e}"),
             }
         }
-        this.claim_sweat_prefetch_config.clone_from(&config.claim_sweat_prefetch_config);
-        this.kaiching_prefetch_config.clone_from(&config.kaiching_prefetch_config);
-        this.load_memtries_for_shards.clone_from(&config.load_memtries_for_shards);
-        this.load_memtries_for_tracked_shards = config.load_memtries_for_tracked_shards;
+        this.claim_sweat_prefetch_config
+            .clone_from(&config.claim_sweat_prefetch_config);
+        this.kaiching_prefetch_config
+            .clone_from(&config.kaiching_prefetch_config);
+        this.load_mem_tries_for_shards
+            .clone_from(&config.load_mem_tries_for_shards);
+        this.load_mem_tries_for_tracked_shards = config.load_mem_tries_for_tracked_shards;
 
         this
     }
@@ -81,7 +88,8 @@ impl TrieConfig {
     /// Thus, deleted and overwritten values are evicted to the deletion queue which
     /// delays the actual eviction.
     pub fn deletions_queue_capacity(&self) -> usize {
-        self.shard_cache_config.shard_cache_deletions_queue_capacity
+        self.shard_cache_config
+            .shard_cache_deletions_queue_capacity
     }
 
     /// Checks if any of prefetching related configs was enabled.
@@ -89,7 +97,9 @@ impl TrieConfig {
         self.enable_receipt_prefetching
             || (!self.sweat_prefetch_receivers.is_empty()
                 && !self.sweat_prefetch_senders.is_empty())
-            || !self.claim_sweat_prefetch_config.is_empty()
+            || !self
+                .claim_sweat_prefetch_config
+                .is_empty()
             || !self.kaiching_prefetch_config.is_empty()
     }
 }

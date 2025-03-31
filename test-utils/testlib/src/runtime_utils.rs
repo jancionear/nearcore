@@ -27,12 +27,19 @@ pub fn x_dot_y_dot_alice_account() -> AccountId {
 ///
 /// This contract contains various functions useful for testing and its code is available in
 /// `/home/jakmeier/near/core-runtime/nearcore/runtime/near-test-contracts/test-contract-rs/src/lib.rs`
-pub fn add_test_contract(genesis: &mut Genesis, account_id: &AccountId) {
+pub fn add_test_contract(
+    genesis: &mut Genesis,
+    account_id: &AccountId,
+) {
     add_contract(genesis, account_id, near_test_contracts::rs_contract().to_vec())
 }
 
 /// Pre-deploy in genesis any contract for a given account.
-pub fn add_contract(genesis: &mut Genesis, account_id: &AccountId, code: Vec<u8>) {
+pub fn add_contract(
+    genesis: &mut Genesis,
+    account_id: &AccountId,
+    code: Vec<u8>,
+) {
     let mut is_account_record_found = false;
     let hash = hash(&code);
     let records = genesis.force_read_records().as_mut();

@@ -57,13 +57,23 @@ pub struct EntityDebugHandlerImpl {
 }
 
 impl EntityDebugHandlerImpl {
-    fn query_impl(&self, store: Store, query: EntityQuery) -> anyhow::Result<EntityDataValue> {
+    fn query_impl(
+        &self,
+        store: Store,
+        query: EntityQuery,
+    ) -> anyhow::Result<EntityDataValue> {
         match query {
-            EntityQuery::AllShardsByEpochId { epoch_id } => {
-                let shard_layout = self.epoch_manager.get_shard_layout(&epoch_id)?;
-                Ok(serialize_entity(&shard_layout.shard_uids().collect::<Vec<_>>()))
+            | EntityQuery::AllShardsByEpochId { epoch_id } => {
+                let shard_layout = self
+                    .epoch_manager
+                    .get_shard_layout(&epoch_id)?;
+                Ok(serialize_entity(
+                    &shard_layout
+                        .shard_uids()
+                        .collect::<Vec<_>>(),
+                ))
             }
-            EntityQuery::BlockByHash { block_hash } => {
+            | EntityQuery::BlockByHash { block_hash } => {
                 let block = store
                     .get_ser::<Block>(DBCol::Block, &borsh::to_vec(&block_hash).unwrap())?
                     .ok_or_else(|| anyhow!("Block not found"))?;
@@ -77,7 +87,7 @@ impl EntityDebugHandlerImpl {
                 }
                 Ok(ret)
             }
-            EntityQuery::BlockHashByHeight { block_height } => {
+            | EntityQuery::BlockHashByHeight { block_height } => {
                 let block_hash = store
                     .get_ser::<CryptoHash>(
                         DBCol::BlockHeight,
@@ -86,7 +96,7 @@ impl EntityDebugHandlerImpl {
                     .ok_or_else(|| anyhow!("Block height not found"))?;
                 Ok(serialize_entity(&block_hash))
             }
-            EntityQuery::BlockHeaderByHash { block_hash } => {
+            | EntityQuery::BlockHeaderByHash { block_hash } => {
                 let block_header = store
                     .get_ser::<BlockHeader>(
                         DBCol::BlockHeader,
@@ -95,13 +105,13 @@ impl EntityDebugHandlerImpl {
                     .ok_or_else(|| anyhow!("Block header not found"))?;
                 Ok(serialize_entity(&BlockHeaderView::from(block_header)))
             }
-            EntityQuery::BlockInfoByHash { block_hash } => {
+            | EntityQuery::BlockInfoByHash { block_hash } => {
                 let block_info = store
                     .get_ser::<BlockInfo>(DBCol::BlockInfo, &borsh::to_vec(&block_hash).unwrap())?
                     .ok_or_else(|| anyhow!("BlockInfo not found"))?;
                 Ok(serialize_entity(&block_info))
             }
-            EntityQuery::BlockMerkleTreeByHash { block_hash } => {
+            | EntityQuery::BlockMerkleTreeByHash { block_hash } => {
                 let block_merkle_tree = store
                     .get_ser::<PartialMerkleTree>(
                         DBCol::BlockMerkleTree,
@@ -110,16 +120,17 @@ impl EntityDebugHandlerImpl {
                     .ok_or_else(|| anyhow!("Block merkle tree not found"))?;
                 Ok(serialize_entity(&block_merkle_tree))
             }
-            EntityQuery::BlockMisc(()) => {
+            | EntityQuery::BlockMisc(()) => {
                 let block_misc = BlockMiscData::from_store(&store)?;
                 Ok(serialize_entity(&block_misc))
             }
-            EntityQuery::ChunkByHash { chunk_hash } => {
+            | EntityQuery::ChunkByHash { chunk_hash } => {
                 let chunk = store
                     .get_ser::<ShardChunk>(DBCol::Chunks, &borsh::to_vec(&chunk_hash).unwrap())?
                     .ok_or_else(|| anyhow!("Chunk not found"))?;
-                let epoch_id =
-                    self.epoch_manager.get_epoch_id_from_prev_block(chunk.prev_block())?;
+                let epoch_id = self
+                    .epoch_manager
+                    .get_epoch_id_from_prev_block(chunk.prev_block())?;
                 let author = self
                     .epoch_manager
                     .get_chunk_producer_info(&ChunkProductionKey {
@@ -130,7 +141,7 @@ impl EntityDebugHandlerImpl {
                     .take_account_id();
                 Ok(serialize_entity(&ChunkView::from_author_chunk(author, chunk)))
             }
-            EntityQuery::ChunkExtraByBlockHashShardUId { block_hash, shard_uid } => {
+            | EntityQuery::ChunkExtraByBlockHashShardUId { block_hash, shard_uid } => {
                 let chunk_extra = store
                     .get_ser::<ChunkExtra>(
                         DBCol::ChunkExtra,
@@ -139,7 +150,7 @@ impl EntityDebugHandlerImpl {
                     .ok_or_else(|| anyhow!("Chunk extra not found"))?;
                 Ok(serialize_entity(&chunk_extra))
             }
-            EntityQuery::ChunkExtraByChunkHash { chunk_hash } => {
+            | EntityQuery::ChunkExtraByChunkHash { chunk_hash } => {
                 let chunk = store
                     .get_ser::<ShardChunk>(DBCol::Chunks, &borsh::to_vec(&chunk_hash).unwrap())?
                     .ok_or_else(|| anyhow!("Chunk not found"))?;
@@ -149,10 +160,13 @@ impl EntityDebugHandlerImpl {
                         &borsh::to_vec(&chunk.height_included()).unwrap(),
                     )?
                     .ok_or_else(|| anyhow!("Cannot find block at chunk's height"))?;
-                let epoch_id =
-                    self.epoch_manager.get_epoch_id_from_prev_block(chunk.prev_block())?;
+                let epoch_id = self
+                    .epoch_manager
+                    .get_epoch_id_from_prev_block(chunk.prev_block())?;
                 let shard_id = chunk.shard_id();
-                let shard_uid = self.epoch_manager.shard_id_to_uid(shard_id, &epoch_id)?;
+                let shard_uid = self
+                    .epoch_manager
+                    .shard_id_to_uid(shard_id, &epoch_id)?;
                 let chunk_extra = store
                     .get_ser::<ChunkExtra>(
                         DBCol::ChunkExtra,
@@ -161,17 +175,19 @@ impl EntityDebugHandlerImpl {
                     .ok_or_else(|| anyhow!("Chunk extra not found"))?;
                 Ok(serialize_entity(&chunk_extra))
             }
-            EntityQuery::EpochInfoAggregator(()) => {
+            | EntityQuery::EpochInfoAggregator(()) => {
                 let aggregator = store
                     .get_ser::<EpochInfoAggregator>(DBCol::EpochInfo, AGGREGATOR_KEY)?
                     .ok_or_else(|| anyhow!("Aggregator not found"))?;
                 Ok(serialize_entity(&aggregator))
             }
-            EntityQuery::EpochInfoByEpochId { epoch_id } => {
-                let epoch_info = self.epoch_manager.get_epoch_info(&epoch_id)?;
+            | EntityQuery::EpochInfoByEpochId { epoch_id } => {
+                let epoch_info = self
+                    .epoch_manager
+                    .get_epoch_info(&epoch_id)?;
                 Ok(serialize_entity(&*epoch_info))
             }
-            EntityQuery::FlatStateByTrieKey { trie_key, shard_uid } => {
+            | EntityQuery::FlatStateByTrieKey { trie_key, shard_uid } => {
                 let state = store
                     .get_ser::<FlatStateValue>(
                         DBCol::FlatState,
@@ -181,7 +197,7 @@ impl EntityDebugHandlerImpl {
                 let data = self.deref_flat_state_value(&store, state, shard_uid)?;
                 Ok(serialize_entity(&hex::encode(&data)))
             }
-            EntityQuery::FlatStateChangesByBlockHash { block_hash, shard_uid } => {
+            | EntityQuery::FlatStateChangesByBlockHash { block_hash, shard_uid } => {
                 let changes = store
                     .get_ser::<FlatStateChanges>(
                         DBCol::FlatStateChanges,
@@ -192,16 +208,16 @@ impl EntityDebugHandlerImpl {
                 for (key, value) in changes.0.into_iter() {
                     let key = hex::encode(&key);
                     let value = match value {
-                        Some(v) => {
+                        | Some(v) => {
                             Some(hex::encode(&self.deref_flat_state_value(&store, v, shard_uid)?))
                         }
-                        None => None,
+                        | None => None,
                     };
                     changes_view.push(FlatStateChangeView { key, value });
                 }
                 Ok(serialize_entity(&changes_view))
             }
-            EntityQuery::FlatStateDeltaMetadataByBlockHash { block_hash, shard_uid } => {
+            | EntityQuery::FlatStateDeltaMetadataByBlockHash { block_hash, shard_uid } => {
                 let metadata = store
                     .get_ser::<FlatStateDeltaMetadata>(
                         DBCol::FlatStateDeltaMetadata,
@@ -210,7 +226,7 @@ impl EntityDebugHandlerImpl {
                     .ok_or_else(|| anyhow!("Flat state delta metadata not found"))?;
                 Ok(serialize_entity(&metadata))
             }
-            EntityQuery::FlatStorageStatusByShardUId { shard_uid } => {
+            | EntityQuery::FlatStorageStatusByShardUId { shard_uid } => {
                 let status = store
                     .get_ser::<FlatStorageStatus>(
                         DBCol::FlatStorageStatus,
@@ -219,7 +235,7 @@ impl EntityDebugHandlerImpl {
                     .ok_or_else(|| anyhow!("Flat storage status not found"))?;
                 Ok(serialize_entity(&status))
             }
-            EntityQuery::NextBlockHashByHash { block_hash } => {
+            | EntityQuery::NextBlockHashByHash { block_hash } => {
                 let next_block_hash = store
                     .get_ser::<CryptoHash>(
                         DBCol::NextBlockHashes,
@@ -228,7 +244,7 @@ impl EntityDebugHandlerImpl {
                     .ok_or_else(|| anyhow!("Next block hash not found"))?;
                 Ok(serialize_entity(&next_block_hash))
             }
-            EntityQuery::OutcomeByTransactionHash { transaction_hash: outcome_id }
+            | EntityQuery::OutcomeByTransactionHash { transaction_hash: outcome_id }
             | EntityQuery::OutcomeByReceiptId { receipt_id: outcome_id } => {
                 let (_, outcome) = store
                     .iter_prefix_ser::<ExecutionOutcomeWithProof>(
@@ -239,11 +255,14 @@ impl EntityDebugHandlerImpl {
                     .ok_or_else(|| anyhow!("Outcome not found"))??;
                 Ok(serialize_entity(&ExecutionOutcomeView::from(outcome.outcome)))
             }
-            EntityQuery::OutcomeByTransactionHashAndBlockHash {
+            | EntityQuery::OutcomeByTransactionHashAndBlockHash {
                 transaction_hash: outcome_id,
                 block_hash,
             }
-            | EntityQuery::OutcomeByReceiptIdAndBlockHash { receipt_id: outcome_id, block_hash } => {
+            | EntityQuery::OutcomeByReceiptIdAndBlockHash {
+                receipt_id: outcome_id,
+                block_hash,
+            } => {
                 let outcome = store
                     .get_ser::<ExecutionOutcomeWithProof>(
                         DBCol::TransactionResultForBlock,
@@ -252,14 +271,14 @@ impl EntityDebugHandlerImpl {
                     .ok_or_else(|| anyhow!("Outcome not found"))?;
                 Ok(serialize_entity(&ExecutionOutcomeView::from(outcome.outcome)))
             }
-            EntityQuery::RawTrieNodeByHash { trie_node_hash, shard_uid } => {
+            | EntityQuery::RawTrieNodeByHash { trie_node_hash, shard_uid } => {
                 let node = store
                     .trie_store()
                     .get_ser::<RawTrieNodeWithSize>(shard_uid, &trie_node_hash)
                     .map_err(|e| anyhow!("Trie node not found: {e}"))?;
                 Ok(serialize_raw_trie_node(node))
             }
-            EntityQuery::RawTrieRootByChunkHash { chunk_hash } => {
+            | EntityQuery::RawTrieRootByChunkHash { chunk_hash } => {
                 let chunk = store
                     .get_ser::<ShardChunk>(DBCol::Chunks, &borsh::to_vec(&chunk_hash).unwrap())?
                     .ok_or_else(|| anyhow!("Chunk not found"))?;
@@ -267,8 +286,9 @@ impl EntityDebugHandlerImpl {
                     .epoch_manager
                     .get_shard_layout_from_prev_block(&chunk.cloned_header().prev_block_hash())?;
                 let shard_id = chunk.shard_id();
-                let shard_index =
-                    shard_layout.get_shard_index(shard_id).map_err(Into::<EpochError>::into)?;
+                let shard_index = shard_layout
+                    .get_shard_index(shard_id)
+                    .map_err(Into::<EpochError>::into)?;
                 let shard_uid = shard_layout
                     .shard_uids()
                     .nth(shard_index)
@@ -279,32 +299,38 @@ impl EntityDebugHandlerImpl {
                     .map_err(|e| anyhow!("State root not found: {e}"))?;
                 Ok(serialize_raw_trie_node(node))
             }
-            EntityQuery::RawTrieValueByHash { trie_value_hash, shard_uid } => {
+            | EntityQuery::RawTrieValueByHash { trie_value_hash, shard_uid } => {
                 let value = store
                     .trie_store()
                     .get(shard_uid, &trie_value_hash)
                     .map_err(|e| anyhow!("Trie value not found: {e}"))?;
                 Ok(serialize_entity(&hex::encode(value)))
             }
-            EntityQuery::ReceiptById { receipt_id } => {
+            | EntityQuery::ReceiptById { receipt_id } => {
                 let receipt = store
                     .get_ser::<Receipt>(DBCol::Receipts, &borsh::to_vec(&receipt_id).unwrap())?
                     .ok_or_else(|| anyhow!("Receipt not found"))?;
                 Ok(serialize_entity(&ReceiptView::from(receipt)))
             }
-            EntityQuery::ShardIdByAccountId { account_id, epoch_id } => {
-                let shard_id =
-                    self.epoch_manager.account_id_to_shard_id(&account_id.parse()?, &epoch_id)?;
+            | EntityQuery::ShardIdByAccountId { account_id, epoch_id } => {
+                let shard_id = self
+                    .epoch_manager
+                    .account_id_to_shard_id(&account_id.parse()?, &epoch_id)?;
                 Ok(serialize_entity(&shard_id))
             }
-            EntityQuery::ShardLayoutByEpochId { epoch_id } => {
-                let shard_layout = self.epoch_manager.get_shard_layout(&epoch_id)?;
+            | EntityQuery::ShardLayoutByEpochId { epoch_id } => {
+                let shard_layout = self
+                    .epoch_manager
+                    .get_shard_layout(&epoch_id)?;
                 Ok(serialize_entity(&shard_layout))
             }
-            EntityQuery::ShardUIdByShardId { shard_id, epoch_id } => {
-                let shard_layout = self.epoch_manager.get_shard_layout(&epoch_id)?;
-                let shard_index =
-                    shard_layout.get_shard_index(shard_id).map_err(Into::<EpochError>::into)?;
+            | EntityQuery::ShardUIdByShardId { shard_id, epoch_id } => {
+                let shard_layout = self
+                    .epoch_manager
+                    .get_shard_layout(&epoch_id)?;
+                let shard_index = shard_layout
+                    .get_shard_index(shard_id)
+                    .map_err(Into::<EpochError>::into)?;
 
                 let shard_uid = shard_layout
                     .shard_uids()
@@ -312,13 +338,17 @@ impl EntityDebugHandlerImpl {
                     .ok_or_else(|| anyhow!("Shard {} not found", shard_id))?;
                 Ok(serialize_entity(&shard_uid))
             }
-            EntityQuery::StateTransitionData { block_hash } => {
+            | EntityQuery::StateTransitionData { block_hash } => {
                 let block = store
                     .get_ser::<Block>(DBCol::Block, &borsh::to_vec(&block_hash).unwrap())?
                     .ok_or_else(|| anyhow!("Block not found"))?;
                 let epoch_id = block.header().epoch_id();
-                let shard_layout = self.epoch_manager.get_shard_layout(&epoch_id)?;
-                let shard_ids = shard_layout.shard_ids().collect::<Vec<_>>();
+                let shard_layout = self
+                    .epoch_manager
+                    .get_shard_layout(&epoch_id)?;
+                let shard_ids = shard_layout
+                    .shard_ids()
+                    .collect::<Vec<_>>();
                 let mut state_transitions = EntityDataStruct::new();
                 for shard_id in shard_ids {
                     let state_transition = store
@@ -341,33 +371,35 @@ impl EntityDebugHandlerImpl {
                     serialized.add("receipts_hash", serialize_entity(&receipts_hash));
                     serialized.add("contract_accesses", serialize_entity(&contract_accesses));
                     // Add the hash of the deployed contract code instead of the actual code.
-                    let contract_deploy_hashes =
-                        contract_deploys.into_iter().map(|code| code.hash()).collect::<Vec<_>>();
+                    let contract_deploy_hashes = contract_deploys
+                        .into_iter()
+                        .map(|code| code.hash())
+                        .collect::<Vec<_>>();
                     serialized.add("contract_deploys", serialize_entity(&contract_deploy_hashes));
                     state_transitions
                         .add(&shard_id.to_string(), EntityDataValue::Struct(serialized.into()));
                 }
                 Ok(EntityDataValue::Struct(state_transitions.into()))
             }
-            EntityQuery::TipAtFinalHead(_) => {
+            | EntityQuery::TipAtFinalHead(_) => {
                 let tip = store
                     .get_ser::<Tip>(DBCol::BlockMisc, FINAL_HEAD_KEY)?
                     .ok_or_else(|| anyhow!("Tip not found"))?;
                 Ok(serialize_entity(&tip))
             }
-            EntityQuery::TipAtHead(_) => {
+            | EntityQuery::TipAtHead(_) => {
                 let tip = store
                     .get_ser::<Tip>(DBCol::BlockMisc, HEAD_KEY)?
                     .ok_or_else(|| anyhow!("Tip not found"))?;
                 Ok(serialize_entity(&tip))
             }
-            EntityQuery::TipAtHeaderHead(_) => {
+            | EntityQuery::TipAtHeaderHead(_) => {
                 let tip = store
                     .get_ser::<Tip>(DBCol::BlockMisc, HEADER_HEAD_KEY)?
                     .ok_or_else(|| anyhow!("Tip not found"))?;
                 Ok(serialize_entity(&tip))
             }
-            EntityQuery::TransactionByHash { transaction_hash } => {
+            | EntityQuery::TransactionByHash { transaction_hash } => {
                 let transaction = store
                     .get_ser::<SignedTransaction>(
                         DBCol::Transactions,
@@ -376,7 +408,7 @@ impl EntityDebugHandlerImpl {
                     .ok_or_else(|| anyhow!("Transaction not found"))?;
                 Ok(serialize_entity(&SignedTransactionView::from(transaction)))
             }
-            EntityQuery::TrieNode { trie_path } => {
+            | EntityQuery::TrieNode { trie_path } => {
                 let trie_path =
                     TriePath::parse(trie_path).ok_or_else(|| anyhow!("Invalid path"))?;
                 let trie = self
@@ -388,7 +420,7 @@ impl EntityDebugHandlerImpl {
                     .ok_or_else(|| anyhow!("Node not found"))?;
                 serialize_trie_node(trie_path, node, trie)
             }
-            EntityQuery::TrieRootByChunkHash { chunk_hash } => {
+            | EntityQuery::TrieRootByChunkHash { chunk_hash } => {
                 let chunk = store
                     .get_ser::<ShardChunk>(DBCol::Chunks, &borsh::to_vec(&chunk_hash).unwrap())?
                     .ok_or_else(|| anyhow!("Chunk not found"))?;
@@ -396,8 +428,9 @@ impl EntityDebugHandlerImpl {
                     .epoch_manager
                     .get_shard_layout_from_prev_block(&chunk.cloned_header().prev_block_hash())?;
                 let shard_id = chunk.shard_id();
-                let shard_index =
-                    shard_layout.get_shard_index(shard_id).map_err(Into::<EpochError>::into)?;
+                let shard_index = shard_layout
+                    .get_shard_index(shard_id)
+                    .map_err(Into::<EpochError>::into)?;
                 let shard_uid = shard_layout
                     .shard_uids()
                     .nth(shard_index)
@@ -406,11 +439,11 @@ impl EntityDebugHandlerImpl {
                     TriePath { path: vec![], shard_uid, state_root: chunk.prev_state_root() };
                 Ok(serialize_entity(&path.to_string()))
             }
-            EntityQuery::TrieRootByStateRoot { state_root, shard_uid } => {
+            | EntityQuery::TrieRootByStateRoot { state_root, shard_uid } => {
                 let path = TriePath { path: vec![], shard_uid, state_root };
                 Ok(serialize_entity(&path.to_string()))
             }
-            EntityQuery::ValidatorAssignmentsAtHeight { block_height, epoch_id } => {
+            | EntityQuery::ValidatorAssignmentsAtHeight { block_height, epoch_id } => {
                 let block_producer = self
                     .epoch_manager
                     .get_block_producer(&epoch_id, block_height)
@@ -468,12 +501,12 @@ impl EntityDebugHandlerImpl {
         shard_uid: ShardUId,
     ) -> anyhow::Result<Vec<u8>> {
         Ok(match state {
-            FlatStateValue::Ref(value) => store
+            | FlatStateValue::Ref(value) => store
                 .trie_store()
                 .get(shard_uid, &value.hash)
                 .map_err(|e| anyhow!("ValueRef could not be dereferenced: {e}"))?
                 .to_vec(),
-            FlatStateValue::Inlined(data) => data,
+            | FlatStateValue::Inlined(data) => data,
         })
     }
 }
@@ -486,7 +519,7 @@ fn serialize_trie_node(
     let mut entity_data = EntityDataStruct::new();
     entity_data.add_string("path", &TriePath::nibbles_to_hex(&trie_path.path));
     match node {
-        near_store::RawTrieNode::Leaf(extension, value) => {
+        | near_store::RawTrieNode::Leaf(extension, value) => {
             let extension_nibbles = NibbleSlice::from_encoded(&extension);
             let leaf_nibbles = trie_path
                 .path
@@ -498,7 +531,7 @@ fn serialize_trie_node(
             entity_data.add_string("leaf_path", &TriePath::nibbles_to_hex(&leaf_nibbles));
             entity_data.add_string("value", &hex::encode(&data))
         }
-        near_store::RawTrieNode::BranchNoValue(children) => {
+        | near_store::RawTrieNode::BranchNoValue(children) => {
             for index in 0..16 {
                 if let Some(_) = children[index] {
                     let path = TriePath {
@@ -510,7 +543,7 @@ fn serialize_trie_node(
                 }
             }
         }
-        near_store::RawTrieNode::BranchWithValue(value, children) => {
+        | near_store::RawTrieNode::BranchWithValue(value, children) => {
             let data = trie.retrieve_value(&value.hash)?;
             entity_data.add_string("leaf_path", &TriePath::nibbles_to_hex(&trie_path.path));
             entity_data.add_string("value", &hex::encode(&data));
@@ -525,7 +558,7 @@ fn serialize_trie_node(
                 }
             }
         }
-        near_store::RawTrieNode::Extension(extension, _) => {
+        | near_store::RawTrieNode::Extension(extension, _) => {
             let extension_nibbles = NibbleSlice::from_encoded(&extension);
             let child_nibbles = trie_path
                 .path
@@ -549,7 +582,7 @@ fn serialize_raw_trie_node(node: RawTrieNodeWithSize) -> EntityDataValue {
     entity_data.add_string("memory_usage", &node.memory_usage.to_string());
 
     match node.node {
-        RawTrieNode::Leaf(extension, value_ref) => {
+        | RawTrieNode::Leaf(extension, value_ref) => {
             let extension = NibbleSlice::from_encoded(&extension);
             entity_data.add_string(
                 "extension",
@@ -558,15 +591,15 @@ fn serialize_raw_trie_node(node: RawTrieNodeWithSize) -> EntityDataValue {
             entity_data.add("value_hash", serialize_entity(&value_ref.hash));
             entity_data.add_string("value_len", &value_ref.length.to_string());
         }
-        RawTrieNode::BranchNoValue(children) => {
+        | RawTrieNode::BranchNoValue(children) => {
             entity_data.add("children", serialize_entity(&children.0));
         }
-        RawTrieNode::BranchWithValue(value_ref, children) => {
+        | RawTrieNode::BranchWithValue(value_ref, children) => {
             entity_data.add("children", serialize_entity(&children.0));
             entity_data.add("value_hash", serialize_entity(&value_ref.hash));
             entity_data.add_string("value_len", &value_ref.length.to_string());
         }
-        RawTrieNode::Extension(extension, child) => {
+        | RawTrieNode::Extension(extension, child) => {
             let extension = NibbleSlice::from_encoded(&extension);
             entity_data.add_string(
                 "extension",
@@ -579,7 +612,10 @@ fn serialize_raw_trie_node(node: RawTrieNodeWithSize) -> EntityDataValue {
 }
 
 impl EntityDebugHandler for EntityDebugHandlerImpl {
-    fn query(&self, query: EntityQueryWithParams) -> Result<EntityDataValue, RpcError> {
+    fn query(
+        &self,
+        query: EntityQueryWithParams,
+    ) -> Result<EntityDataValue, RpcError> {
         let store = if query.use_cold_storage {
             self.cold_store.clone().ok_or_else(|| {
                 RpcError::new_internal_error(None, "Cold storage is not available".to_string())
@@ -618,7 +654,11 @@ impl TriePath {
 
     /// Format of nibbles is an array of 4-bit integers.
     pub fn nibbles_to_hex(nibbles: &[u8]) -> String {
-        nibbles.iter().map(|x| format!("{:x}", x)).collect::<Vec<_>>().join("")
+        nibbles
+            .iter()
+            .map(|x| format!("{:x}", x))
+            .collect::<Vec<_>>()
+            .join("")
     }
 
     /// Format of returned value is an array of 4-bit integers, or None if parsing failed.
@@ -649,12 +689,12 @@ impl PartialStateParser {
         let parser = Self::new(&nodes);
         let root = parser.find_root();
         match root {
-            Some(root) => {
+            | Some(root) => {
                 let mut ret = EntityDataStruct::new();
                 ret.add("root", parser.serialize_node(root));
                 EntityDataValue::Struct(ret.into())
             }
-            None => {
+            | None => {
                 // If finding root failed, just dump the raw nodes as hex.
                 let mut ret = EntityDataStruct::new();
                 ret.add("error", EntityDataValue::String("No root found".to_string()));
@@ -699,7 +739,10 @@ impl PartialStateParser {
             }
         }
         if nodes_not_yet_seen_as_children.len() == 1 {
-            nodes_not_yet_seen_as_children.iter().next().copied()
+            nodes_not_yet_seen_as_children
+                .iter()
+                .next()
+                .copied()
         } else {
             None
         }
@@ -708,28 +751,35 @@ impl PartialStateParser {
     /// Parses the given data that is possibly a trie node (and possibly a value),
     /// and if it looks like a trie node, return all its children hashes (nodes and
     /// values).
-    fn detect_possible_children_of(&self, data: &[u8]) -> Vec<CryptoHash> {
+    fn detect_possible_children_of(
+        &self,
+        data: &[u8],
+    ) -> Vec<CryptoHash> {
         let Ok(node) = RawTrieNodeWithSize::try_from_slice(data) else {
             return vec![];
         };
         match &node.node {
-            RawTrieNode::Leaf(_, value) => {
+            | RawTrieNode::Leaf(_, value) => {
                 vec![value.hash]
             }
-            RawTrieNode::BranchNoValue(children) => {
-                children.iter().map(|(_, child)| *child).collect()
-            }
-            RawTrieNode::BranchWithValue(value, children) => children
+            | RawTrieNode::BranchNoValue(children) => children
+                .iter()
+                .map(|(_, child)| *child)
+                .collect(),
+            | RawTrieNode::BranchWithValue(value, children) => children
                 .iter()
                 .map(|(_, child)| *child)
                 .chain(std::iter::once(value.hash))
                 .collect(),
-            RawTrieNode::Extension(_, child) => vec![*child],
+            | RawTrieNode::Extension(_, child) => vec![*child],
         }
     }
 
     /// Visits node, serializing it as entity debug output.
-    fn serialize_node(&self, hash: CryptoHash) -> EntityDataValue {
+    fn serialize_node(
+        &self,
+        hash: CryptoHash,
+    ) -> EntityDataValue {
         let Some(data) = self.nodes.get(&hash) else {
             // This is a partial trie, so missing is very normal.
             return EntityDataValue::String("(missing)".to_string());
@@ -737,7 +787,7 @@ impl PartialStateParser {
         let mut ret = EntityDataStruct::new();
         let node = RawTrieNodeWithSize::try_from_slice(data.as_ref()).unwrap();
         match &node.node {
-            RawTrieNode::Leaf(extension, value_ref) => {
+            | RawTrieNode::Leaf(extension, value_ref) => {
                 let (nibbles, _) = NibbleSlice::from_encoded(&extension);
                 ret.add(
                     "extension",
@@ -747,18 +797,18 @@ impl PartialStateParser {
                 );
                 ret.add("value", self.serialize_value(value_ref.hash));
             }
-            RawTrieNode::BranchNoValue(children) => {
+            | RawTrieNode::BranchNoValue(children) => {
                 for (index, child) in children.iter() {
                     ret.add(&format!("{:x}", index), self.serialize_node(*child));
                 }
             }
-            RawTrieNode::BranchWithValue(value_ref, children) => {
+            | RawTrieNode::BranchWithValue(value_ref, children) => {
                 ret.add("value", self.serialize_value(value_ref.hash));
                 for (index, child) in children.iter() {
                     ret.add(&format!("{:x}", index), self.serialize_node(*child));
                 }
             }
-            RawTrieNode::Extension(extension, child) => {
+            | RawTrieNode::Extension(extension, child) => {
                 let (nibbles, _) = NibbleSlice::from_encoded(&extension);
                 ret.add(
                     "extension",
@@ -773,11 +823,14 @@ impl PartialStateParser {
     }
 
     /// Visits value, serializing it as entity debug output.
-    fn serialize_value(&self, hash: CryptoHash) -> EntityDataValue {
+    fn serialize_value(
+        &self,
+        hash: CryptoHash,
+    ) -> EntityDataValue {
         let value = match self.nodes.get(&hash) {
-            Some(data) => hex::encode(data),
+            | Some(data) => hex::encode(data),
             // This is a partial trie, so missing is very normal.
-            None => "(missing)".to_string(),
+            | None => "(missing)".to_string(),
         };
         EntityDataValue::String(value)
     }

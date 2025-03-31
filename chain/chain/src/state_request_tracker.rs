@@ -36,9 +36,15 @@ impl StateRequestTracker {
         part_id: &u64,
         elapsed_ms: u128,
     ) {
-        self.requested_state_parts.get_or_insert(*crypto_hash, || HashMap::new());
-        let parts_per_shard = self.requested_state_parts.get_mut(crypto_hash).unwrap();
-        let elapsed = parts_per_shard.entry(*shard_id).or_insert_with(|| vec![]);
+        self.requested_state_parts
+            .get_or_insert(*crypto_hash, || HashMap::new());
+        let parts_per_shard = self
+            .requested_state_parts
+            .get_mut(crypto_hash)
+            .unwrap();
+        let elapsed = parts_per_shard
+            .entry(*shard_id)
+            .or_insert_with(|| vec![]);
         elapsed.push(PartElapsedTimeView::new(part_id, elapsed_ms));
         metrics::STATE_PART_ELAPSED
             .with_label_values(&[&shard_id.to_string()])

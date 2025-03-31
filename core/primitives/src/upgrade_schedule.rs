@@ -168,7 +168,7 @@ impl ProtocolUpgradeVotingSchedule {
     // Parse the protocol version override from the environment.
     // The format is comma separate datetime:=version pairs.
     fn parse_override(
-        override_str: &str,
+        override_str: &str
     ) -> Result<ProtocolUpgradeVotingScheduleRaw, ProtocolUpgradeVotingScheduleError> {
         // The special value "now" means that the upgrade should happen immediately.
         if override_str.to_lowercase() == "now" {
@@ -176,9 +176,13 @@ impl ProtocolUpgradeVotingSchedule {
         }
 
         let mut result = vec![];
-        let datetime_and_version_vec = override_str.split(',').collect::<Vec<_>>();
+        let datetime_and_version_vec = override_str
+            .split(',')
+            .collect::<Vec<_>>();
         for datetime_and_version in datetime_and_version_vec {
-            let datetime_and_version = datetime_and_version.split('=').collect::<Vec<_>>();
+            let datetime_and_version = datetime_and_version
+                .split('=')
+                .collect::<Vec<_>>();
             let [datetime, version] = datetime_and_version[..] else {
                 let input = format!("{:?}", datetime_and_version);
                 let error = "The override must be in the format datetime=version!".to_string();
@@ -236,7 +240,10 @@ mod tests {
             let datetime = datetime.unwrap();
             (datetime, version)
         };
-        let schedule = schedule.into_iter().map(parse).collect::<Vec<_>>();
+        let schedule = schedule
+            .into_iter()
+            .map(parse)
+            .collect::<Vec<_>>();
         let schedule = ProtocolUpgradeVotingSchedule::new_from_env_or_schedule(
             client_protocol_version,
             schedule,
@@ -412,22 +419,34 @@ mod tests {
         let client_protocol_version = 110;
 
         // invalid last upgrade
-        let schedule = vec![("2000-01-10 00:00:00", 108), ("2000-01-15 00:00:00", 109)];
+        let schedule = vec![
+            ("2000-01-10 00:00:00", 108),
+            ("2000-01-15 00:00:00", 109),
+        ];
         let schedule = make_voting_schedule_impl(schedule, client_protocol_version);
         assert!(schedule.is_err());
 
         // invalid protocol version order - decreasing versions
-        let schedule = vec![("2000-01-10 00:00:00", 111), ("2000-01-15 00:00:00", 110)];
+        let schedule = vec![
+            ("2000-01-10 00:00:00", 111),
+            ("2000-01-15 00:00:00", 110),
+        ];
         let schedule = make_voting_schedule_impl(schedule, client_protocol_version);
         assert!(schedule.is_err());
 
         // invalid protocol version order - skip version
-        let schedule = vec![("2000-01-10 00:00:00", 108), ("2000-01-15 00:00:00", 110)];
+        let schedule = vec![
+            ("2000-01-10 00:00:00", 108),
+            ("2000-01-15 00:00:00", 110),
+        ];
         let schedule = make_voting_schedule_impl(schedule, client_protocol_version);
         assert!(schedule.is_err());
 
         // invalid datetime order
-        let schedule = vec![("2000-01-15 00:00:00", 109), ("2000-01-10 00:00:00", 110)];
+        let schedule = vec![
+            ("2000-01-15 00:00:00", 109),
+            ("2000-01-10 00:00:00", 110),
+        ];
         let schedule = make_voting_schedule_impl(schedule, client_protocol_version);
         assert!(schedule.is_err());
     }
@@ -471,8 +490,11 @@ mod tests {
 
         // test double upgrade
 
-        let override_str =
-            [datetime_version_str_1.clone(), datetime_version_str_2.clone()].join(",");
+        let override_str = [
+            datetime_version_str_1.clone(),
+            datetime_version_str_2.clone(),
+        ]
+        .join(",");
         let raw_schedule = ProtocolUpgradeVotingSchedule::parse_override(&override_str).unwrap();
         assert_eq!(raw_schedule.len(), 2);
 
@@ -484,8 +506,12 @@ mod tests {
 
         // test triple upgrade
 
-        let override_str =
-            [datetime_version_str_1, datetime_version_str_2, datetime_version_str_3].join(",");
+        let override_str = [
+            datetime_version_str_1,
+            datetime_version_str_2,
+            datetime_version_str_3,
+        ]
+        .join(",");
         let raw_schedule = ProtocolUpgradeVotingSchedule::parse_override(&override_str).unwrap();
         assert_eq!(raw_schedule.len(), 3);
 

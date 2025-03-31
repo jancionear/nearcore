@@ -25,7 +25,9 @@ fn set_table_item(
     item_index: u32,
     item: TableElement,
 ) -> Result<(), RuntimeError> {
-    table.set(item_index, item).map_err(|e| e.into())
+    table
+        .set(item_index, item)
+        .map_err(|e| e.into())
 }
 
 impl Table {
@@ -35,11 +37,17 @@ impl Table {
     ///
     /// This function will construct the `Table` using the store
     /// [`BaseTunables`][crate::sys::BaseTunables].
-    pub fn new(store: &Store, ty: TableType, init: Val) -> Result<Self, RuntimeError> {
+    pub fn new(
+        store: &Store,
+        ty: TableType,
+        init: Val,
+    ) -> Result<Self, RuntimeError> {
         let item = init.into_table_reference(store)?;
         let tunables = store.tunables();
         let style = tunables.table_style(&ty);
-        let table = tunables.create_host_table(&ty, &style).map_err(RuntimeError::new)?;
+        let table = tunables
+            .create_host_table(&ty, &style)
+            .map_err(RuntimeError::new)?;
 
         let num_elements = table.size();
         for i in 0..num_elements {
@@ -64,12 +72,18 @@ impl Table {
         self.vm_table.from.size()
     }
 
-    pub(crate) fn from_vm_export(store: &Store, vm_table: VMTable) -> Self {
+    pub(crate) fn from_vm_export(
+        store: &Store,
+        vm_table: VMTable,
+    ) -> Self {
         Self { store: store.clone(), vm_table }
     }
 
     /// Returns whether or not these two tables refer to the same data.
-    pub fn same(&self, other: &Self) -> bool {
+    pub fn same(
+        &self,
+        other: &Self,
+    ) -> bool {
         Arc::ptr_eq(&self.vm_table.from, &other.vm_table.from)
     }
 

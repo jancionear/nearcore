@@ -259,11 +259,17 @@ pub enum Error {
 /// For now StorageError can happen at any time from ViewClient because of
 /// the used isolation level + running ViewClient in a separate thread.
 pub trait LogTransientStorageError {
-    fn log_storage_error(self, message: &str) -> Self;
+    fn log_storage_error(
+        self,
+        message: &str,
+    ) -> Self;
 }
 
 impl<T> LogTransientStorageError for Result<T, Error> {
-    fn log_storage_error(self, message: &str) -> Self {
+    fn log_storage_error(
+        self,
+        message: &str,
+    ) -> Self {
         if let Err(err) = &self {
             tracing::error!(target: "chain", "Transient storage error: {message}, {err}");
         }
@@ -274,7 +280,7 @@ impl<T> LogTransientStorageError for Result<T, Error> {
 impl Error {
     pub fn is_bad_data(&self) -> bool {
         match self {
-            Error::BlockKnown(_)
+            | Error::BlockKnown(_)
             | Error::TooManyProcessingBlocks
             | Error::Orphan
             | Error::ChunkMissing(_)
@@ -290,7 +296,7 @@ impl Error {
             | Error::GCError(_)
             | Error::ReshardingError(_)
             | Error::DBNotFoundErr(_) => false,
-            Error::InvalidBlockPastTime(_, _)
+            | Error::InvalidBlockPastTime(_, _)
             | Error::InvalidBlockFutureTime(_)
             | Error::InvalidBlockHeight(_)
             | Error::InvalidBlockProposer
@@ -346,8 +352,8 @@ impl Error {
 
     pub fn is_error(&self) -> bool {
         match self {
-            Error::IOErr(_) | Error::Other(_) | Error::DBNotFoundErr(_) => true,
-            _ => false,
+            | Error::IOErr(_) | Error::Other(_) | Error::DBNotFoundErr(_) => true,
+            | _ => false,
         }
     }
 
@@ -358,73 +364,73 @@ impl Error {
     /// This function returns the value of the error label for a specific instance of Error.
     pub fn prometheus_label_value(&self) -> &'static str {
         match self {
-            Error::BlockKnown(_) => "block_known",
-            Error::TooManyProcessingBlocks => "too_many_processing_blocks",
-            Error::Orphan => "orphan",
-            Error::ChunkMissing(_) => "chunk_missing",
-            Error::ChunksMissing(_) => "chunks_missing",
-            Error::InvalidChunkHeight => "invalid_chunk_height",
-            Error::IOErr(_) => "io_err",
-            Error::Other(_) => "other",
-            Error::ValidatorError(_) => "validator_error",
-            Error::EpochOutOfBounds(_) => "epoch_out_of_bounds",
-            Error::ChallengedBlockOnChain => "challenged_block_on_chain",
-            Error::CannotBeFinalized => "cannot_be_finalized",
-            Error::StorageError(_) => "storage_error",
-            Error::GCError(_) => "gc_error",
-            Error::DBNotFoundErr(_) => "db_not_found_err",
-            Error::InvalidBlockPastTime(_, _) => "invalid_block_past_time",
-            Error::InvalidBlockFutureTime(_) => "invalid_block_future_time",
-            Error::InvalidBlockHeight(_) => "invalid_block_height",
-            Error::InvalidBlockProposer => "invalid_block_proposer",
-            Error::InvalidChunk(_) => "invalid_chunk",
-            Error::InvalidChunkTransactionsOrder(_) => "invalid_chunk_transactions_order",
-            Error::InvalidChunkProofs(_) => "invalid_chunk_proofs",
-            Error::InvalidChunkState(_) => "invalid_chunk_state",
-            Error::InvalidChunkStateWitness(_) => "invalid_chunk_state_witness",
-            Error::InvalidPartialChunkStateWitness(_) => "invalid_partial_chunk_state_witness",
-            Error::InvalidChunkEndorsement => "invalid_chunk_endorsement",
-            Error::InvalidChunkEndorsementBitmap(_) => "invalid_chunk_endorsement_bitmap",
-            Error::InvalidChunkMask => "invalid_chunk_mask",
-            Error::InvalidStateRoot => "invalid_state_root",
-            Error::InvalidTxRoot => "invalid_tx_root",
-            Error::InvalidChunkReceiptsRoot => "invalid_chunk_receipts_root",
-            Error::InvalidOutcomesProof => "invalid_outcomes_proof",
-            Error::InvalidChunkHeadersRoot => "invalid_chunk_headers_root",
-            Error::InvalidChunkTxRoot => "invalid_chunk_tx_root",
-            Error::InvalidReceiptsProof => "invalid_receipts_proof",
-            Error::InvalidStatePayload => "invalid_state_payload",
-            Error::InvalidTransactions => "invalid_transactions",
-            Error::InvalidChallenge => "invalid_challenge",
-            Error::InvalidSplitShardsIds(_, _) => "invalid_split_shard_ids",
-            Error::MaliciousChallenge => "malicious_challenge",
-            Error::IncorrectNumberOfChunkHeaders => "incorrect_number_of_chunk_headers",
-            Error::InvalidEpochHash => "invalid_epoch_hash",
-            Error::InvalidEpochSyncProof(_) => "invalid_epoch_sync_proof",
-            Error::InvalidNextBPHash => "invalid_next_bp_hash",
-            Error::NotEnoughApprovals => "not_enough_approvals",
-            Error::InvalidFinalityInfo => "invalid_finality_info",
-            Error::InvalidValidatorProposals => "invalid_validator_proposals",
-            Error::InvalidSignature => "invalid_signature",
-            Error::InvalidApprovals => "invalid_approvals",
-            Error::InvalidGasLimit => "invalid_gas_limit",
-            Error::InvalidGasPrice => "invalid_gas_price",
-            Error::InvalidGasUsed => "invalid_gas_used",
-            Error::InvalidBalanceBurnt => "invalid_balance_burnt",
-            Error::InvalidCongestionInfo(_) => "invalid_congestion_info",
-            Error::InvalidBandwidthRequests(_) => "invalid_bandwidth_requests",
-            Error::InvalidShardId(_) => "invalid_shard_id",
-            Error::InvalidShardIndex(_) => "invalid_shard_index",
-            Error::NoParentShardId(_) => "no_parent_shard_id",
-            Error::InvalidStateRequest(_) => "invalid_state_request",
-            Error::InvalidRandomnessBeaconOutput => "invalid_randomness_beacon_output",
-            Error::InvalidBlockMerkleRoot => "invalid_block_merkle_root",
-            Error::InvalidProtocolVersion => "invalid_protocol_version",
-            Error::NotAValidator(_) => "not_a_validator",
-            Error::NotAChunkValidator => "not_a_chunk_validator",
-            Error::InvalidChallengeRoot => "invalid_challenge_root",
-            Error::ReshardingError(_) => "resharding_error",
-            Error::BadHeaderForProtocolVersion(_) => "bad_header_for_protocol_version",
+            | Error::BlockKnown(_) => "block_known",
+            | Error::TooManyProcessingBlocks => "too_many_processing_blocks",
+            | Error::Orphan => "orphan",
+            | Error::ChunkMissing(_) => "chunk_missing",
+            | Error::ChunksMissing(_) => "chunks_missing",
+            | Error::InvalidChunkHeight => "invalid_chunk_height",
+            | Error::IOErr(_) => "io_err",
+            | Error::Other(_) => "other",
+            | Error::ValidatorError(_) => "validator_error",
+            | Error::EpochOutOfBounds(_) => "epoch_out_of_bounds",
+            | Error::ChallengedBlockOnChain => "challenged_block_on_chain",
+            | Error::CannotBeFinalized => "cannot_be_finalized",
+            | Error::StorageError(_) => "storage_error",
+            | Error::GCError(_) => "gc_error",
+            | Error::DBNotFoundErr(_) => "db_not_found_err",
+            | Error::InvalidBlockPastTime(_, _) => "invalid_block_past_time",
+            | Error::InvalidBlockFutureTime(_) => "invalid_block_future_time",
+            | Error::InvalidBlockHeight(_) => "invalid_block_height",
+            | Error::InvalidBlockProposer => "invalid_block_proposer",
+            | Error::InvalidChunk(_) => "invalid_chunk",
+            | Error::InvalidChunkTransactionsOrder(_) => "invalid_chunk_transactions_order",
+            | Error::InvalidChunkProofs(_) => "invalid_chunk_proofs",
+            | Error::InvalidChunkState(_) => "invalid_chunk_state",
+            | Error::InvalidChunkStateWitness(_) => "invalid_chunk_state_witness",
+            | Error::InvalidPartialChunkStateWitness(_) => "invalid_partial_chunk_state_witness",
+            | Error::InvalidChunkEndorsement => "invalid_chunk_endorsement",
+            | Error::InvalidChunkEndorsementBitmap(_) => "invalid_chunk_endorsement_bitmap",
+            | Error::InvalidChunkMask => "invalid_chunk_mask",
+            | Error::InvalidStateRoot => "invalid_state_root",
+            | Error::InvalidTxRoot => "invalid_tx_root",
+            | Error::InvalidChunkReceiptsRoot => "invalid_chunk_receipts_root",
+            | Error::InvalidOutcomesProof => "invalid_outcomes_proof",
+            | Error::InvalidChunkHeadersRoot => "invalid_chunk_headers_root",
+            | Error::InvalidChunkTxRoot => "invalid_chunk_tx_root",
+            | Error::InvalidReceiptsProof => "invalid_receipts_proof",
+            | Error::InvalidStatePayload => "invalid_state_payload",
+            | Error::InvalidTransactions => "invalid_transactions",
+            | Error::InvalidChallenge => "invalid_challenge",
+            | Error::InvalidSplitShardsIds(_, _) => "invalid_split_shard_ids",
+            | Error::MaliciousChallenge => "malicious_challenge",
+            | Error::IncorrectNumberOfChunkHeaders => "incorrect_number_of_chunk_headers",
+            | Error::InvalidEpochHash => "invalid_epoch_hash",
+            | Error::InvalidEpochSyncProof(_) => "invalid_epoch_sync_proof",
+            | Error::InvalidNextBPHash => "invalid_next_bp_hash",
+            | Error::NotEnoughApprovals => "not_enough_approvals",
+            | Error::InvalidFinalityInfo => "invalid_finality_info",
+            | Error::InvalidValidatorProposals => "invalid_validator_proposals",
+            | Error::InvalidSignature => "invalid_signature",
+            | Error::InvalidApprovals => "invalid_approvals",
+            | Error::InvalidGasLimit => "invalid_gas_limit",
+            | Error::InvalidGasPrice => "invalid_gas_price",
+            | Error::InvalidGasUsed => "invalid_gas_used",
+            | Error::InvalidBalanceBurnt => "invalid_balance_burnt",
+            | Error::InvalidCongestionInfo(_) => "invalid_congestion_info",
+            | Error::InvalidBandwidthRequests(_) => "invalid_bandwidth_requests",
+            | Error::InvalidShardId(_) => "invalid_shard_id",
+            | Error::InvalidShardIndex(_) => "invalid_shard_index",
+            | Error::NoParentShardId(_) => "no_parent_shard_id",
+            | Error::InvalidStateRequest(_) => "invalid_state_request",
+            | Error::InvalidRandomnessBeaconOutput => "invalid_randomness_beacon_output",
+            | Error::InvalidBlockMerkleRoot => "invalid_block_merkle_root",
+            | Error::InvalidProtocolVersion => "invalid_protocol_version",
+            | Error::NotAValidator(_) => "not_a_validator",
+            | Error::NotAChunkValidator => "not_a_chunk_validator",
+            | Error::InvalidChallengeRoot => "invalid_challenge_root",
+            | Error::ReshardingError(_) => "resharding_error",
+            | Error::BadHeaderForProtocolVersion(_) => "bad_header_for_protocol_version",
         }
     }
 }
@@ -432,12 +438,12 @@ impl Error {
 impl From<EpochError> for Error {
     fn from(error: EpochError) -> Self {
         match error {
-            EpochError::EpochOutOfBounds(epoch_id) => Error::EpochOutOfBounds(epoch_id),
-            EpochError::MissingBlock(h) => Error::DBNotFoundErr(format!("epoch block: {h}")),
-            EpochError::NotAValidator(account_id, epoch_id) => {
+            | EpochError::EpochOutOfBounds(epoch_id) => Error::EpochOutOfBounds(epoch_id),
+            | EpochError::MissingBlock(h) => Error::DBNotFoundErr(format!("epoch block: {h}")),
+            | EpochError::NotAValidator(account_id, epoch_id) => {
                 Error::NotAValidator(format!("account_id: {account_id}, epoch_id: {epoch_id:?}"))
             }
-            err => Error::ValidatorError(err.to_string()),
+            | err => Error::ValidatorError(err.to_string()),
         }
     }
 }
@@ -455,11 +461,11 @@ impl<T> EpochErrorResultToChainError<T> for Result<T, EpochError> {
 impl From<ShardLayoutError> for Error {
     fn from(error: ShardLayoutError) -> Self {
         match error {
-            ShardLayoutError::InvalidShardIdError { shard_id } => Error::InvalidShardId(shard_id),
-            ShardLayoutError::InvalidShardIndexError { shard_index } => {
+            | ShardLayoutError::InvalidShardIdError { shard_id } => Error::InvalidShardId(shard_id),
+            | ShardLayoutError::InvalidShardIndexError { shard_index } => {
                 Error::InvalidShardIndex(shard_index)
             }
-            ShardLayoutError::NoParentError { shard_id } => Error::NoParentShardId(shard_id),
+            | ShardLayoutError::NoParentError { shard_id } => Error::NoParentShardId(shard_id),
         }
     }
 }
@@ -467,12 +473,12 @@ impl From<ShardLayoutError> for Error {
 impl From<BlockValidityError> for Error {
     fn from(error: BlockValidityError) -> Self {
         match error {
-            BlockValidityError::InvalidStateRoot => Error::InvalidStateRoot,
-            BlockValidityError::InvalidReceiptRoot => Error::InvalidChunkReceiptsRoot,
-            BlockValidityError::InvalidTransactionRoot => Error::InvalidTxRoot,
-            BlockValidityError::InvalidChunkHeaderRoot => Error::InvalidChunkHeadersRoot,
-            BlockValidityError::InvalidChunkMask => Error::InvalidChunkMask,
-            BlockValidityError::InvalidChallengeRoot => Error::InvalidChallengeRoot,
+            | BlockValidityError::InvalidStateRoot => Error::InvalidStateRoot,
+            | BlockValidityError::InvalidReceiptRoot => Error::InvalidChunkReceiptsRoot,
+            | BlockValidityError::InvalidTransactionRoot => Error::InvalidTxRoot,
+            | BlockValidityError::InvalidChunkHeaderRoot => Error::InvalidChunkHeadersRoot,
+            | BlockValidityError::InvalidChunkMask => Error::InvalidChunkMask,
+            | BlockValidityError::InvalidChallengeRoot => Error::InvalidChallengeRoot,
         }
     }
 }
@@ -480,7 +486,7 @@ impl From<BlockValidityError> for Error {
 impl From<ChunkAccessError> for Error {
     fn from(error: ChunkAccessError) -> Self {
         match error {
-            ChunkAccessError::ChunkMissing(chunk_hash) => Error::ChunkMissing(chunk_hash),
+            | ChunkAccessError::ChunkMissing(chunk_hash) => Error::ChunkMissing(chunk_hash),
         }
     }
 }

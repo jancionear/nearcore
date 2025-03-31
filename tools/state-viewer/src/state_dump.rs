@@ -67,12 +67,16 @@ pub fn state_dump(
             amount: *amount,
         })
         .collect();
-    genesis_config.validators.sort_by_key(|account_info| account_info.account_id.clone());
+    genesis_config
+        .validators
+        .sort_by_key(|account_info| account_info.account_id.clone());
     // Record the protocol version of the latest block. Otherwise, the state
     // dump ignores the fact that the nodes can be running a newer protocol
     // version than the protocol version of the genesis.
     genesis_config.protocol_version = last_block_header.latest_protocol_version();
-    let shard_config = epoch_manager.get_shard_config(last_block_header.epoch_id()).unwrap();
+    let shard_config = epoch_manager
+        .get_shard_config(last_block_header.epoch_id())
+        .unwrap();
     genesis_config.shard_layout = shard_config.shard_layout;
     genesis_config.num_block_producer_seats_per_shard =
         shard_config.num_block_producer_seats_per_shard;
@@ -81,7 +85,7 @@ pub fn state_dump(
     // Record only the filename of the records file.
     // Otherwise the absolute path is stored making it impossible to copy the dumped state to actually use it.
     match records_path {
-        Some(records_path) => {
+        | Some(records_path) => {
             let mut records_path_dir = records_path.to_path_buf();
             records_path_dir.pop();
             fs::create_dir_all(&records_path_dir).unwrap_or_else(|_| {
@@ -106,10 +110,16 @@ pub fn state_dump(
             genesis_config.total_supply = total_supply;
             change_genesis_config(&mut genesis_config, change_config);
             near_config.genesis = Genesis::new_with_path(genesis_config, records_path).unwrap();
-            near_config.config.genesis_records_file =
-                Some(records_path.file_name().unwrap().to_str().unwrap().to_string());
+            near_config.config.genesis_records_file = Some(
+                records_path
+                    .file_name()
+                    .unwrap()
+                    .to_str()
+                    .unwrap()
+                    .to_string(),
+            );
         }
-        None => {
+        | None => {
             let mut records: Vec<StateRecord> = vec![];
             let total_supply = iterate_over_records(
                 epoch_manager,
@@ -145,10 +155,14 @@ pub fn state_dump_redis(
     let block_height = last_block_header.height();
     let block_hash = last_block_header.hash();
     let epoch_id = last_block_header.epoch_id();
-    let shard_layout = epoch_manager.get_shard_layout(epoch_id).unwrap();
+    let shard_layout = epoch_manager
+        .get_shard_layout(epoch_id)
+        .unwrap();
 
     for (shard_index, state_root) in state_roots.iter().enumerate() {
-        let shard_id = shard_layout.get_shard_id(shard_index).unwrap();
+        let shard_id = shard_layout
+            .get_shard_id(shard_index)
+            .unwrap();
         let trie = runtime
             .get_trie_for_shard(shard_id, last_block_header.prev_hash(), *state_root, false)
             .unwrap();
@@ -165,7 +179,13 @@ pub fn state_dump_redis(
                     )?;
                     let value = borsh::to_vec(&account).unwrap();
                     let () = redis_connection.set(
-                        [b"account-data:", redis_key, b":", block_hash.as_ref()].concat(),
+                        [
+                            b"account-data:",
+                            redis_key,
+                            b":",
+                            block_hash.as_ref(),
+                        ]
+                        .concat(),
                         value,
                     )?;
                     println!("Account written: {}", account_id);
@@ -173,7 +193,12 @@ pub fn state_dump_redis(
 
                 if let StateRecord::Data { account_id, data_key, value } = &sr {
                     println!("Data: {}", account_id);
-                    let redis_key = [account_id.as_bytes(), b":", data_key.as_ref()].concat();
+                    let redis_key = [
+                        account_id.as_bytes(),
+                        b":",
+                        data_key.as_ref(),
+                    ]
+                    .concat();
                     let () = redis_connection.zadd(
                         [b"data:", redis_key.as_slice()].concat(),
                         block_hash.as_ref(),
@@ -181,7 +206,13 @@ pub fn state_dump_redis(
                     )?;
                     let value_vec: &[u8] = value.as_ref();
                     let () = redis_connection.set(
-                        [b"data-value:", redis_key.as_slice(), b":", block_hash.as_ref()].concat(),
+                        [
+                            b"data-value:",
+                            redis_key.as_slice(),
+                            b":",
+                            block_hash.as_ref(),
+                        ]
+                        .concat(),
                         value_vec,
                     )?;
                     println!("Data written: {}", account_id);
@@ -197,7 +228,12 @@ pub fn state_dump_redis(
                     )?;
                     let value_vec: &[u8] = code.as_ref();
                     let () = redis_connection.set(
-                        [redis_key.clone(), b":".to_vec(), block_hash.0.to_vec()].concat(),
+                        [
+                            redis_key.clone(),
+                            b":".to_vec(),
+                            block_hash.0.to_vec(),
+                        ]
+                        .concat(),
                         value_vec,
                     )?;
                     println!("Contract written: {}", account_id);
@@ -214,8 +250,8 @@ fn should_include_record(
     account_allowlist: &Option<HashSet<&AccountId>>,
 ) -> bool {
     match account_allowlist {
-        None => true,
-        Some(allowlist) => {
+        | None => true,
+        | Some(allowlist) => {
             let current_account_id = state_record_to_account_id(record);
             allowlist.contains(current_account_id)
         }
@@ -234,9 +270,11 @@ fn iterate_over_records(
     change_config: &GenesisChangeConfig,
 ) -> Balance {
     let account_allowlist = match &change_config.select_account_ids {
-        None => None,
-        Some(select_account_id_list) => {
-            let mut result = validators.keys().collect::<HashSet<&AccountId>>();
+        | None => None,
+        | Some(select_account_id_list) => {
+            let mut result = validators
+                .keys()
+                .collect::<HashSet<&AccountId>>();
             result.extend(select_account_id_list);
             result.insert(protocol_treasury_account);
             Some(result)
@@ -244,11 +282,15 @@ fn iterate_over_records(
     };
 
     let epoch_id = last_block_header.epoch_id();
-    let shard_layout = epoch_manager.get_shard_layout(epoch_id).unwrap();
+    let shard_layout = epoch_manager
+        .get_shard_layout(epoch_id)
+        .unwrap();
 
     let mut total_supply = 0;
     for (shard_index, state_root) in state_roots.iter().enumerate() {
-        let shard_id = shard_layout.get_shard_id(shard_index).unwrap();
+        let shard_id = shard_layout
+            .get_shard_id(shard_index)
+            .unwrap();
         let trie = runtime
             .get_trie_for_shard(shard_id, last_block_header.prev_hash(), *state_root, false)
             .unwrap();
@@ -260,7 +302,10 @@ fn iterate_over_records(
                 }
                 if let StateRecord::Account { account_id, account } = &mut sr {
                     if account.locked() > 0 {
-                        let stake = *validators.get(account_id).map(|(_, s)| s).unwrap_or(&0);
+                        let stake = *validators
+                            .get(account_id)
+                            .map(|(_, s)| s)
+                            .unwrap_or(&0);
                         if account.locked() > stake {
                             account.set_amount(account.amount() + account.locked() - stake);
                         }
@@ -278,7 +323,10 @@ fn iterate_over_records(
 
 /// Change record according to genesis_change_config.
 /// 1. Remove stake from non-whitelisted validators;
-pub fn change_state_record(record: &mut StateRecord, genesis_change_config: &GenesisChangeConfig) {
+pub fn change_state_record(
+    record: &mut StateRecord,
+    genesis_change_config: &GenesisChangeConfig,
+) {
     // Kick validators outside of whitelist
     if let Some(whitelist) = &genesis_change_config.whitelist_validators {
         if let StateRecord::Account { account_id, account } = record {
@@ -299,7 +347,9 @@ pub fn change_genesis_config(
     {
         // Kick validators outside of whitelist
         if let Some(whitelist) = &genesis_change_config.whitelist_validators {
-            genesis_config.validators.retain(|v| whitelist.contains(&v.account_id));
+            genesis_config
+                .validators
+                .retain(|v| whitelist.contains(&v.account_id));
         }
     }
 }
@@ -343,10 +393,17 @@ mod test {
         protocol_version: ProtocolVersion,
         test_resharding: bool,
     ) -> (Store, Genesis, TestEnv, NearConfig) {
-        let mut genesis =
-            Genesis::test(vec!["test0".parse().unwrap(), "test1".parse().unwrap()], 1);
+        let mut genesis = Genesis::test(
+            vec![
+                "test0".parse().unwrap(),
+                "test1".parse().unwrap(),
+            ],
+            1,
+        );
         genesis.config.num_block_producer_seats = 2;
-        genesis.config.num_block_producer_seats_per_shard = vec![2];
+        genesis
+            .config
+            .num_block_producer_seats_per_shard = vec![2];
         genesis.config.epoch_length = epoch_length;
         genesis.config.protocol_version = protocol_version;
         genesis.config.use_production_config = test_resharding;
@@ -383,7 +440,10 @@ mod test {
         )
         .unwrap();
 
-        let store = env.clients[0].chain.chain_store().store();
+        let store = env.clients[0]
+            .chain
+            .chain_store()
+            .store();
         (store, genesis, env, near_config)
     }
 
@@ -435,12 +495,24 @@ mod test {
             .get_epoch_block_producers_ordered(&cur_epoch_id, &last_block_hash)
             .unwrap();
         assert_eq!(
-            block_producers.into_iter().map(|(r, _)| r.take_account_id()).collect::<HashSet<_>>(),
-            HashSet::from_iter(vec!["test0".parse().unwrap(), "test1".parse().unwrap()])
+            block_producers
+                .into_iter()
+                .map(|(r, _)| r.take_account_id())
+                .collect::<HashSet<_>>(),
+            HashSet::from_iter(vec![
+                "test0".parse().unwrap(),
+                "test1".parse().unwrap()
+            ])
         );
-        let last_block = env.clients[0].chain.get_block(&head.last_block_hash).unwrap();
-        let state_roots: Vec<CryptoHash> =
-            last_block.chunks().iter_deprecated().map(|chunk| chunk.prev_state_root()).collect();
+        let last_block = env.clients[0]
+            .chain
+            .get_block(&head.last_block_hash)
+            .unwrap();
+        let state_roots: Vec<CryptoHash> = last_block
+            .chunks()
+            .iter_deprecated()
+            .map(|chunk| chunk.prev_state_root())
+            .collect();
         initialize_genesis_state(store.clone(), &genesis, None);
         let epoch_manager = EpochManager::new_arc_handle(store.clone(), &genesis.config, None);
         let runtime =
@@ -473,9 +545,11 @@ mod test {
             "test0".parse().unwrap(),
             "test0".parse().unwrap(),
             &signer0,
-            vec![Action::DeployContract(DeployContractAction {
-                code: near_test_contracts::backwards_compatible_rs_contract().to_vec(),
-            })],
+            vec![Action::DeployContract(
+                DeployContractAction {
+                    code: near_test_contracts::backwards_compatible_rs_contract().to_vec(),
+                },
+            )],
             genesis_hash,
             0,
         );
@@ -511,12 +585,24 @@ mod test {
             .get_epoch_block_producers_ordered(&cur_epoch_id, &last_block_hash)
             .unwrap();
         assert_eq!(
-            block_producers.into_iter().map(|(r, _)| r.take_account_id()).collect::<HashSet<_>>(),
-            HashSet::from_iter(vec!["test0".parse().unwrap(), "test1".parse().unwrap()]),
+            block_producers
+                .into_iter()
+                .map(|(r, _)| r.take_account_id())
+                .collect::<HashSet<_>>(),
+            HashSet::from_iter(vec![
+                "test0".parse().unwrap(),
+                "test1".parse().unwrap()
+            ]),
         );
-        let last_block = env.clients[0].chain.get_block(&head.last_block_hash).unwrap();
-        let state_roots: Vec<CryptoHash> =
-            last_block.chunks().iter_deprecated().map(|chunk| chunk.prev_state_root()).collect();
+        let last_block = env.clients[0]
+            .chain
+            .get_block(&head.last_block_hash)
+            .unwrap();
+        let state_roots: Vec<CryptoHash> = last_block
+            .chunks()
+            .iter_deprecated()
+            .map(|chunk| chunk.prev_state_root())
+            .collect();
         initialize_genesis_state(store.clone(), &genesis, None);
         let epoch_manager = EpochManager::new_arc_handle(store.clone(), &genesis.config, None);
         let runtime =
@@ -533,10 +619,19 @@ mod test {
                 .with_select_account_ids(Some(select_account_ids.clone())),
         );
         let new_genesis = new_near_config.genesis;
-        let mut expected_accounts: HashSet<AccountId> =
-            new_genesis.config.validators.iter().map(|v| v.account_id.clone()).collect();
+        let mut expected_accounts: HashSet<AccountId> = new_genesis
+            .config
+            .validators
+            .iter()
+            .map(|v| v.account_id.clone())
+            .collect();
         expected_accounts.extend(select_account_ids);
-        expected_accounts.insert(new_genesis.config.protocol_treasury_account.clone());
+        expected_accounts.insert(
+            new_genesis
+                .config
+                .protocol_treasury_account
+                .clone(),
+        );
         let mut actual_accounts: HashSet<AccountId> = HashSet::new();
         new_genesis.for_each_record(|record| {
             if let StateRecord::Account { account_id, .. } = record {
@@ -574,12 +669,24 @@ mod test {
             .get_epoch_block_producers_ordered(&cur_epoch_id, &last_block_hash)
             .unwrap();
         assert_eq!(
-            block_producers.into_iter().map(|(r, _)| r.take_account_id()).collect::<HashSet<_>>(),
-            HashSet::from_iter(vec!["test0".parse().unwrap(), "test1".parse().unwrap()])
+            block_producers
+                .into_iter()
+                .map(|(r, _)| r.take_account_id())
+                .collect::<HashSet<_>>(),
+            HashSet::from_iter(vec![
+                "test0".parse().unwrap(),
+                "test1".parse().unwrap()
+            ])
         );
-        let last_block = env.clients[0].chain.get_block(&head.last_block_hash).unwrap();
-        let state_roots: Vec<CryptoHash> =
-            last_block.chunks().iter_deprecated().map(|chunk| chunk.prev_state_root()).collect();
+        let last_block = env.clients[0]
+            .chain
+            .get_block(&head.last_block_hash)
+            .unwrap();
+        let state_roots: Vec<CryptoHash> = last_block
+            .chunks()
+            .iter_deprecated()
+            .map(|chunk| chunk.prev_state_root())
+            .collect();
         initialize_genesis_state(store.clone(), &genesis, None);
         let epoch_manager = EpochManager::new_arc_handle(store.clone(), &genesis.config, None);
         let runtime =
@@ -619,9 +726,15 @@ mod test {
         }
 
         let head = env.clients[0].chain.head().unwrap();
-        let last_block = env.clients[0].chain.get_block(&head.last_block_hash).unwrap();
-        let state_roots: Vec<CryptoHash> =
-            last_block.chunks().iter_deprecated().map(|chunk| chunk.prev_state_root()).collect();
+        let last_block = env.clients[0]
+            .chain
+            .get_block(&head.last_block_hash)
+            .unwrap();
+        let state_roots: Vec<CryptoHash> = last_block
+            .chunks()
+            .iter_deprecated()
+            .map(|chunk| chunk.prev_state_root())
+            .collect();
         initialize_genesis_state(store.clone(), &genesis, None);
         let epoch_manager = EpochManager::new_arc_handle(store.clone(), &genesis.config, None);
         let runtime =
@@ -663,20 +776,34 @@ mod test {
         let (store, genesis, mut env, near_config) =
             setup(epoch_length, SimpleNightshade.protocol_version() - 1, true);
         for i in 1..=2 * epoch_length + 1 {
-            let mut block = env.clients[0].produce_block(i).unwrap().unwrap();
-            block.mut_header().set_latest_protocol_version(SimpleNightshade.protocol_version());
+            let mut block = env.clients[0]
+                .produce_block(i)
+                .unwrap()
+                .unwrap();
+            block
+                .mut_header()
+                .set_latest_protocol_version(SimpleNightshade.protocol_version());
             env.process_block(0, block, Provenance::PRODUCED);
             run_catchup(&mut env.clients[0], &[]).unwrap();
         }
         let head = env.clients[0].chain.head().unwrap();
         assert_eq!(
-            env.clients[0].epoch_manager.get_shard_layout(&head.epoch_id).unwrap(),
+            env.clients[0]
+                .epoch_manager
+                .get_shard_layout(&head.epoch_id)
+                .unwrap(),
             ShardLayout::get_simple_nightshade_layout(),
         );
-        let last_block = env.clients[0].chain.get_block(&head.last_block_hash).unwrap();
+        let last_block = env.clients[0]
+            .chain
+            .get_block(&head.last_block_hash)
+            .unwrap();
 
-        let state_roots: Vec<CryptoHash> =
-            last_block.chunks().iter_deprecated().map(|chunk| chunk.prev_state_root()).collect();
+        let state_roots: Vec<CryptoHash> = last_block
+            .chunks()
+            .iter_deprecated()
+            .map(|chunk| chunk.prev_state_root())
+            .collect();
         initialize_genesis_state(store.clone(), &genesis, None);
         let epoch_manager = EpochManager::new_arc_handle(store.clone(), &genesis.config, None);
         let runtime =
@@ -694,8 +821,18 @@ mod test {
         let new_genesis = new_near_config.genesis;
 
         assert_eq!(new_genesis.config.shard_layout, ShardLayout::get_simple_nightshade_layout());
-        assert_eq!(new_genesis.config.num_block_producer_seats_per_shard, vec![2; 4]);
-        assert_eq!(new_genesis.config.avg_hidden_validator_seats_per_shard, vec![0; 4]);
+        assert_eq!(
+            new_genesis
+                .config
+                .num_block_producer_seats_per_shard,
+            vec![2; 4]
+        );
+        assert_eq!(
+            new_genesis
+                .config
+                .avg_hidden_validator_seats_per_shard,
+            vec![0; 4]
+        );
     }
 
     /// If the node does not track a shard, state dump will not give the correct result.
@@ -703,10 +840,17 @@ mod test {
     #[should_panic(expected = "MissingTrieValue")]
     fn test_dump_state_not_track_shard() {
         let epoch_length = 4;
-        let mut genesis =
-            Genesis::test(vec!["test0".parse().unwrap(), "test1".parse().unwrap()], 1);
+        let mut genesis = Genesis::test(
+            vec![
+                "test0".parse().unwrap(),
+                "test1".parse().unwrap(),
+            ],
+            1,
+        );
         genesis.config.num_block_producer_seats = 2;
-        genesis.config.num_block_producer_seats_per_shard = vec![2];
+        genesis
+            .config
+            .num_block_producer_seats_per_shard = vec![2];
         genesis.config.epoch_length = epoch_length;
         let store1 = create_test_store();
         let store2 = create_test_store();
@@ -746,7 +890,10 @@ mod test {
 
         let mut blocks = vec![];
         for i in 1..epoch_length {
-            let block = env.clients[0].produce_block(i).unwrap().unwrap();
+            let block = env.clients[0]
+                .produce_block(i)
+                .unwrap()
+                .unwrap();
             for j in 0..2 {
                 let provenance = if j == 0 { Provenance::PRODUCED } else { Provenance::NONE };
                 env.process_block(j, block.clone(), provenance);
@@ -796,10 +943,17 @@ mod test {
         init_test_logger();
 
         let epoch_length = 4;
-        let mut genesis =
-            Genesis::test(vec!["test0".parse().unwrap(), "test1".parse().unwrap()], 1);
+        let mut genesis = Genesis::test(
+            vec![
+                "test0".parse().unwrap(),
+                "test1".parse().unwrap(),
+            ],
+            1,
+        );
         genesis.config.num_block_producer_seats = 2;
-        genesis.config.num_block_producer_seats_per_shard = vec![2];
+        genesis
+            .config
+            .num_block_producer_seats_per_shard = vec![2];
         genesis.config.epoch_length = epoch_length;
         let store = create_test_store();
         initialize_genesis_state(store.clone(), &genesis, None);
@@ -855,12 +1009,24 @@ mod test {
             .get_epoch_block_producers_ordered(&cur_epoch_id, &last_block_hash)
             .unwrap();
         assert_eq!(
-            block_producers.into_iter().map(|(r, _)| r.take_account_id()).collect::<HashSet<_>>(),
-            HashSet::from_iter(vec!["test0".parse().unwrap(), "test1".parse().unwrap()])
+            block_producers
+                .into_iter()
+                .map(|(r, _)| r.take_account_id())
+                .collect::<HashSet<_>>(),
+            HashSet::from_iter(vec![
+                "test0".parse().unwrap(),
+                "test1".parse().unwrap()
+            ])
         );
-        let last_block = env.clients[0].chain.get_block(&head.last_block_hash).unwrap();
-        let state_roots: Vec<CryptoHash> =
-            last_block.chunks().iter_deprecated().map(|chunk| chunk.prev_state_root()).collect();
+        let last_block = env.clients[0]
+            .chain
+            .get_block(&head.last_block_hash)
+            .unwrap();
+        let state_roots: Vec<CryptoHash> = last_block
+            .chunks()
+            .iter_deprecated()
+            .map(|chunk| chunk.prev_state_root())
+            .collect();
         initialize_genesis_state(store.clone(), &genesis, None);
         let epoch_manager = EpochManager::new_arc_handle(store.clone(), &genesis.config, None);
         let runtime =
@@ -908,16 +1074,30 @@ mod test {
             .get_epoch_block_producers_ordered(&cur_epoch_id, &last_block_hash)
             .unwrap();
         assert_eq!(
-            block_producers.into_iter().map(|(r, _)| r.take_account_id()).collect::<HashSet<_>>(),
-            HashSet::from_iter(vec!["test0".parse().unwrap(), "test1".parse().unwrap()]),
+            block_producers
+                .into_iter()
+                .map(|(r, _)| r.take_account_id())
+                .collect::<HashSet<_>>(),
+            HashSet::from_iter(vec![
+                "test0".parse().unwrap(),
+                "test1".parse().unwrap()
+            ]),
         );
 
-        let whitelist_validators =
-            vec!["test1".parse().unwrap(), "non_validator_account".parse().unwrap()];
+        let whitelist_validators = vec![
+            "test1".parse().unwrap(),
+            "non_validator_account".parse().unwrap(),
+        ];
 
-        let last_block = env.clients[0].chain.get_block(&head.last_block_hash).unwrap();
-        let state_roots: Vec<CryptoHash> =
-            last_block.chunks().iter_deprecated().map(|chunk| chunk.prev_state_root()).collect();
+        let last_block = env.clients[0]
+            .chain
+            .get_block(&head.last_block_hash)
+            .unwrap();
+        let state_roots: Vec<CryptoHash> = last_block
+            .chunks()
+            .iter_deprecated()
+            .map(|chunk| chunk.prev_state_root())
+            .collect();
         initialize_genesis_state(store.clone(), &genesis, None);
         let epoch_manager = EpochManager::new_arc_handle(store.clone(), &genesis.config, None);
         let runtime =
@@ -951,7 +1131,9 @@ mod test {
         });
 
         assert_eq!(
-            stake.get(AccountIdRef::new_or_panic("test0")).unwrap_or(&(0 as Balance)),
+            stake
+                .get(AccountIdRef::new_or_panic("test0"))
+                .unwrap_or(&(0 as Balance)),
             &(0 as Balance)
         );
 

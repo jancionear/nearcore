@@ -18,8 +18,8 @@ const DEFAULT_EXTRA_KEY: SecretKey = SecretKey::ED25519(ED25519SecretKey([
 
 pub fn default_extra_key(secret: Option<&[u8; crate::secret::SECRET_LEN]>) -> SecretKey {
     match secret {
-        Some(s) => map_key(&DEFAULT_EXTRA_KEY.public_key(), Some(s)),
-        None => DEFAULT_EXTRA_KEY,
+        | Some(s) => map_key(&DEFAULT_EXTRA_KEY.public_key(), Some(s)),
+        | None => DEFAULT_EXTRA_KEY,
     }
 }
 
@@ -29,11 +29,11 @@ fn ed25519_map_secret(
     secret: Option<&[u8; crate::secret::SECRET_LEN]>,
 ) {
     match secret {
-        Some(secret) => {
+        | Some(secret) => {
             let hk = Hkdf::<Sha256>::new(None, secret);
             hk.expand(&public.0, buf).unwrap();
         }
-        None => {
+        | None => {
             buf.copy_from_slice(&public.0);
         }
     };
@@ -59,10 +59,13 @@ fn map_ed25519(
     ED25519SecretKey(buf)
 }
 
-fn secp256k1_from_slice(buf: &mut [u8], public: &Secp256K1PublicKey) -> secp256k1::SecretKey {
+fn secp256k1_from_slice(
+    buf: &mut [u8],
+    public: &Secp256K1PublicKey,
+) -> secp256k1::SecretKey {
     match secp256k1::SecretKey::from_slice(buf) {
-        Ok(s) => s,
-        Err(_) => {
+        | Ok(s) => s,
+        | Err(_) => {
             tracing::warn!(target: "mirror", "Something super unlikely occurred! SECP256K1 key mapped from {:?} is too large. Flipping most significant bit.", public);
             // If we got an error, it means that either `buf` is all zeros, or that when interpreted as a 256-bit
             // int, it is larger than the order of the secp256k1 curve. Since the order of the curve starts with 0xFF,
@@ -80,11 +83,12 @@ fn map_secp256k1(
     let mut buf = [0; secp256k1::constants::SECRET_KEY_SIZE];
 
     match secret {
-        Some(secret) => {
+        | Some(secret) => {
             let hk = Hkdf::<Sha256>::new(None, secret);
-            hk.expand(public.as_ref(), &mut buf).unwrap();
+            hk.expand(public.as_ref(), &mut buf)
+                .unwrap();
         }
-        None => {
+        | None => {
             buf.copy_from_slice(&public.as_ref()[..secp256k1::constants::SECRET_KEY_SIZE]);
         }
     };
@@ -96,10 +100,13 @@ fn map_secp256k1(
 // transactions on the target chain.  If secret is None, then we just
 // use the bytes of the public key directly, otherwise we feed the
 // public key to a key derivation function.
-pub fn map_key(key: &PublicKey, secret: Option<&[u8; crate::secret::SECRET_LEN]>) -> SecretKey {
+pub fn map_key(
+    key: &PublicKey,
+    secret: Option<&[u8; crate::secret::SECRET_LEN]>,
+) -> SecretKey {
     match key {
-        PublicKey::ED25519(k) => SecretKey::ED25519(map_ed25519(k, secret)),
-        PublicKey::SECP256K1(k) => SecretKey::SECP256K1(map_secp256k1(k, secret)),
+        | PublicKey::ED25519(k) => SecretKey::ED25519(map_ed25519(k, secret)),
+        | PublicKey::SECP256K1(k) => SecretKey::SECP256K1(map_secp256k1(k, secret)),
     }
 }
 
@@ -112,14 +119,18 @@ pub fn map_account(
     secret: Option<&[u8; crate::secret::SECRET_LEN]>,
 ) -> AccountId {
     match account_id.get_account_type() {
-        AccountType::NearImplicitAccount => {
+        | AccountType::NearImplicitAccount => {
             let public_key =
                 PublicKey::from_near_implicit_account(account_id).expect("must be implicit");
             let mapped_key = map_key(&public_key, secret);
-            derive_near_implicit_account_id(&mapped_key.public_key().unwrap_as_ed25519())
+            derive_near_implicit_account_id(
+                &mapped_key
+                    .public_key()
+                    .unwrap_as_ed25519(),
+            )
         }
         // TODO(eth-implicit) map to a new ETH address
-        AccountType::EthImplicitAccount => account_id.clone(),
-        AccountType::NamedAccount => account_id.clone(),
+        | AccountType::EthImplicitAccount => account_id.clone(),
+        | AccountType::NamedAccount => account_id.clone(),
     }
 }

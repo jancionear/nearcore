@@ -9,7 +9,7 @@ use near_crypto::PublicKey;
 use near_parameters::{AccountCreationConfig, ActionCosts, RuntimeConfig, RuntimeFeesConfig};
 use near_primitives::account::{AccessKey, AccessKeyPermission, Account};
 use near_primitives::action::delegate::{DelegateAction, SignedDelegateAction};
-use near_primitives::action::{DeployGlobalContractAction, UseGlobalContractAction};
+use near_primitives::action::DeployGlobalContractAction;
 use near_primitives::checked_feature;
 use near_primitives::config::ViewConfig;
 use near_primitives::errors::{ActionError, ActionErrorKind, InvalidAccessKeyError, RuntimeError};
@@ -61,7 +61,11 @@ pub(crate) fn execute_function_call(
     tracing::debug!(target: "runtime", %account_id, "Calling the contract");
     // Output data receipts are ignored if the function call is not the last action in the batch.
     let output_data_receivers: Vec<_> = if is_last_action {
-        action_receipt.output_data_receivers.iter().map(|r| r.receiver_id.clone()).collect()
+        action_receipt
+            .output_data_receivers
+            .iter()
+            .map(|r| r.receiver_id.clone())
+            .collect()
     } else {
         vec![]
     };
@@ -98,10 +102,12 @@ pub(crate) fn execute_function_call(
 
     near_vm_runner::reset_metrics();
     let mode = match checked_feature!("stable", ChunkNodesCache, runtime_ext.protocol_version()) {
-        true => Some(TrieCacheMode::CachingChunk),
-        false => None,
+        | true => Some(TrieCacheMode::CachingChunk),
+        | false => None,
     };
-    let mode_guard = runtime_ext.trie_update.with_trie_cache_mode(mode);
+    let mode_guard = runtime_ext
+        .trie_update
+        .with_trie_cache_mode(mode);
     let result = near_vm_runner::run(contract, runtime_ext, &context, Arc::clone(&config.fees));
     drop(mode_guard);
     near_vm_runner::report_metrics(
@@ -116,42 +122,49 @@ pub(crate) fn execute_function_call(
     // Note that this does not include errors caused by user code / input, those are
     // stored in outcome.aborted.
     let mut outcome = match result {
-        Err(VMRunnerError::ContractCodeNotPresent) => {
+        | Err(VMRunnerError::ContractCodeNotPresent) => {
             let error = FunctionCallError::CompilationError(CompilationError::CodeDoesNotExist {
                 account_id: account_id.as_str().into(),
             });
             return Ok(VMOutcome::nop_outcome(error));
         }
-        Err(VMRunnerError::ExternalError(any_err)) => {
-            let err: ExternalError =
-                any_err.downcast().expect("Downcasting AnyError should not fail");
+        | Err(VMRunnerError::ExternalError(any_err)) => {
+            let err: ExternalError = any_err
+                .downcast()
+                .expect("Downcasting AnyError should not fail");
             return Err(match err {
-                ExternalError::StorageError(err) => err.into(),
-                ExternalError::ValidatorError(err) => RuntimeError::ValidatorError(err),
+                | ExternalError::StorageError(err) => err.into(),
+                | ExternalError::ValidatorError(err) => RuntimeError::ValidatorError(err),
             });
         }
-        Err(VMRunnerError::InconsistentStateError(
+        | Err(VMRunnerError::InconsistentStateError(
             err @ InconsistentStateError::IntegerOverflow,
         )) => return Err(StorageError::StorageInconsistentState(err.to_string()).into()),
-        Err(VMRunnerError::CacheError(err)) => {
-            metrics::FUNCTION_CALL_PROCESSED_CACHE_ERRORS.with_label_values(&[(&err).into()]).inc();
+        | Err(VMRunnerError::CacheError(err)) => {
+            metrics::FUNCTION_CALL_PROCESSED_CACHE_ERRORS
+                .with_label_values(&[(&err).into()])
+                .inc();
             return Err(StorageError::StorageInconsistentState(err.to_string()).into());
         }
-        Err(VMRunnerError::LoadingError(msg)) => {
+        | Err(VMRunnerError::LoadingError(msg)) => {
             panic!("Contract runtime failed to load a contract: {msg}")
         }
-        Err(VMRunnerError::Nondeterministic(msg)) => {
+        | Err(VMRunnerError::Nondeterministic(msg)) => {
             panic!("Contract runner returned non-deterministic error '{}', aborting", msg)
         }
-        Err(VMRunnerError::WasmUnknownError { debug_message }) => {
+        | Err(VMRunnerError::WasmUnknownError { debug_message }) => {
             panic!("Wasmer returned unknown message: {}", debug_message)
         }
-        Ok(r) => r,
+        | Ok(r) => r,
     };
 
     if !context.view_config.is_some() {
-        let unused_gas = function_call.gas.saturating_sub(outcome.used_gas);
-        let distributed = runtime_ext.receipt_manager.distribute_gas(unused_gas)?;
+        let unused_gas = function_call
+            .gas
+            .saturating_sub(outcome.used_gas);
+        let distributed = runtime_ext
+            .receipt_manager
+            .distribute_gas(unused_gas)?;
         outcome.used_gas = safe_add_gas(outcome.used_gas, distributed)?;
     }
 
@@ -175,7 +188,11 @@ pub(crate) fn action_function_call(
     epoch_info_provider: &dyn EpochInfoProvider,
     contract: Box<dyn PreparedContract>,
 ) -> Result<(), RuntimeError> {
-    if account.amount().checked_add(function_call.deposit).is_none() {
+    if account
+        .amount()
+        .checked_add(function_call.deposit)
+        .is_none()
+    {
         return Err(StorageError::StorageInconsistentState(
             "Account balance integer overflow during function call deposit".to_string(),
         )
@@ -221,11 +238,15 @@ pub(crate) fn action_function_call(
     )?;
 
     match &outcome.aborted {
-        None => {
-            metrics::FUNCTION_CALL_PROCESSED.with_label_values(&["ok"]).inc();
+        | None => {
+            metrics::FUNCTION_CALL_PROCESSED
+                .with_label_values(&["ok"])
+                .inc();
         }
-        Some(err) => {
-            metrics::FUNCTION_CALL_PROCESSED.with_label_values(&[err.into()]).inc();
+        | Some(err) => {
+            metrics::FUNCTION_CALL_PROCESSED
+                .with_label_values(&[err.into()])
+                .inc();
         }
     }
 
@@ -236,23 +257,23 @@ pub(crate) fn action_function_call(
             .with_label_values(&[(&err).into()])
             .inc();
         match &err {
-            FunctionCallError::CompilationError(err) => {
+            | FunctionCallError::CompilationError(err) => {
                 metrics::FUNCTION_CALL_PROCESSED_COMPILATION_ERRORS
                     .with_label_values(&[err.into()])
                     .inc();
             }
-            FunctionCallError::LinkError { .. } => (),
-            FunctionCallError::MethodResolveError(err) => {
+            | FunctionCallError::LinkError { .. } => (),
+            | FunctionCallError::MethodResolveError(err) => {
                 metrics::FUNCTION_CALL_PROCESSED_METHOD_RESOLVE_ERRORS
                     .with_label_values(&[err.into()])
                     .inc();
             }
-            FunctionCallError::WasmTrap(ref inner_err) => {
+            | FunctionCallError::WasmTrap(ref inner_err) => {
                 metrics::FUNCTION_CALL_PROCESSED_WASM_TRAP_ERRORS
                     .with_label_values(&[inner_err.into()])
                     .inc();
             }
-            FunctionCallError::HostError(ref inner_err) => {
+            | FunctionCallError::HostError(ref inner_err) => {
                 metrics::FUNCTION_CALL_PROCESSED_HOST_ERRORS
                     .with_label_values(&[inner_err.into()])
                     .inc();
@@ -292,7 +313,10 @@ pub(crate) fn action_function_call(
                         account_id.clone(),
                         receipt.input_data_ids[0],
                         apply_state.block_height
-                            + config.wasm_config.limit_config.yield_timeout_length_in_blocks,
+                            + config
+                                .wasm_config
+                                .limit_config
+                                .yield_timeout_length_in_blocks,
                     );
                 }
 
@@ -321,22 +345,28 @@ pub(crate) fn action_function_call(
             .collect();
 
         // Create data receipts for resumed yields
-        new_receipts.extend(receipt_manager.data_receipts.into_iter().map(|receipt| {
-            let new_data_receipt = DataReceipt { data_id: receipt.data_id, data: receipt.data };
+        new_receipts.extend(
+            receipt_manager
+                .data_receipts
+                .into_iter()
+                .map(|receipt| {
+                    let new_data_receipt =
+                        DataReceipt { data_id: receipt.data_id, data: receipt.data };
 
-            Receipt::V0(ReceiptV0 {
-                predecessor_id: account_id.clone(),
-                receiver_id: account_id.clone(),
-                // Actual receipt ID is set in the Runtime.apply_action_receipt(...) in the
-                // "Generating receipt IDs" section
-                receipt_id: CryptoHash::default(),
-                receipt: if receipt.is_promise_resume {
-                    ReceiptEnum::PromiseResume(new_data_receipt)
-                } else {
-                    ReceiptEnum::Data(new_data_receipt)
-                },
-            })
-        }));
+                    Receipt::V0(ReceiptV0 {
+                        predecessor_id: account_id.clone(),
+                        receiver_id: account_id.clone(),
+                        // Actual receipt ID is set in the Runtime.apply_action_receipt(...) in the
+                        // "Generating receipt IDs" section
+                        receipt_id: CryptoHash::default(),
+                        receipt: if receipt.is_promise_resume {
+                            ReceiptEnum::PromiseResume(new_data_receipt)
+                        } else {
+                            ReceiptEnum::Data(new_data_receipt)
+                        },
+                    })
+                }),
+        );
 
         // Commit metadata for yielded promises queue
         if promise_yield_indices != initial_promse_yield_indices {
@@ -360,7 +390,9 @@ pub(crate) fn action_stake(
     last_block_hash: &CryptoHash,
     epoch_info_provider: &dyn EpochInfoProvider,
 ) -> Result<(), RuntimeError> {
-    let increment = stake.stake.saturating_sub(account.locked());
+    let increment = stake
+        .stake
+        .saturating_sub(account.locked());
 
     if account.amount() >= increment {
         if account.locked() == 0 && stake.stake == 0 {
@@ -383,11 +415,9 @@ pub(crate) fn action_stake(
             }
         }
 
-        result.validator_proposals.push(ValidatorStake::new(
-            account_id.clone(),
-            stake.public_key.clone(),
-            stake.stake,
-        ));
+        result
+            .validator_proposals
+            .push(ValidatorStake::new(account_id.clone(), stake.public_key.clone(), stake.stake));
         if stake.stake > account.locked() {
             // We've checked above `account.amount >= increment`
             account.set_amount(account.amount() - increment);
@@ -417,7 +447,10 @@ pub(crate) fn try_refund_allowance(
         if let AccessKeyPermission::FunctionCall(function_call_permission) =
             &mut access_key.permission
         {
-            if let Some(allowance) = function_call_permission.allowance.as_mut() {
+            if let Some(allowance) = function_call_permission
+                .allowance
+                .as_mut()
+            {
                 let new_allowance = allowance.saturating_add(deposit);
                 if new_allowance > *allowance {
                     *allowance = new_allowance;
@@ -432,10 +465,20 @@ pub(crate) fn try_refund_allowance(
     Ok(())
 }
 
-pub(crate) fn action_transfer(account: &mut Account, deposit: Balance) -> Result<(), StorageError> {
-    account.set_amount(account.amount().checked_add(deposit).ok_or_else(|| {
-        StorageError::StorageInconsistentState("Account balance integer overflow".to_string())
-    })?);
+pub(crate) fn action_transfer(
+    account: &mut Account,
+    deposit: Balance,
+) -> Result<(), StorageError> {
+    account.set_amount(
+        account
+            .amount()
+            .checked_add(deposit)
+            .ok_or_else(|| {
+                StorageError::StorageInconsistentState(
+                    "Account balance integer overflow".to_string(),
+                )
+            })?,
+    );
     Ok(())
 }
 
@@ -447,13 +490,14 @@ pub(crate) fn action_nonrefundable_storage_transfer(
 ) -> Result<(), StorageError> {
     let permanent_storage_bytes = (deposit / storage_amount_per_byte) as StorageUsage;
     account.set_permanent_storage_bytes(
-        account.permanent_storage_bytes().checked_add(permanent_storage_bytes).ok_or_else(
-            || {
+        account
+            .permanent_storage_bytes()
+            .checked_add(permanent_storage_bytes)
+            .ok_or_else(|| {
                 StorageError::StorageInconsistentState(
                     "permanent_storage_bytes integer overflow".to_string(),
                 )
-            },
-        )?,
+            })?,
     );
     Ok(())
 }
@@ -475,7 +519,9 @@ pub(crate) fn action_create_account(
             // A short top-level account ID can only be created registrar account.
             result.result = Err(ActionErrorKind::CreateAccountOnlyByRegistrar {
                 account_id: account_id.clone(),
-                registrar_account_id: account_creation_config.registrar_account_id.clone(),
+                registrar_account_id: account_creation_config
+                    .registrar_account_id
+                    .clone(),
                 predecessor_id: predecessor_id.clone(),
             }
             .into());
@@ -501,7 +547,9 @@ pub(crate) fn action_create_account(
         0,
         0,
         CryptoHash::default(),
-        fee_config.storage_usage_config.num_bytes_account,
+        fee_config
+            .storage_usage_config
+            .num_bytes_account,
         protocol_version,
     ));
 }
@@ -523,15 +571,17 @@ pub(crate) fn action_implicit_account_creation_transfer(
     *actor_id = account_id.clone();
 
     let (amount, permanent_storage_bytes) = if nonrefundable_storage_transfer {
-        let permanent_storage_bytes =
-            (deposit / apply_state.config.storage_amount_per_byte()) as StorageUsage;
+        let permanent_storage_bytes = (deposit
+            / apply_state
+                .config
+                .storage_amount_per_byte()) as StorageUsage;
         (0, permanent_storage_bytes)
     } else {
         (deposit, 0)
     };
 
     match account_id.get_account_type() {
-        AccountType::NearImplicitAccount => {
+        | AccountType::NearImplicitAccount => {
             let mut access_key = AccessKey::full_access();
             // Set default nonce for newly created access key to avoid transaction hash collision.
             // See <https://github.com/near/nearcore/issues/3779>.
@@ -552,10 +602,14 @@ pub(crate) fn action_implicit_account_creation_transfer(
                 0,
                 permanent_storage_bytes,
                 CryptoHash::default(),
-                fee_config.storage_usage_config.num_bytes_account
+                fee_config
+                    .storage_usage_config
+                    .num_bytes_account
                     + public_key.len() as u64
                     + borsh::object_length(&access_key).unwrap() as u64
-                    + fee_config.storage_usage_config.num_extra_bytes_record,
+                    + fee_config
+                        .storage_usage_config
+                        .num_extra_bytes_record,
                 current_protocol_version,
             ));
 
@@ -563,7 +617,7 @@ pub(crate) fn action_implicit_account_creation_transfer(
         }
         // Invariant: The `account_id` is implicit.
         // It holds because in the only calling site, we've checked the permissions before.
-        AccountType::EthImplicitAccount => {
+        | AccountType::EthImplicitAccount => {
             if checked_feature!("stable", EthImplicitAccounts, current_protocol_version) {
                 let chain_id = epoch_info_provider.chain_id();
 
@@ -572,9 +626,13 @@ pub(crate) fn action_implicit_account_creation_transfer(
                 // Instead, neard-defined Wallet Contract implementation will be used.
                 let magic_bytes = wallet_contract_magic_bytes(&chain_id, current_protocol_version);
 
-                let storage_usage = fee_config.storage_usage_config.num_bytes_account
+                let storage_usage = fee_config
+                    .storage_usage_config
+                    .num_bytes_account
                     + magic_bytes.code().len() as u64
-                    + fee_config.storage_usage_config.num_extra_bytes_record;
+                    + fee_config
+                        .storage_usage_config
+                        .num_extra_bytes_record;
 
                 let contract_hash = *magic_bytes.hash();
                 *account = Some(Account::new(
@@ -605,7 +663,7 @@ pub(crate) fn action_implicit_account_creation_transfer(
         }
         // This panic is unreachable as this is an implicit account creation transfer.
         // `check_account_existence` would fail because `account_is_implicit` would return false for a Named account.
-        AccountType::NamedAccount => panic!("must be implicit"),
+        | AccountType::NamedAccount => panic!("must be implicit"),
     }
 }
 
@@ -625,16 +683,23 @@ pub(crate) fn action_deploy_contract(
         account.code_hash(),
         current_protocol_version,
     )?;
-    account.set_storage_usage(account.storage_usage().saturating_sub(prev_code_len));
+    account.set_storage_usage(
+        account
+            .storage_usage()
+            .saturating_sub(prev_code_len),
+    );
 
     let code = ContractCode::new(deploy_contract.code.clone(), None);
     account.set_storage_usage(
-        account.storage_usage().checked_add(code.code().len() as u64).ok_or_else(|| {
-            StorageError::StorageInconsistentState(format!(
-                "Storage usage integer overflow for account {}",
-                account_id
-            ))
-        })?,
+        account
+            .storage_usage()
+            .checked_add(code.code().len() as u64)
+            .ok_or_else(|| {
+                StorageError::StorageInconsistentState(format!(
+                    "Storage usage integer overflow for account {}",
+                    account_id
+                ))
+            })?,
     );
     account.set_code_hash(*code.hash());
     // Legacy: populate the mapping from `AccountId => sha256(code)` thus making contracts part of
@@ -661,16 +726,6 @@ pub(crate) fn action_deploy_global_contract(
 ) -> Result<(), StorageError> {
     let _span = tracing::debug_span!(target: "runtime", "action_deploy_global_contract").entered();
     // TODO(#12715): implement global contract distribution
-    Ok(())
-}
-
-pub(crate) fn action_use_global_contract(
-    _state_update: &mut TrieUpdate,
-    _account: &mut Account,
-    _action: &UseGlobalContractAction,
-) -> Result<(), RuntimeError> {
-    let _span = tracing::debug_span!(target: "runtime", "action_use_global_contract").entered();
-    // TODO(#12716): implement global contract usage
     Ok(())
 }
 
@@ -708,11 +763,13 @@ pub(crate) fn action_delete_account(
     // We use current amount as a pay out to beneficiary.
     let account_balance = account.as_ref().unwrap().amount();
     if account_balance > 0 {
-        result.new_receipts.push(Receipt::new_balance_refund(
-            &delete_account.beneficiary_id,
-            account_balance,
-            ReceiptPriority::NoPriority,
-        ));
+        result
+            .new_receipts
+            .push(Receipt::new_balance_refund(
+                &delete_account.beneficiary_id,
+                account_balance,
+                ReceiptPriority::NoPriority,
+            ));
     }
     remove_account(state_update, account_id)?;
     *actor_id = receipt.predecessor_id().clone();
@@ -736,14 +793,19 @@ fn get_code_len_or_default(
         if ProtocolFeature::ExcludeExistingCodeFromWitnessForCodeLen.enabled(protocol_version) {
             state_update.get_code_len(account_id, code_hash)?
         } else {
-            state_update.get_code(account_id, code_hash)?.map(|contract| contract.code().len())
+            state_update
+                .get_code(account_id, code_hash)?
+                .map(|contract| contract.code().len())
         };
     debug_assert!(
         code_len.is_some() || code_hash == CryptoHash::default(),
         "Non-default code hash for account with no contract deployed: {:?}",
         code_hash
     );
-    Ok(code_len.unwrap_or_default().try_into().unwrap())
+    Ok(code_len
+        .unwrap_or_default()
+        .try_into()
+        .unwrap())
 }
 
 pub(crate) fn action_delete_key(
@@ -770,7 +832,11 @@ pub(crate) fn action_delete_key(
         };
         // Remove access key
         remove_access_key(state_update, account_id.clone(), delete_key.public_key.clone());
-        account.set_storage_usage(account.storage_usage().saturating_sub(storage_usage));
+        account.set_storage_usage(
+            account
+                .storage_usage()
+                .saturating_sub(storage_usage),
+        );
     } else {
         result.result = Err(ActionErrorKind::DeleteKeyDoesNotExist {
             public_key: delete_key.public_key.clone().into(),
@@ -810,7 +876,10 @@ pub(crate) fn action_add_key(
             &add_key.access_key,
         );
     };
-    let storage_config = &apply_state.config.fees.storage_usage_config;
+    let storage_config = &apply_state
+        .config
+        .fees
+        .storage_usage_config;
     account.set_storage_usage(
         account
             .storage_usage()
@@ -902,9 +971,12 @@ pub(crate) fn apply_delegate_action(
 }
 
 /// Returns Gas amount is required to execute Receipt and all actions it contains
-fn receipt_required_gas(apply_state: &ApplyState, receipt: &Receipt) -> Result<Gas, RuntimeError> {
+fn receipt_required_gas(
+    apply_state: &ApplyState,
+    receipt: &Receipt,
+) -> Result<Gas, RuntimeError> {
     Ok(match receipt.receipt() {
-        ReceiptEnum::Action(action_receipt) | ReceiptEnum::PromiseYield(action_receipt) => {
+        | ReceiptEnum::Action(action_receipt) | ReceiptEnum::PromiseYield(action_receipt) => {
             let mut required_gas = safe_add_gas(
                 total_prepaid_exec_fees(
                     &apply_state.config,
@@ -915,12 +987,16 @@ fn receipt_required_gas(apply_state: &ApplyState, receipt: &Receipt) -> Result<G
             )?;
             required_gas = safe_add_gas(
                 required_gas,
-                apply_state.config.fees.fee(ActionCosts::new_action_receipt).exec_fee(),
+                apply_state
+                    .config
+                    .fees
+                    .fee(ActionCosts::new_action_receipt)
+                    .exec_fee(),
             )?;
 
             required_gas
         }
-        ReceiptEnum::Data(_) | ReceiptEnum::PromiseResume(_) => 0,
+        | ReceiptEnum::Data(_) | ReceiptEnum::PromiseResume(_) => 0,
     })
 }
 
@@ -941,12 +1017,15 @@ fn validate_delegate_action_key(
         &delegate_action.sender_id,
         &delegate_action.public_key,
     )? {
-        Some(access_key) => access_key,
-        None => {
+        | Some(access_key) => access_key,
+        | None => {
             result.result = Err(ActionErrorKind::DelegateActionAccessKeyError(
                 InvalidAccessKeyError::AccessKeyNotFound {
                     account_id: delegate_action.sender_id.clone(),
-                    public_key: delegate_action.public_key.clone().into(),
+                    public_key: delegate_action
+                        .public_key
+                        .clone()
+                        .into(),
                 },
             )
             .into());
@@ -999,13 +1078,17 @@ fn validate_delegate_action_key(
                 result.result = Err(ActionErrorKind::DelegateActionAccessKeyError(
                     InvalidAccessKeyError::ReceiverMismatch {
                         tx_receiver: delegate_action.receiver_id.clone(),
-                        ak_receiver: function_call_permission.receiver_id.clone(),
+                        ak_receiver: function_call_permission
+                            .receiver_id
+                            .clone(),
                     },
                 )
                 .into());
                 return Ok(());
             }
-            if !function_call_permission.method_names.is_empty()
+            if !function_call_permission
+                .method_names
+                .is_empty()
                 && function_call_permission
                     .method_names
                     .iter()
@@ -1046,12 +1129,11 @@ pub(crate) fn check_actor_permissions(
     account_id: &AccountId,
 ) -> Result<(), ActionError> {
     match action {
-        Action::DeployContract(_)
+        | Action::DeployContract(_)
         | Action::Stake(_)
         | Action::AddKey(_)
         | Action::DeleteKey(_)
-        | Action::DeployGlobalContract(_)
-        | Action::UseGlobalContract(_) => {
+        | Action::DeployGlobalContract(_) => {
             if actor_id != account_id {
                 return Err(ActionErrorKind::ActorNoPermission {
                     account_id: account_id.clone(),
@@ -1060,7 +1142,7 @@ pub(crate) fn check_actor_permissions(
                 .into());
             }
         }
-        Action::DeleteAccount(_) => {
+        | Action::DeleteAccount(_) => {
             if actor_id != account_id {
                 return Err(ActionErrorKind::ActorNoPermission {
                     account_id: account_id.clone(),
@@ -1076,10 +1158,10 @@ pub(crate) fn check_actor_permissions(
                 .into());
             }
         }
-        Action::CreateAccount(_) | Action::FunctionCall(_) | Action::Transfer(_) => (),
-        Action::Delegate(_) => (),
+        | Action::CreateAccount(_) | Action::FunctionCall(_) | Action::Transfer(_) => (),
+        | Action::Delegate(_) => (),
         #[cfg(feature = "protocol_feature_nonrefundable_transfer_nep491")]
-        Action::NonrefundableStorageTransfer(_) => (),
+        | Action::NonrefundableStorageTransfer(_) => (),
     };
     Ok(())
 }
@@ -1097,7 +1179,7 @@ pub(crate) fn check_account_existence(
     receipt_starts_with_create_account: bool,
 ) -> Result<(), ActionError> {
     match action {
-        Action::CreateAccount(_) => {
+        | Action::CreateAccount(_) => {
             if account.is_some() {
                 return Err(ActionErrorKind::AccountAlreadyExists {
                     account_id: account_id.clone(),
@@ -1105,7 +1187,9 @@ pub(crate) fn check_account_existence(
                 .into());
             } else {
                 // TODO: this should be `config.implicit_account_creation`.
-                if config.wasm_config.implicit_account_creation
+                if config
+                    .wasm_config
+                    .implicit_account_creation
                     && account_is_implicit(account_id, config.wasm_config.eth_implicit_accounts)
                 {
                     // If the account doesn't exist and it's implicit, then you
@@ -1124,7 +1208,7 @@ pub(crate) fn check_account_existence(
                 }
             }
         }
-        Action::Transfer(_) => {
+        | Action::Transfer(_) => {
             if account.is_none() {
                 return check_transfer_to_nonexisting_account(
                     config,
@@ -1135,7 +1219,7 @@ pub(crate) fn check_account_existence(
         }
         // TODO(nonrefundable) Merge with arm above on stabilization.
         #[cfg(feature = "protocol_feature_nonrefundable_transfer_nep491")]
-        Action::NonrefundableStorageTransfer(_) => {
+        | Action::NonrefundableStorageTransfer(_) => {
             if account.is_none() {
                 return check_transfer_to_nonexisting_account(
                     config,
@@ -1157,15 +1241,14 @@ pub(crate) fn check_account_existence(
                 .into());
             }
         }
-        Action::DeployContract(_)
+        | Action::DeployContract(_)
         | Action::FunctionCall(_)
         | Action::Stake(_)
         | Action::AddKey(_)
         | Action::DeleteKey(_)
         | Action::DeleteAccount(_)
         | Action::Delegate(_)
-        | Action::DeployGlobalContract(_)
-        | Action::UseGlobalContract(_) => {
+        | Action::DeployGlobalContract(_) => {
             if account.is_none() {
                 return Err(ActionErrorKind::AccountDoesNotExist {
                     account_id: account_id.clone(),
@@ -1182,7 +1265,9 @@ fn check_transfer_to_nonexisting_account(
     account_id: &AccountId,
     implicit_account_creation_eligible: bool,
 ) -> Result<(), ActionError> {
-    if config.wasm_config.implicit_account_creation
+    if config
+        .wasm_config
+        .implicit_account_creation
         && implicit_account_creation_eligible
         && account_is_implicit(account_id, config.wasm_config.eth_implicit_accounts)
     {
@@ -1211,7 +1296,10 @@ fn apply_recorded_storage_garbage(
         .strip_prefix("internal_record_storage_garbage_")
         .and_then(|suf| suf.parse::<usize>().ok())
     {
-        if state_update.trie.record_storage_garbage(garbage_size_mbs) {
+        if state_update
+            .trie
+            .record_storage_garbage(garbage_size_mbs)
+        {
             tracing::warn!(target: "runtime", %garbage_size_mbs, "Generated storage proof garbage");
         }
     }
@@ -1292,7 +1380,9 @@ mod tests {
 
     #[test]
     fn test_create_account_invalid_sub_account() {
-        let account_id = "alice.near".parse::<AccountId>().unwrap();
+        let account_id = "alice.near"
+            .parse::<AccountId>()
+            .unwrap();
         let predecessor_id = "bob".parse::<AccountId>().unwrap();
         let action_result =
             test_action_create_account(account_id.clone(), predecessor_id.clone(), 11);
@@ -1300,10 +1390,7 @@ mod tests {
             action_result.result,
             Err(ActionError {
                 index: None,
-                kind: ActionErrorKind::CreateAccountNotAllowed {
-                    account_id: account_id,
-                    predecessor_id: predecessor_id,
-                },
+                kind: ActionErrorKind::CreateAccountNotAllowed { account_id, predecessor_id },
             })
         );
     }
@@ -1319,9 +1406,9 @@ mod tests {
             Err(ActionError {
                 index: None,
                 kind: ActionErrorKind::CreateAccountOnlyByRegistrar {
-                    account_id: account_id,
+                    account_id,
                     registrar_account_id: "registrar".parse().unwrap(),
-                    predecessor_id: predecessor_id,
+                    predecessor_id,
                 },
             })
         );
@@ -1465,7 +1552,9 @@ mod tests {
             gas_price: 1,
             output_data_receivers: Vec::new(),
             input_data_ids: Vec::new(),
-            actions: vec![Action::Delegate(Box::new(signed_delegate_action.clone()))],
+            actions: vec![Action::Delegate(Box::new(
+                signed_delegate_action.clone(),
+            ))],
         };
 
         (action_receipt, signed_delegate_action)
@@ -1508,7 +1597,10 @@ mod tests {
         set_access_key(&mut state_update, account_id.clone(), public_key.clone(), access_key);
 
         state_update.commit(StateChangeCause::InitialState);
-        let trie_changes = state_update.finalize().unwrap().trie_changes;
+        let trie_changes = state_update
+            .finalize()
+            .unwrap()
+            .trie_changes;
         let mut store_update = tries.store_update();
         let root = tries.apply_all(&trie_changes, ShardUId::single_shard(), &mut store_update);
         store_update.commit().unwrap();
@@ -1524,12 +1616,21 @@ mod tests {
     fn test_delegate_action() {
         let mut result = ActionResult::default();
         let (action_receipt, signed_delegate_action) = create_delegate_action_receipt();
-        let sender_id = signed_delegate_action.delegate_action.sender_id.clone();
-        let sender_pub_key = signed_delegate_action.delegate_action.public_key.clone();
+        let sender_id = signed_delegate_action
+            .delegate_action
+            .sender_id
+            .clone();
+        let sender_pub_key = signed_delegate_action
+            .delegate_action
+            .public_key
+            .clone();
         let access_key = AccessKey { nonce: 19000000, permission: AccessKeyPermission::FullAccess };
 
-        let apply_state =
-            create_apply_state(signed_delegate_action.delegate_action.max_block_height);
+        let apply_state = create_apply_state(
+            signed_delegate_action
+                .delegate_action
+                .max_block_height,
+        );
         let mut state_update = setup_account(&sender_id, &sender_pub_key, &access_key);
 
         apply_delegate_action(
@@ -1548,7 +1649,10 @@ mod tests {
             result.new_receipts,
             vec![Receipt::V0(ReceiptV0 {
                 predecessor_id: sender_id.clone(),
-                receiver_id: signed_delegate_action.delegate_action.receiver_id.clone(),
+                receiver_id: signed_delegate_action
+                    .delegate_action
+                    .receiver_id
+                    .clone(),
                 receipt_id: CryptoHash::default(),
                 receipt: ReceiptEnum::Action(ActionReceipt {
                     signer_id: action_receipt.signer_id.clone(),
@@ -1556,7 +1660,9 @@ mod tests {
                     gas_price: action_receipt.gas_price,
                     output_data_receivers: Vec::new(),
                     input_data_ids: Vec::new(),
-                    actions: signed_delegate_action.delegate_action.get_actions(),
+                    actions: signed_delegate_action
+                        .delegate_action
+                        .get_actions(),
                 }),
             })]
         );
@@ -1566,16 +1672,27 @@ mod tests {
     fn test_delegate_action_signature_verification() {
         let mut result = ActionResult::default();
         let (action_receipt, mut signed_delegate_action) = create_delegate_action_receipt();
-        let sender_id = signed_delegate_action.delegate_action.sender_id.clone();
-        let sender_pub_key = signed_delegate_action.delegate_action.public_key.clone();
+        let sender_id = signed_delegate_action
+            .delegate_action
+            .sender_id
+            .clone();
+        let sender_pub_key = signed_delegate_action
+            .delegate_action
+            .public_key
+            .clone();
         let access_key = AccessKey { nonce: 19000000, permission: AccessKeyPermission::FullAccess };
 
-        let apply_state =
-            create_apply_state(signed_delegate_action.delegate_action.max_block_height);
+        let apply_state = create_apply_state(
+            signed_delegate_action
+                .delegate_action
+                .max_block_height,
+        );
         let mut state_update = setup_account(&sender_id, &sender_pub_key, &access_key);
 
         // Corrupt receiver_id. Signature verifycation must fail.
-        signed_delegate_action.delegate_action.receiver_id = "www.test.near".parse().unwrap();
+        signed_delegate_action
+            .delegate_action
+            .receiver_id = "www.test.near".parse().unwrap();
 
         apply_delegate_action(
             &mut state_update,
@@ -1595,13 +1712,23 @@ mod tests {
     fn test_delegate_action_max_height() {
         let mut result = ActionResult::default();
         let (action_receipt, signed_delegate_action) = create_delegate_action_receipt();
-        let sender_id = signed_delegate_action.delegate_action.sender_id.clone();
-        let sender_pub_key = signed_delegate_action.delegate_action.public_key.clone();
+        let sender_id = signed_delegate_action
+            .delegate_action
+            .sender_id
+            .clone();
+        let sender_pub_key = signed_delegate_action
+            .delegate_action
+            .public_key
+            .clone();
         let access_key = AccessKey { nonce: 19000000, permission: AccessKeyPermission::FullAccess };
 
         // Setup current block as higher than max_block_height. Must fail.
-        let apply_state =
-            create_apply_state(signed_delegate_action.delegate_action.max_block_height + 1);
+        let apply_state = create_apply_state(
+            signed_delegate_action
+                .delegate_action
+                .max_block_height
+                + 1,
+        );
         let mut state_update = setup_account(&sender_id, &sender_pub_key, &access_key);
 
         apply_delegate_action(
@@ -1622,12 +1749,21 @@ mod tests {
     fn test_delegate_action_validate_sender_account() {
         let mut result = ActionResult::default();
         let (action_receipt, signed_delegate_action) = create_delegate_action_receipt();
-        let sender_id = signed_delegate_action.delegate_action.sender_id.clone();
-        let sender_pub_key = signed_delegate_action.delegate_action.public_key.clone();
+        let sender_id = signed_delegate_action
+            .delegate_action
+            .sender_id
+            .clone();
+        let sender_pub_key = signed_delegate_action
+            .delegate_action
+            .public_key
+            .clone();
         let access_key = AccessKey { nonce: 19000000, permission: AccessKeyPermission::FullAccess };
 
-        let apply_state =
-            create_apply_state(signed_delegate_action.delegate_action.max_block_height);
+        let apply_state = create_apply_state(
+            signed_delegate_action
+                .delegate_action
+                .max_block_height,
+        );
         let mut state_update = setup_account(&sender_id, &sender_pub_key, &access_key);
 
         // Use a different sender_id. Must fail.
@@ -1668,12 +1804,19 @@ mod tests {
     #[test]
     fn test_validate_delegate_action_key_update_nonce() {
         let (_, signed_delegate_action) = create_delegate_action_receipt();
-        let sender_id = &signed_delegate_action.delegate_action.sender_id;
-        let sender_pub_key = &signed_delegate_action.delegate_action.public_key;
+        let sender_id = &signed_delegate_action
+            .delegate_action
+            .sender_id;
+        let sender_pub_key = &signed_delegate_action
+            .delegate_action
+            .public_key;
         let access_key = AccessKey { nonce: 19000000, permission: AccessKeyPermission::FullAccess };
 
-        let apply_state =
-            create_apply_state(signed_delegate_action.delegate_action.max_block_height);
+        let apply_state = create_apply_state(
+            signed_delegate_action
+                .delegate_action
+                .max_block_height,
+        );
         let mut state_update = setup_account(sender_id, sender_pub_key, &access_key);
 
         // Everything is ok
@@ -1699,15 +1842,21 @@ mod tests {
         assert_eq!(
             result.result,
             Err(ActionErrorKind::DelegateActionInvalidNonce {
-                delegate_nonce: signed_delegate_action.delegate_action.nonce,
-                ak_nonce: signed_delegate_action.delegate_action.nonce,
+                delegate_nonce: signed_delegate_action
+                    .delegate_action
+                    .nonce,
+                ak_nonce: signed_delegate_action
+                    .delegate_action
+                    .nonce,
             }
             .into())
         );
 
         // Increment nonce. Must pass.
         result = ActionResult::default();
-        let mut delegate_action = signed_delegate_action.delegate_action.clone();
+        let mut delegate_action = signed_delegate_action
+            .delegate_action
+            .clone();
         delegate_action.nonce += 1;
         validate_delegate_action_key(
             &mut state_update,
@@ -1723,12 +1872,21 @@ mod tests {
     fn test_delegate_action_key_doesnt_exist() {
         let mut result = ActionResult::default();
         let (_, signed_delegate_action) = create_delegate_action_receipt();
-        let sender_id = signed_delegate_action.delegate_action.sender_id.clone();
-        let sender_pub_key = signed_delegate_action.delegate_action.public_key.clone();
+        let sender_id = signed_delegate_action
+            .delegate_action
+            .sender_id
+            .clone();
+        let sender_pub_key = signed_delegate_action
+            .delegate_action
+            .public_key
+            .clone();
         let access_key = AccessKey { nonce: 19000000, permission: AccessKeyPermission::FullAccess };
 
-        let apply_state =
-            create_apply_state(signed_delegate_action.delegate_action.max_block_height);
+        let apply_state = create_apply_state(
+            signed_delegate_action
+                .delegate_action
+                .max_block_height,
+        );
         let mut state_update = setup_account(
             &sender_id,
             &PublicKey::empty(near_crypto::KeyType::ED25519),
@@ -1758,15 +1916,26 @@ mod tests {
     fn test_delegate_action_key_incorrect_nonce() {
         let mut result = ActionResult::default();
         let (_, signed_delegate_action) = create_delegate_action_receipt();
-        let sender_id = signed_delegate_action.delegate_action.sender_id.clone();
-        let sender_pub_key = signed_delegate_action.delegate_action.public_key.clone();
+        let sender_id = signed_delegate_action
+            .delegate_action
+            .sender_id
+            .clone();
+        let sender_pub_key = signed_delegate_action
+            .delegate_action
+            .public_key
+            .clone();
         let access_key = AccessKey {
-            nonce: signed_delegate_action.delegate_action.nonce,
+            nonce: signed_delegate_action
+                .delegate_action
+                .nonce,
             permission: AccessKeyPermission::FullAccess,
         };
 
-        let apply_state =
-            create_apply_state(signed_delegate_action.delegate_action.max_block_height);
+        let apply_state = create_apply_state(
+            signed_delegate_action
+                .delegate_action
+                .max_block_height,
+        );
         let mut state_update = setup_account(&sender_id, &sender_pub_key, &access_key);
 
         validate_delegate_action_key(
@@ -1779,8 +1948,12 @@ mod tests {
         assert_eq!(
             result.result,
             Err(ActionErrorKind::DelegateActionInvalidNonce {
-                delegate_nonce: signed_delegate_action.delegate_action.nonce,
-                ak_nonce: signed_delegate_action.delegate_action.nonce,
+                delegate_nonce: signed_delegate_action
+                    .delegate_action
+                    .nonce,
+                ak_nonce: signed_delegate_action
+                    .delegate_action
+                    .nonce,
             }
             .into())
         );
@@ -1790,8 +1963,14 @@ mod tests {
     fn test_delegate_action_key_nonce_too_large() {
         let mut result = ActionResult::default();
         let (_, signed_delegate_action) = create_delegate_action_receipt();
-        let sender_id = signed_delegate_action.delegate_action.sender_id.clone();
-        let sender_pub_key = signed_delegate_action.delegate_action.public_key.clone();
+        let sender_id = signed_delegate_action
+            .delegate_action
+            .sender_id
+            .clone();
+        let sender_pub_key = signed_delegate_action
+            .delegate_action
+            .public_key
+            .clone();
         let access_key = AccessKey { nonce: 19000000, permission: AccessKeyPermission::FullAccess };
 
         let apply_state = create_apply_state(1);
@@ -1807,7 +1986,9 @@ mod tests {
         assert_eq!(
             result.result,
             Err(ActionErrorKind::DelegateActionNonceTooLarge {
-                delegate_nonce: signed_delegate_action.delegate_action.nonce,
+                delegate_nonce: signed_delegate_action
+                    .delegate_action
+                    .nonce,
                 upper_bound: 1000000,
             }
             .into())
@@ -1843,19 +2024,23 @@ mod tests {
             nonce: 19000000,
             permission: AccessKeyPermission::FunctionCall(FunctionCallPermission {
                 allowance: None,
-                receiver_id: signed_delegate_action.delegate_action.receiver_id.to_string(),
+                receiver_id: signed_delegate_action
+                    .delegate_action
+                    .receiver_id
+                    .to_string(),
                 method_names: vec!["test_method".parse().unwrap()],
             }),
         };
 
         let mut delegate_action = signed_delegate_action.delegate_action;
-        delegate_action.actions =
-            vec![non_delegate_action(Action::FunctionCall(Box::new(FunctionCallAction {
+        delegate_action.actions = vec![non_delegate_action(
+            Action::FunctionCall(Box::new(FunctionCallAction {
                 args: Vec::new(),
                 deposit: 0,
                 gas: 300,
                 method_name: "test_method".parse().unwrap(),
-            })))];
+            })),
+        )];
         let result = test_delegate_action_key_permissions(&access_key, &delegate_action);
         assert!(result.result.is_ok(), "Result error {:?}", result.result);
     }
@@ -1867,14 +2052,18 @@ mod tests {
             nonce: 19000000,
             permission: AccessKeyPermission::FunctionCall(FunctionCallPermission {
                 allowance: None,
-                receiver_id: signed_delegate_action.delegate_action.receiver_id.to_string(),
+                receiver_id: signed_delegate_action
+                    .delegate_action
+                    .receiver_id
+                    .to_string(),
                 method_names: vec!["test_method".parse().unwrap()],
             }),
         };
 
         let mut delegate_action = signed_delegate_action.delegate_action;
-        delegate_action.actions =
-            vec![non_delegate_action(Action::CreateAccount(CreateAccountAction {}))];
+        delegate_action.actions = vec![non_delegate_action(
+            Action::CreateAccount(CreateAccountAction {}),
+        )];
 
         let result = test_delegate_action_key_permissions(&access_key, &delegate_action);
 
@@ -1894,7 +2083,10 @@ mod tests {
             nonce: 19000000,
             permission: AccessKeyPermission::FunctionCall(FunctionCallPermission {
                 allowance: None,
-                receiver_id: signed_delegate_action.delegate_action.receiver_id.to_string(),
+                receiver_id: signed_delegate_action
+                    .delegate_action
+                    .receiver_id
+                    .to_string(),
                 method_names: vec!["test_method".parse().unwrap()],
             }),
         };
@@ -1933,19 +2125,23 @@ mod tests {
             nonce: 19000000,
             permission: AccessKeyPermission::FunctionCall(FunctionCallPermission {
                 allowance: None,
-                receiver_id: signed_delegate_action.delegate_action.receiver_id.to_string(),
+                receiver_id: signed_delegate_action
+                    .delegate_action
+                    .receiver_id
+                    .to_string(),
                 method_names: Vec::new(),
             }),
         };
 
         let mut delegate_action = signed_delegate_action.delegate_action;
-        delegate_action.actions =
-            vec![non_delegate_action(Action::FunctionCall(Box::new(FunctionCallAction {
+        delegate_action.actions = vec![non_delegate_action(
+            Action::FunctionCall(Box::new(FunctionCallAction {
                 args: Vec::new(),
                 deposit: 1,
                 gas: 300,
                 method_name: "test_method".parse().unwrap(),
-            })))];
+            })),
+        )];
 
         let result = test_delegate_action_key_permissions(&access_key, &delegate_action);
 
@@ -1971,13 +2167,14 @@ mod tests {
         };
 
         let mut delegate_action = signed_delegate_action.delegate_action;
-        delegate_action.actions =
-            vec![non_delegate_action(Action::FunctionCall(Box::new(FunctionCallAction {
+        delegate_action.actions = vec![non_delegate_action(
+            Action::FunctionCall(Box::new(FunctionCallAction {
                 args: Vec::new(),
                 deposit: 0,
                 gas: 300,
                 method_name: "test_method".parse().unwrap(),
-            })))];
+            })),
+        )];
 
         let result = test_delegate_action_key_permissions(&access_key, &delegate_action);
 
@@ -2000,19 +2197,23 @@ mod tests {
             nonce: 19000000,
             permission: AccessKeyPermission::FunctionCall(FunctionCallPermission {
                 allowance: None,
-                receiver_id: signed_delegate_action.delegate_action.receiver_id.to_string(),
+                receiver_id: signed_delegate_action
+                    .delegate_action
+                    .receiver_id
+                    .to_string(),
                 method_names: vec!["another_method".parse().unwrap()],
             }),
         };
 
         let mut delegate_action = signed_delegate_action.delegate_action;
-        delegate_action.actions =
-            vec![non_delegate_action(Action::FunctionCall(Box::new(FunctionCallAction {
+        delegate_action.actions = vec![non_delegate_action(
+            Action::FunctionCall(Box::new(FunctionCallAction {
                 args: Vec::new(),
                 deposit: 0,
                 gas: 300,
                 method_name: "test_method".parse().unwrap(),
-            })))];
+            })),
+        )];
 
         let result = test_delegate_action_key_permissions(&access_key, &delegate_action);
 

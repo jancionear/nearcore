@@ -4,7 +4,6 @@ use borsh::{BorshDeserialize, BorshSerialize};
 use near_crypto::PublicKey;
 use near_primitives_core::{
     account::AccessKey,
-    hash::CryptoHash,
     serialize::dec_format,
     types::{AccountId, Balance, Gas},
 };
@@ -100,7 +99,10 @@ pub struct DeployContractAction {
 }
 
 impl fmt::Debug for DeployContractAction {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
         f.debug_struct("DeployContractAction")
             .field("code", &format_args!("{}", base64(&self.code)))
             .finish()
@@ -152,46 +154,15 @@ pub struct DeployGlobalContractAction {
 }
 
 impl fmt::Debug for DeployGlobalContractAction {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
         f.debug_struct("DeployGlobalContractAction")
             .field("code", &format_args!("{}", base64(&self.code)))
             .field("deploy_mode", &format_args!("{:?}", &self.deploy_mode))
             .finish()
     }
-}
-
-#[serde_as]
-#[derive(
-    BorshSerialize,
-    BorshDeserialize,
-    serde::Serialize,
-    serde::Deserialize,
-    PartialEq,
-    Eq,
-    Clone,
-    ProtocolSchema,
-    Debug,
-)]
-pub enum GlobalContractIdentifier {
-    CodeHash(CryptoHash),
-    AccountId(AccountId),
-}
-
-/// Use global contract action
-#[serde_as]
-#[derive(
-    BorshSerialize,
-    BorshDeserialize,
-    serde::Serialize,
-    serde::Deserialize,
-    PartialEq,
-    Eq,
-    Clone,
-    ProtocolSchema,
-    Debug,
-)]
-pub struct UseGlobalContractAction {
-    pub contract_identifier: GlobalContractIdentifier,
 }
 
 #[serde_as]
@@ -215,7 +186,10 @@ pub struct FunctionCallAction {
 }
 
 impl fmt::Debug for FunctionCallAction {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
         f.debug_struct("FunctionCallAction")
             .field("method_name", &format_args!("{}", &self.method_name))
             .field("args", &format_args!("{}", base64(&self.args)))
@@ -305,7 +279,6 @@ pub enum Action {
     DeleteAccount(DeleteAccountAction),
     Delegate(Box<delegate::SignedDelegateAction>),
     DeployGlobalContract(DeployGlobalContractAction),
-    UseGlobalContract(Box<UseGlobalContractAction>),
     #[cfg(feature = "protocol_feature_nonrefundable_transfer_nep491")]
     /// Makes a non-refundable transfer for storage allowance.
     /// Only possible during new account creation.
@@ -324,17 +297,17 @@ const _: () = assert!(
 impl Action {
     pub fn get_prepaid_gas(&self) -> Gas {
         match self {
-            Action::FunctionCall(a) => a.gas,
-            _ => 0,
+            | Action::FunctionCall(a) => a.gas,
+            | _ => 0,
         }
     }
     pub fn get_deposit_balance(&self) -> Balance {
         match self {
-            Action::FunctionCall(a) => a.deposit,
-            Action::Transfer(a) => a.deposit,
+            | Action::FunctionCall(a) => a.deposit,
+            | Action::Transfer(a) => a.deposit,
             #[cfg(feature = "protocol_feature_nonrefundable_transfer_nep491")]
-            Action::NonrefundableStorageTransfer(a) => a.deposit,
-            _ => 0,
+            | Action::NonrefundableStorageTransfer(a) => a.deposit,
+            | _ => 0,
         }
     }
 }

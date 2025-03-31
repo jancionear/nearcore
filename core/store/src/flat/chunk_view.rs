@@ -29,7 +29,11 @@ pub struct FlatStorageChunkView {
 }
 
 impl FlatStorageChunkView {
-    pub fn new(store: FlatStoreAdapter, block_hash: CryptoHash, flat_storage: FlatStorage) -> Self {
+    pub fn new(
+        store: FlatStoreAdapter,
+        block_hash: CryptoHash,
+        flat_storage: FlatStorage,
+    ) -> Self {
         Self { store, block_hash, flat_storage }
     }
     /// Returns value reference using raw trie key, taken from the state
@@ -39,18 +43,31 @@ impl FlatStorageChunkView {
     /// they are stored in `DBCol::State`. Also the separation is done so we
     /// could charge users for the value length before loading the value.
     // TODO (#7327): consider inlining small values, so we could use only one db access.
-    pub fn get_value(&self, key: &[u8]) -> Result<Option<FlatStateValue>, crate::StorageError> {
-        self.flat_storage.get_value(&self.block_hash, key)
+    pub fn get_value(
+        &self,
+        key: &[u8],
+    ) -> Result<Option<FlatStateValue>, crate::StorageError> {
+        self.flat_storage
+            .get_value(&self.block_hash, key)
     }
 
-    pub fn contains_key(&self, key: &[u8]) -> Result<bool, crate::StorageError> {
-        self.flat_storage.contains_key(&self.block_hash, key)
+    pub fn contains_key(
+        &self,
+        key: &[u8],
+    ) -> Result<bool, crate::StorageError> {
+        self.flat_storage
+            .contains_key(&self.block_hash, key)
     }
 
     // TODO: this should be changed to check the values that haven't yet been applied, like in get_value() and contains_key(),
     // because otherwise we're iterating over old state that might have been updated by `self.block_hash`
-    pub fn iter_range(&self, from: Option<&[u8]>, to: Option<&[u8]>) -> FlatStateIterator {
-        self.store.iter_range(self.flat_storage.shard_uid(), from, to)
+    pub fn iter_range(
+        &self,
+        from: Option<&[u8]>,
+        to: Option<&[u8]>,
+    ) -> FlatStateIterator {
+        self.store
+            .iter_range(self.flat_storage.shard_uid(), from, to)
     }
 
     pub fn get_head_hash(&self) -> CryptoHash {

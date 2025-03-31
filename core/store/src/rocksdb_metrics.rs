@@ -10,10 +10,17 @@ use std::sync::LazyLock;
 use std::sync::Mutex;
 use tracing::warn;
 
-pub fn export_stats_as_metrics(stats: StoreStatistics, temperature: Temperature) {
-    match ROCKSDB_METRICS.lock().unwrap().export_stats_as_metrics(stats, temperature) {
-        Ok(_) => {}
-        Err(err) => {
+pub fn export_stats_as_metrics(
+    stats: StoreStatistics,
+    temperature: Temperature,
+) {
+    match ROCKSDB_METRICS
+        .lock()
+        .unwrap()
+        .export_stats_as_metrics(stats, temperature)
+    {
+        | Ok(_) => {}
+        | Err(err) => {
             warn!(target:"stats", "Failed to export {:?} store statistics: {:?}", temperature, err);
         }
     }
@@ -25,7 +32,11 @@ pub fn export_stats_as_metrics(stats: StoreStatistics, temperature: Temperature)
 /// Only for unit test usage.
 #[cfg(test)]
 pub fn get_int_gauges() -> HashMap<String, IntGauge> {
-    ROCKSDB_METRICS.lock().unwrap().int_gauges.clone()
+    ROCKSDB_METRICS
+        .lock()
+        .unwrap()
+        .int_gauges
+        .clone()
 }
 
 /// Wrapper for re-exporting RocksDB stats into Prometheus metrics.
@@ -70,7 +81,7 @@ impl RocksDBMetrics {
             }
             for stats_value in values {
                 match stats_value {
-                    StatsValue::Count(value) => {
+                    | StatsValue::Count(value) => {
                         self.set_int_value(
                             get_stats_summary_count_key,
                             get_metric_name_summary_count_gauge,
@@ -78,7 +89,7 @@ impl RocksDBMetrics {
                             value,
                         )?;
                     }
-                    StatsValue::Sum(value) => {
+                    | StatsValue::Sum(value) => {
                         self.set_int_value(
                             get_stats_summary_sum_key,
                             get_metric_name_summary_sum_gauge,
@@ -86,38 +97,46 @@ impl RocksDBMetrics {
                             value,
                         )?;
                     }
-                    StatsValue::Percentile(percentile, value) => {
+                    | StatsValue::Percentile(percentile, value) => {
                         let key = &stat_name;
 
                         let gauge = match self.gauges.entry(key.to_string()) {
-                            Entry::Vacant(entry) => entry.insert(try_create_gauge_vec(
+                            | Entry::Vacant(entry) => entry.insert(try_create_gauge_vec(
                                 &get_prometheus_metric_name(&stat_name),
                                 &stat_name,
                                 &["quantile"],
                             )?),
-                            Entry::Occupied(entry) => entry.into_mut(),
+                            | Entry::Occupied(entry) => entry.into_mut(),
                         };
                         gauge
-                            .with_label_values(&[&format!("{:.2}", percentile as f64 * 0.01)])
+                            .with_label_values(&[&format!(
+                                "{:.2}",
+                                percentile as f64 * 0.01
+                            )])
                             .set(value);
                     }
                     // Adding rocksdb property as labeled integer gauge metric.
                     // Label = column's verbose name.
-                    StatsValue::ColumnValue(col, value) => {
+                    | StatsValue::ColumnValue(col, value) => {
                         let key = &stat_name;
 
                         // Checking for metric to be present.
-                        let gauge = match self.int_vec_gauges.entry(key.to_string()) {
+                        let gauge = match self
+                            .int_vec_gauges
+                            .entry(key.to_string())
+                        {
                             // If not -> creating it.
-                            Entry::Vacant(entry) => entry.insert(try_create_int_gauge_vec(
+                            | Entry::Vacant(entry) => entry.insert(try_create_int_gauge_vec(
                                 &get_prometheus_metric_name(&stat_name),
                                 &stat_name,
                                 &["col"],
                             )?),
-                            Entry::Occupied(entry) => entry.into_mut(),
+                            | Entry::Occupied(entry) => entry.into_mut(),
                         };
                         // Writing value for column.
-                        gauge.with_label_values(&[<&str>::from(col)]).set(value);
+                        gauge
+                            .with_label_values(&[<&str>::from(col)])
+                            .set(value);
                     }
                 }
             }
@@ -137,10 +156,10 @@ impl RocksDBMetrics {
     ) -> Result<(), Box<dyn std::error::Error>> {
         let key = key_fn(stat_name);
         let gauge = match self.int_gauges.entry(key) {
-            Entry::Vacant(entry) => {
+            | Entry::Vacant(entry) => {
                 entry.insert(try_create_int_gauge(&metric_fn(stat_name), stat_name)?)
             }
-            Entry::Occupied(entry) => entry.into_mut(),
+            | Entry::Occupied(entry) => entry.into_mut(),
         };
         gauge.set(value);
         Ok(())
@@ -149,8 +168,8 @@ impl RocksDBMetrics {
 
 fn get_temperature_str(temperature: &Temperature) -> &'static str {
     match temperature {
-        Temperature::Hot => "",
-        Temperature::Cold => "_cold",
+        | Temperature::Hot => "",
+        | Temperature::Cold => "_cold",
     }
 }
 

@@ -17,7 +17,10 @@ impl crate::CongestionStrategy for NewTxLast {
     ) {
     }
 
-    fn compute_chunk(&mut self, ctx: &mut ChunkExecutionContext) {
+    fn compute_chunk(
+        &mut self,
+        ctx: &mut ChunkExecutionContext,
+    ) {
         // Start with receipts and reserve no chunk space to new transactions.
         // In contrast to nearcore today, which gives new transactions priority with up to halve the chunks space.
         while ctx.gas_burnt() < GAS_LIMIT {

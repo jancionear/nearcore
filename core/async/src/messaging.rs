@@ -13,7 +13,11 @@ use tokio::sync::oneshot;
 /// the beginning of the actor's lifecycle.
 /// This corresponds to the actix::Actor trait `started` function.
 pub trait Actor {
-    fn start_actor(&mut self, _ctx: &mut dyn DelayedActionRunner<Self>) {}
+    fn start_actor(
+        &mut self,
+        _ctx: &mut dyn DelayedActionRunner<Self>,
+    ) {
+    }
 
     fn wrap_handler<M: actix::Message>(
         &mut self,
@@ -34,7 +38,10 @@ pub trait Handler<M: actix::Message>
 where
     M::Result: Send,
 {
-    fn handle(&mut self, msg: M) -> M::Result;
+    fn handle(
+        &mut self,
+        msg: M,
+    ) -> M::Result;
 }
 
 /// Trait for handling a message with context.
@@ -47,7 +54,11 @@ pub trait HandlerWithContext<M: actix::Message>
 where
     M::Result: Send,
 {
-    fn handle(&mut self, msg: M, ctx: &mut dyn DelayedActionRunner<Self>) -> M::Result;
+    fn handle(
+        &mut self,
+        msg: M,
+        ctx: &mut dyn DelayedActionRunner<Self>,
+    ) -> M::Result;
 }
 
 impl<A, M> HandlerWithContext<M> for A
@@ -56,7 +67,11 @@ where
     A: Actor + Handler<M>,
     M::Result: Send,
 {
-    fn handle(&mut self, msg: M, ctx: &mut dyn DelayedActionRunner<Self>) -> M::Result {
+    fn handle(
+        &mut self,
+        msg: M,
+        ctx: &mut dyn DelayedActionRunner<Self>,
+    ) -> M::Result {
         self.wrap_handler(msg, ctx, |this, msg, _| Handler::handle(this, msg))
     }
 }
@@ -65,7 +80,10 @@ where
 /// actix::Addr, which is derived from actix::Actor is an example of a struct that implements CanSend.
 /// See [`Handler`] trait for more details.
 pub trait CanSend<M>: Send + Sync + 'static {
-    fn send(&self, message: M);
+    fn send(
+        &self,
+        message: M,
+    );
 }
 
 /// Wraps a CanSend. This should be used to pass around an Arc<dyn CanSend<M>>, instead
@@ -101,7 +119,10 @@ impl<M, T: CanSend<M>> IntoSender<M> for T {
 impl<M> Sender<M> {
     /// Sends a message. It's the responsibility of the underlying CanSend
     /// implementation to decide how to handle the message.
-    pub fn send(&self, message: M) {
+    pub fn send(
+        &self,
+        message: M,
+    ) {
         self.sender.send(message)
     }
 
@@ -131,11 +152,17 @@ impl<M> Sender<M> {
 ///
 /// See `AsyncSendError` for reasons that the future may resolve to an error result.
 pub trait SendAsync<M, R: Send + 'static> {
-    fn send_async(&self, message: M) -> BoxFuture<'static, Result<R, AsyncSendError>>;
+    fn send_async(
+        &self,
+        message: M,
+    ) -> BoxFuture<'static, Result<R, AsyncSendError>>;
 }
 
 impl<M, R: Send + 'static, A: CanSend<MessageWithCallback<M, R>> + ?Sized> SendAsync<M, R> for A {
-    fn send_async(&self, message: M) -> BoxFuture<'static, Result<R, AsyncSendError>> {
+    fn send_async(
+        &self,
+        message: M,
+    ) -> BoxFuture<'static, Result<R, AsyncSendError>> {
         // To send a message and get a future of the response, we use a oneshot
         // channel that is resolved when the responder function is called. It's
         // possible that someone implementing the Sender would just drop the
@@ -145,8 +172,8 @@ impl<M, R: Send + 'static, A: CanSend<MessageWithCallback<M, R>> + ?Sized> SendA
             oneshot::channel::<BoxFuture<'static, Result<R, AsyncSendError>>>();
         let future = async move {
             match receiver.await {
-                Ok(result_future) => result_future.await,
-                Err(_) => Err(AsyncSendError::Dropped),
+                | Ok(result_future) => result_future.await,
+                | Err(_) => Err(AsyncSendError::Dropped),
             }
         };
         let responder = Box::new(move |r| {
@@ -161,7 +188,10 @@ impl<M, R: Send + 'static, A: CanSend<MessageWithCallback<M, R>> + ?Sized> SendA
 
 impl<M, R: Send + 'static> Sender<MessageWithCallback<M, R>> {
     /// Same as the above, but for a concrete Sender type.
-    pub fn send_async(&self, message: M) -> BoxFuture<'static, Result<R, AsyncSendError>> {
+    pub fn send_async(
+        &self,
+        message: M,
+    ) -> BoxFuture<'static, Result<R, AsyncSendError>> {
         self.sender.send_async(message)
     }
 
@@ -188,7 +218,10 @@ pub enum AsyncSendError {
 }
 
 impl Display for AsyncSendError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+    ) -> std::fmt::Result {
         Debug::fmt(self, f)
     }
 }
@@ -202,8 +235,13 @@ pub struct MessageWithCallback<T, R> {
 }
 
 impl<T: Debug, R> Debug for MessageWithCallback<T, R> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_tuple("MessageWithCallback").field(&self.message).finish()
+    fn fmt(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+    ) -> std::fmt::Result {
+        f.debug_tuple("MessageWithCallback")
+            .field(&self.message)
+            .finish()
     }
 }
 
@@ -228,14 +266,23 @@ impl<S> LateBoundSender<S> {
         Arc::new(Self { sender: OnceCell::new() })
     }
 
-    pub fn bind(&self, sender: S) {
-        self.sender.set(sender).map_err(|_| ()).expect("cannot set sender twice");
+    pub fn bind(
+        &self,
+        sender: S,
+    ) {
+        self.sender
+            .set(sender)
+            .map_err(|_| ())
+            .expect("cannot set sender twice");
     }
 }
 
 /// Allows LateBoundSender to be convertible to a Sender as long as the inner object could be.
 impl<M, S: CanSend<M>> CanSend<M> for LateBoundSender<S> {
-    fn send(&self, message: M) {
+    fn send(
+        &self,
+        message: M,
+    ) {
         self.sender.wait().send(message);
     }
 }
@@ -243,7 +290,11 @@ impl<M, S: CanSend<M>> CanSend<M> for LateBoundSender<S> {
 pub struct Noop;
 
 impl<M> CanSend<M> for Noop {
-    fn send(&self, _message: M) {}
+    fn send(
+        &self,
+        _message: M,
+    ) {
+    }
 }
 
 /// Creates a no-op sender that does nothing with the message.

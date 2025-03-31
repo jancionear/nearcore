@@ -289,7 +289,9 @@ static CHUNK_TX_COMPUTE: LazyLock<HistogramVec> = LazyLock::new(|| {
         "near_chunk_tx_compute",
         "Compute time for transaction validation by chunk, as a histogram in ms",
         &["shard_id"],
-        Some(vec![0., 50., 100., 200., 300., 400., 500., 600.0]),
+        Some(vec![
+            0., 50., 100., 200., 300., 400., 500., 600.0,
+        ]),
     )
     .unwrap()
 });
@@ -514,7 +516,9 @@ pub(crate) static PIPELINING_ACTIONS_TASK_WORKING_TIME: LazyLock<Counter> = Lazy
 /// But due to the split between types of receipts, it should be quite rare to
 /// see more than 1000.
 fn buckets_for_gas() -> Option<Vec<f64>> {
-    Some(vec![0., 50., 100., 200., 300., 400., 500., 600., 700., 800., 900., 1000., 1100., 1200.])
+    Some(vec![
+        0., 50., 100., 200., 300., 400., 500., 600., 700., 800., 900., 1000., 1100., 1200.,
+    ])
 }
 /// Buckets used for receipt compute time usage, in ms.
 ///
@@ -543,7 +547,9 @@ fn buckets_for_receipt_storage_proof_size() -> Vec<f64> {
 
 fn buckets_for_recorded_trie_column_size() -> Vec<f64> {
     // Precise buckets for the smaller, common values
-    let mut buckets = vec![50_000., 100_000., 200_000., 400_000., 600_000., 800_000.];
+    let mut buckets = vec![
+        50_000., 100_000., 200_000., 400_000., 600_000., 800_000.,
+    ];
 
     // Coarse buckets for the larger values
     buckets.extend(linear_buckets(1_000_000., 500_000., 15).unwrap());
@@ -590,7 +596,11 @@ pub struct ApplyMetrics {
 impl ApplyMetrics {
     /// Updates the internal accumulated counters and returns the difference to
     /// the old counters.
-    fn update_accumulated(&mut self, gas: u64, compute: u64) -> (u64, u64) {
+    fn update_accumulated(
+        &mut self,
+        gas: u64,
+        compute: u64,
+    ) -> (u64, u64) {
         // Use saturating sub, wrong metrics are better than an overflow panic.
         let delta = (
             gas.saturating_sub(self.accumulated_gas),
@@ -601,7 +611,11 @@ impl ApplyMetrics {
         delta
     }
 
-    pub fn tx_processing_done(&mut self, accumulated_gas: u64, accumulated_compute: u64) {
+    pub fn tx_processing_done(
+        &mut self,
+        accumulated_gas: u64,
+        accumulated_compute: u64,
+    ) {
         (self.tx_gas, self.tx_compute_usage) =
             self.update_accumulated(accumulated_gas, accumulated_compute);
     }
@@ -660,7 +674,10 @@ impl ApplyMetrics {
     }
 
     /// Report statistics
-    pub fn report(&mut self, shard_id: &str) {
+    pub fn report(
+        &mut self,
+        shard_id: &str,
+    ) {
         const TERA: f64 = 1_000_000_000_000_f64;
 
         LOCAL_RECEIPT_PROCESSED_TOTAL
@@ -697,7 +714,9 @@ impl ApplyMetrics {
             .inc_by(self.yield_timeouts_processing_seconds_total);
         self.yield_timeouts_processing_seconds_total = 0.0;
 
-        CHUNK_TX_TGAS.with_label_values(&[shard_id]).observe(self.tx_gas as f64 / TERA);
+        CHUNK_TX_TGAS
+            .with_label_values(&[shard_id])
+            .observe(self.tx_gas as f64 / TERA);
         CHUNK_TX_COMPUTE
             .with_label_values(&[shard_id])
             .observe(self.tx_compute_usage as f64 / TERA);
@@ -730,7 +749,9 @@ impl ApplyMetrics {
             .with_label_values(&[shard_id])
             .observe(self.yield_timeouts_compute_usage as f64 / TERA);
 
-        CHUNK_TGAS.with_label_values(&[shard_id]).observe(self.accumulated_gas as f64 / TERA);
+        CHUNK_TGAS
+            .with_label_values(&[shard_id])
+            .observe(self.accumulated_gas as f64 / TERA);
         CHUNK_COMPUTE
             .with_label_values(&[shard_id])
             .observe(self.accumulated_compute as f64 / TERA);
@@ -743,10 +764,10 @@ pub fn report_congestion_metrics(
     config: &CongestionControlConfig,
 ) {
     match receipt_sink {
-        ReceiptSink::V1(_) => {
+        | ReceiptSink::V1(_) => {
             // no metrics to report
         }
-        ReceiptSink::V2(inner) => {
+        | ReceiptSink::V2(inner) => {
             let sender_shard_label = sender_shard_id.to_string();
             report_congestion_indicators(&inner.own_congestion_info, &sender_shard_label, &config);
             report_outgoing_buffers(inner, sender_shard_label);
@@ -761,18 +782,35 @@ fn report_congestion_indicators(
     config: &CongestionControlConfig,
 ) {
     let congestion_level = congestion_info.localized_congestion_level(config);
-    CONGESTION_LEVEL.with_label_values(&[shard_label]).set(congestion_level);
+    CONGESTION_LEVEL
+        .with_label_values(&[shard_label])
+        .set(congestion_level);
 
     let CongestionInfo::V1(inner) = congestion_info;
     CONGESTION_RECEIPT_BYTES
         .with_label_values(&[shard_label])
-        .set(inner.receipt_bytes.try_into().unwrap_or(i64::MAX));
+        .set(
+            inner
+                .receipt_bytes
+                .try_into()
+                .unwrap_or(i64::MAX),
+        );
     CONGESTION_INCOMING_GAS
         .with_label_values(&[shard_label])
-        .set(inner.delayed_receipts_gas.try_into().unwrap_or(i64::MAX));
+        .set(
+            inner
+                .delayed_receipts_gas
+                .try_into()
+                .unwrap_or(i64::MAX),
+        );
     CONGESTION_OUTGOING_GAS
         .with_label_values(&[shard_label])
-        .set(inner.buffered_receipts_gas.try_into().unwrap_or(i64::MAX));
+        .set(
+            inner
+                .buffered_receipts_gas
+                .try_into()
+                .unwrap_or(i64::MAX),
+        );
 }
 
 /// From `sender_shard` to all other shards, reports how many receipts are
@@ -785,18 +823,30 @@ fn report_outgoing_buffers(
         let receiver_shard_label = receiver_shard_id.to_string();
 
         CONGESTION_RECEIPT_FORWARDING_UNUSED_CAPACITY_GAS
-            .with_label_values(&[&sender_shard_label, &receiver_shard_label])
+            .with_label_values(&[
+                &sender_shard_label,
+                &receiver_shard_label,
+            ])
             .set(i64::try_from(unused_capacity.gas).unwrap_or(i64::MAX));
 
-        if let Some(len) = inner.outgoing_buffers.buffer_len(*receiver_shard_id) {
+        if let Some(len) = inner
+            .outgoing_buffers
+            .buffer_len(*receiver_shard_id)
+        {
             CONGESTION_OUTGOING_RECEIPT_BUFFER_LEN
-                .with_label_values(&[&sender_shard_label, &receiver_shard_label])
+                .with_label_values(&[
+                    &sender_shard_label,
+                    &receiver_shard_label,
+                ])
                 .set(i64::try_from(len).unwrap_or(i64::MAX));
         }
     }
 }
 
-pub fn report_recorded_column_sizes(trie: &Trie, apply_state: &ApplyState) {
+pub fn report_recorded_column_sizes(
+    trie: &Trie,
+    apply_state: &ApplyState,
+) {
     // Tracing span to measure time spent on reporting column sizes.
     let _span = tracing::debug_span!(
             target: "runtime", "report_recorded_column_sizes",
@@ -811,10 +861,19 @@ pub fn report_recorded_column_sizes(trie: &Trie, apply_state: &ApplyState) {
     let mut total_size = SubtreeSize::default();
 
     let shard_id_str = apply_state.shard_id.to_string();
-    for column in trie_recorder_stats.trie_column_sizes.iter() {
-        let column_size = column.size.nodes_size.saturating_add(column.size.values_size);
+    for column in trie_recorder_stats
+        .trie_column_sizes
+        .iter()
+    {
+        let column_size = column
+            .size
+            .nodes_size
+            .saturating_add(column.size.values_size);
         CHUNK_RECORDED_TRIE_COLUMN_SIZE
-            .with_label_values(&[shard_id_str.as_str(), column.column_name])
+            .with_label_values(&[
+                shard_id_str.as_str(),
+                column.column_name,
+            ])
             .observe(column_size as f64);
 
         total_size = total_size.saturating_add(column.size);

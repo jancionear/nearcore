@@ -40,8 +40,9 @@ fn slow_test_fix_min_stake_ratio() {
 
     let initial_balance = 1_000_000 * ONE_NEAR;
     let epoch_length = 10;
-    let accounts =
-        (0..8).map(|i| format!("account{}", i).parse().unwrap()).collect::<Vec<AccountId>>();
+    let accounts = (0..8)
+        .map(|i| format!("account{}", i).parse().unwrap())
+        .collect::<Vec<AccountId>>();
     let clients = accounts.iter().cloned().collect_vec();
     let small_validator = accounts[2].clone();
 
@@ -68,8 +69,11 @@ fn slow_test_fix_min_stake_ratio() {
         },
     ];
 
-    let shard_layout =
-        epoch_config_store.get_config(genesis_protocol_version).as_ref().shard_layout.clone();
+    let shard_layout = epoch_config_store
+        .get_config(genesis_protocol_version)
+        .as_ref()
+        .shard_layout
+        .clone();
     let validators_spec = ValidatorsSpec::raw(validators, 1, 1, 2);
 
     // Create chain with version before FixMinStakeRatio was enabled.
@@ -85,12 +89,22 @@ fn slow_test_fix_min_stake_ratio() {
         .add_user_accounts_simple(&accounts, initial_balance)
         .build();
 
-    let TestLoopEnv { mut test_loop, datas: node_datas, tempdir } =
-        builder.genesis(genesis).epoch_config_store(epoch_config_store).clients(clients).build();
+    let TestLoopEnv { mut test_loop, datas: node_datas, tempdir } = builder
+        .genesis(genesis)
+        .epoch_config_store(epoch_config_store)
+        .clients(clients)
+        .build();
 
     let client_sender = node_datas[0].client_sender.clone();
-    let client_handle = node_datas[0].client_sender.actor_handle();
-    let initial_validators = get_epoch_all_validators(&test_loop.data.get(&client_handle).client);
+    let client_handle = node_datas[0]
+        .client_sender
+        .actor_handle();
+    let initial_validators = get_epoch_all_validators(
+        &test_loop
+            .data
+            .get(&client_handle)
+            .client,
+    );
     assert_eq!(initial_validators.len(), 2);
     assert!(!initial_validators.contains(&small_validator.to_string()));
 
@@ -129,17 +143,24 @@ fn slow_test_fix_min_stake_ratio() {
     // In the epoch where it happens, small validator must join the validator
     // set.
     let success_condition = |test_loop_data: &mut TestLoopData| -> bool {
-        let client = &test_loop_data.get(&client_handle).client;
+        let client = &test_loop_data
+            .get(&client_handle)
+            .client;
         let validators = get_epoch_all_validators(client);
         let tip = client.chain.head().unwrap();
-        let epoch_height =
-            client.epoch_manager.get_epoch_height_from_prev_block(&tip.prev_block_hash).unwrap();
+        let epoch_height = client
+            .epoch_manager
+            .get_epoch_height_from_prev_block(&tip.prev_block_hash)
+            .unwrap();
         stake_if_new_epoch_started(tip.prev_block_hash, epoch_height);
 
         assert!(epoch_height < 4);
         return if validators.len() == 3 {
             assert!(validators.contains(&small_validator.to_string()));
-            let epoch_config = client.epoch_manager.get_epoch_config(&tip.epoch_id).unwrap();
+            let epoch_config = client
+                .epoch_manager
+                .get_epoch_config(&tip.epoch_id)
+                .unwrap();
             assert_eq!(epoch_config.minimum_stake_ratio, Rational32::new(1, 62_500));
             true
         } else {

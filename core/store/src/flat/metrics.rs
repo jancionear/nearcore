@@ -31,12 +31,20 @@ impl FlatStorageMetrics {
         }
     }
 
-    pub(crate) fn set_distance_to_head(&self, distance: usize, height: Option<BlockHeight>) {
-        self.distance_to_head.set(height.unwrap_or(0) as i64);
+    pub(crate) fn set_distance_to_head(
+        &self,
+        distance: usize,
+        height: Option<BlockHeight>,
+    ) {
+        self.distance_to_head
+            .set(height.unwrap_or(0) as i64);
         self.hops_to_head.set(distance as i64);
     }
 
-    pub(crate) fn set_flat_head_height(&self, height: u64) {
+    pub(crate) fn set_flat_head_height(
+        &self,
+        height: u64,
+    ) {
         self.flat_head_height.set(height as i64);
     }
 
@@ -46,9 +54,12 @@ impl FlatStorageMetrics {
         cached_changes_num_items: usize,
         cached_changes_size: u64,
     ) {
-        self.cached_deltas.set(cached_deltas as i64);
-        self.cached_changes_num_items.set(cached_changes_num_items as i64);
-        self.cached_changes_size.set(cached_changes_size as i64);
+        self.cached_deltas
+            .set(cached_deltas as i64);
+        self.cached_changes_num_items
+            .set(cached_changes_num_items as i64);
+        self.cached_changes_size
+            .set(cached_changes_size as i64);
     }
 }
 
@@ -92,38 +103,68 @@ impl FlatStorageReshardingShardSplitMetrics {
         }
     }
 
-    pub fn set_parent_status(&self, status: &FlatStorageStatus) {
+    pub fn set_parent_status(
+        &self,
+        status: &FlatStorageStatus,
+    ) {
         self.parent_status.set(status.into());
     }
 
-    pub fn set_left_child_status(&self, status: &FlatStorageStatus) {
-        self.left_child_status.set(status.into());
+    pub fn set_left_child_status(
+        &self,
+        status: &FlatStorageStatus,
+    ) {
+        self.left_child_status
+            .set(status.into());
     }
 
-    pub fn set_right_child_status(&self, status: &FlatStorageStatus) {
-        self.right_child_status.set(status.into());
+    pub fn set_right_child_status(
+        &self,
+        status: &FlatStorageStatus,
+    ) {
+        self.right_child_status
+            .set(status.into());
     }
 
-    pub fn set_split_shard_processed_batches(&self, num_batches: usize) {
-        self.split_shard_processed_batches.set(num_batches as i64);
+    pub fn set_split_shard_processed_batches(
+        &self,
+        num_batches: usize,
+    ) {
+        self.split_shard_processed_batches
+            .set(num_batches as i64);
     }
 
-    pub fn update_shards_status(&self, manager: &FlatStorageManager) {
+    pub fn update_shards_status(
+        &self,
+        manager: &FlatStorageManager,
+    ) {
         self.set_parent_status(&manager.get_flat_storage_status(self.parent_shard));
         self.set_left_child_status(&manager.get_flat_storage_status(self.left_child_shard));
         self.set_right_child_status(&manager.get_flat_storage_status(self.right_child_shard));
     }
 
-    pub fn set_split_shard_batch_size(&self, batch_size: usize) {
-        self.split_shard_batch_size.set(batch_size as i64);
+    pub fn set_split_shard_batch_size(
+        &self,
+        batch_size: usize,
+    ) {
+        self.split_shard_batch_size
+            .set(batch_size as i64);
     }
 
-    pub fn set_split_shard_processed_bytes(&self, bytes: usize) {
-        self.split_shard_processed_bytes.set(bytes as i64);
+    pub fn set_split_shard_processed_bytes(
+        &self,
+        bytes: usize,
+    ) {
+        self.split_shard_processed_bytes
+            .set(bytes as i64);
     }
 
-    pub fn inc_split_shard_processed_bytes_by(&self, processed_bytes: usize) {
-        self.split_shard_processed_bytes.add(processed_bytes as i64);
+    pub fn inc_split_shard_processed_bytes_by(
+        &self,
+        processed_bytes: usize,
+    ) {
+        self.split_shard_processed_bytes
+            .add(processed_bytes as i64);
     }
 }
 
@@ -145,11 +186,17 @@ impl FlatStorageReshardingShardCatchUpMetrics {
         }
     }
 
-    pub fn set_status(&self, status: &FlatStorageStatus) {
+    pub fn set_status(
+        &self,
+        status: &FlatStorageStatus,
+    ) {
         self.status.set(status.into());
     }
 
-    pub fn set_head_height(&self, height: u64) {
+    pub fn set_head_height(
+        &self,
+        height: u64,
+    ) {
         self.head_height.set(height as i64);
     }
 }

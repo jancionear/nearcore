@@ -37,7 +37,9 @@ pub async fn run(
         let mut blocks_count = 0;
         while last_height < target_height {
             // Fetch the next batch of headers.
-            let mut headers = network.fetch_block_headers(last_hash).await?;
+            let mut headers = network
+                .fetch_block_headers(last_hash)
+                .await?;
             headers.sort_by_key(|h| h.height());
             let last_header = headers.last().context("no headers")?;
             last_hash = *last_header.hash();
@@ -67,10 +69,22 @@ pub async fn run(
     let stop_time = ctx::time::now();
     let total_time = stop_time.signed_duration_since(start_time);
     let t = total_time.as_seconds_f64();
-    let sent = network.stats.msgs_sent.load(Ordering::Relaxed);
-    let headers = network.stats.header_done.load(Ordering::Relaxed);
-    let blocks = network.stats.block_done.load(Ordering::Relaxed);
-    let chunks = network.stats.chunk_done.load(Ordering::Relaxed);
+    let sent = network
+        .stats
+        .msgs_sent
+        .load(Ordering::Relaxed);
+    let headers = network
+        .stats
+        .header_done
+        .load(Ordering::Relaxed);
+    let blocks = network
+        .stats
+        .block_done
+        .load(Ordering::Relaxed);
+    let chunks = network
+        .stats
+        .chunk_done
+        .load(Ordering::Relaxed);
     info!("running time: {:.2}s", t);
     info!("average QPS: {:.2}", (sent as f64) / t);
     info!("fetched {} header batches ({:.2} per second)", headers, headers as f64 / t);

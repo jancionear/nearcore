@@ -24,14 +24,22 @@ fn run_test(
 
     let protocol_version =
         ProtocolFeature::RestoreReceiptsAfterFixApplyChunks.protocol_version() - 1;
-    let mut genesis = Genesis::test(vec!["test0".parse().unwrap(), "test1".parse().unwrap()], 1);
+    let mut genesis = Genesis::test(
+        vec![
+            "test0".parse().unwrap(),
+            "test1".parse().unwrap(),
+        ],
+        1,
+    );
     genesis.config.chain_id = String::from(chain_id);
     genesis.config.epoch_length = EPOCH_LENGTH;
     genesis.config.protocol_version = protocol_version;
     // TODO #4305: get directly from NightshadeRuntime
     let migration_data = load_migration_data(&genesis.config.chain_id);
 
-    let mut env = TestEnv::builder(&genesis.config).nightshade_runtimes(&genesis).build();
+    let mut env = TestEnv::builder(&genesis.config)
+        .nightshade_runtimes(&genesis)
+        .build();
 
     let get_restored_receipt_hashes = |migration_data: &MigrationData| -> HashSet<CryptoHash> {
         HashSet::from_iter(
@@ -56,9 +64,16 @@ fn run_test(
     while height < 15
         || (!receipt_hashes_to_restore.is_empty() && height - last_update_height < HEIGHT_TIMEOUT)
     {
-        let mut block = env.clients[0].produce_block(height).unwrap().unwrap();
+        let mut block = env.clients[0]
+            .produce_block(height)
+            .unwrap()
+            .unwrap();
         if low_height_with_no_chunk <= height && height < high_height_with_no_chunk {
-            let prev_block = env.clients[0].chain.get_block_by_height(height - 1).unwrap().clone();
+            let prev_block = env.clients[0]
+                .chain
+                .get_block_by_height(height - 1)
+                .unwrap()
+                .clone();
             testlib::process_blocks::set_no_chunk_in_block(&mut block, &prev_block);
         }
         set_block_protocol_version(
@@ -69,14 +84,22 @@ fn run_test(
 
         env.process_block(0, block, Provenance::PRODUCED);
 
-        let last_block = env.clients[0].chain.get_block_by_height(height).unwrap().clone();
+        let last_block = env.clients[0]
+            .chain
+            .get_block_by_height(height)
+            .unwrap()
+            .clone();
         let protocol_version = env.clients[0]
             .epoch_manager
             .get_epoch_protocol_version(last_block.header().epoch_id())
             .unwrap();
 
         for receipt_id in receipt_hashes_to_restore.clone().iter() {
-            if env.clients[0].chain.get_execution_outcome(receipt_id).is_ok() {
+            if env.clients[0]
+                .chain
+                .get_execution_outcome(receipt_id)
+                .is_ok()
+            {
                 assert!(
                     protocol_version
                         >= ProtocolFeature::RestoreReceiptsAfterFixApplyChunks.protocol_version(),

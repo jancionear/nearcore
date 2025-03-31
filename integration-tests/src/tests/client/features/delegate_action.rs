@@ -51,17 +51,26 @@ fn exec_meta_transaction(
     let user: AccountId = "alice.near".parse().unwrap();
     let receiver: AccountId = "bob.near".parse().unwrap();
     let relayer: AccountId = "relayer.near".parse().unwrap();
-    let mut genesis =
-        Genesis::test(vec![validator, user.clone(), receiver.clone(), relayer.clone()], 1);
+    let mut genesis = Genesis::test(
+        vec![
+            validator,
+            user.clone(),
+            receiver.clone(),
+            relayer.clone(),
+        ],
+        1,
+    );
     genesis.config.epoch_length = 1000;
     genesis.config.protocol_version = protocol_version;
-    let mut env = TestEnv::builder(&genesis.config).nightshade_runtimes(&genesis).build();
+    let mut env = TestEnv::builder(&genesis.config)
+        .nightshade_runtimes(&genesis)
+        .build();
 
     let tx = env.meta_tx_from_actions(actions, user, relayer, receiver);
 
     match env.execute_tx(tx) {
-        Ok(outcome) => outcome.status,
-        Err(status) => FinalExecutionStatus::Failure(TxExecutionError::InvalidTxError(status)),
+        | Ok(outcome) => outcome.status,
+        | Err(status) => FinalExecutionStatus::Failure(TxExecutionError::InvalidTxError(status)),
     }
 }
 
@@ -127,27 +136,37 @@ fn check_meta_tx_execution(
     );
 
     let sender_before = node_user.view_balance(&sender).unwrap();
-    let relayer_before = node_user.view_balance(&relayer).unwrap();
-    let receiver_before = node_user.view_balance(&receiver).unwrap_or(0);
+    let relayer_before = node_user
+        .view_balance(&relayer)
+        .unwrap();
+    let receiver_before = node_user
+        .view_balance(&receiver)
+        .unwrap_or(0);
     let relayer_nonce_before = node_user
         .get_access_key(&relayer, &PublicKey::from_seed(KeyType::ED25519, relayer.as_ref()))
         .unwrap()
         .nonce;
     let user_pub_key = match sender.get_account_type() {
-        AccountType::NearImplicitAccount => PublicKey::from_near_implicit_account(&sender).unwrap(),
-        AccountType::EthImplicitAccount => {
+        | AccountType::NearImplicitAccount => {
+            PublicKey::from_near_implicit_account(&sender).unwrap()
+        }
+        | AccountType::EthImplicitAccount => {
             if checked_feature!("stable", EthImplicitAccounts, protocol_version) {
                 panic!("ETH-implicit accounts must not have access key");
             } else {
                 PublicKey::from_seed(KeyType::ED25519, sender.as_ref())
             }
         }
-        AccountType::NamedAccount => PublicKey::from_seed(KeyType::ED25519, sender.as_ref()),
+        | AccountType::NamedAccount => PublicKey::from_seed(KeyType::ED25519, sender.as_ref()),
     };
-    let user_nonce_before = node_user.get_access_key(&sender, &user_pub_key).unwrap().nonce;
+    let user_nonce_before = node_user
+        .get_access_key(&sender, &user_pub_key)
+        .unwrap()
+        .nonce;
 
-    let tx_result =
-        node_user.meta_tx(sender.clone(), receiver.clone(), relayer.clone(), actions).unwrap();
+    let tx_result = node_user
+        .meta_tx(sender.clone(), receiver.clone(), relayer.clone(), actions)
+        .unwrap();
 
     // Execution of the transaction and all receipts should succeed
     tx_result.assert_success();
@@ -166,9 +185,15 @@ fn check_meta_tx_execution(
         assert_eq!(user_nonce, user_nonce_before + 1);
     }
 
-    let sender_after = node_user.view_balance(&sender).unwrap_or(0);
-    let relayer_after = node_user.view_balance(&relayer).unwrap_or(0);
-    let receiver_after = node_user.view_balance(&receiver).unwrap_or(0);
+    let sender_after = node_user
+        .view_balance(&sender)
+        .unwrap_or(0);
+    let relayer_after = node_user
+        .view_balance(&relayer)
+        .unwrap_or(0);
+    let receiver_after = node_user
+        .view_balance(&receiver)
+        .unwrap_or(0);
 
     let sender_diff = sender_after as i128 - sender_before as i128;
     let relayer_diff = relayer_after as i128 - relayer_before as i128;
@@ -234,19 +259,42 @@ fn check_meta_tx_fn_call(
     // dynamic cost. The contract reward can be inferred from that.
 
     // static send gas is paid and burnt upfront
-    let static_send_gas = fee_helper.cfg().fee(ActionCosts::new_action_receipt).send_fee(false)
+    let static_send_gas = fee_helper
+        .cfg()
+        .fee(ActionCosts::new_action_receipt)
+        .send_fee(false)
         + num_fn_calls as u64
-            * fee_helper.cfg().fee(ActionCosts::function_call_base).send_fee(false)
-        + msg_len * fee_helper.cfg().fee(ActionCosts::function_call_byte).send_fee(false);
+            * fee_helper
+                .cfg()
+                .fee(ActionCosts::function_call_base)
+                .send_fee(false)
+        + msg_len
+            * fee_helper
+                .cfg()
+                .fee(ActionCosts::function_call_byte)
+                .send_fee(false);
     // static execution gas burnt in the same receipt as the function calls but
     // it doesn't contribute to the contract reward
-    let static_exec_gas = fee_helper.cfg().fee(ActionCosts::new_action_receipt).exec_fee()
-        + num_fn_calls as u64 * fee_helper.cfg().fee(ActionCosts::function_call_base).exec_fee()
-        + msg_len * fee_helper.cfg().fee(ActionCosts::function_call_byte).exec_fee();
+    let static_exec_gas = fee_helper
+        .cfg()
+        .fee(ActionCosts::new_action_receipt)
+        .exec_fee()
+        + num_fn_calls as u64
+            * fee_helper
+                .cfg()
+                .fee(ActionCosts::function_call_base)
+                .exec_fee()
+        + msg_len
+            * fee_helper
+                .cfg()
+                .fee(ActionCosts::function_call_byte)
+                .exec_fee();
 
     // calculate contract rewards as reward("gas burnt in fn call receipt" - "static exec costs")
-    let gas_burnt_for_function_call =
-        tx_result.receipts_outcome[1].outcome.gas_burnt - static_exec_gas;
+    let gas_burnt_for_function_call = tx_result.receipts_outcome[1]
+        .outcome
+        .gas_burnt
+        - static_exec_gas;
     let dyn_cost = fee_helper.gas_to_balance(gas_burnt_for_function_call);
     let contract_reward = fee_helper.gas_burnt_to_reward(gas_burnt_for_function_call);
 
@@ -276,7 +324,9 @@ fn meta_tx_near_transfer() {
     let fee_helper = fee_helper(&node);
 
     let amount = NEAR_BASE;
-    let actions = vec![Action::Transfer(TransferAction { deposit: amount })];
+    let actions = vec![Action::Transfer(TransferAction {
+        deposit: amount,
+    })];
     let tx_cost = fee_helper.transfer_cost();
     check_meta_tx_no_fn_call(&node, actions, tx_cost, amount, sender, relayer, receiver);
 }
@@ -318,8 +368,10 @@ fn meta_tx_fn_call_access_key() {
     );
 
     // Check previous allowance is set as expected
-    let key =
-        node.user().get_access_key(&sender, &public_key).expect("failed looking up fn access key");
+    let key = node
+        .user()
+        .get_access_key(&sender, &public_key)
+        .expect("failed looking up fn access key");
     let AccessKeyPermissionView::FunctionCall { allowance, .. } = key.permission else {
         panic!("should be function access key")
     };
@@ -411,10 +463,15 @@ fn meta_tx_fn_call_access_wrong_method() {
     );
 
     let actions = vec![log_something_fn_call()];
-    let tx_result = node.user().meta_tx(sender, receiver, relayer, actions).unwrap();
+    let tx_result = node
+        .user()
+        .meta_tx(sender, receiver, relayer, actions)
+        .unwrap();
     // actual check has to be done in the receipt on the sender shard, not the
     // relayer, so let's check the receipt is present with the appropriate error
-    let inner_status = &tx_result.receipts_outcome[0].outcome.status;
+    let inner_status = &tx_result.receipts_outcome[0]
+        .outcome
+        .status;
     assert!(
         matches!(
             inner_status,
@@ -440,7 +497,9 @@ fn meta_tx_deploy() {
 
     let code = smallest_rs_contract().to_vec();
     let tx_cost = fee_helper.deploy_contract_cost(code.len() as u64);
-    let actions = vec![Action::DeployContract(DeployContractAction { code })];
+    let actions = vec![Action::DeployContract(
+        DeployContractAction { code },
+    )];
     check_meta_tx_no_fn_call(&node, actions, tx_cost, 0, sender, relayer, receiver);
 }
 
@@ -455,7 +514,10 @@ fn meta_tx_stake() {
 
     let tx_cost = fee_helper.stake_cost();
     let public_key = create_user_test_signer(&sender).public_key();
-    let actions = vec![Action::Stake(Box::new(StakeAction { public_key, stake: 0 }))];
+    let actions = vec![Action::Stake(Box::new(StakeAction {
+        public_key,
+        stake: 0,
+    }))];
     check_meta_tx_no_fn_call(&node, actions, tx_cost, 0, sender, relayer, receiver);
 }
 
@@ -500,8 +562,9 @@ fn meta_tx_delete_key() {
 
     let tx_cost = fee_helper.delete_key_cost();
     let public_key = PublicKey::from_seed(KeyType::ED25519, receiver.as_ref());
-    let actions =
-        vec![Action::DeleteKey(Box::new(DeleteKeyAction { public_key: public_key.clone() }))];
+    let actions = vec![Action::DeleteKey(Box::new(
+        DeleteKeyAction { public_key: public_key.clone() },
+    ))];
     check_meta_tx_no_fn_call(&node, actions, tx_cost, 0, sender, relayer, receiver.clone());
 
     let err = node
@@ -532,8 +595,9 @@ fn meta_tx_delete_account() {
 
     let fee_helper = fee_helper(&node);
 
-    let actions =
-        vec![Action::DeleteAccount(DeleteAccountAction { beneficiary_id: relayer.clone() })];
+    let actions = vec![Action::DeleteAccount(
+        DeleteAccountAction { beneficiary_id: relayer.clone() },
+    )];
 
     // special case balance check for deleting account
     let gas_cost = fee_helper.prepaid_delete_account_cost()
@@ -548,7 +612,9 @@ fn meta_tx_delete_account() {
     );
     assert_eq!(sender_diff, receiver_diff);
     assert_eq!(relayer_diff, balance as i128 - (gas_cost as i128), "unexpected relayer balance");
-    let err = node.view_account(&receiver).expect_err("account should have been deleted");
+    let err = node
+        .view_account(&receiver)
+        .expect_err("account should have been deleted");
     assert_eq!(err, "Account ID #eve.alice.near does not exist");
 }
 
@@ -563,7 +629,14 @@ fn meta_tx_ft_transfer() {
     let ft_contract = carol_account();
     let receiver = "david.near";
 
-    let mut genesis = Genesis::test(vec![alice_account(), bob_account(), carol_account()], 3);
+    let mut genesis = Genesis::test(
+        vec![
+            alice_account(),
+            bob_account(),
+            carol_account(),
+        ],
+        3,
+    );
     add_contract(&mut genesis, &ft_contract, near_test_contracts::ft_contract().to_vec());
     let node = RuntimeNode::new_from_genesis(&relayer, genesis);
 
@@ -583,7 +656,10 @@ fn meta_tx_ft_transfer() {
         .assert_success();
 
     // register sender & receiver FT accounts
-    let actions = vec![ft_register_action(sender.as_ref()), ft_register_action(&receiver)];
+    let actions = vec![
+        ft_register_action(sender.as_ref()),
+        ft_register_action(&receiver),
+    ];
     node.user()
         .sign_and_commit_actions(relayer.clone(), ft_contract.clone(), actions)
         .expect("registering FT accounts")
@@ -646,7 +722,10 @@ fn log_something_fn_call() -> Action {
 /// Construct an function call action with a FT transfer.
 ///
 /// Returns the action and the number of bytes for gas charges.
-fn ft_transfer_action(receiver: &str, amount: u128) -> (Action, u64) {
+fn ft_transfer_action(
+    receiver: &str,
+    amount: u128,
+) -> (Action, u64) {
     let args: Vec<u8> = format!(
         r#"{{
         "receiver_id": "{receiver}",
@@ -686,7 +765,11 @@ fn ft_register_action(receiver: &str) -> Action {
 }
 
 /// Format a NEP-141 event for an ft transfer
-fn ft_transfer_event(sender: &str, receiver: &str, amount: u128) -> String {
+fn ft_transfer_event(
+    sender: &str,
+    receiver: &str,
+    amount: u128,
+) -> String {
     // This part is valid JSON, I would like to use the json!() macro but it
     // produces the fields out of order. This is valid for JSON but it will fail
     // the string comparison.
@@ -774,13 +857,15 @@ fn meta_tx_create_named_account() {
     ];
 
     // Check the account doesn't exist, yet. We want to create it.
-    node.view_account(&new_account).expect_err("account already exists");
+    node.view_account(&new_account)
+        .expect_err("account already exists");
 
     let tx_cost = fee_helper.create_account_transfer_full_key_cost();
     check_meta_tx_no_fn_call(&node, actions, tx_cost, amount, sender, relayer, new_account.clone());
 
     // Check the account exists after we created it.
-    node.view_account(&new_account).expect("failed looking up account");
+    node.view_account(&new_account)
+        .expect("failed looking up account");
 }
 
 /// Try creating an implicit account with `CreateAction` which is not allowed in
@@ -790,10 +875,17 @@ fn meta_tx_create_implicit_account_fails(new_account: AccountId) {
     let sender = alice_account();
     let node = RuntimeNode::new(&relayer);
 
-    let actions = vec![Action::CreateAccount(CreateAccountAction {})];
-    let tx_result = node.user().meta_tx(sender, new_account, relayer, actions).unwrap();
+    let actions = vec![Action::CreateAccount(
+        CreateAccountAction {},
+    )];
+    let tx_result = node
+        .user()
+        .meta_tx(sender, new_account, relayer, actions)
+        .unwrap();
 
-    let account_creation_result = &tx_result.receipts_outcome[1].outcome.status;
+    let account_creation_result = &tx_result.receipts_outcome[1]
+        .outcome
+        .status;
     assert!(matches!(
         account_creation_result,
         near_primitives::views::ExecutionStatusView::Failure(TxExecutionError::ActionError(
@@ -830,11 +922,14 @@ fn meta_tx_create_and_use_implicit_account(new_account: AccountId) {
     let node = RuntimeNode::new_with_modified_config(&relayer, |runtime_config| {
         // Increase the outgoing receipts limit to allow the large receipt to be processed immediately.
         // Without this change the receipt would be processed somewhere in the next few blocks.
-        runtime_config.congestion_control_config.outgoing_receipts_usual_size_limit = 200_000;
+        runtime_config
+            .congestion_control_config
+            .outgoing_receipts_usual_size_limit = 200_000;
     });
 
     // Check the account doesn't exist, yet. We will attempt creating it.
-    node.view_account(&new_account).expect_err("account already exists");
+    node.view_account(&new_account)
+        .expect_err("account already exists");
 
     let initial_amount = NEAR_BASE;
     let actions = vec![
@@ -844,8 +939,13 @@ fn meta_tx_create_and_use_implicit_account(new_account: AccountId) {
 
     // Execute and expect `AccountDoesNotExist`, as we try to call a meta
     // transaction on a user that doesn't exist yet.
-    let tx_result = node.user().meta_tx(sender, new_account.clone(), relayer, actions).unwrap();
-    let status = &tx_result.receipts_outcome[1].outcome.status;
+    let tx_result = node
+        .user()
+        .meta_tx(sender, new_account.clone(), relayer, actions)
+        .unwrap();
+    let status = &tx_result.receipts_outcome[1]
+        .outcome
+        .status;
     assert!(matches!(
         status,
         near_primitives::views::ExecutionStatusView::Failure(TxExecutionError::ActionError(
@@ -883,21 +983,24 @@ fn meta_tx_create_implicit_account(new_account: AccountId) {
     let node = RuntimeNode::new(&relayer);
 
     // Check account doesn't exist, yet
-    node.view_account(&new_account).expect_err("account already exists");
+    node.view_account(&new_account)
+        .expect_err("account already exists");
 
     let fee_helper = fee_helper(&node);
     let initial_amount = match new_account.get_account_type() {
-        AccountType::NearImplicitAccount => NEAR_BASE,
+        | AccountType::NearImplicitAccount => NEAR_BASE,
         // ETH-implicit accounts fit within zero-balance account limit.
-        AccountType::EthImplicitAccount => 0u128,
-        AccountType::NamedAccount => panic!("must be implicit"),
+        | AccountType::EthImplicitAccount => 0u128,
+        | AccountType::NamedAccount => panic!("must be implicit"),
     };
-    let actions = vec![Action::Transfer(TransferAction { deposit: initial_amount })];
+    let actions = vec![Action::Transfer(TransferAction {
+        deposit: initial_amount,
+    })];
 
     let tx_cost = match new_account.get_account_type() {
-        AccountType::NearImplicitAccount => fee_helper.create_account_transfer_full_key_cost(),
-        AccountType::EthImplicitAccount => fee_helper.create_account_transfer_cost(),
-        AccountType::NamedAccount => panic!("must be implicit"),
+        | AccountType::NearImplicitAccount => fee_helper.create_account_transfer_full_key_cost(),
+        | AccountType::EthImplicitAccount => fee_helper.create_account_transfer_cost(),
+        | AccountType::NamedAccount => panic!("must be implicit"),
     };
     check_meta_tx_no_fn_call(
         &node,
@@ -910,20 +1013,28 @@ fn meta_tx_create_implicit_account(new_account: AccountId) {
     );
 
     // Check account exists with expected balance
-    node.view_account(&new_account).expect("failed looking up account");
-    let balance = node.view_balance(&new_account).expect("failed looking up balance");
+    node.view_account(&new_account)
+        .expect("failed looking up account");
+    let balance = node
+        .view_balance(&new_account)
+        .expect("failed looking up balance");
     assert_eq!(balance, initial_amount);
 
     if new_account.get_account_type() == AccountType::EthImplicitAccount {
         // ETH-implicit account must not have access key added.
-        assert!(node.user().is_locked(&new_account).unwrap());
+        assert!(node
+            .user()
+            .is_locked(&new_account)
+            .unwrap());
         // We will not attempt to make a transfer from this account.
         return;
     }
 
     // Now test we can use this account in a meta transaction that sends back half the tokens to alice.
     let transfer_amount = initial_amount / 2;
-    let actions = vec![Action::Transfer(TransferAction { deposit: transfer_amount })];
+    let actions = vec![Action::Transfer(TransferAction {
+        deposit: transfer_amount,
+    })];
     let tx_cost = fee_helper.transfer_cost();
     check_meta_tx_no_fn_call(
         &node,

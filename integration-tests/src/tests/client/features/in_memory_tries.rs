@@ -35,8 +35,9 @@ fn slow_test_in_memory_trie_node_consistency() {
     // Recommended to run with RUST_LOG=memtrie=debug,chunks=error,info
     init_test_logger();
     let initial_balance = 1000000 * ONE_NEAR;
-    let accounts =
-        (0..100).map(|i| format!("account{}", i).parse().unwrap()).collect::<Vec<AccountId>>();
+    let accounts = (0..100)
+        .map(|i| format!("account{}", i).parse().unwrap())
+        .collect::<Vec<AccountId>>();
     let mut clock = FakeClock::new(Utc::UNIX_EPOCH);
 
     let epoch_length = 10000;
@@ -59,7 +60,10 @@ fn slow_test_in_memory_trie_node_consistency() {
     let stores = vec![create_test_store(), create_test_store()];
     let mut env = TestEnv::builder(&genesis.config)
         .clock(clock.clock())
-        .clients(vec!["account0".parse().unwrap(), "account1".parse().unwrap()])
+        .clients(vec![
+            "account0".parse().unwrap(),
+            "account1".parse().unwrap(),
+        ])
         .stores(stores.clone())
         .track_all_shards()
         .nightshade_runtimes_with_trie_config(
@@ -68,7 +72,7 @@ fn slow_test_in_memory_trie_node_consistency() {
                 TrieConfig::default(), // client 0 does not load in-memory tries
                 TrieConfig {
                     // client 1 loads two of four shards into in-memory tries
-                    load_memtries_for_shards: vec![
+                    load_mem_tries_for_shards: vec![
                         ShardUId { version: 1, shard_id: 0 },
                         ShardUId { version: 1, shard_id: 2 },
                     ],
@@ -84,7 +88,11 @@ fn slow_test_in_memory_trie_node_consistency() {
             .epoch_manager
             .get_epoch_block_producers_ordered(
                 &EpochId::default(),
-                &env.clients[0].chain.head().unwrap().last_block_hash
+                &env.clients[0]
+                    .chain
+                    .head()
+                    .unwrap()
+                    .last_block_hash
             )
             .unwrap()
             .len(),
@@ -93,8 +101,10 @@ fn slow_test_in_memory_trie_node_consistency() {
 
     // First, start up the nodes from genesis. This ensures that in-memory
     // tries works correctly when starting up an empty node for the first time.
-    let mut nonces =
-        accounts.iter().map(|account| (account.clone(), 0)).collect::<HashMap<AccountId, u64>>();
+    let mut nonces = accounts
+        .iter()
+        .map(|account| (account.clone(), 0))
+        .collect::<HashMap<AccountId, u64>>();
     let mut balances = accounts
         .iter()
         .map(|account| (account.clone(), initial_balance))
@@ -125,7 +135,10 @@ fn slow_test_in_memory_trie_node_consistency() {
     drop(env);
     let mut env = TestEnv::builder(&genesis.config)
         .clock(clock.clock())
-        .clients(vec!["account0".parse().unwrap(), "account1".parse().unwrap()])
+        .clients(vec![
+            "account0".parse().unwrap(),
+            "account1".parse().unwrap(),
+        ])
         .stores(stores.clone())
         .track_all_shards()
         .nightshade_runtimes_with_trie_config(
@@ -133,7 +146,7 @@ fn slow_test_in_memory_trie_node_consistency() {
             vec![
                 TrieConfig::default(),
                 TrieConfig {
-                    load_memtries_for_shards: vec![
+                    load_mem_tries_for_shards: vec![
                         ShardUId { version: 1, shard_id: 0 },
                         ShardUId { version: 1, shard_id: 1 }, // shard 2 changed to shard 1.
                     ],
@@ -163,7 +176,10 @@ fn slow_test_in_memory_trie_node_consistency() {
     drop(env);
     let mut env = TestEnv::builder(&genesis.config)
         .clock(clock.clock())
-        .clients(vec!["account0".parse().unwrap(), "account1".parse().unwrap()])
+        .clients(vec![
+            "account0".parse().unwrap(),
+            "account1".parse().unwrap(),
+        ])
         .stores(stores)
         .track_all_shards()
         .nightshade_runtimes_with_trie_config(
@@ -171,7 +187,7 @@ fn slow_test_in_memory_trie_node_consistency() {
             vec![
                 // client 0 now loads in-memory tries
                 TrieConfig {
-                    load_memtries_for_shards: vec![
+                    load_mem_tries_for_shards: vec![
                         ShardUId { version: 1, shard_id: 1 },
                         ShardUId { version: 1, shard_id: 3 },
                     ],
@@ -201,13 +217,21 @@ fn slow_test_in_memory_trie_node_consistency() {
 }
 
 // Returns the block producer for the height of head + height_offset.
-fn get_block_producer(env: &TestEnv, head: &Tip, height_offset: u64) -> AccountId {
+fn get_block_producer(
+    env: &TestEnv,
+    head: &Tip,
+    height_offset: u64,
+) -> AccountId {
     let client = &env.clients[0];
     let epoch_manager = &client.epoch_manager;
     let parent_hash = &head.last_block_hash;
-    let epoch_id = epoch_manager.get_epoch_id_from_prev_block(parent_hash).unwrap();
+    let epoch_id = epoch_manager
+        .get_epoch_id_from_prev_block(parent_hash)
+        .unwrap();
     let height = head.height + height_offset;
-    let block_producer = epoch_manager.get_block_producer(&epoch_id, height).unwrap();
+    let block_producer = epoch_manager
+        .get_block_producer(&epoch_id, height)
+        .unwrap();
     block_producer
 }
 
@@ -245,7 +269,13 @@ fn run_chain_for_some_blocks_while_sending_money_around(
         let heads = env
             .clients
             .iter()
-            .map(|client| client.chain.head().unwrap().last_block_hash)
+            .map(|client| {
+                client
+                    .chain
+                    .head()
+                    .unwrap()
+                    .last_block_hash
+            })
             .collect::<HashSet<_>>();
         assert_eq!(heads.len(), 1, "All clients should have the same head");
         let tip = env.clients[0].chain.head().unwrap();
@@ -253,8 +283,16 @@ fn run_chain_for_some_blocks_while_sending_money_around(
         if round < num_rounds {
             // Make 50 random transactions that send money between random accounts.
             for _ in 0..50 {
-                let sender = nonces.keys().choose(&mut thread_rng()).unwrap().clone();
-                let receiver = nonces.keys().choose(&mut thread_rng()).unwrap().clone();
+                let sender = nonces
+                    .keys()
+                    .choose(&mut thread_rng())
+                    .unwrap()
+                    .clone();
+                let receiver = nonces
+                    .keys()
+                    .choose(&mut thread_rng())
+                    .unwrap()
+                    .clone();
                 let nonce = nonces.get_mut(&sender).unwrap();
                 *nonce += 1;
 
@@ -270,9 +308,9 @@ fn run_chain_for_some_blocks_while_sending_money_around(
                 // get a chance to produce the txn if they don't track the shard.
                 for client in &mut env.clients {
                     match client.process_tx(txn.clone(), false, false) {
-                        ProcessTxResponse::NoResponse => panic!("No response"),
-                        ProcessTxResponse::InvalidTx(err) => panic!("Invalid tx: {}", err),
-                        _ => {}
+                        | ProcessTxResponse::NoResponse => panic!("No response"),
+                        | ProcessTxResponse::InvalidTx(err) => panic!("Invalid tx: {}", err),
+                        | _ => {}
                     }
                 }
                 *balances.get_mut(&sender).unwrap() -= ONE_NEAR;
@@ -283,7 +321,11 @@ fn run_chain_for_some_blocks_while_sending_money_around(
         let cur_block_producer = get_block_producer(&env, &tip, 1);
         let next_block_producer = get_block_producer(&env, &tip, 2);
         println!("Producing block at height {} by {}", tip.height + 1, cur_block_producer);
-        let block = env.client(&cur_block_producer).produce_block(tip.height + 1).unwrap().unwrap();
+        let block = env
+            .client(&cur_block_producer)
+            .produce_block(tip.height + 1)
+            .unwrap()
+            .unwrap();
         if round > 0 {
             check_block_does_not_have_missing_chunks(&block);
         }
@@ -306,7 +348,10 @@ fn run_chain_for_some_blocks_while_sending_money_around(
             // Produce some skip blocks too so that we test that in-memory tries are able to deal
             // with forks.
             skip_block = Some(
-                env.client(&next_block_producer).produce_block(tip.height + 2).unwrap().unwrap(),
+                env.client(&next_block_producer)
+                    .produce_block(tip.height + 2)
+                    .unwrap()
+                    .unwrap(),
             );
             if round > 0 {
                 check_block_does_not_have_missing_chunks(&skip_block.as_ref().unwrap());
@@ -322,8 +367,9 @@ fn run_chain_for_some_blocks_while_sending_money_around(
                 block.header().height(),
                 env.get_client_id(i)
             );
-            let blocks_processed =
-                env.clients[i].process_block_test(block.clone().into(), Provenance::NONE).unwrap();
+            let blocks_processed = env.clients[i]
+                .process_block_test(block.clone().into(), Provenance::NONE)
+                .unwrap();
             assert_eq!(blocks_processed, vec![*block.hash()]);
         }
         // Apply skip block if one was produced.
@@ -341,11 +387,17 @@ fn run_chain_for_some_blocks_while_sending_money_around(
             }
         }
 
-        for chunk in block_processed.chunks().iter_deprecated() {
+        for chunk in block_processed
+            .chunks()
+            .iter_deprecated()
+        {
             let mut chunks_found = 0;
             for i in 0..env.clients.len() {
                 let client = &env.clients[i];
-                if let Ok(chunk) = client.chain.get_chunk(&chunk.chunk_hash()) {
+                if let Ok(chunk) = client
+                    .chain
+                    .get_chunk(&chunk.chunk_hash())
+                {
                     if chunks_found == 0 {
                         total_txs_included_in_chunks += chunk.transactions().len();
                     }
@@ -395,12 +447,16 @@ fn run_chain_for_some_blocks_while_sending_money_around(
 
 /// Returns the number of memtrie roots for the given client and shard, or
 /// None if that shard does not load memtries.
-fn num_memtrie_roots(env: &TestEnv, client_id: usize, shard: ShardUId) -> Option<usize> {
+fn num_memtrie_roots(
+    env: &TestEnv,
+    client_id: usize,
+    shard: ShardUId,
+) -> Option<usize> {
     Some(
         env.clients[client_id]
             .runtime_adapter
             .get_tries()
-            .get_memtries(shard)?
+            .get_mem_tries(shard)?
             .read()
             .unwrap()
             .num_roots(),
@@ -415,8 +471,9 @@ fn test_in_memory_trie_consistency_with_state_sync_base_case(track_all_shards: b
     // Recommended to run with RUST_LOG=memtrie=debug,chunks=error,info
     init_test_logger();
     let initial_balance = 1000000 * ONE_NEAR;
-    let accounts =
-        (0..100).map(|i| format!("account{}", i).parse().unwrap()).collect::<Vec<AccountId>>();
+    let accounts = (0..100)
+        .map(|i| format!("account{}", i).parse().unwrap())
+        .collect::<Vec<AccountId>>();
     // We'll test with 4 shards. This can be any number, but we want to test
     // the case when some shards are loaded into memory and others are not.
     // We pick the boundaries so that each shard would get some transactions.
@@ -428,7 +485,10 @@ fn test_in_memory_trie_consistency_with_state_sync_base_case(track_all_shards: b
     let epoch_length = 10;
     let shard_layout = ShardLayout::simple_v1(&["account3", "account5", "account7"]);
     let validators_spec = ValidatorsSpec::desired_roles(
-        &accounts[0..NUM_VALIDATORS].iter().map(|a| a.as_str()).collect::<Vec<_>>(),
+        &accounts[0..NUM_VALIDATORS]
+            .iter()
+            .map(|a| a.as_str())
+            .collect::<Vec<_>>(),
         &[],
     );
 
@@ -451,17 +511,25 @@ fn test_in_memory_trie_consistency_with_state_sync_base_case(track_all_shards: b
         },
     );
 
-    let stores = (0..NUM_VALIDATORS).map(|_| create_test_store()).collect::<Vec<_>>();
+    let stores = (0..NUM_VALIDATORS)
+        .map(|_| create_test_store())
+        .collect::<Vec<_>>();
     let mut env = TestEnv::builder(&genesis.config)
         .clock(clock.clock())
-        .clients((0..NUM_VALIDATORS).map(|i| format!("account{}", i).parse().unwrap()).collect())
+        .clients(
+            (0..NUM_VALIDATORS)
+                .map(|i| format!("account{}", i).parse().unwrap())
+                .collect(),
+        )
         .epoch_config_store(epoch_config_store)
         .stores(stores)
         .maybe_track_all_shards(track_all_shards)
         .nightshade_runtimes_with_trie_config(
             &genesis,
             // Don't load any memtries.
-            (0..NUM_VALIDATORS).map(|_| TrieConfig::default()).collect(),
+            (0..NUM_VALIDATORS)
+                .map(|_| TrieConfig::default())
+                .collect(),
         )
         .build();
 
@@ -471,7 +539,11 @@ fn test_in_memory_trie_consistency_with_state_sync_base_case(track_all_shards: b
             .epoch_manager
             .get_epoch_block_producers_ordered(
                 &EpochId::default(),
-                &env.clients[0].chain.head().unwrap().last_block_hash
+                &env.clients[0]
+                    .chain
+                    .head()
+                    .unwrap()
+                    .last_block_hash
             )
             .unwrap()
             .len(),
@@ -479,8 +551,10 @@ fn test_in_memory_trie_consistency_with_state_sync_base_case(track_all_shards: b
     );
 
     // Start the nodes from genesis, and then send transactions.
-    let mut nonces =
-        accounts.iter().map(|account| (account.clone(), 0)).collect::<HashMap<AccountId, u64>>();
+    let mut nonces = accounts
+        .iter()
+        .map(|account| (account.clone(), 0))
+        .collect::<HashMap<AccountId, u64>>();
     let mut balances = accounts
         .iter()
         .map(|account| (account.clone(), initial_balance))

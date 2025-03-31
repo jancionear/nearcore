@@ -38,12 +38,12 @@ fn compute_hash(
 
     let mut hasher = StableHasher::new();
     match info {
-        ProtocolSchemaInfo::Struct { name, type_id: _, fields } => {
+        | ProtocolSchemaInfo::Struct { name, type_id: _, fields } => {
             "struct".hash(&mut hasher);
             name.hash(&mut hasher);
             compute_fields_hash(fields, structs, types_in_compute, &mut hasher);
         }
-        ProtocolSchemaInfo::Enum { name, type_id: _, variants } => {
+        | ProtocolSchemaInfo::Enum { name, type_id: _, variants } => {
             "enum".hash(&mut hasher);
             name.hash(&mut hasher);
             for (variant_name, variant_fields) in *variants {
@@ -108,7 +108,9 @@ fn main() {
         ServerError::ensure_registration();
     }
 
-    let source_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("res").join(PROTOCOL_SCHEMA_FILE);
+    let source_path = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("res")
+        .join(PROTOCOL_SCHEMA_FILE);
     let target_dir = std::env::var("CARGO_TARGET_DIR")
         .map(std::path::PathBuf::from)
         .unwrap_or_else(|_| std::path::PathBuf::from("./target"));
@@ -139,15 +141,15 @@ fn main() {
     let mut has_changes = false;
     for (name, hash) in &current_hashes {
         match stored_hashes.get(name) {
-            Some(stored_hash) if stored_hash != hash => {
+            | Some(stored_hash) if stored_hash != hash => {
                 println!("Hash mismatch for {}: stored {}, current {}", name, stored_hash, hash);
                 has_changes = true;
             }
-            None => {
+            | None => {
                 println!("New struct: {} with hash {}", name, hash);
                 has_changes = true;
             }
-            _ => {}
+            | _ => {}
         }
     }
 

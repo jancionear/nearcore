@@ -18,11 +18,11 @@ impl Model {
         let mut unresolved_transactions = 0;
         for tx in self.transactions.all_transactions() {
             match tx.status() {
-                TransactionStatus::Init | TransactionStatus::Pending => {
+                | TransactionStatus::Init | TransactionStatus::Pending => {
                     unresolved_transactions += 1
                 }
-                TransactionStatus::Failed => rejected_delays.push(tx.delay()),
-                TransactionStatus::FinishedSuccess => successful_delays.push(tx.delay()),
+                | TransactionStatus::Failed => rejected_delays.push(tx.delay()),
+                | TransactionStatus::FinishedSuccess => successful_delays.push(tx.delay()),
             }
         }
 
@@ -67,7 +67,10 @@ fn avg(data: &[u64]) -> u64 {
 }
 
 /// Input must be sorted
-fn percentile(data: &[u64], p: usize) -> u64 {
+fn percentile(
+    data: &[u64],
+    p: usize,
+) -> u64 {
     if data.is_empty() {
         0
     } else {

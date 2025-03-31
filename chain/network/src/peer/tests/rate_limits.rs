@@ -99,14 +99,14 @@ async fn wait_for_similar_messages(
     sleep_until(Instant::now() + duration).await;
     while let Some(event) = events.try_recv() {
         match event {
-            Event::Network(PME::MessageProcessed(_, got)) => {
+            | Event::Network(PME::MessageProcessed(_, got)) => {
                 for (i, sample) in samples.iter().enumerate() {
                     if sample.msg_variant() == got.msg_variant() {
                         messages_received[i] += 1;
                     }
                 }
             }
-            _ => {}
+            | _ => {}
         }
     }
     messages_received
@@ -117,12 +117,17 @@ async fn wait_for_similar_messages(
 /// Rate limits configuration:
 /// - `BlockRequest`, `PartialEncodedChunkRequest`: bucket_start = 5, bucket_max = 10, refill_rate = 2.5/s
 /// - `Transaction`: bucket_start = bucket_max = 50, refill_rate = 5/s
-async fn setup_test_peers(clock: &mut FakeClock, mut rng: &mut Rng) -> (PeerHandle, PeerHandle) {
+async fn setup_test_peers(
+    clock: &mut FakeClock,
+    mut rng: &mut Rng,
+) -> (PeerHandle, PeerHandle) {
     let chain = Arc::new(data::Chain::make(clock, &mut rng, 12));
 
     // Customize the network configuration to set some arbitrary rate limits.
     let add_rate_limits = |mut network_config: NetworkConfig| {
-        let rate_limits = &mut network_config.received_messages_rate_limits.rate_limits;
+        let rate_limits = &mut network_config
+            .received_messages_rate_limits
+            .rate_limits;
         use messages_limits::RateLimitedPeerMessageKey::*;
         rate_limits
             .insert(BlockRequest, messages_limits::SingleMessageConfig::new(10, 2.5, Some(5)));

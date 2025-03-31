@@ -24,12 +24,13 @@ pub struct ColdStoreLoopHandle {
 
 impl ColdStoreLoopHandle {
     pub fn stop(self) {
-        self.keep_going.store(false, std::sync::atomic::Ordering::Relaxed);
+        self.keep_going
+            .store(false, std::sync::atomic::Ordering::Relaxed);
         match self.join_handle.join() {
-            Ok(_) => {
+            | Ok(_) => {
                 tracing::debug!(target : "cold_store", "Joined the cold store loop thread");
             }
-            Err(_) => {
+            | Err(_) => {
                 tracing::error!(target : "cold_store", "Failed to join the cold store loop thread");
             }
         }
@@ -204,22 +205,24 @@ fn sanity_check_impl(
 }
 
 fn cold_store_copy_result_to_string(
-    result: &anyhow::Result<ColdStoreCopyResult, ColdStoreError>,
+    result: &anyhow::Result<ColdStoreCopyResult, ColdStoreError>
 ) -> &str {
     match result {
-        Err(ColdStoreError::ColdHeadBehindHotTailError { .. }) => "cold_head_behind_hot_tail_error",
-        Err(ColdStoreError::ColdHeadAheadOfFinalHeadError { .. }) => {
+        | Err(ColdStoreError::ColdHeadBehindHotTailError { .. }) => {
+            "cold_head_behind_hot_tail_error"
+        }
+        | Err(ColdStoreError::ColdHeadAheadOfFinalHeadError { .. }) => {
             "cold_head_ahead_of_final_head_error"
         }
-        Err(ColdStoreError::SkippedBlocksBetweenColdHeadAndNextHeightError { .. }) => {
+        | Err(ColdStoreError::SkippedBlocksBetweenColdHeadAndNextHeightError { .. }) => {
             "skipped_blocks_between_cold_head_and_next_height_error"
         }
-        Err(ColdStoreError::ColdHeadHashReadError { .. }) => "cold_head_hash_read_error",
-        Err(ColdStoreError::EpochError { .. }) => "epoch_error",
-        Err(ColdStoreError::Error { .. }) => "error",
-        Ok(ColdStoreCopyResult::NoBlockCopied) => "no_block_copied",
-        Ok(ColdStoreCopyResult::LatestBlockCopied) => "latest_block_copied",
-        Ok(ColdStoreCopyResult::OtherBlockCopied) => "other_block_copied",
+        | Err(ColdStoreError::ColdHeadHashReadError { .. }) => "cold_head_hash_read_error",
+        | Err(ColdStoreError::EpochError { .. }) => "epoch_error",
+        | Err(ColdStoreError::Error { .. }) => "error",
+        | Ok(ColdStoreCopyResult::NoBlockCopied) => "no_block_copied",
+        | Ok(ColdStoreCopyResult::LatestBlockCopied) => "latest_block_copied",
+        | Ok(ColdStoreCopyResult::OtherBlockCopied) => "other_block_copied",
     }
 }
 
@@ -264,7 +267,7 @@ fn cold_store_migration(
     hot_store: &Store,
     cold_db: Arc<ColdDB>,
 ) -> anyhow::Result<ColdStoreMigrationResult> {
-    // Migration is only needed if cold storage is not properly initialized,
+    // Migration is only needed if cold storage is not properly initialised,
     // i.e. if cold head is not set.
     if get_cold_head(cold_db.as_ref())?.is_some() {
         return Ok(ColdStoreMigrationResult::NoNeedForMigration);
@@ -272,22 +275,22 @@ fn cold_store_migration(
 
     tracing::info!(target: "cold_store", "Starting population of cold store.");
     let new_cold_height = match hot_store.get_db_kind()? {
-        None => {
+        | None => {
             tracing::error!(target: "cold_store", "Hot store DBKind not set.");
             return Err(anyhow::anyhow!("Hot store DBKind is not set"));
         }
-        Some(near_store::metadata::DbKind::Hot) => {
+        | Some(near_store::metadata::DbKind::Hot) => {
             tracing::info!(target: "cold_store", "Hot store DBKind is Hot.");
             genesis_height
         }
-        Some(near_store::metadata::DbKind::Archive) => {
+        | Some(near_store::metadata::DbKind::Archive) => {
             tracing::info!(target: "cold_store", "Hot store DBKind is Archive.");
             hot_store
                 .get_ser::<Tip>(DBCol::BlockMisc, FINAL_HEAD_KEY)?
                 .ok_or_else(|| anyhow::anyhow!("FINAL_HEAD not found in hot storage"))?
                 .height
         }
-        Some(kind) => {
+        | Some(kind) => {
             tracing::error!(target: "cold_store", ?kind, "Hot store DbKind not supported.");
             return Err(anyhow::anyhow!(format!("Hot store DBKind not {kind:?}.")));
         }
@@ -297,12 +300,12 @@ fn cold_store_migration(
 
     let batch_size = split_storage_config.cold_store_initial_migration_batch_size;
     match copy_all_data_to_cold(cold_db.clone(), hot_store, batch_size, keep_going)? {
-        CopyAllDataToColdStatus::EverythingCopied => {
+        | CopyAllDataToColdStatus::EverythingCopied => {
             tracing::info!(target: "cold_store", new_cold_height, "Cold storage population was successful, writing cold head.");
             update_cold_head(cold_db.as_ref(), hot_store, &new_cold_height)?;
             Ok(ColdStoreMigrationResult::SuccessfulMigration)
         }
-        CopyAllDataToColdStatus::Interrupted => {
+        | CopyAllDataToColdStatus::Interrupted => {
             tracing::info!(target: "cold_store", "Cold storage population was interrupted");
             Ok(ColdStoreMigrationResult::MigrationInterrupted)
         }
@@ -334,7 +337,7 @@ fn cold_store_migration_loop(
         ) {
             // We can either stop the cold store thread or hope that next time migration will not fail.
             // Here we pick the second option.
-            Err(err) => {
+            | Err(err) => {
                 let sleep_duration = split_storage_config
                     .cold_store_initial_migration_loop_sleep_duration
                     .unsigned_abs();
@@ -345,7 +348,7 @@ fn cold_store_migration_loop(
                 std::thread::sleep(sleep_duration);
             }
             // Any Ok status from `cold_store_initial_migration` function means that we can proceed to regular run.
-            Ok(migration_status) => {
+            | Ok(migration_status) => {
                 tracing::info!(target: "cold_store", ?migration_status, "Moving on.");
                 break;
             }
@@ -386,30 +389,32 @@ fn cold_store_loop(
         let duration = instant.elapsed();
 
         let result_string = cold_store_copy_result_to_string(&result);
-        metrics::COLD_STORE_COPY_RESULT.with_label_values(&[result_string]).inc();
+        metrics::COLD_STORE_COPY_RESULT
+            .with_label_values(&[result_string])
+            .inc();
         if duration > std::time::Duration::from_secs(1) {
             tracing::debug!(target : "cold_store", "cold_store_copy took {}s", duration.as_secs_f64());
         }
 
         let sleep_duration = split_storage_config.cold_store_loop_sleep_duration;
         match result {
-            Err(err) => {
+            | Err(err) => {
                 tracing::error!(target : "cold_store", error = format!("{err:#?}"), "cold_store_copy failed");
                 std::thread::sleep(sleep_duration.unsigned_abs());
             }
             // If no block was copied the cold head is up to date with final head and
             // this loop should sleep while waiting for a new block to get finalized.
-            Ok(ColdStoreCopyResult::NoBlockCopied) => {
+            | Ok(ColdStoreCopyResult::NoBlockCopied) => {
                 std::thread::sleep(sleep_duration.unsigned_abs());
             }
             // The final head block was copied. There are no more blocks to be copied now
             // this loop should sleep while waiting for a new block to get finalized.
-            Ok(ColdStoreCopyResult::LatestBlockCopied) => {
+            | Ok(ColdStoreCopyResult::LatestBlockCopied) => {
                 std::thread::sleep(sleep_duration.unsigned_abs());
             }
             // A block older than the final head was copied. We should continue copying
             // until cold head reaches final head.
-            Ok(ColdStoreCopyResult::OtherBlockCopied) => {
+            | Ok(ColdStoreCopyResult::OtherBlockCopied) => {
                 continue;
             }
         }
@@ -435,8 +440,8 @@ pub fn spawn_cold_store_loop(
 
     let hot_store = storage.get_hot_store();
     let cold_db = match storage.cold_db() {
-        Some(cold_db) => cold_db.clone(),
-        None => {
+        | Some(cold_db) => cold_db.clone(),
+        | None => {
             tracing::debug!(target : "cold_store", "Not spawning the cold store loop because cold store is not configured");
             return Ok(None);
         }
@@ -451,11 +456,16 @@ pub fn spawn_cold_store_loop(
     // fast and crash the node immediately.
     sanity_check(&hot_store, cold_db.as_ref(), genesis_height)?;
 
-    let split_storage_config = config.config.split_storage.clone().unwrap_or_default();
+    let split_storage_config = config
+        .config
+        .split_storage
+        .clone()
+        .unwrap_or_default();
 
     tracing::info!(target : "cold_store", "Spawning the cold store loop");
-    let join_handle =
-        std::thread::Builder::new().name("cold_store_copy".to_string()).spawn(move || {
+    let join_handle = std::thread::Builder::new()
+        .name("cold_store_copy".to_string())
+        .spawn(move || {
             cold_store_migration_loop(
                 &split_storage_config,
                 &keep_going_clone,

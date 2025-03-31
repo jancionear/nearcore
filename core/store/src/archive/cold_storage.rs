@@ -28,7 +28,11 @@ pub trait ColdMigrationStore {
         callback: impl FnMut(Box<[u8]>),
     ) -> io::Result<()>;
 
-    fn get_for_cold(&self, column: DBCol, key: &[u8]) -> io::Result<StoreValue>;
+    fn get_for_cold(
+        &self,
+        column: DBCol,
+        key: &[u8],
+    ) -> io::Result<StoreValue>;
 
     fn get_ser_for_cold<T: BorshDeserialize>(
         &self,
@@ -36,7 +40,11 @@ pub trait ColdMigrationStore {
         key: &[u8],
     ) -> io::Result<Option<T>>;
 
-    fn get_or_err_for_cold(&self, column: DBCol, key: &[u8]) -> io::Result<Vec<u8>>;
+    fn get_or_err_for_cold(
+        &self,
+        column: DBCol,
+        key: &[u8],
+    ) -> io::Result<Vec<u8>>;
 
     fn get_ser_or_err_for_cold<T: BorshDeserialize>(
         &self,
@@ -148,12 +156,12 @@ fn rc_aware_set(
 ) -> usize {
     const ONE: &[u8] = &1i64.to_le_bytes();
     match col.is_rc() {
-        false => {
+        | false => {
             let size = key.len() + value.len();
             transaction.set(col, key, value);
             return size;
         }
-        true => {
+        | true => {
             value.extend_from_slice(&ONE);
             let size = key.len() + value.len();
             transaction.update_refcount(col, key, value);
@@ -185,7 +193,10 @@ fn copy_state_from_store(
     for shard_uid in shard_layout.shard_uids() {
         debug_assert_eq!(
             DBCol::TrieChanges.key_type(),
-            &[DBKeyType::BlockHash, DBKeyType::ShardUId]
+            &[
+                DBKeyType::BlockHash,
+                DBKeyType::ShardUId
+            ]
         );
 
         let shard_uid_key = shard_uid.to_bytes();
@@ -287,8 +298,10 @@ pub fn update_cold_head(
     tracing::debug!(target: "cold_store", "update HEAD of cold db to {}", height);
 
     let height_key = height.to_le_bytes();
-    let block_hash_key =
-        hot_store.get_or_err_for_cold(DBCol::BlockHeight, &height_key)?.as_slice().to_vec();
+    let block_hash_key = hot_store
+        .get_or_err_for_cold(DBCol::BlockHeight, &height_key)?
+        .as_slice()
+        .to_vec();
     let tip_header =
         &hot_store.get_ser_or_err_for_cold::<BlockHeader>(DBCol::BlockHeader, &block_hash_key)?;
     let tip = Tip::from_header(tip_header);
@@ -365,7 +378,10 @@ pub fn copy_all_data_to_cold(
 // in the trie changes. This isn't the case for genesis so instead this method
 // can be used to copy the genesis records from hot to cold.
 // TODO - How did copying from genesis worked in the prod migration to split storage?
-pub fn test_cold_genesis_update(cold_db: &ColdDB, hot_store: &Store) -> io::Result<()> {
+pub fn test_cold_genesis_update(
+    cold_db: &ColdDB,
+    hot_store: &Store,
+) -> io::Result<()> {
     for col in DBCol::iter() {
         if !col.is_cold() {
             continue;
@@ -378,14 +394,19 @@ pub fn test_cold_genesis_update(cold_db: &ColdDB, hot_store: &Store) -> io::Resu
             cold_db,
             &hot_store,
             col,
-            hot_store.iter(col).map(|x| x.unwrap().0.to_vec()).collect(),
+            hot_store
+                .iter(col)
+                .map(|x| x.unwrap().0.to_vec())
+                .collect(),
         )?;
     }
     Ok(())
 }
 
 pub fn test_get_store_reads(column: DBCol) -> u64 {
-    crate::metrics::COLD_MIGRATION_READS.with_label_values(&[<&str>::from(column)]).get()
+    crate::metrics::COLD_MIGRATION_READS
+        .with_label_values(&[<&str>::from(column)])
+        .get()
 }
 
 pub fn test_get_store_initial_writes(column: DBCol) -> u64 {
@@ -426,24 +447,28 @@ fn get_keys_from_store(
         key_type_to_keys.insert(
             key_type,
             match key_type {
-                DBKeyType::TrieNodeOrValueHash => {
+                | DBKeyType::TrieNodeOrValueHash => {
                     unreachable!();
                 }
-                DBKeyType::BlockHeight => vec![height_key.to_vec()],
-                DBKeyType::BlockHash => vec![block_hash_key.to_vec()],
-                DBKeyType::PreviousBlockHash => {
-                    vec![block.header().prev_hash().as_bytes().to_vec()]
+                | DBKeyType::BlockHeight => vec![height_key.to_vec()],
+                | DBKeyType::BlockHash => vec![block_hash_key.to_vec()],
+                | DBKeyType::PreviousBlockHash => {
+                    vec![block
+                        .header()
+                        .prev_hash()
+                        .as_bytes()
+                        .to_vec()]
                 }
-                DBKeyType::ShardId => shard_layout
+                | DBKeyType::ShardId => shard_layout
                     .shard_ids()
                     .map(|shard_id| shard_id.to_le_bytes().to_vec())
                     .collect(),
-                DBKeyType::ShardUId => shard_layout
+                | DBKeyType::ShardUId => shard_layout
                     .shard_uids()
                     .map(|shard_uid| shard_uid.to_bytes().to_vec())
                     .collect(),
                 // TODO: write StateChanges values to colddb directly, not to cache.
-                DBKeyType::TrieKey => {
+                | DBKeyType::TrieKey => {
                     let mut keys = vec![];
                     store.iter_prefix_with_callback_for_cold(
                         DBCol::StateChanges,
@@ -456,20 +481,27 @@ fn get_keys_from_store(
                     )?;
                     keys
                 }
-                DBKeyType::TransactionHash => chunks
-                    .iter()
-                    .flat_map(|c| c.transactions().iter().map(|t| t.get_hash().as_bytes().to_vec()))
-                    .collect(),
-                DBKeyType::ReceiptHash => chunks
+                | DBKeyType::TransactionHash => chunks
                     .iter()
                     .flat_map(|c| {
-                        c.prev_outgoing_receipts().iter().map(|r| r.get_hash().as_bytes().to_vec())
+                        c.transactions()
+                            .iter()
+                            .map(|t| t.get_hash().as_bytes().to_vec())
                     })
                     .collect(),
-                DBKeyType::ChunkHash => {
-                    chunks.iter().map(|c| c.chunk_hash().as_bytes().to_vec()).collect()
-                }
-                DBKeyType::OutcomeId => {
+                | DBKeyType::ReceiptHash => chunks
+                    .iter()
+                    .flat_map(|c| {
+                        c.prev_outgoing_receipts()
+                            .iter()
+                            .map(|r| r.get_hash().as_bytes().to_vec())
+                    })
+                    .collect(),
+                | DBKeyType::ChunkHash => chunks
+                    .iter()
+                    .map(|c| c.chunk_hash().as_bytes().to_vec())
+                    .collect(),
+                | DBKeyType::OutcomeId => {
                     debug_assert_eq!(
                         DBCol::OutcomeIds.key_type(),
                         &[DBKeyType::BlockHash, DBKeyType::ShardId]
@@ -492,7 +524,7 @@ fn get_keys_from_store(
                         })
                         .collect()
                 }
-                _ => {
+                | _ => {
                     vec![]
                 }
             },
@@ -502,7 +534,10 @@ fn get_keys_from_store(
     Ok(key_type_to_keys)
 }
 
-pub fn join_two_keys(prefix_key: &[u8], suffix_key: &[u8]) -> StoreKey {
+pub fn join_two_keys(
+    prefix_key: &[u8],
+    suffix_key: &[u8],
+) -> StoreKey {
     [prefix_key, suffix_key].concat()
 }
 
@@ -545,14 +580,17 @@ fn combine_keys_with_stop(
     result_keys
 }
 
-fn option_to_not_found<T, F>(res: io::Result<Option<T>>, field_name: F) -> io::Result<T>
+fn option_to_not_found<T, F>(
+    res: io::Result<Option<T>>,
+    field_name: F,
+) -> io::Result<T>
 where
     F: std::string::ToString,
 {
     match res {
-        Ok(Some(o)) => Ok(o),
-        Ok(None) => Err(io::Error::new(io::ErrorKind::NotFound, field_name.to_string())),
-        Err(e) => Err(e),
+        | Ok(Some(o)) => Ok(o),
+        | Ok(None) => Err(io::Error::new(io::ErrorKind::NotFound, field_name.to_string())),
+        | Err(e) => Err(e),
     }
 }
 
@@ -564,16 +602,26 @@ impl ColdMigrationStore for Store {
         mut callback: impl FnMut(Box<[u8]>),
     ) -> io::Result<()> {
         for iter_result in self.iter_prefix(col, key_prefix) {
-            crate::metrics::COLD_MIGRATION_READS.with_label_values(&[<&str>::from(col)]).inc();
+            crate::metrics::COLD_MIGRATION_READS
+                .with_label_values(&[<&str>::from(col)])
+                .inc();
             let (key, _) = iter_result?;
             callback(key);
         }
         Ok(())
     }
 
-    fn get_for_cold(&self, column: DBCol, key: &[u8]) -> io::Result<StoreValue> {
-        crate::metrics::COLD_MIGRATION_READS.with_label_values(&[<&str>::from(column)]).inc();
-        Ok(self.get(column, key)?.map(|x| x.as_slice().to_vec()))
+    fn get_for_cold(
+        &self,
+        column: DBCol,
+        key: &[u8],
+    ) -> io::Result<StoreValue> {
+        crate::metrics::COLD_MIGRATION_READS
+            .with_label_values(&[<&str>::from(column)])
+            .inc();
+        Ok(self
+            .get(column, key)?
+            .map(|x| x.as_slice().to_vec()))
     }
 
     fn get_ser_for_cold<T: BorshDeserialize>(
@@ -582,12 +630,16 @@ impl ColdMigrationStore for Store {
         key: &[u8],
     ) -> io::Result<Option<T>> {
         match self.get_for_cold(column, key)? {
-            Some(bytes) => Ok(Some(T::try_from_slice(&bytes)?)),
-            None => Ok(None),
+            | Some(bytes) => Ok(Some(T::try_from_slice(&bytes)?)),
+            | None => Ok(None),
         }
     }
 
-    fn get_or_err_for_cold(&self, column: DBCol, key: &[u8]) -> io::Result<Vec<u8>> {
+    fn get_or_err_for_cold(
+        &self,
+        column: DBCol,
+        key: &[u8],
+    ) -> io::Result<Vec<u8>> {
         option_to_not_found(self.get_for_cold(column, key), format_args!("{:?}: {:?}", column, key))
     }
 
@@ -604,7 +656,10 @@ impl ColdMigrationStore for Store {
 }
 
 impl BatchTransaction {
-    pub fn new(cold_db: Arc<ColdDB>, batch_size: usize) -> Self {
+    pub fn new(
+        cold_db: Arc<ColdDB>,
+        batch_size: usize,
+    ) -> Self {
         Self {
             cold_db,
             transaction: DBTransaction::new(),
@@ -637,7 +692,9 @@ impl BatchTransaction {
             return Ok(());
         }
 
-        let column_label = [<&str>::from(self.transaction.ops[0].col())];
+        let column_label = [<&str>::from(
+            self.transaction.ops[0].col(),
+        )];
 
         crate::metrics::COLD_STORE_MIGRATION_BATCH_WRITE_COUNT
             .with_label_values(&column_label)
@@ -678,7 +735,10 @@ mod test {
         assert_eq!(
             HashSet::<StoreKey>::from_iter(combine_keys(
                 &key_type_to_keys,
-                &[DBKeyType::BlockHash, DBKeyType::BlockHeight]
+                &[
+                    DBKeyType::BlockHash,
+                    DBKeyType::BlockHeight
+                ]
             )),
             HashSet::<StoreKey>::from_iter(vec![
                 vec![1, 2, 3, 0, 1],
@@ -691,7 +751,11 @@ mod test {
         assert_eq!(
             HashSet::<StoreKey>::from_iter(combine_keys(
                 &key_type_to_keys,
-                &[DBKeyType::BlockHeight, DBKeyType::BlockHash, DBKeyType::BlockHeight]
+                &[
+                    DBKeyType::BlockHeight,
+                    DBKeyType::BlockHash,
+                    DBKeyType::BlockHeight
+                ]
             )),
             HashSet::<StoreKey>::from_iter(vec![
                 vec![0, 1, 1, 2, 3, 0, 1],
@@ -708,7 +772,10 @@ mod test {
         assert_eq!(
             HashSet::<StoreKey>::from_iter(combine_keys(
                 &key_type_to_keys,
-                &[DBKeyType::ShardId, DBKeyType::BlockHeight]
+                &[
+                    DBKeyType::ShardId,
+                    DBKeyType::BlockHeight
+                ]
             )),
             HashSet::<StoreKey>::from_iter(vec![])
         );

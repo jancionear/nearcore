@@ -34,7 +34,10 @@ pub struct LinearImbalanceProducer {
 }
 
 impl Producer for LinearImbalanceProducer {
-    fn init(&mut self, shards: &[ShardId]) {
+    fn init(
+        &mut self,
+        shards: &[ShardId],
+    ) {
         let factor = 2.0 * (GAS_LIMIT as f32 / self.execution_gas as f32) / shards.len() as f32;
         self.message_multiplier = factor.round() as usize;
     }

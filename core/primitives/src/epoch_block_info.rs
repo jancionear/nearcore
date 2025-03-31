@@ -96,14 +96,19 @@ impl BlockInfo {
         }
     }
 
-    pub fn from_header(header: &BlockHeader, last_finalized_height: BlockHeight) -> Self {
+    pub fn from_header(
+        header: &BlockHeader,
+        last_finalized_height: BlockHeight,
+    ) -> Self {
         BlockInfo::new(
             *header.hash(),
             header.height(),
             last_finalized_height,
             *header.last_final_block(),
             *header.prev_hash(),
-            header.prev_validator_proposals().collect(),
+            header
+                .prev_validator_proposals()
+                .collect(),
             header.chunk_mask().to_vec(),
             vec![],
             header.total_supply(),
@@ -125,67 +130,72 @@ impl BlockInfo {
             last_finalized_height,
             *header.last_final_block(),
             *header.prev_hash(),
-            header.prev_validator_proposals().collect(),
+            header
+                .prev_validator_proposals()
+                .collect(),
             header.chunk_mask().to_vec(),
             vec![],
             header.total_supply(),
             header.latest_protocol_version(),
             header.raw_timestamp(),
-            header.chunk_endorsements().cloned().or(chunk_endorsements),
+            header
+                .chunk_endorsements()
+                .cloned()
+                .or(chunk_endorsements),
         )
     }
 
     #[inline]
     pub fn proposals_iter(&self) -> ValidatorStakeIter {
         match self {
-            Self::V1(info) => ValidatorStakeIter::v1(&info.proposals),
-            Self::V2(info) => ValidatorStakeIter::new(&info.proposals),
-            Self::V3(info) => ValidatorStakeIter::new(&info.proposals),
+            | Self::V1(info) => ValidatorStakeIter::v1(&info.proposals),
+            | Self::V2(info) => ValidatorStakeIter::new(&info.proposals),
+            | Self::V3(info) => ValidatorStakeIter::new(&info.proposals),
         }
     }
 
     #[inline]
     pub fn hash(&self) -> &CryptoHash {
         match self {
-            Self::V1(info) => &info.hash,
-            Self::V2(info) => &info.hash,
-            Self::V3(info) => &info.hash,
+            | Self::V1(info) => &info.hash,
+            | Self::V2(info) => &info.hash,
+            | Self::V3(info) => &info.hash,
         }
     }
 
     #[inline]
     pub fn height(&self) -> BlockHeight {
         match self {
-            Self::V1(info) => info.height,
-            Self::V2(info) => info.height,
-            Self::V3(info) => info.height,
+            | Self::V1(info) => info.height,
+            | Self::V2(info) => info.height,
+            | Self::V3(info) => info.height,
         }
     }
 
     #[inline]
     pub fn last_finalized_height(&self) -> BlockHeight {
         match self {
-            Self::V1(info) => info.last_finalized_height,
-            Self::V2(info) => info.last_finalized_height,
-            Self::V3(info) => info.last_finalized_height,
+            | Self::V1(info) => info.last_finalized_height,
+            | Self::V2(info) => info.last_finalized_height,
+            | Self::V3(info) => info.last_finalized_height,
         }
     }
 
     #[inline]
     pub fn last_final_block_hash(&self) -> &CryptoHash {
         match self {
-            Self::V1(info) => &info.last_final_block_hash,
-            Self::V2(info) => &info.last_final_block_hash,
-            Self::V3(info) => &info.last_final_block_hash,
+            | Self::V1(info) => &info.last_final_block_hash,
+            | Self::V2(info) => &info.last_final_block_hash,
+            | Self::V3(info) => &info.last_final_block_hash,
         }
     }
 
     #[inline]
     pub fn prev_hash(&self) -> &CryptoHash {
         match self {
-            Self::V1(info) => &info.prev_hash,
-            Self::V2(info) => &info.prev_hash,
-            Self::V3(info) => &info.prev_hash,
+            | Self::V1(info) => &info.prev_hash,
+            | Self::V2(info) => &info.prev_hash,
+            | Self::V3(info) => &info.prev_hash,
         }
     }
 
@@ -197,99 +207,99 @@ impl BlockInfo {
     #[inline]
     pub fn epoch_first_block(&self) -> &CryptoHash {
         match self {
-            Self::V1(info) => &info.epoch_first_block,
-            Self::V2(info) => &info.epoch_first_block,
-            Self::V3(info) => &info.epoch_first_block,
+            | Self::V1(info) => &info.epoch_first_block,
+            | Self::V2(info) => &info.epoch_first_block,
+            | Self::V3(info) => &info.epoch_first_block,
         }
     }
 
     #[inline]
     pub fn epoch_first_block_mut(&mut self) -> &mut CryptoHash {
         match self {
-            Self::V1(info) => &mut info.epoch_first_block,
-            Self::V2(info) => &mut info.epoch_first_block,
-            Self::V3(info) => &mut info.epoch_first_block,
+            | Self::V1(info) => &mut info.epoch_first_block,
+            | Self::V2(info) => &mut info.epoch_first_block,
+            | Self::V3(info) => &mut info.epoch_first_block,
         }
     }
 
     #[inline]
     pub fn epoch_id(&self) -> &EpochId {
         match self {
-            Self::V1(info) => &info.epoch_id,
-            Self::V2(info) => &info.epoch_id,
-            Self::V3(info) => &info.epoch_id,
+            | Self::V1(info) => &info.epoch_id,
+            | Self::V2(info) => &info.epoch_id,
+            | Self::V3(info) => &info.epoch_id,
         }
     }
 
     #[inline]
     pub fn epoch_id_mut(&mut self) -> &mut EpochId {
         match self {
-            Self::V1(info) => &mut info.epoch_id,
-            Self::V2(info) => &mut info.epoch_id,
-            Self::V3(info) => &mut info.epoch_id,
+            | Self::V1(info) => &mut info.epoch_id,
+            | Self::V2(info) => &mut info.epoch_id,
+            | Self::V3(info) => &mut info.epoch_id,
         }
     }
 
     #[inline]
     pub fn chunk_mask(&self) -> &[bool] {
         match self {
-            Self::V1(info) => &info.chunk_mask,
-            Self::V2(info) => &info.chunk_mask,
-            Self::V3(info) => &info.chunk_mask,
+            | Self::V1(info) => &info.chunk_mask,
+            | Self::V2(info) => &info.chunk_mask,
+            | Self::V3(info) => &info.chunk_mask,
         }
     }
 
     #[inline]
     pub fn latest_protocol_version(&self) -> &ProtocolVersion {
         match self {
-            Self::V1(info) => &info.latest_protocol_version,
-            Self::V2(info) => &info.latest_protocol_version,
-            Self::V3(info) => &info.latest_protocol_version,
+            | Self::V1(info) => &info.latest_protocol_version,
+            | Self::V2(info) => &info.latest_protocol_version,
+            | Self::V3(info) => &info.latest_protocol_version,
         }
     }
 
     #[inline]
     pub fn slashed(&self) -> &HashMap<AccountId, SlashState> {
         match self {
-            Self::V1(info) => &info.slashed,
-            Self::V2(info) => &info.slashed,
-            Self::V3(info) => &info.slashed,
+            | Self::V1(info) => &info.slashed,
+            | Self::V2(info) => &info.slashed,
+            | Self::V3(info) => &info.slashed,
         }
     }
 
     #[inline]
     pub fn slashed_mut(&mut self) -> &mut HashMap<AccountId, SlashState> {
         match self {
-            Self::V1(info) => &mut info.slashed,
-            Self::V2(info) => &mut info.slashed,
-            Self::V3(info) => &mut info.slashed,
+            | Self::V1(info) => &mut info.slashed,
+            | Self::V2(info) => &mut info.slashed,
+            | Self::V3(info) => &mut info.slashed,
         }
     }
 
     #[inline]
     pub fn total_supply(&self) -> &Balance {
         match self {
-            Self::V1(info) => &info.total_supply,
-            Self::V2(info) => &info.total_supply,
-            Self::V3(info) => &info.total_supply,
+            | Self::V1(info) => &info.total_supply,
+            | Self::V2(info) => &info.total_supply,
+            | Self::V3(info) => &info.total_supply,
         }
     }
 
     #[inline]
     pub fn timestamp_nanosec(&self) -> &u64 {
         match self {
-            Self::V1(info) => &info.timestamp_nanosec,
-            Self::V2(info) => &info.timestamp_nanosec,
-            Self::V3(info) => &info.timestamp_nanosec,
+            | Self::V1(info) => &info.timestamp_nanosec,
+            | Self::V2(info) => &info.timestamp_nanosec,
+            | Self::V3(info) => &info.timestamp_nanosec,
         }
     }
 
     #[inline]
     pub fn chunk_endorsements(&self) -> Option<&ChunkEndorsementsBitmap> {
         match self {
-            Self::V1(_) => None,
-            Self::V2(_) => None,
-            Self::V3(info) => Some(&info.chunk_endorsements),
+            | Self::V1(_) => None,
+            | Self::V2(_) => None,
+            | Self::V3(info) => Some(&info.chunk_endorsements),
         }
     }
 }

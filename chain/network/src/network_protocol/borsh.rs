@@ -114,7 +114,10 @@ const _: () = assert!(
 );
 
 impl fmt::Display for HandshakeFailureReason {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut Formatter<'_>,
+    ) -> fmt::Result {
         write!(f, "HandshakeFailureReason")
     }
 }

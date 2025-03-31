@@ -13,8 +13,11 @@ where
     f();
 }
 
-pub fn wait<F>(mut f: F, check_interval_ms: u64, max_wait_ms: u64)
-where
+pub fn wait<F>(
+    mut f: F,
+    check_interval_ms: u64,
+    max_wait_ms: u64,
+) where
     F: FnMut() -> bool,
 {
     let mut ms_slept = 0;

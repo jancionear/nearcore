@@ -20,20 +20,25 @@ pub(crate) enum ExtractError {
 
 /// Extracts a `SpanContext` from a potentially empty `TraceContext`.
 pub(crate) fn extract_span_context(
-    trace_context: &MessageField<TraceContext>,
+    trace_context: &MessageField<TraceContext>
 ) -> Result<SpanContext, ExtractError> {
     if trace_context.is_some() {
         let trace_id = extract_trace_id(&trace_context.trace_id)?;
         // If we have a trace_id but can't get the parent span, we default it to invalid instead of completely erroring
         // out so that the rest of the spans aren't completely lost.
         let span_id = extract_span_id(&trace_context.span_id).unwrap_or(SpanId::INVALID);
-        let sampled = match trace_context.sampling_priority.enum_value() {
-            Ok(SamplingPriority::UserReject) | Ok(SamplingPriority::AutoReject) => {
+        let sampled = match trace_context
+            .sampling_priority
+            .enum_value()
+        {
+            | Ok(SamplingPriority::UserReject) | Ok(SamplingPriority::AutoReject) => {
                 TraceFlags::default()
             }
-            Ok(SamplingPriority::UserKeep) | Ok(SamplingPriority::AutoKeep) => TraceFlags::SAMPLED,
+            | Ok(SamplingPriority::UserKeep) | Ok(SamplingPriority::AutoKeep) => {
+                TraceFlags::SAMPLED
+            }
             // Treat the sampling as DEFERRED instead of erring on extracting the span context
-            Ok(SamplingPriority::UNKNOWN) | Err(_) => TRACE_FLAG_DEFERRED,
+            | Ok(SamplingPriority::UNKNOWN) | Err(_) => TRACE_FLAG_DEFERRED,
         };
         let trace_state = TraceState::default();
         Ok(SpanContext::new(trace_id, span_id, sampled, true, trace_state))
@@ -51,9 +56,15 @@ pub(crate) fn inject_trace_context(cx: &Context) -> MessageField<TraceContext> {
         let mut trace_context = TraceContext::new();
 
         // Uses `u128::to_be_bytes()` internally.
-        trace_context.trace_id = span_context.trace_id().to_bytes().to_vec();
+        trace_context.trace_id = span_context
+            .trace_id()
+            .to_bytes()
+            .to_vec();
         // Uses `u64::to_be_bytes()` internally.
-        trace_context.span_id = span_context.span_id().to_bytes().to_vec();
+        trace_context.span_id = span_context
+            .span_id()
+            .to_bytes()
+            .to_vec();
 
         if span_context.trace_flags() & TRACE_FLAG_DEFERRED != TRACE_FLAG_DEFERRED {
             let sampling_priority = if span_context.is_sampled() {
@@ -69,9 +80,17 @@ pub(crate) fn inject_trace_context(cx: &Context) -> MessageField<TraceContext> {
     }
 }
 fn extract_trace_id(trace_id: &[u8]) -> Result<TraceId, ExtractError> {
-    Ok(TraceId::from_bytes(trace_id.try_into().map_err(|_| ExtractError::TraceId)?))
+    Ok(TraceId::from_bytes(
+        trace_id
+            .try_into()
+            .map_err(|_| ExtractError::TraceId)?,
+    ))
 }
 
 fn extract_span_id(span_id: &[u8]) -> Result<SpanId, ExtractError> {
-    Ok(SpanId::from_bytes(span_id.try_into().map_err(|_| ExtractError::SpanId)?))
+    Ok(SpanId::from_bytes(
+        span_id
+            .try_into()
+            .map_err(|_| ExtractError::SpanId)?,
+    ))
 }

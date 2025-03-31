@@ -117,21 +117,23 @@ impl StateSync {
             }) = sync_config
             {
                 let external = match location {
-                    ExternalStorageLocation::S3 { bucket, region, .. } => {
+                    | ExternalStorageLocation::S3 { bucket, region, .. } => {
                         let bucket = create_bucket_readonly(
                             &bucket,
                             &region,
-                            external_timeout.max(Duration::ZERO).unsigned_abs(),
+                            external_timeout
+                                .max(Duration::ZERO)
+                                .unsigned_abs(),
                         );
                         if let Err(err) = bucket {
                             panic!("Failed to create an S3 bucket: {}", err);
                         }
                         ExternalConnection::S3 { bucket: Arc::new(bucket.unwrap()) }
                     }
-                    ExternalStorageLocation::Filesystem { root_dir } => {
+                    | ExternalStorageLocation::Filesystem { root_dir } => {
                         ExternalConnection::Filesystem { root_dir: root_dir.clone() }
                     }
-                    ExternalStorageLocation::GCS { bucket, .. } => ExternalConnection::GCS {
+                    | ExternalStorageLocation::GCS { bucket, .. } => ExternalConnection::GCS {
                         gcs_client: Arc::new(cloud_storage::Client::default()),
                         reqwest_client: Arc::new(reqwest::Client::default()),
                         bucket: bucket.clone(),
@@ -166,7 +168,9 @@ impl StateSync {
             preferred_source: peer_source,
             fallback_source,
             num_attempts_before_fallback,
-            header_validation_sender: chain_requests_sender.clone().into_sender(),
+            header_validation_sender: chain_requests_sender
+                .clone()
+                .into_sender(),
             runtime: runtime.clone(),
             retry_backoff,
             task_tracker: downloading_task_tracker.clone(),
@@ -220,16 +224,22 @@ impl StateSync {
             tracing::debug_span!(target: "sync", "run_sync", sync_type = "StateSync").entered();
         tracing::debug!(%sync_hash, ?tracking_shards, "syncing state");
 
-        self.peer_source_state.lock().unwrap().set_highest_peers(
-            highest_height_peers.iter().map(|info| info.peer_info.id.clone()).collect(),
-        );
+        self.peer_source_state
+            .lock()
+            .unwrap()
+            .set_highest_peers(
+                highest_height_peers
+                    .iter()
+                    .map(|info| info.peer_info.id.clone())
+                    .collect(),
+            );
 
         let mut all_done = true;
         for shard_id in tracking_shards {
             let key = (sync_hash, *shard_id);
             let status = match self.shard_syncs.entry(key) {
-                Entry::Occupied(mut entry) => match entry.get_mut().result.try_recv() {
-                    Ok(result) => {
+                | Entry::Occupied(mut entry) => match entry.get_mut().result.try_recv() {
+                    | Ok(result) => {
                         entry.remove();
                         if let Err(err) = result {
                             tracing::error!(%shard_id, ?err, "State sync failed for shard");
@@ -237,14 +247,14 @@ impl StateSync {
                         }
                         ShardSyncStatus::StateSyncDone
                     }
-                    Err(TryRecvError::Closed) => {
+                    | Err(TryRecvError::Closed) => {
                         return Err(near_chain::Error::Other(
                             "Shard result channel somehow closed".to_owned(),
                         ));
                     }
-                    Err(TryRecvError::Empty) => entry.get().status(),
+                    | Err(TryRecvError::Empty) => entry.get().status(),
                 },
-                Entry::Vacant(entry) => {
+                | Entry::Vacant(entry) => {
                     if sync_status
                         .sync_status
                         .get(&shard_id)
@@ -263,22 +273,27 @@ impl StateSync {
                         self.epoch_manager.clone(),
                         self.computation_task_tracker.clone(),
                         status.clone(),
-                        self.chain_requests_sender.clone().into_sender(),
+                        self.chain_requests_sender
+                            .clone()
+                            .into_sender(),
                         cancel.clone(),
                         self.future_spawner.clone(),
                     );
                     let (sender, receiver) = oneshot::channel();
 
-                    self.future_spawner.spawn("shard sync", async move {
-                        sender.send(shard_sync.await).ok();
-                    });
+                    self.future_spawner
+                        .spawn("shard sync", async move {
+                            sender.send(shard_sync.await).ok();
+                        });
                     let handle = StateSyncShardHandle { status, result: receiver, cancel };
                     let ret = handle.status();
                     entry.insert(handle);
                     ret
                 }
             };
-            sync_status.sync_status.insert(*shard_id, status);
+            sync_status
+                .sync_status
+                .insert(*shard_id, status);
             metrics::STATE_SYNC_STAGE
                 .with_label_values(&[&shard_id.to_string()])
                 .set(status as i64);
@@ -289,9 +304,10 @@ impl StateSync {
 
         // If a shard completed syncing, we just remove it. We will not be syncing it again the next time around,
         // because we would've marked it as completed in the status for that shard.
-        self.shard_syncs.retain(|(existing_sync_hash, existing_shard_id), _v| {
-            tracking_shards.contains(existing_shard_id) && existing_sync_hash == &sync_hash
-        });
+        self.shard_syncs
+            .retain(|(existing_sync_hash, existing_shard_id), _v| {
+                tracking_shards.contains(existing_shard_id) && existing_sync_hash == &sync_hash
+            });
 
         sync_status.download_tasks = self.downloading_task_tracker.statuses();
         sync_status.computation_tasks = self.computation_task_tracker.statuses();

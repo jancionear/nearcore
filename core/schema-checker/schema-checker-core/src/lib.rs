@@ -26,15 +26,15 @@ pub enum ProtocolSchemaInfo {
 impl ProtocolSchemaInfo {
     pub fn type_id(&self) -> TypeId {
         match self {
-            ProtocolSchemaInfo::Struct { type_id, .. } => *type_id,
-            ProtocolSchemaInfo::Enum { type_id, .. } => *type_id,
+            | ProtocolSchemaInfo::Struct { type_id, .. } => *type_id,
+            | ProtocolSchemaInfo::Enum { type_id, .. } => *type_id,
         }
     }
 
     pub fn type_name(&self) -> TypeName {
         match self {
-            ProtocolSchemaInfo::Struct { name, .. } => name,
-            ProtocolSchemaInfo::Enum { name, .. } => name,
+            | ProtocolSchemaInfo::Struct { name, .. } => name,
+            | ProtocolSchemaInfo::Enum { name, .. } => name,
         }
     }
 }

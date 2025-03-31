@@ -45,7 +45,11 @@ pub struct Config {
 /// to determine the order in which to query them. All nodes
 /// use the same hashing scheme, resulting in a rough consensus on
 /// which hosts serve requests for which parts.
-pub(crate) fn priority_score(peer_id: &PeerId, shard_id: ShardId, part_id: u64) -> [u8; 32] {
+pub(crate) fn priority_score(
+    peer_id: &PeerId,
+    shard_id: ShardId,
+    part_id: u64,
+) -> [u8; 32] {
     let mut h = Sha256::new();
     h.update(peer_id.public_key().key_data());
     h.update(shard_id.to_le_bytes());
@@ -66,7 +70,10 @@ struct StatePartHost {
 }
 
 impl Ord for StatePartHost {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+    fn cmp(
+        &self,
+        other: &Self,
+    ) -> std::cmp::Ordering {
         // std::collections:BinaryHeap used in PeerPartSelector is a max-heap.
         // We prefer hosts with the least num_requests, after which we break
         // ties according to the priority score and the peer_id.
@@ -79,7 +86,10 @@ impl Ord for StatePartHost {
 }
 
 impl PartialOrd for StatePartHost {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+    fn partial_cmp(
+        &self,
+        other: &Self,
+    ) -> Option<std::cmp::Ordering> {
         Some(self.cmp(other))
     }
 }
@@ -99,17 +109,20 @@ struct PartPeerSelector {
 impl PartPeerSelector {
     fn next(&mut self) -> Option<PeerId> {
         match self.peers.pop() {
-            Some(mut p) => {
+            | Some(mut p) => {
                 p.increment_num_requests();
                 let peer_id = p.peer_id.clone();
                 self.peers.push(p);
                 Some(peer_id)
             }
-            None => None,
+            | None => None,
         }
     }
 
-    fn insert_peers<T: IntoIterator<Item = StatePartHost>>(&mut self, peers: T) {
+    fn insert_peers<T: IntoIterator<Item = StatePartHost>>(
+        &mut self,
+        peers: T,
+    ) {
         self.peers.extend(peers);
     }
 
@@ -118,11 +131,16 @@ impl PartPeerSelector {
     }
 
     fn tried_everybody(&self) -> bool {
-        self.peers.iter().all(|priority| priority.num_requests > 0)
+        self.peers
+            .iter()
+            .all(|priority| priority.num_requests > 0)
     }
 
     fn peer_set(&self) -> HashSet<PeerId> {
-        self.peers.iter().map(|p| p.peer_id.clone()).collect()
+        self.peers
+            .iter()
+            .map(|p| p.peer_id.clone())
+            .collect()
     }
 }
 
@@ -140,17 +158,23 @@ struct Inner {
 }
 
 impl Inner {
-    fn is_new(&self, h: &SnapshotHostInfo) -> bool {
+    fn is_new(
+        &self,
+        h: &SnapshotHostInfo,
+    ) -> bool {
         match self.hosts.peek(&h.peer_id) {
-            Some(old) if old.epoch_height >= h.epoch_height => false,
-            _ => true,
+            | Some(old) if old.epoch_height >= h.epoch_height => false,
+            | _ => true,
         }
     }
 
     /// Inserts d into self.data, if it's new.
     /// It returns the newly inserted value (or None if nothing changed).
     /// The returned value should be broadcasted to the network.
-    fn try_insert(&mut self, d: Arc<SnapshotHostInfo>) -> Option<Arc<SnapshotHostInfo>> {
+    fn try_insert(
+        &mut self,
+        d: Arc<SnapshotHostInfo>,
+    ) -> Option<Arc<SnapshotHostInfo>> {
         if !self.is_new(&d) {
             return None;
         }
@@ -163,7 +187,8 @@ impl Inner {
                     .insert(d.peer_id.clone());
             }
         }
-        self.hosts.push(d.peer_id.clone(), d.clone());
+        self.hosts
+            .push(d.peer_id.clone(), d.clone());
 
         Some(d)
     }
@@ -194,8 +219,10 @@ impl Inner {
             }
         }
 
-        let selector =
-            self.peer_selector.entry((shard_id, part_id)).or_insert(PartPeerSelector::default());
+        let selector = self
+            .peer_selector
+            .entry((shard_id, part_id))
+            .or_insert(PartPeerSelector::default());
 
         // Insert more hosts into the selector if needed
         let available_hosts = self.hosts_for_shard.get(&shard_id)?;
@@ -275,15 +302,15 @@ impl SnapshotHostsCache {
         let (data, verification_result) = concurrency::rayon::run(move || {
             concurrency::rayon::try_map_result(new_data.into_values().par_bridge(), |d| {
                 match d.verify() {
-                    Ok(()) => Ok(d),
-                    Err(err) => Err(err),
+                    | Ok(()) => Ok(d),
+                    | Err(err) => Err(err),
                 }
             })
         })
         .await;
         match verification_result {
-            Ok(()) => (data, None),
-            Err(err) => (data, Some(SnapshotHostInfoError::VerificationError(err))),
+            | Ok(()) => (data, None),
+            | Err(err) => (data, Some(SnapshotHostInfoError::VerificationError(err))),
         }
     }
 
@@ -309,16 +336,31 @@ impl SnapshotHostsCache {
     }
 
     /// Skips signature verification. Used only for the local node's own information.
-    pub fn insert_skip_verify(self: &Self, my_info: Arc<SnapshotHostInfo>) {
+    pub fn insert_skip_verify(
+        self: &Self,
+        my_info: Arc<SnapshotHostInfo>,
+    ) {
         let _ = self.0.lock().try_insert(my_info);
     }
 
     pub fn get_hosts(&self) -> Vec<Arc<SnapshotHostInfo>> {
-        self.0.lock().hosts.iter().map(|(_, v)| v.clone()).collect()
+        self.0
+            .lock()
+            .hosts
+            .iter()
+            .map(|(_, v)| v.clone())
+            .collect()
     }
 
-    pub(crate) fn get_host_info(&self, peer_id: &PeerId) -> Option<Arc<SnapshotHostInfo>> {
-        self.0.lock().hosts.peek(peer_id).cloned()
+    pub(crate) fn get_host_info(
+        &self,
+        peer_id: &PeerId,
+    ) -> Option<Arc<SnapshotHostInfo>> {
+        self.0
+            .lock()
+            .hosts
+            .peek(peer_id)
+            .cloned()
     }
 
     /// Given a state part request, selects a peer host to which the request should be sent.
@@ -328,18 +370,32 @@ impl SnapshotHostsCache {
         shard_id: ShardId,
         part_id: u64,
     ) -> Option<PeerId> {
-        self.0.lock().select_host_for_part(sync_hash, shard_id, part_id)
+        self.0
+            .lock()
+            .select_host_for_part(sync_hash, shard_id, part_id)
     }
 
     /// Triggered by state sync actor after processing a state part.
-    pub fn part_received(&self, shard_id: ShardId, part_id: u64) {
+    pub fn part_received(
+        &self,
+        shard_id: ShardId,
+        part_id: u64,
+    ) {
         let mut inner = self.0.lock();
-        inner.peer_selector.remove(&(shard_id, part_id));
+        inner
+            .peer_selector
+            .remove(&(shard_id, part_id));
     }
 
     #[cfg(test)]
-    pub(crate) fn has_selector(&self, shard_id: ShardId, part_id: u64) -> bool {
+    pub(crate) fn has_selector(
+        &self,
+        shard_id: ShardId,
+        part_id: u64,
+    ) -> bool {
         let inner = self.0.lock();
-        inner.peer_selector.contains_key(&(shard_id, part_id))
+        inner
+            .peer_selector
+            .contains_key(&(shard_id, part_id))
     }
 }

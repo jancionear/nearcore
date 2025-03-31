@@ -19,8 +19,14 @@ pub(crate) const TGAS: u64 = 1_000_000_000_000;
 
 /// Returns the height of the chain head, by querying node at index 0.
 pub(crate) fn get_head_height(env: &mut TestLoopEnv) -> u64 {
-    let client_handle = env.datas[0].client_sender.actor_handle();
-    let client = &env.test_loop.data.get(&client_handle).client;
+    let client_handle = env.datas[0]
+        .client_sender
+        .actor_handle();
+    let client = &env
+        .test_loop
+        .data
+        .get(&client_handle)
+        .client;
     client.chain.head().unwrap().height
 }
 
@@ -43,6 +49,8 @@ pub(crate) fn retrieve_client_actor<'a>(
     test_loop_data: &'a mut TestLoopData,
     client_account_id: &AccountId,
 ) -> &'a mut ClientActorInner {
-    let client_handle = get_node_data(node_datas, client_account_id).client_sender.actor_handle();
+    let client_handle = get_node_data(node_datas, client_account_id)
+        .client_sender
+        .actor_handle();
     test_loop_data.get_mut(&client_handle)
 }

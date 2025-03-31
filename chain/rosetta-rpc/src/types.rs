@@ -19,7 +19,10 @@ use std::fmt;
 pub struct AccountId(near_primitives::types::AccountId);
 
 impl fmt::Debug for AccountId {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
         fmt::Debug::fmt(&self.0, f)
     }
 }

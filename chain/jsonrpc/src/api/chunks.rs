@@ -43,11 +43,11 @@ impl RpcFrom<AsyncSendError> for RpcChunkError {
 impl RpcFrom<ChunkReference> for GetChunk {
     fn rpc_from(chunk_reference: ChunkReference) -> Self {
         match chunk_reference {
-            ChunkReference::BlockShardId { block_id, shard_id } => match block_id {
-                BlockId::Height(height) => Self::Height(height, shard_id),
-                BlockId::Hash(block_hash) => Self::BlockHash(block_hash, shard_id),
+            | ChunkReference::BlockShardId { block_id, shard_id } => match block_id {
+                | BlockId::Height(height) => Self::Height(height, shard_id),
+                | BlockId::Hash(block_hash) => Self::BlockHash(block_hash, shard_id),
             },
-            ChunkReference::ChunkHash { chunk_id } => Self::ChunkHash(chunk_id.into()),
+            | ChunkReference::ChunkHash { chunk_id } => Self::ChunkHash(chunk_id.into()),
         }
     }
 }
@@ -55,13 +55,13 @@ impl RpcFrom<ChunkReference> for GetChunk {
 impl RpcFrom<GetChunkError> for RpcChunkError {
     fn rpc_from(error: GetChunkError) -> Self {
         match error {
-            GetChunkError::IOError { error_message } => Self::InternalError { error_message },
-            GetChunkError::UnknownBlock { error_message } => Self::UnknownBlock { error_message },
-            GetChunkError::InvalidShardId { shard_id } => {
+            | GetChunkError::IOError { error_message } => Self::InternalError { error_message },
+            | GetChunkError::UnknownBlock { error_message } => Self::UnknownBlock { error_message },
+            | GetChunkError::InvalidShardId { shard_id } => {
                 Self::InvalidShardId { shard_id: shard_id.into() }
             }
-            GetChunkError::UnknownChunk { chunk_hash } => Self::UnknownChunk { chunk_hash },
-            GetChunkError::Unreachable { ref error_message } => {
+            | GetChunkError::UnknownChunk { chunk_hash } => Self::UnknownChunk { chunk_hash },
+            | GetChunkError::Unreachable { ref error_message } => {
                 tracing::warn!(target: "jsonrpc", "Unreachable error occurred: {}", error_message);
                 crate::metrics::RPC_UNREACHABLE_ERROR_COUNT
                     .with_label_values(&["RpcChunkError"])

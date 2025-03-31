@@ -15,18 +15,28 @@ use std::sync::Arc;
 /// spawning to add additional instrumentation (2) we can support driving the
 /// future with TestLoop for testing.
 pub trait FutureSpawner: Send + Sync {
-    fn spawn_boxed(&self, description: &'static str, f: BoxFuture<'static, ()>);
+    fn spawn_boxed(
+        &self,
+        description: &'static str,
+        f: BoxFuture<'static, ()>,
+    );
 }
 
 pub trait FutureSpawnerExt {
-    fn spawn<F>(&self, description: &'static str, f: F)
-    where
+    fn spawn<F>(
+        &self,
+        description: &'static str,
+        f: F,
+    ) where
         F: futures::Future<Output = ()> + Send + 'static;
 }
 
 impl<T: FutureSpawner> FutureSpawnerExt for T {
-    fn spawn<F>(&self, description: &'static str, f: F)
-    where
+    fn spawn<F>(
+        &self,
+        description: &'static str,
+        f: F,
+    ) where
         F: futures::Future<Output = ()> + Send + 'static,
     {
         self.spawn_boxed(description, f.boxed());
@@ -34,8 +44,11 @@ impl<T: FutureSpawner> FutureSpawnerExt for T {
 }
 
 impl FutureSpawnerExt for dyn FutureSpawner + '_ {
-    fn spawn<F>(&self, description: &'static str, f: F)
-    where
+    fn spawn<F>(
+        &self,
+        description: &'static str,
+        f: F,
+    ) where
         F: futures::Future<Output = ()> + Send + 'static,
     {
         self.spawn_boxed(description, f.boxed());
@@ -64,7 +77,11 @@ pub fn respawn_for_parallelism<T: Send + 'static>(
 pub struct ActixFutureSpawner;
 
 impl FutureSpawner for ActixFutureSpawner {
-    fn spawn_boxed(&self, description: &'static str, f: BoxFuture<'static, ()>) {
+    fn spawn_boxed(
+        &self,
+        description: &'static str,
+        f: BoxFuture<'static, ()>,
+    ) {
         near_performance_metrics::actix::spawn(description, f);
     }
 }
@@ -74,7 +91,11 @@ impl FutureSpawner for ActixFutureSpawner {
 pub struct TokioRuntimeFutureSpawner(pub Arc<tokio::runtime::Runtime>);
 
 impl FutureSpawner for TokioRuntimeFutureSpawner {
-    fn spawn_boxed(&self, _description: &'static str, f: BoxFuture<'static, ()>) {
+    fn spawn_boxed(
+        &self,
+        _description: &'static str,
+        f: BoxFuture<'static, ()>,
+    ) {
         self.0.spawn(f);
     }
 }
@@ -82,7 +103,11 @@ impl FutureSpawner for TokioRuntimeFutureSpawner {
 pub struct ActixArbiterHandleFutureSpawner(pub actix::ArbiterHandle);
 
 impl FutureSpawner for ActixArbiterHandleFutureSpawner {
-    fn spawn_boxed(&self, description: &'static str, f: BoxFuture<'static, ()>) {
+    fn spawn_boxed(
+        &self,
+        description: &'static str,
+        f: BoxFuture<'static, ()>,
+    ) {
         if !self.0.spawn(f) {
             near_o11y::tracing::error!(
                 "Failed to spawn future: {}, arbiter has exited",
@@ -169,21 +194,37 @@ where
 /// be run on a separate thread (like `rayon::spawn`), but for test, it would run the
 /// function as a TestLoop event, possibly with an artificial delay.
 pub trait AsyncComputationSpawner: Send + Sync {
-    fn spawn_boxed(&self, name: &str, f: Box<dyn FnOnce() + Send>);
+    fn spawn_boxed(
+        &self,
+        name: &str,
+        f: Box<dyn FnOnce() + Send>,
+    );
 }
 
 pub trait AsyncComputationSpawnerExt {
-    fn spawn(&self, name: &str, f: impl FnOnce() + Send + 'static);
+    fn spawn(
+        &self,
+        name: &str,
+        f: impl FnOnce() + Send + 'static,
+    );
 }
 
 impl<T: AsyncComputationSpawner> AsyncComputationSpawnerExt for T {
-    fn spawn(&self, name: &str, f: impl FnOnce() + Send + 'static) {
+    fn spawn(
+        &self,
+        name: &str,
+        f: impl FnOnce() + Send + 'static,
+    ) {
         self.spawn_boxed(name, Box::new(f));
     }
 }
 
 impl AsyncComputationSpawnerExt for dyn AsyncComputationSpawner + '_ {
-    fn spawn(&self, name: &str, f: impl FnOnce() + Send + 'static) {
+    fn spawn(
+        &self,
+        name: &str,
+        f: impl FnOnce() + Send + 'static,
+    ) {
         self.spawn_boxed(name, Box::new(f));
     }
 }
@@ -191,7 +232,11 @@ impl AsyncComputationSpawnerExt for dyn AsyncComputationSpawner + '_ {
 pub struct StdThreadAsyncComputationSpawnerForTest;
 
 impl AsyncComputationSpawner for StdThreadAsyncComputationSpawnerForTest {
-    fn spawn_boxed(&self, _name: &str, f: Box<dyn FnOnce() + Send>) {
+    fn spawn_boxed(
+        &self,
+        _name: &str,
+        f: Box<dyn FnOnce() + Send>,
+    ) {
         std::thread::spawn(f);
     }
 }

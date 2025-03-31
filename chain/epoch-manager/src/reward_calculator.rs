@@ -38,7 +38,10 @@ pub struct RewardCalculator {
 }
 
 impl RewardCalculator {
-    pub fn new(config: &GenesisConfig, epoch_length: u64) -> Self {
+    pub fn new(
+        config: &GenesisConfig,
+        epoch_length: u64,
+    ) -> Self {
         RewardCalculator {
             max_inflation_rate: config.max_inflation_rate,
             num_blocks_per_year: config.num_blocks_per_year,
@@ -109,12 +112,21 @@ impl RewardCalculator {
 
             let expected_blocks = stats.block_stats.expected;
             let expected_chunks = stats.chunk_stats.expected();
-            let expected_endorsements = stats.chunk_stats.endorsement_stats().expected;
+            let expected_endorsements = stats
+                .chunk_stats
+                .endorsement_stats()
+                .expected;
 
-            let online_min_numer =
-                U256::from(*online_thresholds.online_min_threshold.numer() as u64);
-            let online_min_denom =
-                U256::from(*online_thresholds.online_min_threshold.denom() as u64);
+            let online_min_numer = U256::from(
+                *online_thresholds
+                    .online_min_threshold
+                    .numer() as u64,
+            );
+            let online_min_denom = U256::from(
+                *online_thresholds
+                    .online_min_threshold
+                    .denom() as u64,
+            );
             // If average of produced blocks below online min threshold, validator gets 0 reward.
             let chunk_only_producers_enabled =
                 checked_feature!("stable", ChunkOnlyProducers, protocol_version);
@@ -137,10 +149,16 @@ impl RewardCalculator {
                     .get(&account_id)
                     .unwrap_or_else(|| panic!("{} is not a validator", account_id));
                 // Online reward multiplier is min(1., (uptime - online_threshold_min) / (online_threshold_max - online_threshold_min).
-                let online_max_numer =
-                    U256::from(*online_thresholds.online_max_threshold.numer() as u64);
-                let online_max_denom =
-                    U256::from(*online_thresholds.online_max_threshold.denom() as u64);
+                let online_max_numer = U256::from(
+                    *online_thresholds
+                        .online_max_threshold
+                        .numer() as u64,
+                );
+                let online_max_denom = U256::from(
+                    *online_thresholds
+                        .online_max_threshold
+                        .denom() as u64,
+                );
                 let online_numer =
                     online_max_numer * online_min_denom - online_min_numer * online_max_denom;
                 let mut uptime_numer = (average_produced_numer * online_min_denom
@@ -197,8 +215,10 @@ mod tests {
                 },
             ),
         ]);
-        let validator_stake =
-            HashMap::from([("test1".parse().unwrap(), 100), ("test2".parse().unwrap(), 100)]);
+        let validator_stake = HashMap::from([
+            ("test1".parse().unwrap(), 100),
+            ("test2".parse().unwrap(), 100),
+        ]);
         let total_supply = 1_000_000_000_000;
         let result = reward_calculator.calculate_reward(
             validator_block_chunk_stats,

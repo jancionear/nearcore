@@ -27,22 +27,38 @@ impl TestDB {
 }
 
 impl TestDB {
-    pub fn set_store_statistics(&self, stats: StoreStatistics) {
+    pub fn set_store_statistics(
+        &self,
+        stats: StoreStatistics,
+    ) {
         *self.stats.write().unwrap() = Some(stats);
     }
 }
 
 impl Database for TestDB {
-    fn get_raw_bytes(&self, col: DBCol, key: &[u8]) -> io::Result<Option<DBSlice<'_>>> {
-        Ok(self.db.read().unwrap()[col].get(key).cloned().map(DBSlice::from_vec))
+    fn get_raw_bytes(
+        &self,
+        col: DBCol,
+        key: &[u8],
+    ) -> io::Result<Option<DBSlice<'_>>> {
+        Ok(self.db.read().unwrap()[col]
+            .get(key)
+            .cloned()
+            .map(DBSlice::from_vec))
     }
 
-    fn iter<'a>(&'a self, col: DBCol) -> DBIterator<'a> {
+    fn iter<'a>(
+        &'a self,
+        col: DBCol,
+    ) -> DBIterator<'a> {
         let iterator = self.iter_raw_bytes(col);
         refcount::iter_with_rc_logic(col, iterator)
     }
 
-    fn iter_raw_bytes<'a>(&'a self, col: DBCol) -> DBIterator<'a> {
+    fn iter_raw_bytes<'a>(
+        &'a self,
+        col: DBCol,
+    ) -> DBIterator<'a> {
         let iterator = self.db.read().unwrap()[col]
             .clone()
             .into_iter()
@@ -50,7 +66,11 @@ impl Database for TestDB {
         Box::new(iterator)
     }
 
-    fn iter_prefix<'a>(&'a self, col: DBCol, key_prefix: &'a [u8]) -> DBIterator<'a> {
+    fn iter_prefix<'a>(
+        &'a self,
+        col: DBCol,
+        key_prefix: &'a [u8],
+    ) -> DBIterator<'a> {
         let iterator = self.db.read().unwrap()[col]
             .range(key_prefix.to_vec()..)
             .take_while(move |(k, _)| k.starts_with(&key_prefix))
@@ -75,14 +95,17 @@ impl Database for TestDB {
         refcount::iter_with_rc_logic(col, iterator.into_iter())
     }
 
-    fn write(&self, transaction: DBTransaction) -> io::Result<()> {
+    fn write(
+        &self,
+        transaction: DBTransaction,
+    ) -> io::Result<()> {
         let mut db = self.db.write().unwrap();
         for op in transaction.ops {
             match op {
-                DBOp::Set { col, key, value } => {
+                | DBOp::Set { col, key, value } => {
                     db[col].insert(key, value);
                 }
-                DBOp::Insert { col, key, value } => {
+                | DBOp::Insert { col, key, value } => {
                     if cfg!(debug_assertions) {
                         if let Some(old_value) = db[col].get(&key) {
                             super::assert_no_overwrite(col, &key, &value, &*old_value)
@@ -90,7 +113,7 @@ impl Database for TestDB {
                     }
                     db[col].insert(key, value);
                 }
-                DBOp::UpdateRefcount { col, key, value } => {
+                | DBOp::UpdateRefcount { col, key, value } => {
                     let existing = db[col].get(&key).map(Vec::as_slice);
                     let operands = [value.as_slice()];
                     let merged = refcount::refcount_merge(existing, operands);
@@ -104,11 +127,11 @@ impl Database for TestDB {
                         db[col].insert(key, merged);
                     }
                 }
-                DBOp::Delete { col, key } => {
+                | DBOp::Delete { col, key } => {
                     db[col].remove(&key);
                 }
-                DBOp::DeleteAll { col } => db[col].clear(),
-                DBOp::DeleteRange { col, from, to } => {
+                | DBOp::DeleteAll { col } => db[col].clear(),
+                | DBOp::DeleteRange { col, from, to } => {
                     db[col].retain(|key, _| !(&from..&to).contains(&key));
                 }
             };
@@ -136,7 +159,10 @@ impl Database for TestDB {
         Ok(())
     }
 
-    fn copy_if_test(&self, columns_to_keep: Option<&[DBCol]>) -> Option<Arc<dyn Database>> {
+    fn copy_if_test(
+        &self,
+        columns_to_keep: Option<&[DBCol]>,
+    ) -> Option<Arc<dyn Database>> {
         let copy = Self::default();
         {
             let mut db = copy.db.write().unwrap();
@@ -151,7 +177,10 @@ impl Database for TestDB {
                     new_col.insert(key.clone(), value.clone());
                 }
             }
-            copy.stats.write().unwrap().clone_from(&self.stats.read().unwrap());
+            copy.stats
+                .write()
+                .unwrap()
+                .clone_from(&self.stats.read().unwrap());
         }
         Some(Arc::new(copy))
     }

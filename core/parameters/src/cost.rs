@@ -22,7 +22,10 @@ pub struct Fee {
 
 impl Fee {
     #[inline]
-    pub fn send_fee(&self, sir: bool) -> Gas {
+    pub fn send_fee(
+        &self,
+        sir: bool,
+    ) -> Gas {
         if sir {
             self.send_sir
         } else {
@@ -56,11 +59,17 @@ pub struct ExtCostsConfig {
 const SAFETY_MULTIPLIER: u64 = 3;
 
 impl ExtCostsConfig {
-    pub fn gas_cost(&self, param: ExtCosts) -> Gas {
+    pub fn gas_cost(
+        &self,
+        param: ExtCosts,
+    ) -> Gas {
         self.costs[param].gas
     }
 
-    pub fn compute_cost(&self, param: ExtCosts) -> Compute {
+    pub fn compute_cost(
+        &self,
+        param: ExtCosts,
+    ) -> Compute {
         self.costs[param].compute
     }
 
@@ -310,105 +319,121 @@ pub enum ActionCosts {
 }
 
 impl ExtCosts {
-    pub fn gas(self, config: &ExtCostsConfig) -> Gas {
+    pub fn gas(
+        self,
+        config: &ExtCostsConfig,
+    ) -> Gas {
         config.gas_cost(self)
     }
 
-    pub fn compute(self, config: &ExtCostsConfig) -> Compute {
+    pub fn compute(
+        self,
+        config: &ExtCostsConfig,
+    ) -> Compute {
         config.compute_cost(self)
     }
 
     pub fn param(&self) -> Parameter {
         match self {
-            ExtCosts::base => Parameter::WasmBase,
-            ExtCosts::contract_loading_base => Parameter::WasmContractLoadingBase,
-            ExtCosts::contract_loading_bytes => Parameter::WasmContractLoadingBytes,
-            ExtCosts::read_memory_base => Parameter::WasmReadMemoryBase,
-            ExtCosts::read_memory_byte => Parameter::WasmReadMemoryByte,
-            ExtCosts::write_memory_base => Parameter::WasmWriteMemoryBase,
-            ExtCosts::write_memory_byte => Parameter::WasmWriteMemoryByte,
-            ExtCosts::read_register_base => Parameter::WasmReadRegisterBase,
-            ExtCosts::read_register_byte => Parameter::WasmReadRegisterByte,
-            ExtCosts::write_register_base => Parameter::WasmWriteRegisterBase,
-            ExtCosts::write_register_byte => Parameter::WasmWriteRegisterByte,
-            ExtCosts::utf8_decoding_base => Parameter::WasmUtf8DecodingBase,
-            ExtCosts::utf8_decoding_byte => Parameter::WasmUtf8DecodingByte,
-            ExtCosts::utf16_decoding_base => Parameter::WasmUtf16DecodingBase,
-            ExtCosts::utf16_decoding_byte => Parameter::WasmUtf16DecodingByte,
-            ExtCosts::sha256_base => Parameter::WasmSha256Base,
-            ExtCosts::sha256_byte => Parameter::WasmSha256Byte,
-            ExtCosts::keccak256_base => Parameter::WasmKeccak256Base,
-            ExtCosts::keccak256_byte => Parameter::WasmKeccak256Byte,
-            ExtCosts::keccak512_base => Parameter::WasmKeccak512Base,
-            ExtCosts::keccak512_byte => Parameter::WasmKeccak512Byte,
-            ExtCosts::ripemd160_base => Parameter::WasmRipemd160Base,
-            ExtCosts::ripemd160_block => Parameter::WasmRipemd160Block,
-            ExtCosts::ecrecover_base => Parameter::WasmEcrecoverBase,
-            ExtCosts::ed25519_verify_base => Parameter::WasmEd25519VerifyBase,
-            ExtCosts::ed25519_verify_byte => Parameter::WasmEd25519VerifyByte,
-            ExtCosts::log_base => Parameter::WasmLogBase,
-            ExtCosts::log_byte => Parameter::WasmLogByte,
-            ExtCosts::storage_write_base => Parameter::WasmStorageWriteBase,
-            ExtCosts::storage_write_key_byte => Parameter::WasmStorageWriteKeyByte,
-            ExtCosts::storage_write_value_byte => Parameter::WasmStorageWriteValueByte,
-            ExtCosts::storage_write_evicted_byte => Parameter::WasmStorageWriteEvictedByte,
-            ExtCosts::storage_read_base => Parameter::WasmStorageReadBase,
-            ExtCosts::storage_read_key_byte => Parameter::WasmStorageReadKeyByte,
-            ExtCosts::storage_read_value_byte => Parameter::WasmStorageReadValueByte,
-            ExtCosts::storage_large_read_overhead_base => {
+            | ExtCosts::base => Parameter::WasmBase,
+            | ExtCosts::contract_loading_base => Parameter::WasmContractLoadingBase,
+            | ExtCosts::contract_loading_bytes => Parameter::WasmContractLoadingBytes,
+            | ExtCosts::read_memory_base => Parameter::WasmReadMemoryBase,
+            | ExtCosts::read_memory_byte => Parameter::WasmReadMemoryByte,
+            | ExtCosts::write_memory_base => Parameter::WasmWriteMemoryBase,
+            | ExtCosts::write_memory_byte => Parameter::WasmWriteMemoryByte,
+            | ExtCosts::read_register_base => Parameter::WasmReadRegisterBase,
+            | ExtCosts::read_register_byte => Parameter::WasmReadRegisterByte,
+            | ExtCosts::write_register_base => Parameter::WasmWriteRegisterBase,
+            | ExtCosts::write_register_byte => Parameter::WasmWriteRegisterByte,
+            | ExtCosts::utf8_decoding_base => Parameter::WasmUtf8DecodingBase,
+            | ExtCosts::utf8_decoding_byte => Parameter::WasmUtf8DecodingByte,
+            | ExtCosts::utf16_decoding_base => Parameter::WasmUtf16DecodingBase,
+            | ExtCosts::utf16_decoding_byte => Parameter::WasmUtf16DecodingByte,
+            | ExtCosts::sha256_base => Parameter::WasmSha256Base,
+            | ExtCosts::sha256_byte => Parameter::WasmSha256Byte,
+            | ExtCosts::keccak256_base => Parameter::WasmKeccak256Base,
+            | ExtCosts::keccak256_byte => Parameter::WasmKeccak256Byte,
+            | ExtCosts::keccak512_base => Parameter::WasmKeccak512Base,
+            | ExtCosts::keccak512_byte => Parameter::WasmKeccak512Byte,
+            | ExtCosts::ripemd160_base => Parameter::WasmRipemd160Base,
+            | ExtCosts::ripemd160_block => Parameter::WasmRipemd160Block,
+            | ExtCosts::ecrecover_base => Parameter::WasmEcrecoverBase,
+            | ExtCosts::ed25519_verify_base => Parameter::WasmEd25519VerifyBase,
+            | ExtCosts::ed25519_verify_byte => Parameter::WasmEd25519VerifyByte,
+            | ExtCosts::log_base => Parameter::WasmLogBase,
+            | ExtCosts::log_byte => Parameter::WasmLogByte,
+            | ExtCosts::storage_write_base => Parameter::WasmStorageWriteBase,
+            | ExtCosts::storage_write_key_byte => Parameter::WasmStorageWriteKeyByte,
+            | ExtCosts::storage_write_value_byte => Parameter::WasmStorageWriteValueByte,
+            | ExtCosts::storage_write_evicted_byte => Parameter::WasmStorageWriteEvictedByte,
+            | ExtCosts::storage_read_base => Parameter::WasmStorageReadBase,
+            | ExtCosts::storage_read_key_byte => Parameter::WasmStorageReadKeyByte,
+            | ExtCosts::storage_read_value_byte => Parameter::WasmStorageReadValueByte,
+            | ExtCosts::storage_large_read_overhead_base => {
                 Parameter::WasmStorageLargeReadOverheadBase
             }
-            ExtCosts::storage_large_read_overhead_byte => {
+            | ExtCosts::storage_large_read_overhead_byte => {
                 Parameter::WasmStorageLargeReadOverheadByte
             }
-            ExtCosts::storage_remove_base => Parameter::WasmStorageRemoveBase,
-            ExtCosts::storage_remove_key_byte => Parameter::WasmStorageRemoveKeyByte,
-            ExtCosts::storage_remove_ret_value_byte => Parameter::WasmStorageRemoveRetValueByte,
-            ExtCosts::storage_has_key_base => Parameter::WasmStorageHasKeyBase,
-            ExtCosts::storage_has_key_byte => Parameter::WasmStorageHasKeyByte,
-            ExtCosts::storage_iter_create_prefix_base => Parameter::WasmStorageIterCreatePrefixBase,
-            ExtCosts::storage_iter_create_prefix_byte => Parameter::WasmStorageIterCreatePrefixByte,
-            ExtCosts::storage_iter_create_range_base => Parameter::WasmStorageIterCreateRangeBase,
-            ExtCosts::storage_iter_create_from_byte => Parameter::WasmStorageIterCreateFromByte,
-            ExtCosts::storage_iter_create_to_byte => Parameter::WasmStorageIterCreateToByte,
-            ExtCosts::storage_iter_next_base => Parameter::WasmStorageIterNextBase,
-            ExtCosts::storage_iter_next_key_byte => Parameter::WasmStorageIterNextKeyByte,
-            ExtCosts::storage_iter_next_value_byte => Parameter::WasmStorageIterNextValueByte,
-            ExtCosts::touching_trie_node => Parameter::WasmTouchingTrieNode,
-            ExtCosts::read_cached_trie_node => Parameter::WasmReadCachedTrieNode,
-            ExtCosts::promise_and_base => Parameter::WasmPromiseAndBase,
-            ExtCosts::promise_and_per_promise => Parameter::WasmPromiseAndPerPromise,
-            ExtCosts::promise_return => Parameter::WasmPromiseReturn,
-            ExtCosts::validator_stake_base => Parameter::WasmValidatorStakeBase,
-            ExtCosts::validator_total_stake_base => Parameter::WasmValidatorTotalStakeBase,
-            ExtCosts::alt_bn128_g1_multiexp_base => Parameter::WasmAltBn128G1MultiexpBase,
-            ExtCosts::alt_bn128_g1_multiexp_element => Parameter::WasmAltBn128G1MultiexpElement,
-            ExtCosts::alt_bn128_pairing_check_base => Parameter::WasmAltBn128PairingCheckBase,
-            ExtCosts::alt_bn128_pairing_check_element => Parameter::WasmAltBn128PairingCheckElement,
-            ExtCosts::alt_bn128_g1_sum_base => Parameter::WasmAltBn128G1SumBase,
-            ExtCosts::alt_bn128_g1_sum_element => Parameter::WasmAltBn128G1SumElement,
-            ExtCosts::yield_create_base => Parameter::WasmYieldCreateBase,
-            ExtCosts::yield_create_byte => Parameter::WasmYieldCreateByte,
-            ExtCosts::yield_resume_base => Parameter::WasmYieldResumeBase,
-            ExtCosts::yield_resume_byte => Parameter::WasmYieldResumeByte,
-            ExtCosts::bls12381_p1_sum_base => Parameter::WasmBls12381P1SumBase,
-            ExtCosts::bls12381_p1_sum_element => Parameter::WasmBls12381P1SumElement,
-            ExtCosts::bls12381_p2_sum_base => Parameter::WasmBls12381P2SumBase,
-            ExtCosts::bls12381_p2_sum_element => Parameter::WasmBls12381P2SumElement,
-            ExtCosts::bls12381_g1_multiexp_base => Parameter::WasmBls12381G1MultiexpBase,
-            ExtCosts::bls12381_g1_multiexp_element => Parameter::WasmBls12381G1MultiexpElement,
-            ExtCosts::bls12381_g2_multiexp_base => Parameter::WasmBls12381G2MultiexpBase,
-            ExtCosts::bls12381_g2_multiexp_element => Parameter::WasmBls12381G2MultiexpElement,
-            ExtCosts::bls12381_map_fp_to_g1_base => Parameter::WasmBls12381MapFpToG1Base,
-            ExtCosts::bls12381_map_fp_to_g1_element => Parameter::WasmBls12381MapFpToG1Element,
-            ExtCosts::bls12381_map_fp2_to_g2_base => Parameter::WasmBls12381MapFp2ToG2Base,
-            ExtCosts::bls12381_map_fp2_to_g2_element => Parameter::WasmBls12381MapFp2ToG2Element,
-            ExtCosts::bls12381_pairing_base => Parameter::WasmBls12381PairingBase,
-            ExtCosts::bls12381_pairing_element => Parameter::WasmBls12381PairingElement,
-            ExtCosts::bls12381_p1_decompress_base => Parameter::WasmBls12381P1DecompressBase,
-            ExtCosts::bls12381_p1_decompress_element => Parameter::WasmBls12381P1DecompressElement,
-            ExtCosts::bls12381_p2_decompress_base => Parameter::WasmBls12381P2DecompressBase,
-            ExtCosts::bls12381_p2_decompress_element => Parameter::WasmBls12381P2DecompressElement,
+            | ExtCosts::storage_remove_base => Parameter::WasmStorageRemoveBase,
+            | ExtCosts::storage_remove_key_byte => Parameter::WasmStorageRemoveKeyByte,
+            | ExtCosts::storage_remove_ret_value_byte => Parameter::WasmStorageRemoveRetValueByte,
+            | ExtCosts::storage_has_key_base => Parameter::WasmStorageHasKeyBase,
+            | ExtCosts::storage_has_key_byte => Parameter::WasmStorageHasKeyByte,
+            | ExtCosts::storage_iter_create_prefix_base => {
+                Parameter::WasmStorageIterCreatePrefixBase
+            }
+            | ExtCosts::storage_iter_create_prefix_byte => {
+                Parameter::WasmStorageIterCreatePrefixByte
+            }
+            | ExtCosts::storage_iter_create_range_base => Parameter::WasmStorageIterCreateRangeBase,
+            | ExtCosts::storage_iter_create_from_byte => Parameter::WasmStorageIterCreateFromByte,
+            | ExtCosts::storage_iter_create_to_byte => Parameter::WasmStorageIterCreateToByte,
+            | ExtCosts::storage_iter_next_base => Parameter::WasmStorageIterNextBase,
+            | ExtCosts::storage_iter_next_key_byte => Parameter::WasmStorageIterNextKeyByte,
+            | ExtCosts::storage_iter_next_value_byte => Parameter::WasmStorageIterNextValueByte,
+            | ExtCosts::touching_trie_node => Parameter::WasmTouchingTrieNode,
+            | ExtCosts::read_cached_trie_node => Parameter::WasmReadCachedTrieNode,
+            | ExtCosts::promise_and_base => Parameter::WasmPromiseAndBase,
+            | ExtCosts::promise_and_per_promise => Parameter::WasmPromiseAndPerPromise,
+            | ExtCosts::promise_return => Parameter::WasmPromiseReturn,
+            | ExtCosts::validator_stake_base => Parameter::WasmValidatorStakeBase,
+            | ExtCosts::validator_total_stake_base => Parameter::WasmValidatorTotalStakeBase,
+            | ExtCosts::alt_bn128_g1_multiexp_base => Parameter::WasmAltBn128G1MultiexpBase,
+            | ExtCosts::alt_bn128_g1_multiexp_element => Parameter::WasmAltBn128G1MultiexpElement,
+            | ExtCosts::alt_bn128_pairing_check_base => Parameter::WasmAltBn128PairingCheckBase,
+            | ExtCosts::alt_bn128_pairing_check_element => {
+                Parameter::WasmAltBn128PairingCheckElement
+            }
+            | ExtCosts::alt_bn128_g1_sum_base => Parameter::WasmAltBn128G1SumBase,
+            | ExtCosts::alt_bn128_g1_sum_element => Parameter::WasmAltBn128G1SumElement,
+            | ExtCosts::yield_create_base => Parameter::WasmYieldCreateBase,
+            | ExtCosts::yield_create_byte => Parameter::WasmYieldCreateByte,
+            | ExtCosts::yield_resume_base => Parameter::WasmYieldResumeBase,
+            | ExtCosts::yield_resume_byte => Parameter::WasmYieldResumeByte,
+            | ExtCosts::bls12381_p1_sum_base => Parameter::WasmBls12381P1SumBase,
+            | ExtCosts::bls12381_p1_sum_element => Parameter::WasmBls12381P1SumElement,
+            | ExtCosts::bls12381_p2_sum_base => Parameter::WasmBls12381P2SumBase,
+            | ExtCosts::bls12381_p2_sum_element => Parameter::WasmBls12381P2SumElement,
+            | ExtCosts::bls12381_g1_multiexp_base => Parameter::WasmBls12381G1MultiexpBase,
+            | ExtCosts::bls12381_g1_multiexp_element => Parameter::WasmBls12381G1MultiexpElement,
+            | ExtCosts::bls12381_g2_multiexp_base => Parameter::WasmBls12381G2MultiexpBase,
+            | ExtCosts::bls12381_g2_multiexp_element => Parameter::WasmBls12381G2MultiexpElement,
+            | ExtCosts::bls12381_map_fp_to_g1_base => Parameter::WasmBls12381MapFpToG1Base,
+            | ExtCosts::bls12381_map_fp_to_g1_element => Parameter::WasmBls12381MapFpToG1Element,
+            | ExtCosts::bls12381_map_fp2_to_g2_base => Parameter::WasmBls12381MapFp2ToG2Base,
+            | ExtCosts::bls12381_map_fp2_to_g2_element => Parameter::WasmBls12381MapFp2ToG2Element,
+            | ExtCosts::bls12381_pairing_base => Parameter::WasmBls12381PairingBase,
+            | ExtCosts::bls12381_pairing_element => Parameter::WasmBls12381PairingElement,
+            | ExtCosts::bls12381_p1_decompress_base => Parameter::WasmBls12381P1DecompressBase,
+            | ExtCosts::bls12381_p1_decompress_element => {
+                Parameter::WasmBls12381P1DecompressElement
+            }
+            | ExtCosts::bls12381_p2_decompress_base => Parameter::WasmBls12381P2DecompressBase,
+            | ExtCosts::bls12381_p2_decompress_element => {
+                Parameter::WasmBls12381P2DecompressElement
+            }
         }
     }
 }
@@ -442,7 +467,10 @@ pub struct StorageUsageConfig {
 
 impl RuntimeFeesConfig {
     /// Access action fee by `ActionCosts`.
-    pub fn fee(&self, cost: ActionCosts) -> &Fee {
+    pub fn fee(
+        &self,
+        cost: ActionCosts,
+    ) -> &Fee {
         &self.action_fees[cost]
     }
 
@@ -552,8 +580,11 @@ impl RuntimeFeesConfig {
     /// This amount is used to determine how many receipts can be created, send and executed for
     /// some amount of prepaid gas using function calls.
     pub fn min_receipt_with_function_call_gas(&self) -> Gas {
-        self.fee(ActionCosts::new_action_receipt).min_send_and_exec_fee()
-            + self.fee(ActionCosts::function_call_base).min_send_and_exec_fee()
+        self.fee(ActionCosts::new_action_receipt)
+            .min_send_and_exec_fee()
+            + self
+                .fee(ActionCosts::function_call_base)
+                .min_send_and_exec_fee()
     }
 }
 
@@ -581,24 +612,33 @@ pub fn transfer_exec_fee(
     eth_implicit_accounts_enabled: bool,
     receiver_account_type: AccountType,
 ) -> Gas {
-    let transfer_fee = cfg.fee(ActionCosts::transfer).exec_fee();
+    let transfer_fee = cfg
+        .fee(ActionCosts::transfer)
+        .exec_fee();
     match (implicit_account_creation_allowed, eth_implicit_accounts_enabled, receiver_account_type)
     {
         // Regular transfer to a named account.
-        (_, _, AccountType::NamedAccount) => transfer_fee,
+        | (_, _, AccountType::NamedAccount) => transfer_fee,
         // No account will be created, just a regular transfer.
-        (false, _, _) => transfer_fee,
+        | (false, _, _) => transfer_fee,
         // No account will be created, just a regular transfer.
-        (true, false, AccountType::EthImplicitAccount) => transfer_fee,
+        | (true, false, AccountType::EthImplicitAccount) => transfer_fee,
         // Extra fee for the CreateAccount.
-        (true, true, AccountType::EthImplicitAccount) => {
-            transfer_fee + cfg.fee(ActionCosts::create_account).exec_fee()
+        | (true, true, AccountType::EthImplicitAccount) => {
+            transfer_fee
+                + cfg
+                    .fee(ActionCosts::create_account)
+                    .exec_fee()
         }
         // Extra fees for the CreateAccount and AddFullAccessKey.
-        (true, _, AccountType::NearImplicitAccount) => {
+        | (true, _, AccountType::NearImplicitAccount) => {
             transfer_fee
-                + cfg.fee(ActionCosts::create_account).exec_fee()
-                + cfg.fee(ActionCosts::add_full_access_key).exec_fee()
+                + cfg
+                    .fee(ActionCosts::create_account)
+                    .exec_fee()
+                + cfg
+                    .fee(ActionCosts::add_full_access_key)
+                    .exec_fee()
         }
     }
 }
@@ -610,24 +650,33 @@ pub fn transfer_send_fee(
     eth_implicit_accounts_enabled: bool,
     receiver_account_type: AccountType,
 ) -> Gas {
-    let transfer_fee = cfg.fee(ActionCosts::transfer).send_fee(sender_is_receiver);
+    let transfer_fee = cfg
+        .fee(ActionCosts::transfer)
+        .send_fee(sender_is_receiver);
     match (implicit_account_creation_allowed, eth_implicit_accounts_enabled, receiver_account_type)
     {
         // Regular transfer to a named account.
-        (_, _, AccountType::NamedAccount) => transfer_fee,
+        | (_, _, AccountType::NamedAccount) => transfer_fee,
         // No account will be created, just a regular transfer.
-        (false, _, _) => transfer_fee,
+        | (false, _, _) => transfer_fee,
         // No account will be created, just a regular transfer.
-        (true, false, AccountType::EthImplicitAccount) => transfer_fee,
+        | (true, false, AccountType::EthImplicitAccount) => transfer_fee,
         // Extra fee for the CreateAccount.
-        (true, true, AccountType::EthImplicitAccount) => {
-            transfer_fee + cfg.fee(ActionCosts::create_account).send_fee(sender_is_receiver)
+        | (true, true, AccountType::EthImplicitAccount) => {
+            transfer_fee
+                + cfg
+                    .fee(ActionCosts::create_account)
+                    .send_fee(sender_is_receiver)
         }
         // Extra fees for the CreateAccount and AddFullAccessKey.
-        (true, _, AccountType::NearImplicitAccount) => {
+        | (true, _, AccountType::NearImplicitAccount) => {
             transfer_fee
-                + cfg.fee(ActionCosts::create_account).send_fee(sender_is_receiver)
-                + cfg.fee(ActionCosts::add_full_access_key).send_fee(sender_is_receiver)
+                + cfg
+                    .fee(ActionCosts::create_account)
+                    .send_fee(sender_is_receiver)
+                + cfg
+                    .fee(ActionCosts::add_full_access_key)
+                    .send_fee(sender_is_receiver)
         }
     }
 }

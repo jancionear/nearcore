@@ -57,10 +57,15 @@ pub fn initialize_sharded_genesis_state(
         let mut store_update = store.store_update();
         set_genesis_hash(&mut store_update, &genesis_hash);
         set_genesis_state_roots(&mut store_update, &state_roots);
-        store_update.commit().expect("Store failed on genesis initialization");
+        store_update
+            .commit()
+            .expect("Store failed on genesis initialization");
     }
 
-    let num_shards = genesis_epoch_config.shard_layout.shard_ids().count() as NumShards;
+    let num_shards = genesis_epoch_config
+        .shard_layout
+        .shard_ids()
+        .count() as NumShards;
     assert_eq!(
         num_shards,
         genesis_epoch_config.num_block_producer_seats_per_shard.len() as NumShards,
@@ -70,15 +75,24 @@ pub fn initialize_sharded_genesis_state(
     );
 }
 
-pub fn initialize_genesis_state(store: Store, genesis: &Genesis, home_dir: Option<&Path>) {
+pub fn initialize_genesis_state(
+    store: Store,
+    genesis: &Genesis,
+    home_dir: Option<&Path>,
+) {
     initialize_sharded_genesis_state(store, genesis, &EpochConfig::from(&genesis.config), home_dir);
 }
 
-fn genesis_state_from_dump(store: Store, home_dir: &Path) -> Vec<StateRoot> {
+fn genesis_state_from_dump(
+    store: Store,
+    home_dir: &Path,
+) -> Vec<StateRoot> {
     error!(target: "near", "Loading genesis from a state dump file. Do not use this outside of genesis-tools");
     let mut state_file = home_dir.to_path_buf();
     state_file.push(STATE_DUMP_FILE);
-    store.load_state_from_file(state_file.as_path()).expect("Failed to read state dump");
+    store
+        .load_state_from_file(state_file.as_path())
+        .expect("Failed to read state dump");
     let mut roots_files = home_dir.to_path_buf();
     roots_files.push(GENESIS_ROOTS_FILE);
     let data = fs::read(roots_files).expect("Failed to read genesis roots file.");
@@ -93,21 +107,21 @@ fn genesis_state_from_genesis(
     shard_layout: &ShardLayout,
 ) -> Vec<StateRoot> {
     match &genesis.contents {
-        GenesisContents::Records { records } => {
+        | GenesisContents::Records { records } => {
             info!(
                 target: "runtime",
                 "genesis state has {} records, computing state roots",
                 records.0.len(),
             )
         }
-        GenesisContents::RecordsFile { records_file } => {
+        | GenesisContents::RecordsFile { records_file } => {
             info!(
                 target: "runtime",
                 path=%records_file.display(),
                 message="computing state roots from records",
             )
         }
-        GenesisContents::StateRoots { state_roots } => {
+        | GenesisContents::StateRoots { state_roots } => {
             return state_roots.clone();
         }
     }
@@ -117,15 +131,20 @@ fn genesis_state_from_genesis(
     let shard_ids: Vec<_> = shard_layout.shard_ids().collect();
     let shard_uids: Vec<_> = shard_layout.shard_uids().collect();
 
-    let mut shard_account_ids: BTreeMap<ShardId, HashSet<AccountId>> =
-        shard_ids.iter().map(|&shard_id| (shard_id, HashSet::new())).collect();
+    let mut shard_account_ids: BTreeMap<ShardId, HashSet<AccountId>> = shard_ids
+        .iter()
+        .map(|&shard_id| (shard_id, HashSet::new()))
+        .collect();
     let mut has_protocol_account = false;
     info!(target: "store","distributing records to shards");
 
     genesis.for_each_record(|record: &StateRecord| {
         let shard_id = state_record_to_shard_id(record, &shard_layout);
         let account_id = state_record_to_account_id(record).clone();
-        shard_account_ids.get_mut(&shard_id).unwrap().insert(account_id);
+        shard_account_ids
+            .get_mut(&shard_id)
+            .unwrap()
+            .insert(account_id);
         if let StateRecord::Account { account_id, .. } = record {
             if account_id == &genesis.config.protocol_treasury_account {
                 has_protocol_account = true;
@@ -176,6 +195,9 @@ fn genesis_state_from_genesis(
         .collect()
 }
 
-fn state_record_to_shard_id(state_record: &StateRecord, shard_layout: &ShardLayout) -> ShardId {
+fn state_record_to_shard_id(
+    state_record: &StateRecord,
+    shard_layout: &ShardLayout,
+) -> ShardId {
     shard_layout.account_id_to_shard_id(state_record_to_account_id(state_record))
 }

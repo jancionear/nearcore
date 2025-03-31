@@ -33,12 +33,18 @@ fn try_main() -> Result<(), Error> {
     let test_contract_features_string = test_contract_features.join(",");
     build_contract(
         "./test-contract-rs",
-        &["--features", &test_contract_features_string],
+        &[
+            "--features",
+            &test_contract_features_string,
+        ],
         "test_contract_rs",
     )?;
     build_contract(
         "./congestion-control-test-contract",
-        &["--features", &test_contract_features_string],
+        &[
+            "--features",
+            &test_contract_features_string,
+        ],
         "congestion_control_test_contract",
     )?;
 
@@ -46,7 +52,10 @@ fn try_main() -> Result<(), Error> {
     let test_contract_features_string = test_contract_features.join(",");
     build_contract(
         "./test-contract-rs",
-        &["--features", &test_contract_features_string],
+        &[
+            "--features",
+            &test_contract_features_string,
+        ],
         "nightly_test_contract_rs",
     )?;
     build_contract("./contract-for-fuzzing-rs", &[], "contract_for_fuzzing_rs")?;
@@ -71,7 +80,11 @@ fn res_contract(name: &str) {
 }
 
 /// build the contract and copy the wasm file to the `res` directory
-fn build_contract(dir: &str, args: &[&str], output: &str) -> Result<(), Error> {
+fn build_contract(
+    dir: &str,
+    args: &[&str],
+    output: &str,
+) -> Result<(), Error> {
     let target_dir = out_dir();
 
     // build the contract
@@ -117,14 +130,14 @@ fn cargo_build_cmd(target_dir: &Path) -> Command {
 fn check_status(mut cmd: Command) -> Result<(), Error> {
     println!("debug: running command: {cmd:?}");
     match cmd.status() {
-        Ok(status) => {
+        | Ok(status) => {
             if status.success() {
                 Ok(())
             } else {
                 Err(format!("command `{cmd:?}` exited with non-zero status: {status:?}"))
             }
         }
-        Err(err) => Err(format!("command `{cmd:?}` failed to run: {err}")),
+        | Err(err) => Err(format!("command `{cmd:?}` failed to run: {err}")),
     }
     .map_err(Error::from)
 }

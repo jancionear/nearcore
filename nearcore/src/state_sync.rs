@@ -1,9 +1,8 @@
 use crate::metrics;
 
-use actix_rt::Arbiter;
 use anyhow::Context;
 use borsh::BorshSerialize;
-use futures::future::BoxFuture;
+use futures::future::select_all;
 use futures::{FutureExt, StreamExt};
 use near_async::futures::{respawn_for_parallelism, FutureSpawner};
 use near_async::time::{Clock, Duration, Interval};
@@ -29,7 +28,7 @@ use rand::thread_rng;
 use std::collections::{HashMap, HashSet};
 use std::i64;
 use std::sync::atomic::{AtomicBool, AtomicI64, Ordering};
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, Condvar, Mutex, RwLock};
 use tokio::sync::oneshot;
 use tokio::sync::Semaphore;
 
@@ -49,9 +48,8 @@ pub struct StateSyncDumper {
     /// Lock the value of mutable validator signer for the duration of a request to ensure consistency.
     /// Please note that the locked value should not be stored anywhere or passed through the thread boundary.
     pub validator: MutableValidatorSigner,
-    pub dump_future_runner: Box<dyn Fn(BoxFuture<'static, ()>) -> Box<dyn FnOnce()>>,
     pub future_spawner: Arc<dyn FutureSpawner>,
-    pub handle: Option<StateSyncDumpHandle>,
+    pub handle: Option<Arc<StateSyncDumpHandle>>,
 }
 
 impl StateSyncDumper {
@@ -60,7 +58,12 @@ impl StateSyncDumper {
     pub fn start(&mut self) -> anyhow::Result<()> {
         assert!(self.handle.is_none(), "StateSyncDumper already started");
 
-        let dump_config = if let Some(dump_config) = self.client_config.state_sync.dump.clone() {
+        let dump_config = if let Some(dump_config) = self
+            .client_config
+            .state_sync
+            .dump
+            .clone()
+        {
             dump_config
         } else {
             // Dump is not configured, and therefore not enabled.
@@ -93,7 +96,7 @@ impl StateSyncDumper {
         };
 
         let chain_id = self.client_config.chain_id.clone();
-        let keep_running = Arc::new(AtomicBool::new(true));
+        let handle = Arc::new(StateSyncDumpHandle::new());
 
         let chain = Chain::new_for_view_client(
             self.clock.clone(),
@@ -105,13 +108,20 @@ impl StateSyncDumper {
             false,
         )
         .unwrap();
-        if let Some(shards) = dump_config.restart_dump_for_shards.as_ref() {
+        if let Some(shards) = dump_config
+            .restart_dump_for_shards
+            .as_ref()
+        {
             for shard_id in shards {
-                chain.chain_store().set_state_sync_dump_progress(*shard_id, None).unwrap();
+                chain
+                    .chain_store()
+                    .set_state_sync_dump_progress(*shard_id, None)
+                    .unwrap();
                 tracing::debug!(target: "state_sync_dump", ?shard_id, "Dropped existing progress");
             }
         }
-        let handle = (self.dump_future_runner)(
+        self.future_spawner.spawn_boxed(
+            "state_sync_dump",
             do_state_sync_dump(
                 self.clock.clone(),
                 chain,
@@ -120,38 +130,38 @@ impl StateSyncDumper {
                 self.runtime.clone(),
                 chain_id,
                 external,
-                dump_config.iteration_delay.unwrap_or(Duration::seconds(10)),
+                dump_config
+                    .iteration_delay
+                    .unwrap_or(Duration::seconds(10)),
                 self.validator.clone(),
-                keep_running.clone(),
+                handle.clone(),
                 self.future_spawner.clone(),
             )
             .boxed(),
         );
 
-        self.handle = Some(StateSyncDumpHandle { handle: Some(handle), keep_running });
+        self.handle = Some(handle);
         Ok(())
-    }
-
-    pub fn arbiter_dump_future_runner() -> Box<dyn Fn(BoxFuture<'static, ()>) -> Box<dyn FnOnce()>>
-    {
-        Box::new(|future| {
-            let arbiter = Arbiter::new();
-            assert!(arbiter.spawn(future));
-            Box::new(move || {
-                arbiter.stop();
-            })
-        })
     }
 
     pub fn stop(&mut self) {
         self.handle.take();
     }
+
+    // Tell the dumper to stop and wait until it's finished
+    pub fn stop_and_await(&mut self) {
+        let Some(handle) = self.handle.take() else {
+            return;
+        };
+        handle.stop_and_await();
+    }
 }
 
-/// Holds arbiter handles controlling the lifetime of the spawned threads.
+/// Cancels the dumper when dropped and allows waiting for the dumper task to finish
 pub struct StateSyncDumpHandle {
-    pub handle: Option<Box<dyn FnOnce()>>,
-    keep_running: Arc<AtomicBool>,
+    keep_running: AtomicBool,
+    task_running: Mutex<bool>,
+    await_task: Condvar,
 }
 
 impl Drop for StateSyncDumpHandle {
@@ -161,10 +171,35 @@ impl Drop for StateSyncDumpHandle {
 }
 
 impl StateSyncDumpHandle {
-    fn stop(&mut self) {
+    fn new() -> Self {
+        Self {
+            keep_running: AtomicBool::new(true),
+            task_running: Mutex::new(true),
+            await_task: Condvar::new(),
+        }
+    }
+
+    // Tell the dumper to stop
+    fn stop(&self) {
         tracing::warn!(target: "state_sync_dump", "Stopping state dumper");
-        self.keep_running.store(false, Ordering::Relaxed);
-        self.handle.take().unwrap()()
+        self.keep_running
+            .store(false, Ordering::Relaxed);
+    }
+
+    // Tell the dumper to stop and wait until it's finished
+    fn stop_and_await(&self) {
+        self.stop();
+        let mut running = self.task_running.lock().unwrap();
+        while *running {
+            running = self.await_task.wait(running).unwrap();
+        }
+    }
+
+    // Called by the dumper when it's finished, and wakes up any threads waiting on it
+    fn task_finished(&self) {
+        let mut running = self.task_running.lock().unwrap();
+        *running = false;
+        self.await_task.notify_all();
     }
 }
 
@@ -191,14 +226,17 @@ async fn get_missing_part_ids_for_epoch(
         shard_id,
         &StateFileType::StatePart { part_id: 0, num_parts: 0 },
     );
-    let file_names = external.list_objects(shard_id, &directory_path).await?;
+    let file_names = external
+        .list_objects(shard_id, &directory_path)
+        .await?;
     if !file_names.is_empty() {
         let existing_nums: HashSet<_> = file_names
             .iter()
             .map(|file_name| extract_part_id_from_part_file_name(file_name))
             .collect();
-        let missing_nums: HashSet<_> =
-            (0..total_parts).filter(|i| !existing_nums.contains(i)).collect();
+        let missing_nums: HashSet<_> = (0..total_parts)
+            .filter(|i| !existing_nums.contains(i))
+            .collect();
         let num_missing = missing_nums.len();
         tracing::debug!(target: "state_sync_dump", ?num_missing, ?directory_path, "Some parts have already been dumped.");
         Ok(missing_nums)
@@ -241,7 +279,11 @@ struct DumpState {
 impl DumpState {
     /// For each shard, checks the filenames that exist in `external` and sets the corresponding `parts_missing` fields
     /// to contain the parts that haven't yet been uploaded, so that we only try to generate those.
-    async fn set_missing_parts(&self, external: &ExternalConnection, chain_id: &str) {
+    async fn set_missing_parts(
+        &self,
+        external: &ExternalConnection,
+        chain_id: &str,
+    ) {
         for (shard_id, s) in self.dump_state.iter() {
             match get_missing_part_ids_for_epoch(
                 *shard_id,
@@ -253,12 +295,50 @@ impl DumpState {
             )
             .await
             {
-                Ok(missing) => {
+                | Ok(missing) => {
                     *s.parts_missing.write().unwrap() = missing;
                 }
-                Err(error) => {
+                | Err(error) => {
                     tracing::error!(target: "state_sync_dump", ?error, ?shard_id, "Failed to list stored state parts.");
                 }
+            }
+        }
+    }
+
+    /// Waits until all part upload tasks are done for some shard.
+    async fn await_parts_upload(&mut self) -> (ShardId, anyhow::Result<()>) {
+        let ((shard_id, result), _, _still_going) = futures::future::select_all(
+            self.dump_state
+                .iter_mut()
+                .map(|(shard_id, s)| {
+                    async {
+                        let r = (&mut s.upload_parts).await.unwrap();
+                        (*shard_id, r)
+                    }
+                    .boxed()
+                }),
+        )
+        .await;
+
+        drop(_still_going);
+
+        self.dump_state.remove(&shard_id);
+        (shard_id, result)
+    }
+
+    /// Sets the `canceled` variable to true and waits for all tasks to exit
+    async fn cancel(&mut self) {
+        self.canceled
+            .store(true, Ordering::Relaxed);
+        for (_shard_id, d) in self.dump_state.iter() {
+            // Set it to -1 to tell the existing tasks not to set the metrics anymore
+            d.parts_dumped
+                .store(-1, Ordering::SeqCst);
+        }
+        while !self.dump_state.is_empty() {
+            let (shard_id, result) = self.await_parts_upload().await;
+            if let Err(error) = result {
+                tracing::error!(target: "state_sync_dump", epoch_id = ?&self.epoch_id, %shard_id, ?error, "Shard dump failed after cancellation");
             }
         }
     }
@@ -331,19 +411,21 @@ struct PartUploader {
 impl PartUploader {
     /// Increment the STATE_SYNC_DUMP_NUM_PARTS_DUMPED metric
     fn inc_parts_dumped(&self) {
-        match self.parts_dumped.fetch_update(Ordering::SeqCst, Ordering::SeqCst, |prev| {
-            if prev >= 0 {
-                Some(prev + 1)
-            } else {
-                None
-            }
-        }) {
-            Ok(prev_parts_dumped) => {
+        match self
+            .parts_dumped
+            .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |prev| {
+                if prev >= 0 {
+                    Some(prev + 1)
+                } else {
+                    None
+                }
+            }) {
+            | Ok(prev_parts_dumped) => {
                 metrics::STATE_SYNC_DUMP_NUM_PARTS_DUMPED
                     .with_label_values(&[&self.shard_id.to_string()])
                     .set(prev_parts_dumped + 1);
             }
-            Err(_) => {}
+            | Err(_) => {}
         };
     }
 
@@ -351,8 +433,16 @@ impl PartUploader {
     /// the external storage. The state part generation is limited by the number of permits allocated to the `obtain_parts`
     /// Semaphore. For now, this always returns OK(()) (loops forever retrying in case of errors), but this should be changed
     /// to return Err() if the error is not going to be retryable.
-    async fn upload_state_part(self: Arc<Self>, part_idx: u64) -> anyhow::Result<()> {
-        if !self.parts_missing.read().unwrap().contains(&part_idx) {
+    async fn upload_state_part(
+        self: Arc<Self>,
+        part_idx: u64,
+    ) -> anyhow::Result<()> {
+        if !self
+            .parts_missing
+            .read()
+            .unwrap()
+            .contains(&part_idx)
+        {
             self.inc_parts_dumped();
             return Ok(());
         }
@@ -366,7 +456,11 @@ impl PartUploader {
                 .with_label_values(&[&self.shard_id.to_string()])
                 .start_timer();
             let state_part = {
-                let _permit = self.obtain_parts.acquire().await.unwrap();
+                let _permit = self
+                    .obtain_parts
+                    .acquire()
+                    .await
+                    .unwrap();
                 self.runtime.obtain_state_part(
                     self.shard_id,
                     &self.sync_prev_prev_hash,
@@ -375,17 +469,19 @@ impl PartUploader {
                 )
             };
             match state_part {
-                Ok(state_part) => {
+                | Ok(state_part) => {
                     break state_part;
                 }
-                Err(error) => {
+                | Err(error) => {
                     // TODO: return non retryable errors.
                     tracing::warn!(
                         target: "state_sync_dump",
                         shard_id = %self.shard_id, epoch_height=%self.epoch_height, epoch_id=?&self.epoch_id, ?part_id, ?error,
                         "Failed to obtain state part. Retrying in 200 millis."
                     );
-                    self.clock.sleep(Duration::milliseconds(200)).await;
+                    self.clock
+                        .sleep(Duration::milliseconds(200))
+                        .await;
                     continue;
                 }
             }
@@ -408,7 +504,7 @@ impl PartUploader {
                 .put_file(file_type.clone(), &state_part, self.shard_id, &location)
                 .await
             {
-                Ok(()) => {
+                | Ok(()) => {
                     self.inc_parts_dumped();
                     metrics::STATE_SYNC_DUMP_SIZE_TOTAL
                         .with_label_values(&[
@@ -419,16 +515,51 @@ impl PartUploader {
                     tracing::debug!(target: "state_sync_dump", shard_id = %self.shard_id, epoch_height=%self.epoch_height, epoch_id=?&self.epoch_id, ?part_id, "Uploaded state part.");
                     return Ok(());
                 }
-                Err(error) => {
+                | Err(error) => {
                     tracing::warn!(
                         target: "state_sync_dump", shard_id = %self.shard_id, epoch_height=%self.epoch_height, epoch_id=?&self.epoch_id, ?part_id, ?error,
                         "Failed to upload state part. Retrying in 200 millis."
                     );
-                    self.clock.sleep(Duration::milliseconds(200)).await;
+                    self.clock
+                        .sleep(Duration::milliseconds(200))
+                        .await;
                     continue;
                 }
             }
         }
+    }
+
+    /// Enumerate all state parts in the shard and spawn a future for each that will obtain and upload it,
+    /// then send the result on `sender` when it's done
+    async fn dump_shard_state(
+        self: Arc<Self>,
+        sender: oneshot::Sender<anyhow::Result<()>>,
+        future_spawner: Arc<dyn FutureSpawner>,
+    ) {
+        let mut parts = (0..self.num_parts).collect::<Vec<_>>();
+        // We randomize so different nodes uploading parts don't try to upload in the same order
+        parts.shuffle(&mut thread_rng());
+
+        let mut tasks = tokio_stream::iter(parts)
+            .map(|part_id| {
+                let me = self.clone();
+                let task = me.upload_state_part(part_id);
+                respawn_for_parallelism(&*future_spawner, "upload part", task)
+            })
+            .buffer_unordered(5);
+
+        while let Some(result) = tasks.next().await {
+            if result.is_err() {
+                let _ = sender.send(result);
+                // Any remaining upload_state_part() tasks will exit when they read the `canceled` variable,
+                // and we'll drop anything still left to be started in `tasks`.
+                // However if upload_state_part() doesn't return because it's looping retrying an error, we won't finish
+                // dumping this shard's state, and the task will stay around until the `canceled` variable is set when
+                // the next epoch starts.
+                return;
+            }
+        }
+        let _ = sender.send(Ok(()));
     }
 }
 
@@ -445,7 +576,11 @@ impl HeaderUploader {
     /// Attempt to generate the state header for `self.epoch_id` and `self.shard_id`, and upload it to
     /// the external storage. For now, this always returns OK(()) (loops forever retrying in case of errors),
     /// but this should be changed to return Err() if the error is not going to be retryable.
-    async fn upload_header(self: Arc<Self>, shard_id: ShardId, header: Option<Vec<u8>>) {
+    async fn upload_header(
+        self: Arc<Self>,
+        shard_id: ShardId,
+        header: Option<Vec<u8>>,
+    ) {
         let Some(header) = header else {
             return;
         };
@@ -458,20 +593,26 @@ impl HeaderUploader {
             &file_type,
         );
         loop {
-            match self.external.put_file(file_type.clone(), &header, shard_id, &location).await {
-                Ok(_) => {
+            match self
+                .external
+                .put_file(file_type.clone(), &header, shard_id, &location)
+                .await
+            {
+                | Ok(_) => {
                     tracing::info!(
                         target: "state_sync_dump", %shard_id, epoch_height = %self.epoch_height,
                         "Header saved to external storage."
                     );
                     return;
                 }
-                Err(err) => {
+                | Err(err) => {
                     tracing::warn!(
                         target: "state_sync_dump", %shard_id, epoch_height = %self.epoch_height, ?err,
                         "Failed to put header into external storage. Will retry next iteration."
                     );
-                    self.clock.sleep(Duration::seconds(5)).await;
+                    self.clock
+                        .sleep(Duration::seconds(5))
+                        .await;
                     continue;
                 }
             };
@@ -480,7 +621,10 @@ impl HeaderUploader {
 
     /// Returns whether the state sync header for `self.epoch_id` and `self.shard_id` is already uploaded to the
     /// external storage
-    async fn header_stored(self: Arc<Self>, shard_id: ShardId) -> bool {
+    async fn header_stored(
+        self: Arc<Self>,
+        shard_id: ShardId,
+    ) -> bool {
         match self
             .external
             .is_state_sync_header_stored_for_epoch(
@@ -491,8 +635,8 @@ impl HeaderUploader {
             )
             .await
         {
-            Ok(stored) => stored,
-            Err(err) => {
+            | Ok(stored) => stored,
+            | Err(err) => {
                 tracing::error!(target: "state_sync_dump", ?err, ?shard_id, "Failed to determine header presence in external storage.");
                 false
             }
@@ -527,8 +671,13 @@ impl StateDumper {
         }
     }
 
-    fn get_block_header(&self, hash: &CryptoHash) -> anyhow::Result<BlockHeader> {
-        self.chain.get_block_header(hash).with_context(|| format!("Failed getting header {}", hash))
+    fn get_block_header(
+        &self,
+        hash: &CryptoHash,
+    ) -> anyhow::Result<BlockHeader> {
+        self.chain
+            .get_block_header(hash)
+            .with_context(|| format!("Failed getting header {}", hash))
     }
 
     /// Reads the DB entries starting with `STATE_SYNC_DUMP_KEY`, and checks which ShardIds and EpochIds are indicated as
@@ -540,7 +689,11 @@ impl StateDumper {
         dump: &mut DumpState,
         senders: &mut HashMap<ShardId, oneshot::Sender<anyhow::Result<()>>>,
     ) -> anyhow::Result<()> {
-        for res in self.chain.chain_store().iter_state_sync_dump_progress() {
+        for res in self
+            .chain
+            .chain_store()
+            .iter_state_sync_dump_progress()
+        {
             let (shard_id, (dumped_epoch_id, done)) =
                 res.context("failed iterating over stored dump progress")?;
             if &dumped_epoch_id != epoch_id {
@@ -558,7 +711,10 @@ impl StateDumper {
 
     /// Returns the `sync_hash` header corresponding to the latest final block if it's already known.
     fn latest_sync_header(&self) -> anyhow::Result<Option<BlockHeader>> {
-        let head = self.chain.head().context("Failed getting chain head")?;
+        let head = self
+            .chain
+            .head()
+            .context("Failed getting chain head")?;
         let header = self.get_block_header(&head.last_block_hash)?;
         let final_hash = header.last_final_block();
         if final_hash == &CryptoHash::default() {
@@ -571,7 +727,8 @@ impl StateDumper {
         else {
             return Ok(None);
         };
-        self.get_block_header(&sync_hash).map(Some)
+        self.get_block_header(&sync_hash)
+            .map(Some)
     }
 
     /// Generates the state sync header for the shard and initializes the `ShardDump` struct which
@@ -581,8 +738,10 @@ impl StateDumper {
         shard_id: ShardId,
         sync_hash: &CryptoHash,
     ) -> anyhow::Result<(ShardDump, oneshot::Sender<anyhow::Result<()>>)> {
-        let state_header =
-            self.chain.get_state_response_header(shard_id, *sync_hash).with_context(|| {
+        let state_header = self
+            .chain
+            .get_state_response_header(shard_id, *sync_hash)
+            .with_context(|| {
                 format!("Failed getting state response header for {} {}", shard_id, sync_hash)
             })?;
         let state_root = state_header.chunk_prev_state_root();
@@ -611,7 +770,10 @@ impl StateDumper {
     /// if we're not tracking anything, or a `DumpState` struct, which holds one `ShardDump` initialized by `get_shard_dump()`
     /// for each shard that we track. This, and the associated oneshot::Senders will then hold all the state related to the
     /// progress of dumping the current epoch's state. This is to be called at startup and also upon each new epoch.
-    fn get_dump_state(&mut self, sync_header: &BlockHeader) -> anyhow::Result<NewDump> {
+    fn get_dump_state(
+        &mut self,
+        sync_header: &BlockHeader,
+    ) -> anyhow::Result<NewDump> {
         let epoch_info = self
             .epoch_manager
             .get_epoch_info(sync_header.epoch_id())
@@ -642,14 +804,21 @@ impl StateDumper {
             }
             metrics::STATE_SYNC_DUMP_EPOCH_HEIGHT
                 .with_label_values(&[&shard_id.to_string()])
-                .set(epoch_info.epoch_height().try_into().unwrap_or(i64::MAX));
+                .set(
+                    epoch_info
+                        .epoch_height()
+                        .try_into()
+                        .unwrap_or(i64::MAX),
+                );
 
             let (shard_dump, sender) = self.get_shard_dump(shard_id, sync_header.hash())?;
             dump_state.insert(shard_id, shard_dump);
             senders.insert(shard_id, sender);
         }
         assert_eq!(
-            dump_state.keys().collect::<HashSet<_>>(),
+            dump_state
+                .keys()
+                .collect::<HashSet<_>>(),
             senders.keys().collect::<HashSet<_>>()
         );
         if dump_state.is_empty() {
@@ -673,7 +842,10 @@ impl StateDumper {
 
     /// For each shard we're dumping state for, check whether the state sync header is already stored in the external storage,
     /// and set `header_to_dump` to None if so, so we don't waste time uploading it again.
-    async fn check_stored_headers(&mut self, dump: &mut DumpState) -> anyhow::Result<()> {
+    async fn check_stored_headers(
+        &mut self,
+        dump: &mut DumpState,
+    ) -> anyhow::Result<()> {
         let uploader = Arc::new(HeaderUploader {
             clock: self.clock.clone(),
             external: self.external.clone(),
@@ -703,14 +875,20 @@ impl StateDumper {
                 target: "state_sync_dump", %shard_id, epoch_height = %dump.epoch_height,
                 "Header already saved to external storage."
             );
-            let s = dump.dump_state.get_mut(&shard_id).unwrap();
+            let s = dump
+                .dump_state
+                .get_mut(&shard_id)
+                .unwrap();
             s.header_to_dump = None;
         }
         Ok(())
     }
 
     /// try to upload the state sync header for each shard we're dumping state for
-    async fn store_headers(&mut self, dump: &mut DumpState) -> anyhow::Result<()> {
+    async fn store_headers(
+        &mut self,
+        dump: &mut DumpState,
+    ) -> anyhow::Result<()> {
         let uploader = Arc::new(HeaderUploader {
             clock: self.clock.clone(),
             external: self.external.clone(),
@@ -728,7 +906,9 @@ impl StateDumper {
 
         tokio_stream::iter(headers)
             .map(|(uploader, shard_id, header)| async move {
-                uploader.upload_header(shard_id, header).await
+                uploader
+                    .upload_header(shard_id, header)
+                    .await
             })
             .buffer_unordered(10)
             .collect::<()>()
@@ -743,97 +923,68 @@ impl StateDumper {
     /// when all parts have been uploaded for the shard.
     async fn start_upload_parts(
         &mut self,
-        senders: HashMap<ShardId, oneshot::Sender<anyhow::Result<()>>>,
+        mut senders: HashMap<ShardId, oneshot::Sender<anyhow::Result<()>>>,
         dump: &DumpState,
     ) {
-        let mut senders = senders
-            .into_iter()
-            .map(|(shard_id, sender)| {
-                let d = dump.dump_state.get(&shard_id).unwrap();
-                (shard_id, (sender, d.num_parts))
-            })
-            .collect::<HashMap<_, _>>();
-        let mut empty_shards = HashSet::new();
+        debug_assert_eq!(
+            senders.keys().collect::<HashSet<_>>(),
+            dump.dump_state
+                .keys()
+                .collect::<HashSet<_>>()
+        );
+
         // cspell:words uploaders
-        let uploaders = dump
+        let mut uploaders = dump
             .dump_state
             .iter()
             .filter_map(|(shard_id, shard_dump)| {
                 metrics::STATE_SYNC_DUMP_NUM_PARTS_DUMPED
                     .with_label_values(&[&shard_id.to_string()])
                     .set(0);
-                if shard_dump.num_parts > 0 {
-                    Some(Arc::new(PartUploader {
-                        clock: self.clock.clone(),
-                        external: self.external.clone(),
-                        runtime: self.runtime.clone(),
-                        chain_id: self.chain_id.clone(),
-                        epoch_id: dump.epoch_id,
-                        epoch_height: dump.epoch_height,
-                        sync_prev_prev_hash: dump.sync_prev_prev_hash,
-                        shard_id: *shard_id,
-                        state_root: shard_dump.state_root,
-                        num_parts: shard_dump.num_parts,
-                        parts_dumped: shard_dump.parts_dumped.clone(),
-                        parts_missing: shard_dump.parts_missing.clone(),
-                        obtain_parts: self.obtain_parts.clone(),
-                        canceled: dump.canceled.clone(),
-                    }))
-                } else {
-                    empty_shards.insert(shard_id);
-                    None
+
+                let sender = senders.remove(shard_id).unwrap();
+                if shard_dump.num_parts == 0 {
+                    let _ = sender.send(Ok(()));
+                    return None;
                 }
+                let uploader = Arc::new(PartUploader {
+                    clock: self.clock.clone(),
+                    external: self.external.clone(),
+                    runtime: self.runtime.clone(),
+                    chain_id: self.chain_id.clone(),
+                    epoch_id: dump.epoch_id,
+                    epoch_height: dump.epoch_height,
+                    sync_prev_prev_hash: dump.sync_prev_prev_hash,
+                    shard_id: *shard_id,
+                    state_root: shard_dump.state_root,
+                    num_parts: shard_dump.num_parts,
+                    parts_dumped: shard_dump.parts_dumped.clone(),
+                    parts_missing: shard_dump.parts_missing.clone(),
+                    obtain_parts: self.obtain_parts.clone(),
+                    canceled: dump.canceled.clone(),
+                });
+                let dump_shard = uploader.dump_shard_state(sender, self.future_spawner.clone());
+                Some(dump_shard.boxed())
             })
             .collect::<Vec<_>>();
-        for shard_id in empty_shards {
-            let (sender, _) = senders.remove(shard_id).unwrap();
-            let _ = sender.send(Ok(()));
-        }
-        assert_eq!(senders.len(), uploaders.len());
 
-        let mut tasks = uploaders
-            .iter()
-            .map(|u| (0..u.num_parts).map(|part_id| (u.clone(), part_id)))
-            .flatten()
-            .collect::<Vec<_>>();
-        // We randomize so different nodes uploading parts don't try to upload in the same order
-        tasks.shuffle(&mut thread_rng());
-
-        let future_spawner = self.future_spawner.clone();
         let fut = async move {
-            let mut tasks = tokio_stream::iter(tasks)
-                .map(|(u, part_id)| {
-                    let shard_id = u.shard_id;
-                    let task = u.upload_state_part(part_id);
-                    let task = respawn_for_parallelism(&*future_spawner, "upload part", task);
-                    async move { (shard_id, task.await) }
-                })
-                .buffer_unordered(10);
-
-            while let Some((shard_id, result)) = tasks.next().await {
-                let std::collections::hash_map::Entry::Occupied(mut e) = senders.entry(shard_id)
-                else {
-                    panic!("shard ID {} missing in state dump handles", shard_id);
-                };
-                let (_, parts_left) = e.get_mut();
-                if result.is_err() {
-                    let (sender, _) = e.remove();
-                    let _ = sender.send(result);
-                    return;
-                }
-                *parts_left -= 1;
-                if *parts_left == 0 {
-                    let (sender, _) = e.remove();
-                    let _ = sender.send(result);
-                }
+            while !uploaders.is_empty() {
+                let (_output, _idx, remaining) = select_all(uploaders).await;
+                uploaders = remaining;
             }
         };
-        self.future_spawner.spawn_boxed("upload_parts", fut.boxed());
+        self.future_spawner
+            .spawn_boxed("upload_parts", fut.boxed());
     }
 
     /// Sets the in-memory and on-disk state to reflect that we're currently dumping state for a new epoch,
     /// with the info and progress represented in `dump`.
-    fn new_dump(&mut self, dump: DumpState, sync_hash: CryptoHash) -> anyhow::Result<()> {
+    fn new_dump(
+        &mut self,
+        dump: DumpState,
+        sync_hash: CryptoHash,
+    ) -> anyhow::Result<()> {
         for (shard_id, _) in dump.dump_state.iter() {
             self.chain
                 .chain_store()
@@ -853,28 +1004,34 @@ impl StateDumper {
 
     // Checks the current epoch and initializes the types associated with dumping its state
     // if it hasn't already been dumped.
-    async fn init(&mut self, iteration_delay: Duration) -> anyhow::Result<()> {
+    async fn init(
+        &mut self,
+        iteration_delay: Duration,
+    ) -> anyhow::Result<()> {
         loop {
             let Some(sync_header) = self.latest_sync_header()? else {
                 self.clock.sleep(iteration_delay).await;
                 continue;
             };
             match self.get_dump_state(&sync_header)? {
-                NewDump::Dump(mut dump, mut senders) => {
+                | NewDump::Dump(mut dump, mut senders) => {
                     self.check_old_progress(sync_header.epoch_id(), &mut dump, &mut senders)?;
                     if dump.dump_state.is_empty() {
                         self.current_dump = CurrentDump::Done(*sync_header.epoch_id());
                         return Ok(());
                     }
 
-                    self.check_stored_headers(&mut dump).await?;
+                    self.check_stored_headers(&mut dump)
+                        .await?;
                     self.store_headers(&mut dump).await?;
 
-                    dump.set_missing_parts(&self.external, &self.chain_id).await;
-                    self.start_upload_parts(senders, &dump).await;
+                    dump.set_missing_parts(&self.external, &self.chain_id)
+                        .await;
+                    self.start_upload_parts(senders, &dump)
+                        .await;
                     self.new_dump(dump, *sync_header.hash())?;
                 }
-                NewDump::NoTrackedShards => {
+                | NewDump::NoTrackedShards => {
                     self.current_dump = CurrentDump::Done(*sync_header.epoch_id());
                 }
             }
@@ -887,19 +1044,16 @@ impl StateDumper {
         let CurrentDump::InProgress(dump) = &mut self.current_dump else {
             return std::future::pending().await;
         };
-        let ((shard_id, result), _, _still_going) =
-            futures::future::select_all(dump.dump_state.iter_mut().map(|(shard_id, s)| {
-                async {
-                    let r = (&mut s.upload_parts).await.unwrap();
-                    (*shard_id, r)
-                }
-                .boxed()
-            }))
-            .await;
-        result?;
-        drop(_still_going);
+        let (shard_id, result) = dump.await_parts_upload().await;
 
-        tracing::info!(target: "state_sync_dump", epoch_id = ?&dump.epoch_id, %shard_id, "Shard dump finished");
+        match result {
+            | Ok(()) => {
+                tracing::info!(target: "state_sync_dump", epoch_id = ?&dump.epoch_id, %shard_id, "Shard dump finished");
+            }
+            | Err(error) => {
+                tracing::error!(target: "state_sync_dump", epoch_id = ?&dump.epoch_id, %shard_id, ?error, "Shard dump failed");
+            }
+        }
 
         self.chain
             .chain_store()
@@ -911,7 +1065,7 @@ impl StateDumper {
                 }),
             )
             .context("failed setting state dump progress")?;
-        dump.dump_state.remove(&shard_id);
+
         if dump.dump_state.is_empty() {
             self.current_dump = CurrentDump::Done(dump.epoch_id);
         }
@@ -925,7 +1079,8 @@ impl StateDumper {
         let CurrentDump::InProgress(dump) = &self.current_dump else {
             return;
         };
-        dump.set_missing_parts(&self.external, &self.chain_id).await;
+        dump.set_missing_parts(&self.external, &self.chain_id)
+            .await;
     }
 
     /// Check whether there's a new epoch to dump state for. In that case, we start dumping
@@ -935,31 +1090,32 @@ impl StateDumper {
         let Some(sync_header) = self.latest_sync_header()? else {
             return Ok(());
         };
-        match &self.current_dump {
-            CurrentDump::InProgress(dump) => {
+        match &mut self.current_dump {
+            | CurrentDump::InProgress(dump) => {
                 if &dump.epoch_id == sync_header.epoch_id() {
                     return Ok(());
                 }
-                dump.canceled.store(true, Ordering::Relaxed);
-                for (_shard_id, d) in dump.dump_state.iter() {
-                    // Set it to -1 to tell the existing tasks not to set the metrics anymore
-                    d.parts_dumped.store(-1, Ordering::SeqCst);
-                }
+                tracing::warn!(
+                    target: "state_sync_dump", "Canceling existing dump of state for epoch {} upon new epoch {}",
+                    &dump.epoch_id.0, &sync_header.epoch_id().0,
+                );
+                dump.cancel().await;
             }
-            CurrentDump::Done(epoch_id) => {
+            | CurrentDump::Done(epoch_id) => {
                 if epoch_id == sync_header.epoch_id() {
                     return Ok(());
                 }
             }
-            CurrentDump::None => {}
+            | CurrentDump::None => {}
         };
         match self.get_dump_state(&sync_header)? {
-            NewDump::Dump(mut dump, sender) => {
+            | NewDump::Dump(mut dump, sender) => {
                 self.store_headers(&mut dump).await?;
-                self.start_upload_parts(sender, &dump).await;
+                self.start_upload_parts(sender, &dump)
+                    .await;
                 self.new_dump(dump, *sync_header.hash())?;
             }
-            NewDump::NoTrackedShards => {
+            | NewDump::NoTrackedShards => {
                 self.current_dump = CurrentDump::Done(*sync_header.epoch_id());
             }
         };
@@ -981,7 +1137,7 @@ async fn state_sync_dump(
     external: ExternalConnection,
     iteration_delay: Duration,
     validator: MutableValidatorSigner,
-    keep_running: Arc<AtomicBool>,
+    keep_running: &AtomicBool,
     future_spawner: Arc<dyn FutureSpawner>,
 ) -> anyhow::Result<()> {
     tracing::info!(target: "state_sync_dump", "Running StateSyncDump loop");
@@ -1023,6 +1179,10 @@ async fn state_sync_dump(
         }
     }
 
+    if let CurrentDump::InProgress(mut dump) = dumper.current_dump {
+        tracing::debug!(target: "state_sync_dump", "Awaiting upload task cancellation");
+        dump.cancel().await;
+    }
     tracing::debug!(target: "state_sync_dump", "Stopped state dump thread");
     Ok(())
 }
@@ -1037,7 +1197,7 @@ async fn do_state_sync_dump(
     external: ExternalConnection,
     iteration_delay: Duration,
     validator: MutableValidatorSigner,
-    keep_running: Arc<AtomicBool>,
+    handle: Arc<StateSyncDumpHandle>,
     future_spawner: Arc<dyn FutureSpawner>,
 ) {
     if let Err(error) = state_sync_dump(
@@ -1050,11 +1210,12 @@ async fn do_state_sync_dump(
         external,
         iteration_delay,
         validator,
-        keep_running,
+        &handle.keep_running,
         future_spawner,
     )
     .await
     {
         tracing::error!(target: "state_sync_dump", ?error, "State dumper failed");
     }
+    handle.task_finished();
 }

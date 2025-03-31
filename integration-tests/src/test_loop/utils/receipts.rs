@@ -35,9 +35,19 @@ pub fn check_receipts_presence_at_resharding_block(
               client_account_id: AccountId| {
             let client_actor =
                 retrieve_client_actor(node_datas, test_loop_data, &client_account_id);
-            let tip = client_actor.client.chain.head().unwrap();
+            let tip = client_actor
+                .client
+                .chain
+                .head()
+                .unwrap();
 
-            if !next_block_has_new_shard_layout(client_actor.client.epoch_manager.as_ref(), &tip) {
+            if !next_block_has_new_shard_layout(
+                client_actor
+                    .client
+                    .epoch_manager
+                    .as_ref(),
+                &tip,
+            ) {
                 return;
             }
 
@@ -63,9 +73,19 @@ pub fn check_receipts_presence_after_resharding_block(
               client_account_id: AccountId| {
             let client_actor =
                 retrieve_client_actor(node_datas, test_loop_data, &client_account_id);
-            let tip = client_actor.client.chain.head().unwrap();
+            let tip = client_actor
+                .client
+                .chain
+                .head()
+                .unwrap();
 
-            if !this_block_has_new_shard_layout(client_actor.client.epoch_manager.as_ref(), &tip) {
+            if !this_block_has_new_shard_layout(
+                client_actor
+                    .client
+                    .epoch_manager
+                    .as_ref(),
+                &tip,
+            ) {
                 return;
             }
 
@@ -86,8 +106,12 @@ pub fn check_receipts_at_block(
     tip: Tip,
 ) {
     let epoch_manager = &client_actor.client.epoch_manager;
-    let shard_layout = epoch_manager.get_shard_layout(&tip.epoch_id).unwrap();
-    let shard_id = epoch_manager.account_id_to_shard_id(&account, &tip.epoch_id).unwrap();
+    let shard_layout = epoch_manager
+        .get_shard_layout(&tip.epoch_id)
+        .unwrap();
+    let shard_id = epoch_manager
+        .account_id_to_shard_id(&account, &tip.epoch_id)
+        .unwrap();
     let shard_uid = &ShardUId::from_shard_id_and_layout(shard_id, &shard_layout);
     let congestion_info = &client_actor
         .client
@@ -104,7 +128,7 @@ pub fn check_receipts_at_block(
     tracing::info!(target: "test", height=tip.height, num_shards, ?shard_id, has_delayed, has_buffered, "checking receipts");
 
     match kind {
-        ReceiptKind::Delayed => {
+        | ReceiptKind::Delayed => {
             assert!(has_delayed);
             check_delayed_receipts_exist_in_memtrie(
                 &client_actor.client,
@@ -112,7 +136,7 @@ pub fn check_receipts_at_block(
                 &tip.prev_block_hash,
             );
         }
-        ReceiptKind::Buffered => {
+        | ReceiptKind::Buffered => {
             assert!(has_buffered);
             check_buffered_receipts_exist_in_memtrie(
                 &client_actor.client,
@@ -120,7 +144,7 @@ pub fn check_receipts_at_block(
                 &tip.prev_block_hash,
             );
         }
-        ReceiptKind::PromiseYield => check_promise_yield_receipts_exist_in_memtrie(
+        | ReceiptKind::PromiseYield => check_promise_yield_receipts_exist_in_memtrie(
             &client_actor.client,
             &shard_uid,
             &tip.prev_block_hash,
@@ -135,8 +159,9 @@ fn check_delayed_receipts_exist_in_memtrie(
     prev_block_hash: &CryptoHash,
 ) {
     let memtrie = get_memtrie_for_shard(client, shard_uid, prev_block_hash);
-    let indices: DelayedReceiptIndices =
-        get(&memtrie, &TrieKey::DelayedReceiptIndices).unwrap().unwrap();
+    let indices: DelayedReceiptIndices = get(&memtrie, &TrieKey::DelayedReceiptIndices)
+        .unwrap()
+        .unwrap();
     assert_ne!(indices.len(), 0);
 }
 
@@ -147,10 +172,17 @@ fn check_buffered_receipts_exist_in_memtrie(
     prev_block_hash: &CryptoHash,
 ) {
     let memtrie = get_memtrie_for_shard(client, shard_uid, prev_block_hash);
-    let indices: BufferedReceiptIndices =
-        get(&memtrie, &TrieKey::BufferedReceiptIndices).unwrap().unwrap();
+    let indices: BufferedReceiptIndices = get(&memtrie, &TrieKey::BufferedReceiptIndices)
+        .unwrap()
+        .unwrap();
     // There should be at least one buffered receipt going to some other shard. It's not very precise but good enough.
-    assert_ne!(indices.shard_buffers.values().fold(0, |acc, buffer| acc + buffer.len()), 0);
+    assert_ne!(
+        indices
+            .shard_buffers
+            .values()
+            .fold(0, |acc, buffer| acc + buffer.len()),
+        0
+    );
 }
 
 /// Asserts that a non zero amount of promise yield receipts exist in MemTrie for the given shard.
@@ -160,7 +192,8 @@ fn check_promise_yield_receipts_exist_in_memtrie(
     prev_block_hash: &CryptoHash,
 ) {
     let memtrie = get_memtrie_for_shard(client, shard_uid, prev_block_hash);
-    let indices: PromiseYieldIndices =
-        get(&memtrie, &TrieKey::PromiseYieldIndices).unwrap().unwrap();
+    let indices: PromiseYieldIndices = get(&memtrie, &TrieKey::PromiseYieldIndices)
+        .unwrap()
+        .unwrap();
     assert_ne!(indices.len(), 0);
 }

@@ -99,14 +99,19 @@ impl FuncDataRegistry {
     }
 
     /// Register a signature and return its unique index.
-    pub fn register(&self, anyfunc: VMCallerCheckedAnyfunc) -> VMFuncRef {
+    pub fn register(
+        &self,
+        anyfunc: VMCallerCheckedAnyfunc,
+    ) -> VMFuncRef {
         let mut inner = self.inner.lock().unwrap();
         let data = if let Some(&idx) = inner.anyfunc_to_index.get(&anyfunc) {
             &inner.func_data[idx]
         } else {
             let idx = inner.func_data.len();
             inner.func_data.push(anyfunc);
-            inner.anyfunc_to_index.insert(anyfunc, idx);
+            inner
+                .anyfunc_to_index
+                .insert(anyfunc, idx);
             &inner.func_data[idx]
         };
         VMFuncRef(data)

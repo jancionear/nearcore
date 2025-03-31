@@ -37,8 +37,13 @@ fn protocol_upgrade() {
 
     // Prepare TestEnv with a contract at the old protocol version.
     let mut env = {
-        let mut genesis =
-            Genesis::test(vec!["test0".parse().unwrap(), "test1".parse().unwrap()], 1);
+        let mut genesis = Genesis::test(
+            vec![
+                "test0".parse().unwrap(),
+                "test1".parse().unwrap(),
+            ],
+            1,
+        );
         genesis.config.epoch_length = epoch_length;
         genesis.config.protocol_version = old_protocol_version;
         let mut env = TestEnv::builder(&genesis.config)
@@ -65,12 +70,14 @@ fn protocol_upgrade() {
         signer_id: "test0".parse().unwrap(),
         receiver_id: "test0".parse().unwrap(),
         public_key: signer.public_key(),
-        actions: vec![Action::FunctionCall(Box::new(FunctionCallAction {
-            method_name: "write_key_value".to_string(),
-            args,
-            gas: 10u64.pow(14),
-            deposit: 0,
-        }))],
+        actions: vec![Action::FunctionCall(Box::new(
+            FunctionCallAction {
+                method_name: "write_key_value".to_string(),
+                args,
+                gas: 10u64.pow(14),
+                deposit: 0,
+            },
+        ))],
 
         nonce: 0,
         block_hash: CryptoHash::default(),
@@ -93,7 +100,10 @@ fn protocol_upgrade() {
             tip.height + 1,
             old_protocol_version,
         );
-        let final_result = env.clients[0].chain.get_final_transaction_result(&tx_hash).unwrap();
+        let final_result = env.clients[0]
+            .chain
+            .get_final_transaction_result(&tx_hash)
+            .unwrap();
         assert_matches!(final_result.status, FinalExecutionStatus::SuccessValue(_));
     }
 
@@ -111,10 +121,16 @@ fn protocol_upgrade() {
         let tx_hash = signed_tx.get_hash();
         assert_eq!(env.clients[0].process_tx(signed_tx, false, false), ProcessTxResponse::ValidTx);
         for i in 0..epoch_length {
-            let block = env.clients[0].produce_block(tip.height + i + 1).unwrap().unwrap();
+            let block = env.clients[0]
+                .produce_block(tip.height + i + 1)
+                .unwrap()
+                .unwrap();
             env.process_block(0, block.clone(), Provenance::PRODUCED);
         }
-        let final_result = env.clients[0].chain.get_final_transaction_result(&tx_hash).unwrap();
+        let final_result = env.clients[0]
+            .chain
+            .get_final_transaction_result(&tx_hash)
+            .unwrap();
         assert_matches!(
             final_result.status,
             FinalExecutionStatus::Failure(TxExecutionError::ActionError(_))
@@ -131,12 +147,14 @@ fn protocol_upgrade() {
             signer_id: "test0".parse().unwrap(),
             receiver_id: "test0".parse().unwrap(),
             public_key: signer.public_key(),
-            actions: vec![Action::FunctionCall(Box::new(FunctionCallAction {
-                method_name: "write_key_value".to_string(),
-                args,
-                gas: 10u64.pow(14),
-                deposit: 0,
-            }))],
+            actions: vec![Action::FunctionCall(Box::new(
+                FunctionCallAction {
+                    method_name: "write_key_value".to_string(),
+                    args,
+                    gas: 10u64.pow(14),
+                    deposit: 0,
+                },
+            ))],
 
             nonce: 0,
             block_hash: CryptoHash::default(),
@@ -151,10 +169,16 @@ fn protocol_upgrade() {
         let tx_hash = signed_tx.get_hash();
         assert_eq!(env.clients[0].process_tx(signed_tx, false, false), ProcessTxResponse::ValidTx);
         for i in 0..epoch_length {
-            let block = env.clients[0].produce_block(tip.height + i + 1).unwrap().unwrap();
+            let block = env.clients[0]
+                .produce_block(tip.height + i + 1)
+                .unwrap()
+                .unwrap();
             env.process_block(0, block.clone(), Provenance::PRODUCED);
         }
-        let final_result = env.clients[0].chain.get_final_transaction_result(&tx_hash).unwrap();
+        let final_result = env.clients[0]
+            .chain
+            .get_final_transaction_result(&tx_hash)
+            .unwrap();
         assert_matches!(final_result.status, FinalExecutionStatus::SuccessValue(_));
     }
 }

@@ -44,7 +44,10 @@ pub(crate) struct NonLeafHeader {
 }
 
 impl NonLeafHeader {
-    pub(crate) fn new(memory_usage: u64, node_hash: CryptoHash) -> Self {
+    pub(crate) fn new(
+        memory_usage: u64,
+        node_hash: CryptoHash,
+    ) -> Self {
         Self { hash: node_hash, memory_usage }
     }
 }
@@ -122,10 +125,10 @@ impl MemTrieNodeId {
         // refcount when it is created, or that this node is a root node,
         // and the refcount will be incremented by `MemTries`.
         match &node {
-            InputMemTrieNode::Extension { child, .. } => {
+            | InputMemTrieNode::Extension { child, .. } => {
                 child.add_ref(arena.memory_mut());
             }
-            InputMemTrieNode::Branch { children }
+            | InputMemTrieNode::Branch { children }
             | InputMemTrieNode::BranchWithValue { children, .. } => {
                 for child in children {
                     if let Some(child) = child {
@@ -133,7 +136,7 @@ impl MemTrieNodeId {
                     }
                 }
             }
-            _ => {}
+            | _ => {}
         }
         // Prepare the raw node, for memory usage and hash computation.
         let raw_node_with_size = if matches!(&node, InputMemTrieNode::Leaf { .. }) {
@@ -144,7 +147,7 @@ impl MemTrieNodeId {
 
         // Finally, encode the data.
         let data = match node {
-            InputMemTrieNode::Leaf { value, extension } => {
+            | InputMemTrieNode::Leaf { value, extension } => {
                 let extension_header = EncodedExtensionHeader::from_input(extension);
                 let value_header = EncodedValueHeader::from_input(&value);
                 let mut data = RawEncoder::new(
@@ -162,7 +165,7 @@ impl MemTrieNodeId {
                 data.encode_flexible(&value_header, &value);
                 data.finish()
             }
-            InputMemTrieNode::Extension { extension, child } => {
+            | InputMemTrieNode::Extension { extension, child } => {
                 let extension_header = EncodedExtensionHeader::from_input(&extension);
                 let mut data = RawEncoder::new(
                     arena,
@@ -181,7 +184,7 @@ impl MemTrieNodeId {
                 data.encode_flexible(&extension_header, extension);
                 data.finish()
             }
-            InputMemTrieNode::Branch { children } => {
+            | InputMemTrieNode::Branch { children } => {
                 let children_header = EncodedChildrenHeader::from_input(&children);
                 let mut data = RawEncoder::new(
                     arena,
@@ -199,7 +202,7 @@ impl MemTrieNodeId {
                 data.encode_flexible(&children_header, &children);
                 data.finish()
             }
-            InputMemTrieNode::BranchWithValue { children, value } => {
+            | InputMemTrieNode::BranchWithValue { children, value } => {
                 let children_header = EncodedChildrenHeader::from_input(&children);
                 let value_header = EncodedValueHeader::from_input(&value);
                 let mut data = RawEncoder::new(
@@ -227,7 +230,10 @@ impl MemTrieNodeId {
     }
 
     /// Increments the refcount, returning the new refcount.
-    pub(crate) fn add_ref(&self, memory: &mut impl ArenaMemoryMut) -> u32 {
+    pub(crate) fn add_ref(
+        &self,
+        memory: &mut impl ArenaMemoryMut,
+    ) -> u32 {
         // It's possible that in a hybrid memory setup, we are accessing the read-only part of memory.
         // In that case, we don't need to increment the refcount.
         if !memory.is_mutable(self.pos) {
@@ -243,7 +249,10 @@ impl MemTrieNodeId {
 
     /// Decrements the refcount, deallocating the node if it reaches zero.
     /// Returns the new refcount.
-    pub(crate) fn remove_ref(&self, arena: &mut impl ArenaWithDealloc) -> u32 {
+    pub(crate) fn remove_ref(
+        &self,
+        arena: &mut impl ArenaWithDealloc,
+    ) -> u32 {
         // It's possible that in a hybrid memory setup, we are accessing the read-only part of memory.
         // In that case, we don't need to decrement the refcount.
         if !arena.memory_mut().is_mutable(self.pos) {
@@ -251,7 +260,9 @@ impl MemTrieNodeId {
         }
         // Refcount is always encoded as the first four bytes of the node memory.
         // cspell:words unref
-        let refcount_memory = arena.memory_mut().raw_slice_mut(self.pos, size_of::<u32>());
+        let refcount_memory = arena
+            .memory_mut()
+            .raw_slice_mut(self.pos, size_of::<u32>());
         let refcount = u32::from_le_bytes(refcount_memory.try_into().unwrap());
         let new_refcount = refcount.checked_sub(1).unwrap();
         refcount_memory.copy_from_slice(new_refcount.to_le_bytes().as_ref());
@@ -278,21 +289,27 @@ impl<'a, M: ArenaMemory> MemTrieNodePtr<'a, M> {
 
     #[inline]
     pub(crate) fn get_kind(&self) -> u8 {
-        let header = self.ptr.slice(0, CommonHeader::SERIALIZED_SIZE).raw_slice();
+        let header = self
+            .ptr
+            .slice(0, CommonHeader::SERIALIZED_SIZE)
+            .raw_slice();
         header[CommonHeader::SERIALIZED_SIZE - 1]
     }
 
     /// Decodes the data.
-    pub(crate) fn view_kind(&self, kind: u8) -> MemTrieNodeView<'a, M> {
+    pub(crate) fn view_kind(
+        &self,
+        kind: u8,
+    ) -> MemTrieNodeView<'a, M> {
         let mut decoder = self.decoder();
         match kind {
-            NodeKind::DISCRIMINANT_LEAF => {
+            | NodeKind::DISCRIMINANT_LEAF => {
                 let header = decoder.decode::<LeafHeader>();
                 let extension = decoder.decode_flexible(&header.extension);
                 let value = decoder.decode_flexible(&header.value);
                 MemTrieNodeView::Leaf { extension, value }
             }
-            NodeKind::DISCRIMINANT_EXTENSION => {
+            | NodeKind::DISCRIMINANT_EXTENSION => {
                 let header = decoder.decode::<ExtensionHeader>();
                 let extension = decoder.decode_flexible(&header.extension);
                 MemTrieNodeView::Extension {
@@ -302,7 +319,7 @@ impl<'a, M: ArenaMemory> MemTrieNodePtr<'a, M> {
                     child: MemTrieNodePtr::from(self.ptr.arena().ptr(header.child)),
                 }
             }
-            NodeKind::DISCRIMINANT_BRANCH => {
+            | NodeKind::DISCRIMINANT_BRANCH => {
                 let header = decoder.decode::<BranchHeader>();
                 let children = decoder.decode_flexible(&header.children);
                 MemTrieNodeView::Branch {
@@ -311,7 +328,7 @@ impl<'a, M: ArenaMemory> MemTrieNodePtr<'a, M> {
                     children,
                 }
             }
-            NodeKind::DISCRIMINANT_BRANCH_WITH_VALUE => {
+            | NodeKind::DISCRIMINANT_BRANCH_WITH_VALUE => {
                 let header = decoder.decode::<BranchWithValueHeader>();
                 let children = decoder.decode_flexible(&header.children);
                 let value = decoder.decode_flexible(&header.value);
@@ -322,7 +339,7 @@ impl<'a, M: ArenaMemory> MemTrieNodePtr<'a, M> {
                     value,
                 }
             }
-            _ => panic!("unknown node type"),
+            | _ => panic!("unknown node type"),
         }
     }
 
@@ -332,21 +349,21 @@ impl<'a, M: ArenaMemory> MemTrieNodePtr<'a, M> {
         let mut decoder = self.decoder();
         let kind = decoder.peek::<CommonHeader>().kind;
         match kind {
-            NodeKind::Leaf => {
+            | NodeKind::Leaf => {
                 let header = decoder.decode::<LeafHeader>();
                 LeafHeader::SERIALIZED_SIZE
                     + header.extension.flexible_data_length()
                     + header.value.flexible_data_length()
             }
-            NodeKind::Extension => {
+            | NodeKind::Extension => {
                 let header = decoder.decode::<ExtensionHeader>();
                 ExtensionHeader::SERIALIZED_SIZE + header.extension.flexible_data_length()
             }
-            NodeKind::Branch => {
+            | NodeKind::Branch => {
                 let header = decoder.decode::<BranchHeader>();
                 BranchHeader::SERIALIZED_SIZE + header.children.flexible_data_length()
             }
-            NodeKind::BranchWithValue => {
+            | NodeKind::BranchWithValue => {
                 let header = decoder.decode::<BranchWithValueHeader>();
                 BranchWithValueHeader::SERIALIZED_SIZE
                     + header.children.flexible_data_length()

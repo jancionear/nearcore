@@ -10,7 +10,10 @@ pub(super) struct InvalidInput {
 }
 
 impl InvalidInput {
-    fn new(msg: &str, bad_value: &[u8]) -> InvalidInput {
+    fn new(
+        msg: &str,
+        bad_value: &[u8],
+    ) -> InvalidInput {
         let msg = format!("{msg}: {bad_value:X?}");
         InvalidInput { msg }
     }
@@ -23,7 +26,7 @@ impl From<InvalidInput> for VMLogicError {
 }
 
 pub(super) fn split_elements<const ELEMENT_SIZE: usize>(
-    data: &[u8],
+    data: &[u8]
 ) -> Result<&[[u8; ELEMENT_SIZE]], InvalidInput> {
     stdx::as_chunks_exact(data).map_err(|e| InvalidInput { msg: e.to_string() })
 }
@@ -31,7 +34,7 @@ pub(super) fn split_elements<const ELEMENT_SIZE: usize>(
 const G1_MULTIEXP_ELEMENT_SIZE: usize = POINT_SIZE + SCALAR_SIZE;
 
 pub(super) fn g1_multiexp(
-    elements: &[[u8; G1_MULTIEXP_ELEMENT_SIZE]],
+    elements: &[[u8; G1_MULTIEXP_ELEMENT_SIZE]]
 ) -> Result<[u8; POINT_SIZE], InvalidInput> {
     let elements: Vec<(bn::G1, bn::Fr)> = elements
         .iter()
@@ -51,7 +54,7 @@ pub(super) fn g1_multiexp(
 const G1_SUM_ELEMENT_SIZE: usize = BOOL_SIZE + POINT_SIZE;
 
 pub(super) fn g1_sum(
-    elements: &[[u8; G1_SUM_ELEMENT_SIZE]],
+    elements: &[[u8; G1_SUM_ELEMENT_SIZE]]
 ) -> Result<[u8; POINT_SIZE], InvalidInput> {
     let elements: Vec<(bool, bn::G1)> = {
         elements
@@ -75,7 +78,7 @@ pub(super) fn g1_sum(
 const PAIRING_CHECK_ELEMENT_SIZE: usize = POINT_SIZE + POINT_SIZE * 2;
 
 pub(super) fn pairing_check(
-    elements: &[[u8; PAIRING_CHECK_ELEMENT_SIZE]],
+    elements: &[[u8; PAIRING_CHECK_ELEMENT_SIZE]]
 ) -> Result<bool, InvalidInput> {
     let elements: Vec<(bn::G1, bn::G2)> = elements
         .iter()
@@ -162,8 +165,8 @@ fn decode_u256(raw: &[u8; SCALAR_SIZE]) -> bn::arith::U256 {
 
 fn decode_bool(raw: &[u8; BOOL_SIZE]) -> Result<bool, InvalidInput> {
     match raw {
-        [0] => Ok(false),
-        [1] => Ok(true),
-        _ => Err(InvalidInput::new("invalid bool", raw)),
+        | [0] => Ok(false),
+        | [1] => Ok(true),
+        | _ => Err(InvalidInput::new("invalid bool", raw)),
     }
 }

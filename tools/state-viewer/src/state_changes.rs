@@ -42,12 +42,17 @@ pub(crate) enum StateChangesSubCommand {
 }
 
 impl StateChangesSubCommand {
-    pub(crate) fn run(self, home_dir: &Path, near_config: NearConfig, store: Store) {
+    pub(crate) fn run(
+        self,
+        home_dir: &Path,
+        near_config: NearConfig,
+        store: Store,
+    ) {
         match self {
-            StateChangesSubCommand::Apply { file, shard_id, state_root } => {
+            | StateChangesSubCommand::Apply { file, shard_id, state_root } => {
                 apply_state_changes(file, shard_id, state_root, home_dir, near_config, store)
             }
-            StateChangesSubCommand::Dump { height_from, height_to, file } => {
+            | StateChangesSubCommand::Dump { height_from, height_to, file } => {
                 dump_state_changes(height_from, height_to, file, home_dir, near_config, store)
             }
         }
@@ -76,9 +81,17 @@ fn dump_state_changes(
         EpochManager::new_arc_handle(store.clone(), &near_config.genesis.config, Some(home_dir));
     let chain_store = ChainStore::new(
         store.clone(),
-        near_config.genesis.config.genesis_height,
-        near_config.client_config.save_trie_changes,
-        near_config.genesis.config.transaction_validity_period,
+        near_config
+            .genesis
+            .config
+            .genesis_height,
+        near_config
+            .client_config
+            .save_trie_changes,
+        near_config
+            .genesis
+            .config
+            .transaction_validity_period,
     );
 
     let blocks = (height_from..=height_to).filter_map(|block_height| {
@@ -151,21 +164,35 @@ fn apply_state_changes(
     .expect("could not create the transaction runtime");
     let mut chain_store = ChainStore::new(
         store,
-        near_config.genesis.config.genesis_height,
-        near_config.client_config.save_trie_changes,
-        near_config.genesis.config.transaction_validity_period,
+        near_config
+            .genesis
+            .config
+            .genesis_height,
+        near_config
+            .client_config
+            .save_trie_changes,
+        near_config
+            .genesis
+            .config
+            .transaction_validity_period,
     );
 
     let data = std::fs::read(&file).unwrap();
     let state_changes_for_block_range = StateChangesForBlockRange::try_from_slice(&data).unwrap();
 
     for StateChangesForBlock { block_hash, state_changes } in state_changes_for_block_range.blocks {
-        let block_header = chain_store.get_block_header(&block_hash).unwrap();
+        let block_header = chain_store
+            .get_block_header(&block_hash)
+            .unwrap();
         let block_hash = block_header.hash();
         let block_height = block_header.height();
         let epoch_id = block_header.epoch_id();
-        let shard_uid = epoch_manager.shard_id_to_uid(shard_id, epoch_id).unwrap();
-        let shard_index = epoch_manager.shard_id_to_index(shard_id, epoch_id).unwrap();
+        let shard_uid = epoch_manager
+            .shard_id_to_uid(shard_id, epoch_id)
+            .unwrap();
+        let shard_index = epoch_manager
+            .shard_id_to_index(shard_id, epoch_id)
+            .unwrap();
 
         for StateChangesForShard { shard_id: state_change_shard_id, state_changes } in state_changes
         {
@@ -180,7 +207,9 @@ fn apply_state_changes(
             }
 
             tracing::info!(target: "state-changes", block_height, ?block_hash, ?shard_uid, ?state_root, num_changes = state_changes.len(), "Applying state changes");
-            let trie = runtime.get_trie_for_shard(shard_id, block_hash, state_root, false).unwrap();
+            let trie = runtime
+                .get_trie_for_shard(shard_id, block_hash, state_root, false)
+                .unwrap();
 
             let trie_update = trie
                 .update(state_changes.iter().map(|raw_state_changes_with_trie_key| {

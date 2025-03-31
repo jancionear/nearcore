@@ -60,7 +60,9 @@ impl RuntimeConfig {
 
         let mut wasm_config = crate::vm::Config::clone(&runtime_config.wasm_config);
         // Lower the yield timeout length so that we can observe timeouts in integration tests.
-        wasm_config.limit_config.yield_timeout_length_in_blocks = TEST_CONFIG_YIELD_TIMEOUT_LENGTH;
+        wasm_config
+            .limit_config
+            .yield_timeout_length_in_blocks = TEST_CONFIG_YIELD_TIMEOUT_LENGTH;
 
         RuntimeConfig {
             fees: Arc::new(RuntimeFeesConfig::test()),
@@ -92,7 +94,9 @@ impl RuntimeConfig {
     }
 
     pub fn storage_amount_per_byte(&self) -> Balance {
-        self.fees.storage_usage_config.storage_amount_per_byte
+        self.fees
+            .storage_usage_config
+            .storage_amount_per_byte
     }
 }
 

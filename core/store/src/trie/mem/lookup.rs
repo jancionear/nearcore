@@ -1,6 +1,6 @@
 use super::arena::ArenaMemory;
 use super::flexible_data::value::ValueView;
-use super::metrics::MEMTRIE_NUM_LOOKUPS;
+use super::metrics::MEM_TRIE_NUM_LOOKUPS;
 use super::node::{MemTrieNodePtr, MemTrieNodeView};
 use crate::NibbleSlice;
 use near_primitives::hash::CryptoHash;
@@ -15,7 +15,7 @@ pub fn memtrie_lookup<'a, M: ArenaMemory>(
     key: &[u8],
     mut nodes_accessed: Option<&mut Vec<(CryptoHash, Arc<[u8]>)>>,
 ) -> Option<ValueView<'a>> {
-    MEMTRIE_NUM_LOOKUPS.inc();
+    MEM_TRIE_NUM_LOOKUPS.inc();
     let mut nibbles = NibbleSlice::new(key);
     let mut node = root;
 
@@ -26,14 +26,14 @@ pub fn memtrie_lookup<'a, M: ArenaMemory>(
             nodes_accessed.push((view.node_hash(), raw_node_serialized.into()));
         }
         match view {
-            MemTrieNodeView::Leaf { extension, value } => {
+            | MemTrieNodeView::Leaf { extension, value } => {
                 if nibbles == NibbleSlice::from_encoded(extension).0 {
                     return Some(value);
                 } else {
                     return None;
                 }
             }
-            MemTrieNodeView::Extension { extension, child, .. } => {
+            | MemTrieNodeView::Extension { extension, child, .. } => {
                 let extension_nibbles = NibbleSlice::from_encoded(extension).0;
                 if nibbles.starts_with(&extension_nibbles) {
                     nibbles = nibbles.mid(extension_nibbles.len());
@@ -42,26 +42,26 @@ pub fn memtrie_lookup<'a, M: ArenaMemory>(
                     return None;
                 }
             }
-            MemTrieNodeView::Branch { children, .. } => {
+            | MemTrieNodeView::Branch { children, .. } => {
                 if nibbles.is_empty() {
                     return None;
                 }
                 let first = nibbles.at(0);
                 nibbles = nibbles.mid(1);
                 node = match children.get(first as usize) {
-                    Some(child) => child,
-                    None => return None,
+                    | Some(child) => child,
+                    | None => return None,
                 };
             }
-            MemTrieNodeView::BranchWithValue { children, value, .. } => {
+            | MemTrieNodeView::BranchWithValue { children, value, .. } => {
                 if nibbles.is_empty() {
                     return Some(value);
                 }
                 let first = nibbles.at(0);
                 nibbles = nibbles.mid(1);
                 node = match children.get(first as usize) {
-                    Some(child) => child,
-                    None => return None,
+                    | Some(child) => child,
+                    | None => return None,
                 };
             }
         }

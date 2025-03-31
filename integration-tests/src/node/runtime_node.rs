@@ -20,7 +20,14 @@ pub struct RuntimeNode {
 
 impl RuntimeNode {
     pub fn new(account_id: &AccountId) -> Self {
-        let mut genesis = Genesis::test(vec![alice_account(), bob_account(), carol_account()], 3);
+        let mut genesis = Genesis::test(
+            vec![
+                alice_account(),
+                bob_account(),
+                carol_account(),
+            ],
+            3,
+        );
         add_test_contract(&mut genesis, &alice_account());
         add_test_contract(&mut genesis, &bob_account());
         add_test_contract(&mut genesis, &carol_account());
@@ -44,7 +51,10 @@ impl RuntimeNode {
         RuntimeNode { signer, client, genesis, account_id: account_id.clone() }
     }
 
-    pub fn new_from_genesis(account_id: &AccountId, genesis: Genesis) -> Self {
+    pub fn new_from_genesis(
+        account_id: &AccountId,
+        genesis: Genesis,
+    ) -> Self {
         let store = RuntimeConfigStore::new(None);
         let config = RuntimeConfig::clone(store.get_config(genesis.config.protocol_version));
         Self::new_from_genesis_and_config(account_id, genesis, config)
@@ -55,7 +65,14 @@ impl RuntimeNode {
         account_id: &AccountId,
         modify_config: impl FnOnce(&mut RuntimeConfig),
     ) -> Self {
-        let mut genesis = Genesis::test(vec![alice_account(), bob_account(), carol_account()], 3);
+        let mut genesis = Genesis::test(
+            vec![
+                alice_account(),
+                bob_account(),
+                carol_account(),
+            ],
+            3,
+        );
         add_test_contract(&mut genesis, &alice_account());
         add_test_contract(&mut genesis, &bob_account());
         add_test_contract(&mut genesis, &carol_account());
@@ -68,8 +85,14 @@ impl RuntimeNode {
     }
 
     pub fn free(account_id: &AccountId) -> Self {
-        let mut genesis =
-            Genesis::test(vec![alice_account(), bob_account(), "carol.near".parse().unwrap()], 3);
+        let mut genesis = Genesis::test(
+            vec![
+                alice_account(),
+                bob_account(),
+                "carol.near".parse().unwrap(),
+            ],
+            3,
+        );
         add_test_contract(&mut genesis, &bob_account());
         Self::new_from_genesis_and_config(account_id, genesis, RuntimeConfig::free())
     }
@@ -122,8 +145,16 @@ mod tests {
         let node = RuntimeNode::new(&alice);
         let node_user = node.user();
         let (alice1, bob1) = (node.view_balance(&alice).unwrap(), node.view_balance(&bob).unwrap());
-        node_user.send_money(alice.clone(), bob.clone(), 1).unwrap();
-        let runtime_config = node.client.as_ref().read().unwrap().runtime_config.clone();
+        node_user
+            .send_money(alice.clone(), bob.clone(), 1)
+            .unwrap();
+        let runtime_config = node
+            .client
+            .as_ref()
+            .read()
+            .unwrap()
+            .runtime_config
+            .clone();
         let fee_helper = FeeHelper::new(runtime_config, node.genesis().config.min_gas_price);
         let transfer_cost = fee_helper.transfer_cost();
         let (alice2, bob2) = (node.view_balance(&alice).unwrap(), node.view_balance(&bob).unwrap());

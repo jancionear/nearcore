@@ -29,7 +29,10 @@ pub enum NodeType {
     NonValidator,
 }
 
-pub fn start_all(clock: Clock, node_type: NodeType) -> (Addr<ViewClientActor>, tcp::ListenerAddr) {
+pub fn start_all(
+    clock: Clock,
+    node_type: NodeType,
+) -> (Addr<ViewClientActor>, tcp::ListenerAddr) {
     start_all_with_validity_period(clock, node_type, 100, false)
 }
 
@@ -56,8 +59,16 @@ pub fn start_all_with_validity_period(
     start_http(
         RpcConfig::new(addr),
         TEST_GENESIS_CONFIG.clone(),
-        actor_handles.client_actor.clone().with_auto_span_context().into_multi_sender(),
-        actor_handles.view_client_actor.clone().with_auto_span_context().into_multi_sender(),
+        actor_handles
+            .client_actor
+            .clone()
+            .with_auto_span_context()
+            .into_multi_sender(),
+        actor_handles
+            .view_client_actor
+            .clone()
+            .with_auto_span_context()
+            .into_multi_sender(),
         noop().into_multi_sender(),
         #[cfg(feature = "test_features")]
         noop().into_multi_sender(),
@@ -116,13 +127,13 @@ where
         })
         .and_then(|mut response| {
             response.body().map(|body| match body {
-                Ok(bytes) => from_slice(&bytes).map_err(|err| {
+                | Ok(bytes) => from_slice(&bytes).map_err(|err| {
                     near_jsonrpc_primitives::errors::RpcError::parse_error(format!(
                         "Error {:?} in {:?}",
                         err, bytes
                     ))
                 }),
-                Err(err) => Err(near_jsonrpc_primitives::errors::RpcError::parse_error(format!(
+                | Err(err) => Err(near_jsonrpc_primitives::errors::RpcError::parse_error(format!(
                     "Failed to retrieve payload: {:?}",
                     err
                 ))),
@@ -130,7 +141,7 @@ where
         })
         .and_then(|message| {
             future::ready(match message {
-                Message::Response(resp) => resp.result.and_then(|x| {
+                | Message::Response(resp) => resp.result.and_then(|x| {
                     serde_json::from_value(x).map_err(|err| {
                         near_jsonrpc_primitives::errors::RpcError::parse_error(format!(
                             "Failed to parse: {:?}",
@@ -138,7 +149,7 @@ where
                         ))
                     })
                 }),
-                _ => Err(near_jsonrpc_primitives::errors::RpcError::parse_error(
+                | _ => Err(near_jsonrpc_primitives::errors::RpcError::parse_error(
                     "Failed to parse JSON RPC response".to_string(),
                 )),
             })

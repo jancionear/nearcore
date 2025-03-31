@@ -5,10 +5,7 @@
 //! from the source structure in the relevant `From<SourceStruct>` impl.
 use crate::account::{AccessKey, AccessKeyPermission, Account, FunctionCallPermission};
 use crate::action::delegate::{DelegateAction, SignedDelegateAction};
-use crate::action::{
-    DeployGlobalContractAction, GlobalContractDeployMode, GlobalContractIdentifier,
-    UseGlobalContractAction,
-};
+use crate::action::{DeployGlobalContractAction, GlobalContractDeployMode};
 use crate::bandwidth_scheduler::BandwidthRequests;
 use crate::block::{Block, BlockHeader, Tip};
 use crate::block_header::BlockHeaderInnerLite;
@@ -152,12 +149,14 @@ pub enum AccessKeyPermissionView {
 impl From<AccessKeyPermission> for AccessKeyPermissionView {
     fn from(permission: AccessKeyPermission) -> Self {
         match permission {
-            AccessKeyPermission::FunctionCall(func_call) => AccessKeyPermissionView::FunctionCall {
-                allowance: func_call.allowance,
-                receiver_id: func_call.receiver_id,
-                method_names: func_call.method_names,
-            },
-            AccessKeyPermission::FullAccess => AccessKeyPermissionView::FullAccess,
+            | AccessKeyPermission::FunctionCall(func_call) => {
+                AccessKeyPermissionView::FunctionCall {
+                    allowance: func_call.allowance,
+                    receiver_id: func_call.receiver_id,
+                    method_names: func_call.method_names,
+                }
+            }
+            | AccessKeyPermission::FullAccess => AccessKeyPermissionView::FullAccess,
         }
     }
 }
@@ -165,14 +164,14 @@ impl From<AccessKeyPermission> for AccessKeyPermissionView {
 impl From<AccessKeyPermissionView> for AccessKeyPermission {
     fn from(view: AccessKeyPermissionView) -> Self {
         match view {
-            AccessKeyPermissionView::FunctionCall { allowance, receiver_id, method_names } => {
+            | AccessKeyPermissionView::FunctionCall { allowance, receiver_id, method_names } => {
                 AccessKeyPermission::FunctionCall(FunctionCallPermission {
                     allowance,
                     receiver_id,
                     method_names,
                 })
             }
-            AccessKeyPermissionView::FullAccess => AccessKeyPermission::FullAccess,
+            | AccessKeyPermissionView::FullAccess => AccessKeyPermission::FullAccess,
         }
     }
 }
@@ -542,7 +541,10 @@ pub struct BlockStatusView {
 }
 
 impl BlockStatusView {
-    pub fn new(height: &BlockHeight, hash: &CryptoHash) -> BlockStatusView {
+    pub fn new(
+        height: &BlockHeight,
+        hash: &CryptoHash,
+    ) -> BlockStatusView {
         Self { height: *height, hash: *hash }
     }
 }
@@ -560,7 +562,10 @@ pub struct PartElapsedTimeView {
 }
 
 impl PartElapsedTimeView {
-    pub fn new(part_id: &u64, elapsed_ms: u128) -> PartElapsedTimeView {
+    pub fn new(
+        part_id: &u64,
+        elapsed_ms: u128,
+    ) -> PartElapsedTimeView {
         Self { part_id: *part_id, elapsed_ms }
     }
 }
@@ -807,7 +812,10 @@ impl From<BlockHeader> for BlockHeaderView {
             timestamp: header.raw_timestamp(),
             timestamp_nanosec: header.raw_timestamp(),
             random_value: *header.random_value(),
-            validator_proposals: header.prev_validator_proposals().map(Into::into).collect(),
+            validator_proposals: header
+                .prev_validator_proposals()
+                .map(Into::into)
+                .collect(),
             chunk_mask: header.chunk_mask().to_vec(),
             block_ordinal: if header.block_ordinal() != 0 {
                 Some(header.block_ordinal())
@@ -827,7 +835,9 @@ impl From<BlockHeader> for BlockHeaderView {
             approvals: header.approvals().to_vec(),
             signature: header.signature().clone(),
             latest_protocol_version: header.latest_protocol_version(),
-            chunk_endorsements: header.chunk_endorsements().map(|bitmap| bitmap.bytes()),
+            chunk_endorsements: header
+                .chunk_endorsements()
+                .map(|bitmap| bitmap.bytes()),
         }
     }
 }
@@ -848,7 +858,10 @@ impl From<BlockHeaderView> for BlockHeader {
             view.timestamp,
             view.challenges_root,
             view.random_value,
-            view.validator_proposals.into_iter().map(|v| v.into_validator_stake()).collect(),
+            view.validator_proposals
+                .into_iter()
+                .map(|v| v.into_validator_stake())
+                .collect(),
             view.chunk_mask,
             view.block_ordinal.unwrap_or(0),
             EpochId(view.epoch_id),
@@ -864,7 +877,8 @@ impl From<BlockHeaderView> for BlockHeader {
             view.next_bp_hash,
             view.block_merkle_root,
             view.prev_height.unwrap_or_default(),
-            view.chunk_endorsements.map(|bytes| ChunkEndorsementsBitmap::from_bytes(bytes)),
+            view.chunk_endorsements
+                .map(|bytes| ChunkEndorsementsBitmap::from_bytes(bytes)),
         )
     }
 }
@@ -954,6 +968,15 @@ pub struct ChunkHeaderView {
     pub signature: Signature,
 }
 
+impl ChunkHeaderView {
+    pub fn is_new_chunk(
+        &self,
+        block_height: BlockHeight,
+    ) -> bool {
+        self.height_included == block_height
+    }
+}
+
 impl From<ShardChunkHeader> for ChunkHeaderView {
     fn from(chunk: ShardChunkHeader) -> Self {
         let hash = chunk.chunk_hash();
@@ -977,7 +1000,10 @@ impl From<ShardChunkHeader> for ChunkHeaderView {
             balance_burnt: inner.prev_balance_burnt(),
             outgoing_receipts_root: *inner.prev_outgoing_receipts_root(),
             tx_root: *inner.tx_root(),
-            validator_proposals: inner.prev_validator_proposals().map(Into::into).collect(),
+            validator_proposals: inner
+                .prev_validator_proposals()
+                .map(Into::into)
+                .collect(),
             congestion_info: inner.congestion_info().map(Into::into),
             bandwidth_requests: inner.bandwidth_requests().cloned(),
             signature,
@@ -988,7 +1014,7 @@ impl From<ShardChunkHeader> for ChunkHeaderView {
 impl From<ChunkHeaderView> for ShardChunkHeader {
     fn from(view: ChunkHeaderView) -> Self {
         match (view.bandwidth_requests, view.congestion_info) {
-            (Some(bandwidth_requests), Some(congestion_info)) => {
+            | (Some(bandwidth_requests), Some(congestion_info)) => {
                 let mut header = ShardChunkHeaderV3 {
                     inner: ShardChunkHeaderInner::V4(ShardChunkHeaderInnerV4 {
                         prev_block_hash: view.prev_block_hash,
@@ -1018,7 +1044,7 @@ impl From<ChunkHeaderView> for ShardChunkHeader {
                 header.init();
                 ShardChunkHeader::V3(header)
             }
-            (None, Some(congestion_info)) => {
+            | (None, Some(congestion_info)) => {
                 let mut header = ShardChunkHeaderV3 {
                     inner: ShardChunkHeaderInner::V3(ShardChunkHeaderInnerV3 {
                         prev_block_hash: view.prev_block_hash,
@@ -1047,7 +1073,7 @@ impl From<ChunkHeaderView> for ShardChunkHeader {
                 header.init();
                 ShardChunkHeader::V3(header)
             }
-            _ => {
+            | _ => {
                 let mut header = ShardChunkHeaderV3 {
                     inner: ShardChunkHeaderInner::V2(ShardChunkHeaderInnerV2 {
                         prev_block_hash: view.prev_block_hash,
@@ -1087,11 +1113,19 @@ pub struct BlockView {
 }
 
 impl BlockView {
-    pub fn from_author_block(author: AccountId, block: Block) -> Self {
+    pub fn from_author_block(
+        author: AccountId,
+        block: Block,
+    ) -> Self {
         BlockView {
             author,
             header: block.header().clone().into(),
-            chunks: block.chunks().iter_deprecated().cloned().map(Into::into).collect(),
+            chunks: block
+                .chunks()
+                .iter_deprecated()
+                .cloned()
+                .map(Into::into)
+                .collect(),
         }
     }
 }
@@ -1105,19 +1139,38 @@ pub struct ChunkView {
 }
 
 impl ChunkView {
-    pub fn from_author_chunk(author: AccountId, chunk: ShardChunk) -> Self {
+    pub fn from_author_chunk(
+        author: AccountId,
+        chunk: ShardChunk,
+    ) -> Self {
         match chunk {
-            ShardChunk::V1(chunk) => Self {
+            | ShardChunk::V1(chunk) => Self {
                 author,
                 header: ShardChunkHeader::V1(chunk.header).into(),
-                transactions: chunk.transactions.into_iter().map(Into::into).collect(),
-                receipts: chunk.prev_outgoing_receipts.into_iter().map(Into::into).collect(),
+                transactions: chunk
+                    .transactions
+                    .into_iter()
+                    .map(Into::into)
+                    .collect(),
+                receipts: chunk
+                    .prev_outgoing_receipts
+                    .into_iter()
+                    .map(Into::into)
+                    .collect(),
             },
-            ShardChunk::V2(chunk) => Self {
+            | ShardChunk::V2(chunk) => Self {
                 author,
                 header: chunk.header.into(),
-                transactions: chunk.transactions.into_iter().map(Into::into).collect(),
-                receipts: chunk.prev_outgoing_receipts.into_iter().map(Into::into).collect(),
+                transactions: chunk
+                    .transactions
+                    .into_iter()
+                    .map(Into::into)
+                    .collect(),
+                receipts: chunk
+                    .prev_outgoing_receipts
+                    .into_iter()
+                    .map(Into::into)
+                    .collect(),
             },
         }
     }
@@ -1183,65 +1236,53 @@ pub enum ActionView {
         #[serde_as(as = "Base64")]
         code: Vec<u8>,
     },
-    UseGlobalContract {
-        code_hash: CryptoHash,
-    },
-    UseGlobalContractByAccountId {
-        account_id: AccountId,
-    },
 }
 
 impl From<Action> for ActionView {
     fn from(action: Action) -> Self {
         match action {
-            Action::CreateAccount(_) => ActionView::CreateAccount,
-            Action::DeployContract(action) => {
+            | Action::CreateAccount(_) => ActionView::CreateAccount,
+            | Action::DeployContract(action) => {
                 let code = hash(&action.code).as_ref().to_vec();
                 ActionView::DeployContract { code }
             }
-            Action::FunctionCall(action) => ActionView::FunctionCall {
+            | Action::FunctionCall(action) => ActionView::FunctionCall {
                 method_name: action.method_name,
                 args: action.args.into(),
                 gas: action.gas,
                 deposit: action.deposit,
             },
-            Action::Transfer(action) => ActionView::Transfer { deposit: action.deposit },
+            | Action::Transfer(action) => ActionView::Transfer { deposit: action.deposit },
             #[cfg(feature = "protocol_feature_nonrefundable_transfer_nep491")]
-            Action::NonrefundableStorageTransfer(action) => {
+            | Action::NonrefundableStorageTransfer(action) => {
                 ActionView::NonrefundableStorageTransfer { deposit: action.deposit }
             }
-            Action::Stake(action) => {
+            | Action::Stake(action) => {
                 ActionView::Stake { stake: action.stake, public_key: action.public_key }
             }
-            Action::AddKey(action) => ActionView::AddKey {
+            | Action::AddKey(action) => ActionView::AddKey {
                 public_key: action.public_key,
                 access_key: action.access_key.into(),
             },
-            Action::DeleteKey(action) => ActionView::DeleteKey { public_key: action.public_key },
-            Action::DeleteAccount(action) => {
+            | Action::DeleteKey(action) => ActionView::DeleteKey { public_key: action.public_key },
+            | Action::DeleteAccount(action) => {
                 ActionView::DeleteAccount { beneficiary_id: action.beneficiary_id }
             }
-            Action::Delegate(action) => ActionView::Delegate {
+            | Action::Delegate(action) => ActionView::Delegate {
                 delegate_action: action.delegate_action,
                 signature: action.signature,
             },
-            Action::DeployGlobalContract(action) => {
+            | Action::DeployGlobalContract(action) => {
                 let code = hash(&action.code).as_ref().to_vec();
                 match action.deploy_mode {
-                    GlobalContractDeployMode::CodeHash => ActionView::DeployGlobalContract { code },
-                    GlobalContractDeployMode::AccountId => {
+                    | GlobalContractDeployMode::CodeHash => {
+                        ActionView::DeployGlobalContract { code }
+                    }
+                    | GlobalContractDeployMode::AccountId => {
                         ActionView::DeployGlobalContractByAccountId { code }
                     }
                 }
             }
-            Action::UseGlobalContract(action) => match action.contract_identifier {
-                GlobalContractIdentifier::CodeHash(code_hash) => {
-                    ActionView::UseGlobalContract { code_hash }
-                }
-                GlobalContractIdentifier::AccountId(account_id) => {
-                    ActionView::UseGlobalContractByAccountId { account_id }
-                }
-            },
         }
     }
 }
@@ -1251,11 +1292,11 @@ impl TryFrom<ActionView> for Action {
 
     fn try_from(action_view: ActionView) -> Result<Self, Self::Error> {
         Ok(match action_view {
-            ActionView::CreateAccount => Action::CreateAccount(CreateAccountAction {}),
-            ActionView::DeployContract { code } => {
+            | ActionView::CreateAccount => Action::CreateAccount(CreateAccountAction {}),
+            | ActionView::DeployContract { code } => {
                 Action::DeployContract(DeployContractAction { code })
             }
-            ActionView::FunctionCall { method_name, args, gas, deposit } => {
+            | ActionView::FunctionCall { method_name, args, gas, deposit } => {
                 Action::FunctionCall(Box::new(FunctionCallAction {
                     method_name,
                     args: args.into(),
@@ -1263,47 +1304,37 @@ impl TryFrom<ActionView> for Action {
                     deposit,
                 }))
             }
-            ActionView::Transfer { deposit } => Action::Transfer(TransferAction { deposit }),
+            | ActionView::Transfer { deposit } => Action::Transfer(TransferAction { deposit }),
             #[cfg(feature = "protocol_feature_nonrefundable_transfer_nep491")]
-            ActionView::NonrefundableStorageTransfer { deposit } => {
+            | ActionView::NonrefundableStorageTransfer { deposit } => {
                 Action::NonrefundableStorageTransfer(NonrefundableStorageTransferAction { deposit })
             }
-            ActionView::Stake { stake, public_key } => {
+            | ActionView::Stake { stake, public_key } => {
                 Action::Stake(Box::new(StakeAction { stake, public_key }))
             }
-            ActionView::AddKey { public_key, access_key } => {
+            | ActionView::AddKey { public_key, access_key } => {
                 Action::AddKey(Box::new(AddKeyAction { public_key, access_key: access_key.into() }))
             }
-            ActionView::DeleteKey { public_key } => {
+            | ActionView::DeleteKey { public_key } => {
                 Action::DeleteKey(Box::new(DeleteKeyAction { public_key }))
             }
-            ActionView::DeleteAccount { beneficiary_id } => {
+            | ActionView::DeleteAccount { beneficiary_id } => {
                 Action::DeleteAccount(DeleteAccountAction { beneficiary_id })
             }
-            ActionView::Delegate { delegate_action, signature } => {
+            | ActionView::Delegate { delegate_action, signature } => {
                 Action::Delegate(Box::new(SignedDelegateAction { delegate_action, signature }))
             }
-            ActionView::DeployGlobalContract { code } => {
+            | ActionView::DeployGlobalContract { code } => {
                 Action::DeployGlobalContract(DeployGlobalContractAction {
                     code,
                     deploy_mode: GlobalContractDeployMode::CodeHash,
                 })
             }
-            ActionView::DeployGlobalContractByAccountId { code } => {
+            | ActionView::DeployGlobalContractByAccountId { code } => {
                 Action::DeployGlobalContract(DeployGlobalContractAction {
                     code,
                     deploy_mode: GlobalContractDeployMode::AccountId,
                 })
-            }
-            ActionView::UseGlobalContract { code_hash } => {
-                Action::UseGlobalContract(Box::new(UseGlobalContractAction {
-                    contract_identifier: GlobalContractIdentifier::CodeHash(code_hash),
-                }))
-            }
-            ActionView::UseGlobalContractByAccountId { account_id } => {
-                Action::UseGlobalContract(Box::new(UseGlobalContractAction {
-                    contract_identifier: GlobalContractIdentifier::AccountId(account_id),
-                }))
             }
         })
     }
@@ -1338,13 +1369,19 @@ impl From<SignedTransaction> for SignedTransactionView {
     fn from(signed_tx: SignedTransaction) -> Self {
         let hash = signed_tx.get_hash();
         let transaction = signed_tx.transaction;
-        let priority_fee = transaction.priority_fee().unwrap_or_default();
+        let priority_fee = transaction
+            .priority_fee()
+            .unwrap_or_default();
         SignedTransactionView {
             signer_id: transaction.signer_id().clone(),
             public_key: transaction.public_key().clone(),
             nonce: transaction.nonce(),
             receiver_id: transaction.receiver_id().clone(),
-            actions: transaction.take_actions().into_iter().map(|action| action.into()).collect(),
+            actions: transaction
+                .take_actions()
+                .into_iter()
+                .map(|action| action.into())
+                .collect(),
             signature: signed_tx.signature,
             hash,
             priority_fee,
@@ -1376,12 +1413,15 @@ pub enum FinalExecutionStatus {
 }
 
 impl fmt::Debug for FinalExecutionStatus {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
         match self {
-            FinalExecutionStatus::NotStarted => f.write_str("NotStarted"),
-            FinalExecutionStatus::Started => f.write_str("Started"),
-            FinalExecutionStatus::Failure(e) => f.write_fmt(format_args!("Failure({:?})", e)),
-            FinalExecutionStatus::SuccessValue(v) => {
+            | FinalExecutionStatus::NotStarted => f.write_str("NotStarted"),
+            | FinalExecutionStatus::Started => f.write_str("Started"),
+            | FinalExecutionStatus::Failure(e) => f.write_fmt(format_args!("Failure({:?})", e)),
+            | FinalExecutionStatus::SuccessValue(v) => {
                 f.write_fmt(format_args!("SuccessValue({})", AbbrBytes(v)))
             }
         }
@@ -1421,14 +1461,17 @@ pub enum ExecutionStatusView {
 }
 
 impl fmt::Debug for ExecutionStatusView {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
         match self {
-            ExecutionStatusView::Unknown => f.write_str("Unknown"),
-            ExecutionStatusView::Failure(e) => f.write_fmt(format_args!("Failure({:?})", e)),
-            ExecutionStatusView::SuccessValue(v) => {
+            | ExecutionStatusView::Unknown => f.write_str("Unknown"),
+            | ExecutionStatusView::Failure(e) => f.write_fmt(format_args!("Failure({:?})", e)),
+            | ExecutionStatusView::SuccessValue(v) => {
                 f.write_fmt(format_args!("SuccessValue({})", AbbrBytes(v)))
             }
-            ExecutionStatusView::SuccessReceiptId(receipt_id) => {
+            | ExecutionStatusView::SuccessReceiptId(receipt_id) => {
                 f.write_fmt(format_args!("SuccessReceiptId({})", receipt_id))
             }
         }
@@ -1438,10 +1481,10 @@ impl fmt::Debug for ExecutionStatusView {
 impl From<ExecutionStatus> for ExecutionStatusView {
     fn from(outcome: ExecutionStatus) -> Self {
         match outcome {
-            ExecutionStatus::Unknown => ExecutionStatusView::Unknown,
-            ExecutionStatus::Failure(e) => ExecutionStatusView::Failure(e),
-            ExecutionStatus::SuccessValue(v) => ExecutionStatusView::SuccessValue(v),
-            ExecutionStatus::SuccessReceiptId(receipt_id) => {
+            | ExecutionStatus::Unknown => ExecutionStatusView::Unknown,
+            | ExecutionStatus::Failure(e) => ExecutionStatusView::Failure(e),
+            | ExecutionStatus::SuccessValue(v) => ExecutionStatusView::SuccessValue(v),
+            | ExecutionStatus::SuccessReceiptId(receipt_id) => {
                 ExecutionStatusView::SuccessReceiptId(receipt_id)
             }
         }
@@ -1489,13 +1532,13 @@ impl Default for ExecutionMetadataView {
 impl From<ExecutionMetadata> for ExecutionMetadataView {
     fn from(metadata: ExecutionMetadata) -> Self {
         let version = match metadata {
-            ExecutionMetadata::V1 => 1,
-            ExecutionMetadata::V2(_) => 2,
-            ExecutionMetadata::V3(_) => 3,
+            | ExecutionMetadata::V1 => 1,
+            | ExecutionMetadata::V2(_) => 2,
+            | ExecutionMetadata::V3(_) => 3,
         };
         let mut gas_profile = match metadata {
-            ExecutionMetadata::V1 => None,
-            ExecutionMetadata::V2(profile_data) => {
+            | ExecutionMetadata::V1 => None,
+            | ExecutionMetadata::V2(profile_data) => {
                 // Add actions, wasm op, and ext costs in groups.
 
                 // actions should use the old format, since `ActionCosts`
@@ -1524,7 +1567,7 @@ impl From<ExecutionMetadata> for ExecutionMetadataView {
 
                 Some(costs)
             }
-            ExecutionMetadata::V3(profile) => {
+            | ExecutionMetadata::V3(profile) => {
                 // Add actions, wasm op, and ext costs in groups.
                 // actions costs are 1-to-1
                 let mut costs: Vec<CostGasUsed> = ActionCosts::iter()
@@ -1570,7 +1613,9 @@ impl From<ExecutionMetadata> for ExecutionMetadataView {
             // Can't `sort_by_key` here because lifetime inference in
             // closures is limited.
             costs.sort_by(|lhs, rhs| {
-                lhs.cost_category.cmp(&rhs.cost_category).then_with(|| lhs.cost.cmp(&rhs.cost))
+                lhs.cost_category
+                    .cmp(&rhs.cost_category)
+                    .then_with(|| lhs.cost.cmp(&rhs.cost))
             });
         }
         ExecutionMetadataView { version, gas_profile }
@@ -1578,11 +1623,17 @@ impl From<ExecutionMetadata> for ExecutionMetadataView {
 }
 
 impl CostGasUsed {
-    pub fn action(cost: String, gas_used: Gas) -> Self {
+    pub fn action(
+        cost: String,
+        gas_used: Gas,
+    ) -> Self {
         Self { cost_category: "ACTION_COST".to_string(), cost, gas_used }
     }
 
-    pub fn wasm_host(cost: String, gas_used: Gas) -> Self {
+    pub fn wasm_host(
+        cost: String,
+        gas_used: Gas,
+    ) -> Self {
         Self { cost_category: "WASM_HOST_COST".to_string(), cost, gas_used }
     }
 }
@@ -1647,10 +1698,12 @@ impl From<&ExecutionOutcomeView> for PartialExecutionOutcome {
 impl From<ExecutionStatusView> for PartialExecutionStatus {
     fn from(status: ExecutionStatusView) -> PartialExecutionStatus {
         match status {
-            ExecutionStatusView::Unknown => PartialExecutionStatus::Unknown,
-            ExecutionStatusView::Failure(_) => PartialExecutionStatus::Failure,
-            ExecutionStatusView::SuccessValue(value) => PartialExecutionStatus::SuccessValue(value),
-            ExecutionStatusView::SuccessReceiptId(id) => {
+            | ExecutionStatusView::Unknown => PartialExecutionStatus::Unknown,
+            | ExecutionStatusView::Failure(_) => PartialExecutionStatus::Failure,
+            | ExecutionStatusView::SuccessValue(value) => {
+                PartialExecutionStatus::SuccessValue(value)
+            }
+            | ExecutionStatusView::SuccessReceiptId(id) => {
                 PartialExecutionStatus::SuccessReceiptId(id)
             }
         }
@@ -1659,11 +1712,18 @@ impl From<ExecutionStatusView> for PartialExecutionStatus {
 
 impl ExecutionOutcomeView {
     // Same behavior as ExecutionOutcomeWithId's to_hashes.
-    pub fn to_hashes(&self, id: CryptoHash) -> Vec<CryptoHash> {
+    pub fn to_hashes(
+        &self,
+        id: CryptoHash,
+    ) -> Vec<CryptoHash> {
         let mut result = Vec::with_capacity(self.logs.len().saturating_add(2));
         result.push(id);
         result.push(CryptoHash::hash_borsh(&PartialExecutionOutcome::from(self)));
-        result.extend(self.logs.iter().map(|log| hash(log.as_bytes())));
+        result.extend(
+            self.logs
+                .iter()
+                .map(|log| hash(log.as_bytes())),
+        );
         result
     }
 }
@@ -1691,8 +1751,13 @@ impl From<ExecutionOutcomeWithIdAndProof> for ExecutionOutcomeWithIdView {
         Self {
             proof: outcome_with_id_and_proof.proof,
             block_hash: outcome_with_id_and_proof.block_hash,
-            id: outcome_with_id_and_proof.outcome_with_id.id,
-            outcome: outcome_with_id_and_proof.outcome_with_id.outcome.into(),
+            id: outcome_with_id_and_proof
+                .outcome_with_id
+                .id,
+            outcome: outcome_with_id_and_proof
+                .outcome_with_id
+                .outcome
+                .into(),
         }
     }
 }
@@ -1753,20 +1818,21 @@ pub enum FinalExecutionOutcomeViewEnum {
 impl FinalExecutionOutcomeViewEnum {
     pub fn into_outcome(self) -> FinalExecutionOutcomeView {
         match self {
-            Self::FinalExecutionOutcome(outcome) => outcome,
-            Self::FinalExecutionOutcomeWithReceipt(outcome) => outcome.final_outcome,
+            | Self::FinalExecutionOutcome(outcome) => outcome,
+            | Self::FinalExecutionOutcomeWithReceipt(outcome) => outcome.final_outcome,
         }
     }
 }
 
 impl TxStatusView {
     pub fn into_outcome(self) -> Option<FinalExecutionOutcomeView> {
-        self.execution_outcome.map(|outcome| match outcome {
-            FinalExecutionOutcomeViewEnum::FinalExecutionOutcome(outcome) => outcome,
-            FinalExecutionOutcomeViewEnum::FinalExecutionOutcomeWithReceipt(outcome) => {
-                outcome.final_outcome
-            }
-        })
+        self.execution_outcome
+            .map(|outcome| match outcome {
+                | FinalExecutionOutcomeViewEnum::FinalExecutionOutcome(outcome) => outcome,
+                | FinalExecutionOutcomeViewEnum::FinalExecutionOutcomeWithReceipt(outcome) => {
+                    outcome.final_outcome
+                }
+            })
     }
 }
 
@@ -1791,7 +1857,10 @@ pub struct FinalExecutionOutcomeView {
 }
 
 impl fmt::Debug for FinalExecutionOutcomeView {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
         f.debug_struct("FinalExecutionOutcome")
             .field("status", &self.status)
             .field("transaction", &self.transaction)
@@ -1844,14 +1913,14 @@ pub mod validator_stake_view {
         #[inline]
         pub fn take_account_id(self) -> AccountId {
             match self {
-                Self::V1(v1) => v1.account_id,
+                | Self::V1(v1) => v1.account_id,
             }
         }
 
         #[inline]
         pub fn account_id(&self) -> &AccountId {
             match self {
-                Self::V1(v1) => &v1.account_id,
+                | Self::V1(v1) => &v1.account_id,
             }
         }
     }
@@ -1859,7 +1928,7 @@ pub mod validator_stake_view {
     impl From<ValidatorStake> for ValidatorStakeView {
         fn from(stake: ValidatorStake) -> Self {
             match stake {
-                ValidatorStake::V1(v1) => Self::V1(ValidatorStakeViewV1 {
+                | ValidatorStake::V1(v1) => Self::V1(ValidatorStakeViewV1 {
                     account_id: v1.account_id,
                     public_key: v1.public_key,
                     stake: v1.stake,
@@ -1871,7 +1940,9 @@ pub mod validator_stake_view {
     impl From<ValidatorStakeView> for ValidatorStake {
         fn from(view: ValidatorStakeView) -> Self {
             match view {
-                ValidatorStakeView::V1(v1) => Self::new_v1(v1.account_id, v1.public_key, v1.stake),
+                | ValidatorStakeView::V1(v1) => {
+                    Self::new_v1(v1.account_id, v1.public_key, v1.stake)
+                }
             }
         }
     }
@@ -1982,29 +2053,32 @@ impl From<Receipt> for ReceiptView {
             receiver_id: receipt.receiver_id().clone(),
             receipt_id: *receipt.receipt_id(),
             receipt: match receipt.take_receipt() {
-                ReceiptEnum::Action(action_receipt) | ReceiptEnum::PromiseYield(action_receipt) => {
-                    ReceiptEnumView::Action {
-                        signer_id: action_receipt.signer_id,
-                        signer_public_key: action_receipt.signer_public_key,
-                        gas_price: action_receipt.gas_price,
-                        output_data_receivers: action_receipt
-                            .output_data_receivers
-                            .into_iter()
-                            .map(|data_receiver| DataReceiverView {
-                                data_id: data_receiver.data_id,
-                                receiver_id: data_receiver.receiver_id,
-                            })
-                            .collect(),
-                        input_data_ids: action_receipt
-                            .input_data_ids
-                            .into_iter()
-                            .map(Into::into)
-                            .collect(),
-                        actions: action_receipt.actions.into_iter().map(Into::into).collect(),
-                        is_promise_yield,
-                    }
-                }
-                ReceiptEnum::Data(data_receipt) | ReceiptEnum::PromiseResume(data_receipt) => {
+                | ReceiptEnum::Action(action_receipt)
+                | ReceiptEnum::PromiseYield(action_receipt) => ReceiptEnumView::Action {
+                    signer_id: action_receipt.signer_id,
+                    signer_public_key: action_receipt.signer_public_key,
+                    gas_price: action_receipt.gas_price,
+                    output_data_receivers: action_receipt
+                        .output_data_receivers
+                        .into_iter()
+                        .map(|data_receiver| DataReceiverView {
+                            data_id: data_receiver.data_id,
+                            receiver_id: data_receiver.receiver_id,
+                        })
+                        .collect(),
+                    input_data_ids: action_receipt
+                        .input_data_ids
+                        .into_iter()
+                        .map(Into::into)
+                        .collect(),
+                    actions: action_receipt
+                        .actions
+                        .into_iter()
+                        .map(Into::into)
+                        .collect(),
+                    is_promise_yield,
+                },
+                | ReceiptEnum::Data(data_receipt) | ReceiptEnum::PromiseResume(data_receipt) => {
                     ReceiptEnumView::Data {
                         data_id: data_receipt.data_id,
                         data: data_receipt.data,
@@ -2026,7 +2100,7 @@ impl TryFrom<ReceiptView> for Receipt {
             receiver_id: receipt_view.receiver_id,
             receipt_id: receipt_view.receipt_id,
             receipt: match receipt_view.receipt {
-                ReceiptEnumView::Action {
+                | ReceiptEnumView::Action {
                     signer_id,
                     signer_public_key,
                     gas_price,
@@ -2046,7 +2120,10 @@ impl TryFrom<ReceiptView> for Receipt {
                                 receiver_id: data_receiver_view.receiver_id,
                             })
                             .collect(),
-                        input_data_ids: input_data_ids.into_iter().map(Into::into).collect(),
+                        input_data_ids: input_data_ids
+                            .into_iter()
+                            .map(Into::into)
+                            .collect(),
                         actions: actions
                             .into_iter()
                             .map(TryInto::try_into)
@@ -2059,7 +2136,7 @@ impl TryFrom<ReceiptView> for Receipt {
                         ReceiptEnum::Action(action_receipt)
                     }
                 }
-                ReceiptEnumView::Data { data_id, data, is_promise_resume } => {
+                | ReceiptEnumView::Data { data_id, data, is_promise_resume } => {
                     let data_receipt = DataReceipt { data_id, data };
 
                     if is_promise_resume {
@@ -2250,19 +2327,19 @@ pub enum StateChangesRequestView {
 impl From<StateChangesRequestView> for StateChangesRequest {
     fn from(request: StateChangesRequestView) -> Self {
         match request {
-            StateChangesRequestView::AccountChanges { account_ids } => {
+            | StateChangesRequestView::AccountChanges { account_ids } => {
                 Self::AccountChanges { account_ids }
             }
-            StateChangesRequestView::SingleAccessKeyChanges { keys } => {
+            | StateChangesRequestView::SingleAccessKeyChanges { keys } => {
                 Self::SingleAccessKeyChanges { keys }
             }
-            StateChangesRequestView::AllAccessKeyChanges { account_ids } => {
+            | StateChangesRequestView::AllAccessKeyChanges { account_ids } => {
                 Self::AllAccessKeyChanges { account_ids }
             }
-            StateChangesRequestView::ContractCodeChanges { account_ids } => {
+            | StateChangesRequestView::ContractCodeChanges { account_ids } => {
                 Self::ContractCodeChanges { account_ids }
             }
-            StateChangesRequestView::DataChanges { account_ids, key_prefix } => {
+            | StateChangesRequestView::DataChanges { account_ids, key_prefix } => {
                 Self::DataChanges { account_ids, key_prefix }
             }
         }
@@ -2285,12 +2362,12 @@ pub enum StateChangeKindView {
 impl From<StateChangeKind> for StateChangeKindView {
     fn from(state_change_kind: StateChangeKind) -> Self {
         match state_change_kind {
-            StateChangeKind::AccountTouched { account_id } => Self::AccountTouched { account_id },
-            StateChangeKind::AccessKeyTouched { account_id } => {
+            | StateChangeKind::AccountTouched { account_id } => Self::AccountTouched { account_id },
+            | StateChangeKind::AccessKeyTouched { account_id } => {
                 Self::AccessKeyTouched { account_id }
             }
-            StateChangeKind::DataTouched { account_id } => Self::DataTouched { account_id },
-            StateChangeKind::ContractCodeTouched { account_id } => {
+            | StateChangeKind::DataTouched { account_id } => Self::DataTouched { account_id },
+            | StateChangeKind::ContractCodeTouched { account_id } => {
                 Self::ContractCodeTouched { account_id }
             }
         }
@@ -2320,28 +2397,30 @@ pub enum StateChangeCauseView {
 impl From<StateChangeCause> for StateChangeCauseView {
     fn from(state_change_cause: StateChangeCause) -> Self {
         match state_change_cause {
-            StateChangeCause::NotWritableToDisk => Self::NotWritableToDisk,
-            StateChangeCause::InitialState => Self::InitialState,
-            StateChangeCause::TransactionProcessing { tx_hash } => {
+            | StateChangeCause::NotWritableToDisk => Self::NotWritableToDisk,
+            | StateChangeCause::InitialState => Self::InitialState,
+            | StateChangeCause::TransactionProcessing { tx_hash } => {
                 Self::TransactionProcessing { tx_hash }
             }
-            StateChangeCause::ActionReceiptProcessingStarted { receipt_hash } => {
+            | StateChangeCause::ActionReceiptProcessingStarted { receipt_hash } => {
                 Self::ActionReceiptProcessingStarted { receipt_hash }
             }
-            StateChangeCause::ActionReceiptGasReward { receipt_hash } => {
+            | StateChangeCause::ActionReceiptGasReward { receipt_hash } => {
                 Self::ActionReceiptGasReward { receipt_hash }
             }
-            StateChangeCause::ReceiptProcessing { receipt_hash } => {
+            | StateChangeCause::ReceiptProcessing { receipt_hash } => {
                 Self::ReceiptProcessing { receipt_hash }
             }
-            StateChangeCause::PostponedReceipt { receipt_hash } => {
+            | StateChangeCause::PostponedReceipt { receipt_hash } => {
                 Self::PostponedReceipt { receipt_hash }
             }
-            StateChangeCause::UpdatedDelayedReceipts => Self::UpdatedDelayedReceipts,
-            StateChangeCause::ValidatorAccountsUpdate => Self::ValidatorAccountsUpdate,
-            StateChangeCause::Migration => Self::Migration,
-            StateChangeCause::ReshardingV2 => Self::ReshardingV2,
-            StateChangeCause::BandwidthSchedulerStateUpdate => Self::BandwidthSchedulerStateUpdate,
+            | StateChangeCause::UpdatedDelayedReceipts => Self::UpdatedDelayedReceipts,
+            | StateChangeCause::ValidatorAccountsUpdate => Self::ValidatorAccountsUpdate,
+            | StateChangeCause::Migration => Self::Migration,
+            | StateChangeCause::ReshardingV2 => Self::ReshardingV2,
+            | StateChangeCause::BandwidthSchedulerStateUpdate => {
+                Self::BandwidthSchedulerStateUpdate
+            }
         }
     }
 }
@@ -2393,28 +2472,28 @@ pub enum StateChangeValueView {
 impl From<StateChangeValue> for StateChangeValueView {
     fn from(state_change: StateChangeValue) -> Self {
         match state_change {
-            StateChangeValue::AccountUpdate { account_id, account } => {
+            | StateChangeValue::AccountUpdate { account_id, account } => {
                 Self::AccountUpdate { account_id, account: account.into() }
             }
-            StateChangeValue::AccountDeletion { account_id } => {
+            | StateChangeValue::AccountDeletion { account_id } => {
                 Self::AccountDeletion { account_id }
             }
-            StateChangeValue::AccessKeyUpdate { account_id, public_key, access_key } => {
+            | StateChangeValue::AccessKeyUpdate { account_id, public_key, access_key } => {
                 Self::AccessKeyUpdate { account_id, public_key, access_key: access_key.into() }
             }
-            StateChangeValue::AccessKeyDeletion { account_id, public_key } => {
+            | StateChangeValue::AccessKeyDeletion { account_id, public_key } => {
                 Self::AccessKeyDeletion { account_id, public_key }
             }
-            StateChangeValue::DataUpdate { account_id, key, value } => {
+            | StateChangeValue::DataUpdate { account_id, key, value } => {
                 Self::DataUpdate { account_id, key, value }
             }
-            StateChangeValue::DataDeletion { account_id, key } => {
+            | StateChangeValue::DataDeletion { account_id, key } => {
                 Self::DataDeletion { account_id, key }
             }
-            StateChangeValue::ContractCodeUpdate { account_id, code } => {
+            | StateChangeValue::ContractCodeUpdate { account_id, code } => {
                 Self::ContractCodeUpdate { account_id, code }
             }
-            StateChangeValue::ContractCodeDeletion { account_id } => {
+            | StateChangeValue::ContractCodeDeletion { account_id } => {
                 Self::ContractCodeDeletion { account_id }
             }
         }
@@ -2466,7 +2545,7 @@ pub struct CongestionInfoView {
 impl From<CongestionInfo> for CongestionInfoView {
     fn from(congestion_info: CongestionInfo) -> Self {
         match congestion_info {
-            CongestionInfo::V1(congestion_info) => congestion_info.into(),
+            | CongestionInfo::V1(congestion_info) => congestion_info.into(),
         }
     }
 }
@@ -2494,7 +2573,10 @@ impl From<CongestionInfoView> for CongestionInfo {
 }
 
 impl CongestionInfoView {
-    pub fn congestion_level(&self, config_view: CongestionControlConfigView) -> f64 {
+    pub fn congestion_level(
+        &self,
+        config_view: CongestionControlConfigView,
+    ) -> f64 {
         let congestion_config = CongestionControlConfig::from(config_view);
         // Localized means without considering missed chunks congestion. As far
         // as clients are concerned, this is the only congestion level that

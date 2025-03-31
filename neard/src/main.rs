@@ -32,7 +32,6 @@ fn neard_version() -> Version {
 
 static DEFAULT_HOME: LazyLock<PathBuf> = LazyLock::new(get_default_home);
 
-// cspell:words tikv jemallocator Jemalloc
 #[global_allocator]
 static ALLOC: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
 
@@ -61,14 +60,18 @@ fn main() -> anyhow::Result<()> {
     // FD limit is a global variable, so it shouldn't be modified in an
     // uncoordinated way.
     const REQUIRED_NOFILE: u64 = 65535;
-    let (soft, hard) = rlimit::Resource::NOFILE.get().context("rlimit::Resource::NOFILE::get()")?;
+    let (soft, hard) = rlimit::Resource::NOFILE
+        .get()
+        .context("rlimit::Resource::NOFILE::get()")?;
     if soft < REQUIRED_NOFILE || hard < REQUIRED_NOFILE {
         let new_soft = soft.max(REQUIRED_NOFILE);
         let new_hard = hard.max(REQUIRED_NOFILE);
-        rlimit::Resource::NOFILE.set(new_soft, new_hard).context(format!(
-            "couldn't set the file descriptor limit to ({new_soft}, {new_hard}), \
+        rlimit::Resource::NOFILE
+            .set(new_soft, new_hard)
+            .context(format!(
+                "couldn't set the file descriptor limit to ({new_soft}, {new_hard}), \
              current limit = ({soft}, {hard})"
-        ))?;
+            ))?;
     }
 
     NeardCmd::parse_and_run()

@@ -154,17 +154,26 @@ impl TestEpochConfigBuilder {
         Default::default()
     }
 
-    pub fn epoch_length(mut self, epoch_length: BlockHeightDelta) -> Self {
+    pub fn epoch_length(
+        mut self,
+        epoch_length: BlockHeightDelta,
+    ) -> Self {
         self.epoch_length = epoch_length;
         self
     }
 
-    pub fn shard_layout(mut self, shard_layout: ShardLayout) -> Self {
+    pub fn shard_layout(
+        mut self,
+        shard_layout: ShardLayout,
+    ) -> Self {
         self.shard_layout = shard_layout;
         self
     }
 
-    pub fn validators_spec(mut self, validators_spec: ValidatorsSpec) -> Self {
+    pub fn validators_spec(
+        mut self,
+        validators_spec: ValidatorsSpec,
+    ) -> Self {
         let DerivedValidatorSetup {
             validators: _,
             num_block_producer_seats,
@@ -177,7 +186,10 @@ impl TestEpochConfigBuilder {
         self
     }
 
-    pub fn minimum_validators_per_shard(mut self, minimum_validators_per_shard: NumSeats) -> Self {
+    pub fn minimum_validators_per_shard(
+        mut self,
+        minimum_validators_per_shard: NumSeats,
+    ) -> Self {
         self.minimum_validators_per_shard = minimum_validators_per_shard;
         self
     }
@@ -291,48 +303,76 @@ impl TestGenesisBuilder {
         Default::default()
     }
 
-    pub fn chain_id(mut self, chain_id: String) -> Self {
+    pub fn chain_id(
+        mut self,
+        chain_id: String,
+    ) -> Self {
         self.chain_id = chain_id;
         self
     }
 
-    pub fn genesis_time(mut self, genesis_time: chrono::DateTime<chrono::Utc>) -> Self {
+    pub fn genesis_time(
+        mut self,
+        genesis_time: chrono::DateTime<chrono::Utc>,
+    ) -> Self {
         self.genesis_time = genesis_time;
         self
     }
 
-    pub fn genesis_time_from_clock(mut self, clock: &Clock) -> Self {
+    pub fn genesis_time_from_clock(
+        mut self,
+        clock: &Clock,
+    ) -> Self {
         self.genesis_time = from_timestamp(clock.now_utc().unix_timestamp_nanos() as u64);
         self
     }
 
-    pub fn protocol_version(mut self, protocol_version: ProtocolVersion) -> Self {
+    pub fn protocol_version(
+        mut self,
+        protocol_version: ProtocolVersion,
+    ) -> Self {
         self.protocol_version = protocol_version;
         self
     }
 
-    pub fn genesis_height(mut self, genesis_height: BlockHeight) -> Self {
+    pub fn genesis_height(
+        mut self,
+        genesis_height: BlockHeight,
+    ) -> Self {
         self.genesis_height = genesis_height;
         self
     }
 
-    pub fn epoch_length(mut self, epoch_length: BlockHeightDelta) -> Self {
+    pub fn epoch_length(
+        mut self,
+        epoch_length: BlockHeightDelta,
+    ) -> Self {
         self.epoch_length = epoch_length;
         self
     }
 
-    pub fn shard_layout(mut self, shard_layout: ShardLayout) -> Self {
+    pub fn shard_layout(
+        mut self,
+        shard_layout: ShardLayout,
+    ) -> Self {
         self.shard_layout = shard_layout;
         self
     }
 
-    pub fn gas_prices(mut self, min: Balance, max: Balance) -> Self {
+    pub fn gas_prices(
+        mut self,
+        min: Balance,
+        max: Balance,
+    ) -> Self {
         self.min_gas_price = min;
         self.max_gas_price = max;
         self
     }
 
-    pub fn gas_limit(mut self, gas_limit: Gas) -> Self {
+    pub fn gas_limit(
+        mut self,
+        gas_limit: Gas,
+    ) -> Self {
         self.gas_limit = gas_limit;
         self
     }
@@ -342,17 +382,26 @@ impl TestGenesisBuilder {
         self
     }
 
-    pub fn transaction_validity_period(mut self, transaction_validity_period: NumBlocks) -> Self {
+    pub fn transaction_validity_period(
+        mut self,
+        transaction_validity_period: NumBlocks,
+    ) -> Self {
         self.transaction_validity_period = transaction_validity_period;
         self
     }
 
-    pub fn validators_spec(mut self, validators_spec: ValidatorsSpec) -> Self {
+    pub fn validators_spec(
+        mut self,
+        validators_spec: ValidatorsSpec,
+    ) -> Self {
         self.validators_spec = validators_spec;
         self
     }
 
-    pub fn max_inflation_rate(mut self, max_inflation_rate: Rational32) -> Self {
+    pub fn max_inflation_rate(
+        mut self,
+        max_inflation_rate: Rational32,
+    ) -> Self {
         self.max_inflation_rate = max_inflation_rate;
         self
     }
@@ -360,7 +409,10 @@ impl TestGenesisBuilder {
     /// Specifies the protocol treasury account. If not specified, this will
     /// pick an arbitrary account name and ensure that it is included in the
     /// genesis records.
-    pub fn protocol_treasury_account(mut self, protocol_treasury_account: String) -> Self {
+    pub fn protocol_treasury_account(
+        mut self,
+        protocol_treasury_account: String,
+    ) -> Self {
         self.protocol_treasury_account = protocol_treasury_account;
         self
     }
@@ -405,7 +457,10 @@ impl TestGenesisBuilder {
             panic!("Duplicate user accounts specified.");
         }
 
-        let protocol_treasury_account: AccountId = self.protocol_treasury_account.parse().unwrap();
+        let protocol_treasury_account: AccountId = self
+            .protocol_treasury_account
+            .parse()
+            .unwrap();
 
         // We will merge the user accounts that were specified, with the
         // validator staking accounts from the validator setup, and ensure
@@ -413,7 +468,10 @@ impl TestGenesisBuilder {
         // of this to generate the genesis records and also calculate the
         // total supply.
         let mut user_accounts = self.user_accounts;
-        if user_accounts.iter().all(|account| &account.account_id != &protocol_treasury_account) {
+        if user_accounts
+            .iter()
+            .all(|account| &account.account_id != &protocol_treasury_account)
+        {
             tracing::warn!(
                 "Protocol treasury account {:?} not found in user accounts;
                 to keep genesis valid, adding it as a user account with zero balance.",
@@ -446,7 +504,9 @@ impl TestGenesisBuilder {
                 account_id: user_account.account_id.clone(),
                 account: Account::new(
                     user_account.balance,
-                    validator_stake.remove(&user_account.account_id).unwrap_or(0),
+                    validator_stake
+                        .remove(&user_account.account_id)
+                        .unwrap_or(0),
                     0,
                     CryptoHash::default(),
                     0,
@@ -537,7 +597,10 @@ impl ValidatorsSpec {
                 .iter()
                 .map(|s| s.to_string())
                 .collect(),
-            chunk_validators_only: chunk_validators_only.iter().map(|s| s.to_string()).collect(),
+            chunk_validators_only: chunk_validators_only
+                .iter()
+                .map(|s| s.to_string())
+                .collect(),
         }
     }
 
@@ -573,12 +636,14 @@ const ONE_NEAR: Balance = 1_000_000_000_000_000_000_000_000;
 
 fn derive_validator_setup(specs: ValidatorsSpec) -> DerivedValidatorSetup {
     match specs {
-        ValidatorsSpec::DesiredRoles { block_and_chunk_producers, chunk_validators_only } => {
+        | ValidatorsSpec::DesiredRoles { block_and_chunk_producers, chunk_validators_only } => {
             let num_block_and_chunk_producer_seats = block_and_chunk_producers.len() as NumSeats;
             let num_chunk_validator_only_seats = chunk_validators_only.len() as NumSeats;
             let mut validators = Vec::new();
             for i in 0..num_block_and_chunk_producer_seats as usize {
-                let account_id: AccountId = block_and_chunk_producers[i].parse().unwrap();
+                let account_id: AccountId = block_and_chunk_producers[i]
+                    .parse()
+                    .unwrap();
                 let account_info = AccountInfo {
                     public_key: create_test_signer(account_id.as_str()).public_key(),
                     account_id,
@@ -587,7 +652,9 @@ fn derive_validator_setup(specs: ValidatorsSpec) -> DerivedValidatorSetup {
                 validators.push(account_info);
             }
             for i in 0..num_chunk_validator_only_seats as usize {
-                let account_id: AccountId = chunk_validators_only[i].parse().unwrap();
+                let account_id: AccountId = chunk_validators_only[i]
+                    .parse()
+                    .unwrap();
                 let account_info = AccountInfo {
                     public_key: create_test_signer(account_id.as_str()).public_key(),
                     account_id,
@@ -604,7 +671,7 @@ fn derive_validator_setup(specs: ValidatorsSpec) -> DerivedValidatorSetup {
                     + num_chunk_validator_only_seats,
             }
         }
-        ValidatorsSpec::Raw {
+        | ValidatorsSpec::Raw {
             validators,
             num_block_producer_seats,
             num_chunk_producer_seats,

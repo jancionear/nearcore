@@ -73,12 +73,14 @@ impl TransactionBuilder {
         args: Vec<u8>,
     ) -> SignedTransaction {
         let receiver = sender.clone();
-        let actions = vec![Action::FunctionCall(Box::new(FunctionCallAction {
-            method_name: method.to_string(),
-            args,
-            gas: 10u64.pow(18),
-            deposit: 0,
-        }))];
+        let actions = vec![Action::FunctionCall(Box::new(
+            FunctionCallAction {
+                method_name: method.to_string(),
+                args,
+                gas: 10u64.pow(18),
+                deposit: 0,
+            },
+        ))];
         self.transaction_from_actions(sender, receiver, actions)
     }
 
@@ -94,7 +96,11 @@ impl TransactionBuilder {
             .to_le_bytes()
             .into_iter()
             .chain(key.iter().cloned())
-            .chain((value.len() as u64).to_le_bytes().into_iter())
+            .chain(
+                (value.len() as u64)
+                    .to_le_bytes()
+                    .into_iter(),
+            )
             .chain(value.iter().cloned())
             .collect();
 
@@ -105,11 +111,16 @@ impl TransactionBuilder {
         rand::thread_rng()
     }
 
-    pub(crate) fn account(&mut self, account_index: u64) -> AccountId {
+    pub(crate) fn account(
+        &mut self,
+        account_index: u64,
+    ) -> AccountId {
         get_account_id(account_index)
     }
     pub(crate) fn random_account(&mut self) -> AccountId {
-        let account_index = self.rng().gen_range(0..self.accounts.len());
+        let account_index = self
+            .rng()
+            .gen_range(0..self.accounts.len());
         self.accounts[account_index].clone()
     }
     pub(crate) fn random_unused_account(&mut self) -> AccountId {
@@ -136,17 +147,27 @@ impl TransactionBuilder {
         signer_id: Option<&AccountId>,
     ) -> AccountId {
         match src {
-            AccountRequirement::RandomUnused => self.random_unused_account(),
-            AccountRequirement::SameAsSigner => signer_id.expect("no signer_id provided").clone(),
-            AccountRequirement::SubOfSigner => {
-                format!("sub.{}", signer_id.expect("no signer_id")).parse().unwrap()
+            | AccountRequirement::RandomUnused => self.random_unused_account(),
+            | AccountRequirement::SameAsSigner => signer_id
+                .expect("no signer_id provided")
+                .clone(),
+            | AccountRequirement::SubOfSigner => {
+                format!("sub.{}", signer_id.expect("no signer_id"))
+                    .parse()
+                    .unwrap()
             }
-            AccountRequirement::ConstantAccount0 => self.account(0),
+            | AccountRequirement::ConstantAccount0 => self.account(0),
         }
     }
 
-    fn nonce(&mut self, account_id: &AccountId) -> u64 {
-        let nonce = self.nonces.entry(account_id.clone()).or_default();
+    fn nonce(
+        &mut self,
+        account_id: &AccountId,
+    ) -> u64 {
+        let nonce = self
+            .nonces
+            .entry(account_id.clone())
+            .or_default();
         *nonce += 1;
         *nonce
     }

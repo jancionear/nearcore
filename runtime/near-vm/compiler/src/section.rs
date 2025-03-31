@@ -72,8 +72,8 @@ impl<'a> From<&'a ArchivedCustomSection> for CustomSectionRef<'a> {
     fn from(section: &'a ArchivedCustomSection) -> Self {
         CustomSectionRef {
             protection: match section.protection {
-                ArchivedCustomSectionProtection::Read => CustomSectionProtection::Read,
-                ArchivedCustomSectionProtection::ReadExecute => {
+                | ArchivedCustomSectionProtection::Read => CustomSectionProtection::Read,
+                | ArchivedCustomSectionProtection::ReadExecute => {
                     CustomSectionProtection::ReadExecute
                 }
             },

@@ -20,19 +20,24 @@ pub struct RateLimits {
 impl RateLimits {
     /// Creates all buckets as configured in `config`.
     /// See also [TokenBucket::new].
-    pub fn from_config(config: &Config, start_time: Instant) -> Self {
+    pub fn from_config(
+        config: &Config,
+        start_time: Instant,
+    ) -> Self {
         let mut buckets = enum_map! { _ => None };
         // Configuration is assumed to be correct. Any failure to build a bucket is ignored.
         for (key, message_config) in &config.rate_limits {
-            let initial_size = message_config.initial_size.unwrap_or(message_config.maximum_size);
+            let initial_size = message_config
+                .initial_size
+                .unwrap_or(message_config.maximum_size);
             match TokenBucket::new(
                 initial_size,
                 message_config.maximum_size,
                 message_config.refill_rate,
                 start_time,
             ) {
-                Ok(bucket) => buckets[*key] = Some(bucket),
-                Err(err) => {
+                | Ok(bucket) => buckets[*key] = Some(bucket),
+                | Err(err) => {
                     tracing::warn!(target: "network", "ignoring rate limit for {key} due to an error ({err})")
                 }
             }
@@ -49,7 +54,11 @@ impl RateLimits {
     ///
     /// Returns `true` if the message should be allowed to continue. Otherwise,
     /// if it should be rate limited, returns `false`.
-    pub fn is_allowed(&mut self, message: &PeerMessage, now: Instant) -> bool {
+    pub fn is_allowed(
+        &mut self,
+        message: &PeerMessage,
+        now: Instant,
+    ) -> bool {
         if let Some((key, cost)) = get_key_and_token_cost(message) {
             if let Some(bucket) = &mut self.buckets[key] {
                 return bucket.acquire(cost, now);
@@ -70,7 +79,11 @@ pub struct SingleMessageConfig {
 }
 
 impl SingleMessageConfig {
-    pub fn new(maximum_size: u32, refill_rate: f32, initial_size: Option<u32>) -> Self {
+    pub fn new(
+        maximum_size: u32,
+        refill_rate: f32,
+        initial_size: Option<u32>,
+    ) -> Self {
         Self { maximum_size, refill_rate, initial_size }
     }
 }
@@ -126,11 +139,14 @@ impl Config {
 
     /// Applies rate limits configuration overrides to `self`. In practice, merges the two configurations
     /// giving preference to the values defined by the `overrides` parameter.
-    pub fn apply_overrides(&mut self, overrides: OverrideConfig) {
+    pub fn apply_overrides(
+        &mut self,
+        overrides: OverrideConfig,
+    ) {
         for (key, message_config) in overrides.rate_limits {
             match message_config {
-                Some(value) => self.rate_limits.insert(key, value),
-                None => self.rate_limits.remove(&key),
+                | Some(value) => self.rate_limits.insert(key, value),
+                | None => self.rate_limits.remove(&key),
             };
         }
     }
@@ -196,52 +212,52 @@ pub enum RateLimitedPeerMessageKey {
 fn get_key_and_token_cost(message: &PeerMessage) -> Option<(RateLimitedPeerMessageKey, u32)> {
     use RateLimitedPeerMessageKey::*;
     match message {
-        PeerMessage::SyncRoutingTable(_) => Some((SyncRoutingTable, 1)),
-        PeerMessage::DistanceVector(_) => Some((DistanceVector, 1)),
-        PeerMessage::RequestUpdateNonce(_) => Some((RequestUpdateNonce, 1)),
-        PeerMessage::SyncAccountsData(_) => Some((SyncAccountsData, 1)),
-        PeerMessage::PeersRequest(_) => Some((PeersRequest, 1)),
-        PeerMessage::PeersResponse(_) => Some((PeersResponse, 1)),
-        PeerMessage::BlockHeadersRequest(_) => Some((BlockHeadersRequest, 1)),
-        PeerMessage::BlockHeaders(_) => Some((BlockHeaders, 1)),
-        PeerMessage::BlockRequest(_) => Some((BlockRequest, 1)),
-        PeerMessage::Block(_) => Some((Block, 1)),
-        PeerMessage::Transaction(_) => Some((Transaction, 1)),
-        PeerMessage::Routed(msg) => match msg.body {
-            RoutedMessageBody::BlockApproval(_) => Some((BlockApproval, 1)),
-            RoutedMessageBody::ForwardTx(_) => Some((ForwardTx, 1)),
-            RoutedMessageBody::TxStatusRequest(_, _) => Some((TxStatusRequest, 1)),
-            RoutedMessageBody::TxStatusResponse(_) => Some((TxStatusResponse, 1)),
-            RoutedMessageBody::PartialEncodedChunkRequest(_) => {
+        | PeerMessage::SyncRoutingTable(_) => Some((SyncRoutingTable, 1)),
+        | PeerMessage::DistanceVector(_) => Some((DistanceVector, 1)),
+        | PeerMessage::RequestUpdateNonce(_) => Some((RequestUpdateNonce, 1)),
+        | PeerMessage::SyncAccountsData(_) => Some((SyncAccountsData, 1)),
+        | PeerMessage::PeersRequest(_) => Some((PeersRequest, 1)),
+        | PeerMessage::PeersResponse(_) => Some((PeersResponse, 1)),
+        | PeerMessage::BlockHeadersRequest(_) => Some((BlockHeadersRequest, 1)),
+        | PeerMessage::BlockHeaders(_) => Some((BlockHeaders, 1)),
+        | PeerMessage::BlockRequest(_) => Some((BlockRequest, 1)),
+        | PeerMessage::Block(_) => Some((Block, 1)),
+        | PeerMessage::Transaction(_) => Some((Transaction, 1)),
+        | PeerMessage::Routed(msg) => match msg.body {
+            | RoutedMessageBody::BlockApproval(_) => Some((BlockApproval, 1)),
+            | RoutedMessageBody::ForwardTx(_) => Some((ForwardTx, 1)),
+            | RoutedMessageBody::TxStatusRequest(_, _) => Some((TxStatusRequest, 1)),
+            | RoutedMessageBody::TxStatusResponse(_) => Some((TxStatusResponse, 1)),
+            | RoutedMessageBody::PartialEncodedChunkRequest(_) => {
                 Some((PartialEncodedChunkRequest, 1))
             }
-            RoutedMessageBody::PartialEncodedChunkResponse(_) => {
+            | RoutedMessageBody::PartialEncodedChunkResponse(_) => {
                 Some((PartialEncodedChunkResponse, 1))
             }
-            RoutedMessageBody::VersionedPartialEncodedChunk(_) => {
+            | RoutedMessageBody::VersionedPartialEncodedChunk(_) => {
                 Some((VersionedPartialEncodedChunk, 1))
             }
-            RoutedMessageBody::PartialEncodedChunkForward(_) => {
+            | RoutedMessageBody::PartialEncodedChunkForward(_) => {
                 Some((PartialEncodedChunkForward, 1))
             }
-            RoutedMessageBody::ChunkStateWitnessAck(_) => Some((ChunkStateWitnessAck, 1)),
-            RoutedMessageBody::PartialEncodedStateWitness(_) => {
+            | RoutedMessageBody::ChunkStateWitnessAck(_) => Some((ChunkStateWitnessAck, 1)),
+            | RoutedMessageBody::PartialEncodedStateWitness(_) => {
                 Some((PartialEncodedStateWitness, 1))
             }
-            RoutedMessageBody::PartialEncodedStateWitnessForward(_) => {
+            | RoutedMessageBody::PartialEncodedStateWitnessForward(_) => {
                 Some((PartialEncodedStateWitnessForward, 1))
             }
-            RoutedMessageBody::ChunkContractAccesses(_) => Some((ChunkContractAccesses, 1)),
-            RoutedMessageBody::ContractCodeRequest(_) => Some((ContractCodeRequest, 1)),
-            RoutedMessageBody::ContractCodeResponse(_) => Some((ContractCodeResponse, 1)),
-            RoutedMessageBody::PartialEncodedContractDeploys(_) => {
+            | RoutedMessageBody::ChunkContractAccesses(_) => Some((ChunkContractAccesses, 1)),
+            | RoutedMessageBody::ContractCodeRequest(_) => Some((ContractCodeRequest, 1)),
+            | RoutedMessageBody::ContractCodeResponse(_) => Some((ContractCodeResponse, 1)),
+            | RoutedMessageBody::PartialEncodedContractDeploys(_) => {
                 Some((PartialEncodedContractDeploys, 1))
             }
-            RoutedMessageBody::VersionedChunkEndorsement(_) => Some((ChunkEndorsement, 1)),
-            RoutedMessageBody::_UnusedEpochSyncRequest => None,
-            RoutedMessageBody::_UnusedEpochSyncResponse(_) => None,
-            RoutedMessageBody::StatePartRequest(_) => None, // TODO
-            RoutedMessageBody::Ping(_)
+            | RoutedMessageBody::VersionedChunkEndorsement(_) => Some((ChunkEndorsement, 1)),
+            | RoutedMessageBody::_UnusedEpochSyncRequest => None,
+            | RoutedMessageBody::_UnusedEpochSyncResponse(_) => None,
+            | RoutedMessageBody::StatePartRequest(_) => None, // TODO
+            | RoutedMessageBody::Ping(_)
             | RoutedMessageBody::Pong(_)
             | RoutedMessageBody::_UnusedChunkEndorsement
             | RoutedMessageBody::_UnusedChunkStateWitness
@@ -255,13 +271,13 @@ fn get_key_and_token_cost(message: &PeerMessage) -> Option<(RateLimitedPeerMessa
             | RoutedMessageBody::_UnusedStateRequestPart
             | RoutedMessageBody::_UnusedStateResponse => None,
         },
-        PeerMessage::SyncSnapshotHosts(_) => Some((SyncSnapshotHosts, 1)),
-        PeerMessage::StateRequestHeader(_, _) => Some((StateRequestHeader, 1)),
-        PeerMessage::StateRequestPart(_, _, _) => Some((StateRequestPart, 1)),
-        PeerMessage::VersionedStateResponse(_) => Some((VersionedStateResponse, 1)),
-        PeerMessage::EpochSyncRequest => Some((EpochSyncRequest, 1)),
-        PeerMessage::EpochSyncResponse(_) => None,
-        PeerMessage::Tier1Handshake(_)
+        | PeerMessage::SyncSnapshotHosts(_) => Some((SyncSnapshotHosts, 1)),
+        | PeerMessage::StateRequestHeader(_, _) => Some((StateRequestHeader, 1)),
+        | PeerMessage::StateRequestPart(_, _, _) => Some((StateRequestPart, 1)),
+        | PeerMessage::VersionedStateResponse(_) => Some((VersionedStateResponse, 1)),
+        | PeerMessage::EpochSyncRequest => Some((EpochSyncRequest, 1)),
+        | PeerMessage::EpochSyncResponse(_) => None,
+        | PeerMessage::Tier1Handshake(_)
         | PeerMessage::Tier2Handshake(_)
         | PeerMessage::Tier3Handshake(_)
         | PeerMessage::HandshakeFailure(_, _)
@@ -321,17 +337,29 @@ mod tests {
         use RateLimitedPeerMessageKey::*;
         let mut config = Config::default();
 
-        config.rate_limits.insert(Block, SingleMessageConfig::new(5, 1.0, Some(1)));
-        config.rate_limits.insert(BlockApproval, SingleMessageConfig::new(5, 1.0, None));
-        config.rate_limits.insert(BlockHeaders, SingleMessageConfig::new(1, -4.0, None));
+        config
+            .rate_limits
+            .insert(Block, SingleMessageConfig::new(5, 1.0, Some(1)));
+        config
+            .rate_limits
+            .insert(BlockApproval, SingleMessageConfig::new(5, 1.0, None));
+        config
+            .rate_limits
+            .insert(BlockHeaders, SingleMessageConfig::new(1, -4.0, None));
 
         let now = Instant::now();
         let mut limits = RateLimits::from_config(&config, now);
 
         // Bucket should exist with capacity = 1.
-        assert!(!limits.buckets[Block].as_mut().unwrap().acquire(2, now));
+        assert!(!limits.buckets[Block]
+            .as_mut()
+            .unwrap()
+            .acquire(2, now));
         // Bucket should exist with capacity = 5.
-        assert!(limits.buckets[BlockApproval].as_mut().unwrap().acquire(2, now));
+        assert!(limits.buckets[BlockApproval]
+            .as_mut()
+            .unwrap()
+            .acquire(2, now));
         // Bucket should not exist due to a config error.
         assert!(limits.buckets[BlockHeaders].is_none());
         // Buckets are not instantiated for message types not present in the config.
@@ -344,16 +372,22 @@ mod tests {
         let mut config = Config::default();
         assert!(config.validate().is_ok());
 
-        config.rate_limits.insert(Block, SingleMessageConfig::new(0, 1.0, None));
+        config
+            .rate_limits
+            .insert(Block, SingleMessageConfig::new(0, 1.0, None));
         assert!(config.validate().is_ok());
 
-        config.rate_limits.insert(BlockApproval, SingleMessageConfig::new(0, -1.0, None));
+        config
+            .rate_limits
+            .insert(BlockApproval, SingleMessageConfig::new(0, -1.0, None));
         assert_eq!(
             config.validate(),
             Err(vec![(BlockApproval, TokenBucketError::InvalidRefillRate(-1.0))])
         );
 
-        config.rate_limits.insert(BlockHeaders, SingleMessageConfig::new(0, -2.0, None));
+        config
+            .rate_limits
+            .insert(BlockHeaders, SingleMessageConfig::new(0, -2.0, None));
         let result = config.validate();
         let error = result.expect_err("a configuration error is expected");
         assert!(error
@@ -374,18 +408,34 @@ mod tests {
         let mut config = Config::default();
         let now = Instant::now();
 
-        config.rate_limits.insert(Block, SingleMessageConfig::new(5, 1.0, Some(0)));
-        config.rate_limits.insert(BlockApproval, SingleMessageConfig::new(5, 1.0, Some(0)));
+        config
+            .rate_limits
+            .insert(Block, SingleMessageConfig::new(5, 1.0, Some(0)));
+        config
+            .rate_limits
+            .insert(BlockApproval, SingleMessageConfig::new(5, 1.0, Some(0)));
 
         let mut limits = RateLimits::from_config(&config, now);
 
-        assert!(!limits.buckets[Block].as_mut().unwrap().acquire(1, now));
-        assert!(!limits.buckets[BlockApproval].as_mut().unwrap().acquire(1, now));
+        assert!(!limits.buckets[Block]
+            .as_mut()
+            .unwrap()
+            .acquire(1, now));
+        assert!(!limits.buckets[BlockApproval]
+            .as_mut()
+            .unwrap()
+            .acquire(1, now));
 
         let now = now + Duration::seconds(1);
 
-        assert!(limits.buckets[Block].as_mut().unwrap().acquire(1, now));
-        assert!(limits.buckets[BlockApproval].as_mut().unwrap().acquire(1, now));
+        assert!(limits.buckets[Block]
+            .as_mut()
+            .unwrap()
+            .acquire(1, now));
+        assert!(limits.buckets[BlockApproval]
+            .as_mut()
+            .unwrap()
+            .acquire(1, now));
     }
 
     #[test]
@@ -394,9 +444,15 @@ mod tests {
 
         // Create a config with three entries.
         let mut config = Config::default();
-        config.rate_limits.insert(Block, SingleMessageConfig::new(1, 1.0, None));
-        config.rate_limits.insert(BlockApproval, SingleMessageConfig::new(2, 1.0, None));
-        config.rate_limits.insert(BlockHeaders, SingleMessageConfig::new(3, 1.0, None));
+        config
+            .rate_limits
+            .insert(Block, SingleMessageConfig::new(1, 1.0, None));
+        config
+            .rate_limits
+            .insert(BlockApproval, SingleMessageConfig::new(2, 1.0, None));
+        config
+            .rate_limits
+            .insert(BlockHeaders, SingleMessageConfig::new(3, 1.0, None));
 
         // Override the config with the following patch:
         // - one entry is modified
@@ -404,8 +460,12 @@ mod tests {
         // - one entry is removed
         // - one entry is added
         let mut overrides = OverrideConfig::default();
-        overrides.rate_limits.insert(Block, Some(SingleMessageConfig::new(4, 1.0, None)));
-        overrides.rate_limits.insert(BlockHeaders, None);
+        overrides
+            .rate_limits
+            .insert(Block, Some(SingleMessageConfig::new(4, 1.0, None)));
+        overrides
+            .rate_limits
+            .insert(BlockHeaders, None);
         overrides
             .rate_limits
             .insert(StateRequestHeader, Some(SingleMessageConfig::new(5, 1.0, None)));
@@ -415,7 +475,9 @@ mod tests {
         assert_eq!(config.rate_limits.get(&Block), Some(&SingleMessageConfig::new(4, 1.0, None)));
         assert_eq!(config.rate_limits.get(&BlockHeaders), None);
         assert_eq!(
-            config.rate_limits.get(&StateRequestHeader),
+            config
+                .rate_limits
+                .get(&StateRequestHeader),
             Some(&SingleMessageConfig::new(5, 1.0, None))
         );
     }
@@ -459,7 +521,9 @@ mod tests {
             serde_json::from_value(json).expect("deserializing OverrideConfig should work");
         assert_eq!(config.rate_limits.len(), 2);
         assert!(config.rate_limits.contains_key(&Block));
-        assert!(config.rate_limits.contains_key(&BlockApproval));
+        assert!(config
+            .rate_limits
+            .contains_key(&BlockApproval));
 
         // Check object with errors.
         let json = serde_json::json!({"rate_limits": {

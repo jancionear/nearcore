@@ -54,22 +54,33 @@ pub enum RoutedMessage {
 }
 
 impl fmt::Display for RoutedMessage {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
         fmt::Display::fmt(<&'static str>::from(self), f)
     }
 }
 
 impl fmt::Debug for RoutedMessage {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
         match self {
-            Self::Ping { nonce } => write!(f, "Ping({})", nonce),
-            Self::Pong { nonce, source } => write!(f, "Pong({}, {})", nonce, source),
-            Self::PartialEncodedChunkRequest(r) => write!(f, "PartialEncodedChunkRequest({:?})", r),
-            Self::PartialEncodedChunkResponse(r) => write!(
+            | Self::Ping { nonce } => write!(f, "Ping({})", nonce),
+            | Self::Pong { nonce, source } => write!(f, "Pong({}, {})", nonce, source),
+            | Self::PartialEncodedChunkRequest(r) => {
+                write!(f, "PartialEncodedChunkRequest({:?})", r)
+            }
+            | Self::PartialEncodedChunkResponse(r) => write!(
                 f,
                 "PartialEncodedChunkResponse(chunk_hash: {} parts_ords: {:?} num_receipts: {})",
                 &r.chunk_hash.0,
-                r.parts.iter().map(|p| p.part_ord).collect::<Vec<_>>(),
+                r.parts
+                    .iter()
+                    .map(|p| p.part_ord)
+                    .collect::<Vec<_>>(),
                 r.receipts.len()
             ),
         }
@@ -92,32 +103,40 @@ pub enum DirectMessage {
 }
 
 impl fmt::Display for DirectMessage {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
         fmt::Display::fmt(<&'static str>::from(self), f)
     }
 }
 
 impl fmt::Debug for DirectMessage {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
         match self {
-            Self::AnnounceAccounts(a) => write!(f, "AnnounceAccounts({:?})", a),
-            Self::BlockRequest(r) => write!(f, "BlockRequest({})", r),
-            Self::Block(b) => write!(f, "Block(#{} {})", b.header().height(), b.header().hash()),
-            Self::BlockHeadersRequest(r) => write!(f, "BlockHeadersRequest({:?})", r),
-            Self::BlockHeaders(h) => {
+            | Self::AnnounceAccounts(a) => write!(f, "AnnounceAccounts({:?})", a),
+            | Self::BlockRequest(r) => write!(f, "BlockRequest({})", r),
+            | Self::Block(b) => write!(f, "Block(#{} {})", b.header().height(), b.header().hash()),
+            | Self::BlockHeadersRequest(r) => write!(f, "BlockHeadersRequest({:?})", r),
+            | Self::BlockHeaders(h) => {
                 write!(
                     f,
                     "BlockHeaders({:?})",
-                    h.iter().map(|h| format!("#{} {}", h.height(), h.hash())).collect::<Vec<_>>()
+                    h.iter()
+                        .map(|h| format!("#{} {}", h.height(), h.hash()))
+                        .collect::<Vec<_>>()
                 )
             }
-            Self::StateRequestHeader(shard_id, hash) => {
+            | Self::StateRequestHeader(shard_id, hash) => {
                 write!(f, "StateRequestHeader({}, {})", shard_id, hash)
             }
-            Self::StateRequestPart(shard_id, hash, part_id) => {
+            | Self::StateRequestPart(shard_id, hash, part_id) => {
                 write!(f, "StateRequestPart({}, {}, {})", shard_id, hash, part_id)
             }
-            Self::VersionedStateResponse(r) => write!(
+            | Self::VersionedStateResponse(r) => write!(
                 f,
                 "VersionedStateResponse(shard_id: {} sync_hash: {})",
                 r.shard_id(),
@@ -136,25 +155,34 @@ pub enum Message {
 }
 
 impl fmt::Display for Message {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
         match self {
-            Self::Direct(msg) => write!(f, "raw::{}", msg),
-            Self::Routed(msg) => write!(f, "raw::Routed({})", msg),
+            | Self::Direct(msg) => write!(f, "raw::{}", msg),
+            | Self::Routed(msg) => write!(f, "raw::Routed({})", msg),
         }
     }
 }
 
 impl fmt::Debug for Message {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
         match self {
-            Self::Direct(msg) => write!(f, "raw::{:?}", msg),
-            Self::Routed(msg) => write!(f, "raw::Routed({:?})", msg),
+            | Self::Direct(msg) => write!(f, "raw::{:?}", msg),
+            | Self::Routed(msg) => write!(f, "raw::Routed({:?})", msg),
         }
     }
 }
 
 impl std::fmt::Debug for Connection {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+    fn fmt(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+    ) -> Result<(), std::fmt::Error> {
         write!(
             f,
             "raw::Connection({:?}@{} -> {:?}@{})",
@@ -183,8 +211,8 @@ pub enum ConnectError {
 impl From<RecvError> for ConnectError {
     fn from(err: RecvError) -> Self {
         match err {
-            RecvError::IO(io) => Self::IO(io),
-            RecvError::Parse(len) => Self::Parse(len),
+            | RecvError::IO(io) => Self::IO(io),
+            | RecvError::Parse(len) => Self::Parse(len),
         }
     }
 }
@@ -284,22 +312,22 @@ impl Connection {
         let mut stream = PeerStream::new(stream, recv_timeout);
         let mut borsh_message_expected = true;
         let (message, _timestamp) = match stream.recv_message().await {
-            Ok(m) => m,
-            Err(RecvError::Parse(len)) => {
+            | Ok(m) => m,
+            | Err(RecvError::Parse(len)) => {
                 tracing::debug!(target: "network", "dropping a non protobuf message of length {}. Probably an extra handshake.", len);
                 borsh_message_expected = false;
                 stream.recv_message().await?
             }
-            Err(RecvError::IO(e)) => return Err(ConnectError::IO(e)),
+            | Err(RecvError::IO(e)) => return Err(ConnectError::IO(e)),
         };
 
         let (peer_id, nonce) = match message {
             // TODO: maybe check the handshake for sanity
-            PeerMessage::Tier2Handshake(h) => (h.sender_peer_id, h.partial_edge_info.nonce),
-            PeerMessage::HandshakeFailure(_peer_info, reason) => {
+            | PeerMessage::Tier2Handshake(h) => (h.sender_peer_id, h.partial_edge_info.nonce),
+            | PeerMessage::HandshakeFailure(_peer_info, reason) => {
                 return Err(ConnectError::HandshakeFailure(reason))
             }
-            _ => return Err(ConnectError::UnexpectedFirstMessage(Box::new(message))),
+            | _ => return Err(ConnectError::UnexpectedFirstMessage(Box::new(message))),
         };
 
         let my_peer_id = PeerId::new(secret_key.public_key());
@@ -317,7 +345,10 @@ impl Connection {
             archival,
         );
 
-        stream.write_message(&handshake).await.map_err(ConnectError::IO)?;
+        stream
+            .write_message(&handshake)
+            .await
+            .map_err(ConnectError::IO)?;
 
         Ok(Self {
             secret_key,
@@ -352,7 +383,10 @@ impl Connection {
             false,
         );
 
-        self.stream.write_message(&handshake).await.map_err(ConnectError::IO)?;
+        self.stream
+            .write_message(&handshake)
+            .await
+            .map_err(ConnectError::IO)?;
 
         let start = Instant::now();
 
@@ -360,43 +394,48 @@ impl Connection {
 
         match message {
             // TODO: maybe check the handshake for sanity
-            PeerMessage::Tier2Handshake(_) => {
+            | PeerMessage::Tier2Handshake(_) => {
                 tracing::info!(
                     target: "network",
                     handshake_latency=%timestamp.signed_duration_since(start)
                 );
             }
-            PeerMessage::HandshakeFailure(_peer_info, reason) => {
+            | PeerMessage::HandshakeFailure(_peer_info, reason) => {
                 return Err(ConnectError::HandshakeFailure(reason))
             }
-            _ => return Err(ConnectError::UnexpectedFirstMessage(Box::new(message))),
+            | _ => return Err(ConnectError::UnexpectedFirstMessage(Box::new(message))),
         };
 
         Ok(())
     }
 
     // Try to send a PeerMessage corresponding to the given DirectMessage
-    pub async fn send_message(&mut self, msg: DirectMessage) -> io::Result<()> {
+    pub async fn send_message(
+        &mut self,
+        msg: DirectMessage,
+    ) -> io::Result<()> {
         let peer_msg = match msg {
-            DirectMessage::AnnounceAccounts(accounts) => {
+            | DirectMessage::AnnounceAccounts(accounts) => {
                 PeerMessage::SyncRoutingTable(RoutingTableUpdate { edges: Vec::new(), accounts })
             }
-            DirectMessage::BlockRequest(h) => PeerMessage::BlockRequest(h),
-            DirectMessage::Block(b) => PeerMessage::Block(b),
-            DirectMessage::BlockHeadersRequest(h) => PeerMessage::BlockHeadersRequest(h),
-            DirectMessage::BlockHeaders(h) => PeerMessage::BlockHeaders(h),
-            DirectMessage::StateRequestHeader(shard_id, sync_hash) => {
+            | DirectMessage::BlockRequest(h) => PeerMessage::BlockRequest(h),
+            | DirectMessage::Block(b) => PeerMessage::Block(b),
+            | DirectMessage::BlockHeadersRequest(h) => PeerMessage::BlockHeadersRequest(h),
+            | DirectMessage::BlockHeaders(h) => PeerMessage::BlockHeaders(h),
+            | DirectMessage::StateRequestHeader(shard_id, sync_hash) => {
                 PeerMessage::StateRequestHeader(shard_id, sync_hash)
             }
-            DirectMessage::StateRequestPart(shard_id, sync_hash, part_id) => {
+            | DirectMessage::StateRequestPart(shard_id, sync_hash, part_id) => {
                 PeerMessage::StateRequestPart(shard_id, sync_hash, part_id)
             }
-            DirectMessage::VersionedStateResponse(request) => {
+            | DirectMessage::VersionedStateResponse(request) => {
                 PeerMessage::VersionedStateResponse(*request)
             }
         };
 
-        self.stream.write_message(&peer_msg).await
+        self.stream
+            .write_message(&peer_msg)
+            .await
     }
 
     // Try to send a routed PeerMessage corresponding to the given RoutedMessage
@@ -407,16 +446,16 @@ impl Connection {
         ttl: u8,
     ) -> io::Result<()> {
         let body = match msg {
-            RoutedMessage::Ping { nonce } => {
+            | RoutedMessage::Ping { nonce } => {
                 RoutedMessageBody::Ping(Ping { nonce, source: self.my_peer_id.clone() })
             }
-            RoutedMessage::Pong { nonce, source } => {
+            | RoutedMessage::Pong { nonce, source } => {
                 RoutedMessageBody::Pong(Pong { nonce, source })
             }
-            RoutedMessage::PartialEncodedChunkRequest(request) => {
+            | RoutedMessage::PartialEncodedChunkRequest(request) => {
                 RoutedMessageBody::PartialEncodedChunkRequest(request)
             }
-            RoutedMessage::PartialEncodedChunkResponse(response) => {
+            | RoutedMessage::PartialEncodedChunkResponse(response) => {
                 RoutedMessageBody::PartialEncodedChunkResponse(response)
             }
         };
@@ -426,13 +465,18 @@ impl Connection {
             Some(Utc::now_utc()),
         );
         self.route_cache.put(msg.hash(), ());
-        self.stream.write_message(&PeerMessage::Routed(Box::new(msg))).await
+        self.stream
+            .write_message(&PeerMessage::Routed(Box::new(msg)))
+            .await
     }
 
-    fn target_is_for_me(&mut self, target: &PeerIdOrHash) -> bool {
+    fn target_is_for_me(
+        &mut self,
+        target: &PeerIdOrHash,
+    ) -> bool {
         match target {
-            PeerIdOrHash::PeerId(peer_id) => peer_id == &self.my_peer_id,
-            PeerIdOrHash::Hash(hash) => self.route_cache.pop(hash).is_some(),
+            | PeerIdOrHash::PeerId(peer_id) => peer_id == &self.my_peer_id,
+            | PeerIdOrHash::Hash(hash) => self.route_cache.pop(hash).is_some(),
         }
     }
 
@@ -448,17 +492,17 @@ impl Connection {
             return None;
         }
         match &msg.body {
-            RoutedMessageBody::Ping(p) => Some(RoutedMessage::Ping { nonce: p.nonce }),
-            RoutedMessageBody::Pong(p) => {
+            | RoutedMessageBody::Ping(p) => Some(RoutedMessage::Ping { nonce: p.nonce }),
+            | RoutedMessageBody::Pong(p) => {
                 Some(RoutedMessage::Pong { nonce: p.nonce, source: p.source.clone() })
             }
-            RoutedMessageBody::PartialEncodedChunkRequest(request) => {
+            | RoutedMessageBody::PartialEncodedChunkRequest(request) => {
                 Some(RoutedMessage::PartialEncodedChunkRequest(request.clone()))
             }
-            RoutedMessageBody::PartialEncodedChunkResponse(response) => {
+            | RoutedMessageBody::PartialEncodedChunkResponse(response) => {
                 Some(RoutedMessage::PartialEncodedChunkResponse(response.clone()))
             }
-            _ => None,
+            | _ => None,
         }
     }
 
@@ -467,8 +511,8 @@ impl Connection {
     pub async fn recv(&mut self) -> io::Result<(Message, Instant)> {
         loop {
             let (msg, timestamp) = match self.stream.recv_message().await {
-                Ok(m) => m,
-                Err(RecvError::Parse(len)) => {
+                | Ok(m) => m,
+                | Err(RecvError::Parse(len)) => {
                     if self.borsh_message_expected {
                         tracing::debug!(target: "network", "{:?} dropping a non protobuf message. Probably an extra handshake.", &self);
                         self.borsh_message_expected = false;
@@ -480,36 +524,36 @@ impl Connection {
                         ));
                     }
                 }
-                Err(RecvError::IO(e)) => return Err(e),
+                | Err(RecvError::IO(e)) => return Err(e),
             };
             match msg {
-                PeerMessage::Routed(r) => {
+                | PeerMessage::Routed(r) => {
                     if let Some(msg) = self.recv_routed_msg(&r) {
                         return Ok((Message::Routed(msg), timestamp));
                     }
                 }
-                PeerMessage::SyncRoutingTable(r) => {
+                | PeerMessage::SyncRoutingTable(r) => {
                     return Ok((
                         Message::Direct(DirectMessage::AnnounceAccounts(r.accounts)),
                         timestamp,
                     ));
                 }
-                PeerMessage::BlockRequest(hash) => {
+                | PeerMessage::BlockRequest(hash) => {
                     return Ok((Message::Direct(DirectMessage::BlockRequest(hash)), timestamp));
                 }
-                PeerMessage::Block(b) => {
+                | PeerMessage::Block(b) => {
                     return Ok((Message::Direct(DirectMessage::Block(b)), timestamp));
                 }
-                PeerMessage::BlockHeadersRequest(hashes) => {
+                | PeerMessage::BlockHeadersRequest(hashes) => {
                     return Ok((
                         Message::Direct(DirectMessage::BlockHeadersRequest(hashes)),
                         timestamp,
                     ));
                 }
-                PeerMessage::BlockHeaders(headers) => {
+                | PeerMessage::BlockHeaders(headers) => {
                     return Ok((Message::Direct(DirectMessage::BlockHeaders(headers)), timestamp));
                 }
-                PeerMessage::VersionedStateResponse(state_response) => {
+                | PeerMessage::VersionedStateResponse(state_response) => {
                     return Ok((
                         Message::Direct(DirectMessage::VersionedStateResponse(Box::new(
                             state_response,
@@ -517,7 +561,7 @@ impl Connection {
                         timestamp,
                     ));
                 }
-                _ => {}
+                | _ => {}
             }
         }
     }
@@ -542,19 +586,30 @@ struct PeerStream {
 }
 
 impl std::fmt::Debug for PeerStream {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+    fn fmt(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+    ) -> Result<(), std::fmt::Error> {
         write!(f, "raw::PeerStream({} -> {})", &self.stream.local_addr, &self.stream.peer_addr)
     }
 }
 
 impl PeerStream {
-    fn new(stream: tcp::Stream, recv_timeout: Duration) -> Self {
+    fn new(
+        stream: tcp::Stream,
+        recv_timeout: Duration,
+    ) -> Self {
         Self { stream, buf: BytesMut::with_capacity(1024), recv_timeout }
     }
 
-    async fn write_message(&mut self, msg: &PeerMessage) -> io::Result<()> {
+    async fn write_message(
+        &mut self,
+        msg: &PeerMessage,
+    ) -> io::Result<()> {
         let mut msg = msg.serialize(Encoding::Proto);
-        let mut buf = (msg.len() as u32).to_le_bytes().to_vec();
+        let mut buf = (msg.len() as u32)
+            .to_le_bytes()
+            .to_vec();
         buf.append(&mut msg);
         self.stream.stream.write_all(&buf).await
     }
@@ -562,7 +617,9 @@ impl PeerStream {
     async fn do_read(&mut self) -> io::Result<()> {
         let n = tokio::time::timeout(
             self.recv_timeout.try_into().unwrap(),
-            self.stream.stream.read_buf(&mut self.buf),
+            self.stream
+                .stream
+                .read_buf(&mut self.buf),
         )
         .await??;
         tracing::trace!(target: "network", "Read {} bytes from {:?}", n, self.stream.peer_addr);
@@ -607,7 +664,8 @@ impl PeerStream {
         // make sure we can probably read the next message in one syscall next time
         let max_len_after_next_read = self.buf.chunk_mut().len() + self.buf.remaining();
         if max_len_after_next_read < 512 {
-            self.buf.reserve(512 - max_len_after_next_read);
+            self.buf
+                .reserve(512 - max_len_after_next_read);
         }
         msg.map(|m| {
             tracing::debug!(target: "network", "{:?} received PeerMessage::{} len: {}", &self, &m, msg_length);
@@ -652,7 +710,11 @@ impl Listener {
     }
 
     pub async fn accept(&mut self) -> Result<Connection, ConnectError> {
-        let stream = self.listener.accept().await.map_err(ConnectError::IO)?;
+        let stream = self
+            .listener
+            .accept()
+            .await
+            .map_err(ConnectError::IO)?;
         Connection::on_accept(
             stream,
             self.secret_key.clone(),

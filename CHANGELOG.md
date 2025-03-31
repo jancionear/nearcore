@@ -3,6 +3,14 @@
 ## [unreleased]
 
 ### Protocol Changes
+**No Changes**
+
+### Non-protocol Changes
+**No Changes**
+
+## [2.5.0]
+
+### Protocol Changes
 * Add cross-shard bandwidth scheduler which manages transferring receipts between shards,
   enabling higher throughput of cross-shard receipts and better horizontal scalability.
   NEP-584 (https://github.com/near/NEPs/pull/584)
@@ -313,7 +321,7 @@ to pay for the storage of their accounts.
   `sum(rate(near_peer_message_received_by_type_total{...}[5m]))`.
   [#7548](https://github.com/near/nearcore/pull/7548)
 * Few changes to `view_state` JSON RPC query:
-  - The request has now an optional `include_proof` argument.  When set to
+  - The requset has now an optional `include_proof` argument.  When set to
     `true`, response’s `proof` will be populated.
   - The `proof` within each value in `values` list of a `view_state` response is
     now deprecated and will be removed in the future.  Client code should ignore

@@ -16,7 +16,9 @@ const NUM_ACCOUNTS: usize = 8;
 const NUM_PRODUCER_ACCOUNTS: usize = 6;
 
 fn create_accounts() -> Vec<AccountId> {
-    (0..NUM_ACCOUNTS).map(|i| format!("account{}", i).parse().unwrap()).collect::<Vec<AccountId>>()
+    (0..NUM_ACCOUNTS)
+        .map(|i| format!("account{}", i).parse().unwrap())
+        .collect::<Vec<AccountId>>()
 }
 
 enum TestCase {
@@ -29,27 +31,33 @@ enum TestCase {
 impl TestCase {
     fn selected_account(&self) -> &AccountId {
         match self {
-            TestCase::DropChunksValidatedBy(account_id) => account_id,
-            TestCase::DropEndorsementsFrom(account_id) => account_id,
+            | TestCase::DropChunksValidatedBy(account_id) => account_id,
+            | TestCase::DropEndorsementsFrom(account_id) => account_id,
         }
     }
 }
 
-fn run_test_chunk_validator_kickout(accounts: Vec<AccountId>, test_case: TestCase) {
+fn run_test_chunk_validator_kickout(
+    accounts: Vec<AccountId>,
+    test_case: TestCase,
+) {
     init_test_logger();
     let epoch_length = 10;
     let clients = accounts.iter().cloned().collect_vec();
-    let accounts_str = accounts.iter().map(|a| a.as_str()).collect_vec();
+    let accounts_str = accounts
+        .iter()
+        .map(|a| a.as_str())
+        .collect_vec();
     let (block_and_chunk_producers, chunk_validators_only) =
         accounts_str.split_at(NUM_PRODUCER_ACCOUNTS);
 
     let builder = match &test_case {
-        TestCase::DropChunksValidatedBy(account_id) => TestLoopBuilder::new()
+        | TestCase::DropChunksValidatedBy(account_id) => TestLoopBuilder::new()
             // Drop only chunks validated by `account_id`.
             // By how our endorsement stats are computed, this will count as this
             // validator validating zero chunks.
             .drop_chunks_validated_by(account_id.as_str()),
-        TestCase::DropEndorsementsFrom(account_id) => TestLoopBuilder::new()
+        | TestCase::DropEndorsementsFrom(account_id) => TestLoopBuilder::new()
             // Drop only endorsements for chunks validated by `account_id`.
             .drop_endorsements_from(account_id.as_str()),
     };
@@ -59,10 +67,10 @@ fn run_test_chunk_validator_kickout(accounts: Vec<AccountId>, test_case: TestCas
         // every chunk validator validating only one shard in most cases.
         // As a result, when we drop the chunk, we also zero-out all the endorsements
         // of the corresponding chunk validator.
-        TestCase::DropChunksValidatedBy(_) => 1,
+        | TestCase::DropChunksValidatedBy(_) => 1,
         // Target giving a large number of mandates to each chunk validator, so that if we drop all the
         // endorsements from one of the validators, this will not result in missing any chunks.
-        TestCase::DropEndorsementsFrom(_) => 16,
+        | TestCase::DropEndorsementsFrom(_) => 16,
     };
 
     // Only chunk validator-only node can be kicked out for low endorsement stats.
@@ -94,21 +102,41 @@ fn run_test_chunk_validator_kickout(accounts: Vec<AccountId>, test_case: TestCas
         },
     );
 
-    let TestLoopEnv { mut test_loop, datas: node_datas, tempdir } =
-        builder.genesis(genesis).epoch_config_store(epoch_config_store).clients(clients).build();
+    let TestLoopEnv { mut test_loop, datas: node_datas, tempdir } = builder
+        .genesis(genesis)
+        .epoch_config_store(epoch_config_store)
+        .clients(clients)
+        .build();
 
     // Run chain until our targeted chunk validator is (not) kicked out.
-    let client_handle = node_datas[0].client_sender.actor_handle();
-    let initial_validators = get_epoch_all_validators(&test_loop.data.get(&client_handle).client);
+    let client_handle = node_datas[0]
+        .client_sender
+        .actor_handle();
+    let initial_validators = get_epoch_all_validators(
+        &test_loop
+            .data
+            .get(&client_handle)
+            .client,
+    );
     assert_eq!(initial_validators.len(), NUM_ACCOUNTS);
     assert!(initial_validators.contains(&test_case.selected_account().to_string()));
     let success_condition = |test_loop_data: &mut TestLoopData| -> bool {
-        let client = &test_loop_data.get(&client_handle).client;
+        let client = &test_loop_data
+            .get(&client_handle)
+            .client;
         let tip = client.chain.head().unwrap();
 
         // Check the number of missed chunks for each test case.
-        let block = client.chain.get_block(&tip.last_block_hash).unwrap();
-        let num_missed_chunks = block.header().chunk_mask().iter().filter(|c| !**c).count();
+        let block = client
+            .chain
+            .get_block(&tip.last_block_hash)
+            .unwrap();
+        let num_missed_chunks = block
+            .header()
+            .chunk_mask()
+            .iter()
+            .filter(|c| !**c)
+            .count();
         match &test_case {
             TestCase::DropChunksValidatedBy(_) => assert!(num_missed_chunks <= 1,
                 "At most one chunk must be missed when dropping chunks validated by the selected account"),
@@ -117,8 +145,10 @@ fn run_test_chunk_validator_kickout(accounts: Vec<AccountId>, test_case: TestCas
         }
 
         let validators = get_epoch_all_validators(client);
-        let epoch_height =
-            client.epoch_manager.get_epoch_height_from_prev_block(&tip.prev_block_hash).unwrap();
+        let epoch_height = client
+            .epoch_manager
+            .get_epoch_height_from_prev_block(&tip.prev_block_hash)
+            .unwrap();
         if let Some(account_id) = &account_to_kickout {
             assert!(epoch_height < 4);
             return if validators.len() == NUM_ACCOUNTS - 1 {

@@ -30,7 +30,10 @@ pub struct PeerInfo {
 
 impl PeerInfo {
     /// Creates random peer info.
-    pub fn new(id: PeerId, addr: SocketAddr) -> Self {
+    pub fn new(
+        id: PeerId,
+        addr: SocketAddr,
+    ) -> Self {
         PeerInfo { id, addr: Some(addr), account_id: None }
     }
 
@@ -41,7 +44,10 @@ impl PeerInfo {
 
 // Note, `Display` automatically implements `ToString` which must be reciprocal to `FromStr`.
 impl fmt::Display for PeerInfo {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
         write!(f, "{}", self.id)?;
         if let Some(addr) = &self.addr {
             write!(f, "@{}", addr)?;
@@ -78,23 +84,26 @@ impl FromStr for PeerInfo {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let chunks: Vec<&str> = s.split('@').collect();
         let id = match chunks.get(0) {
-            Some(c) => PeerId::new(c.parse().map_err(Self::Err::PeerId)?),
-            None => return Err(Self::Err::InvalidFormat(s.to_string())),
+            | Some(c) => PeerId::new(c.parse().map_err(Self::Err::PeerId)?),
+            | None => return Err(Self::Err::InvalidFormat(s.to_string())),
         };
         let mut i = 1;
-        let addr = match chunks.get(i).map(|s| s.to_socket_addrs()) {
-            Some(Ok(mut x)) => {
+        let addr = match chunks
+            .get(i)
+            .map(|s| s.to_socket_addrs())
+        {
+            | Some(Ok(mut x)) => {
                 i += 1;
                 x.next()
             }
-            _ => None,
+            | _ => None,
         };
         let account_id = match chunks.get(i).map(|c| c.parse()) {
-            Some(Ok(it)) => {
+            | Some(Ok(it)) => {
                 i += 1;
                 Some(it)
             }
-            _ => None,
+            | _ => None,
         };
         if i < chunks.len() {
             return Err(Self::Err::InvalidFormat(s.to_string()));

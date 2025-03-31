@@ -30,19 +30,28 @@ impl Universal {
     }
 
     /// Set the target
-    pub fn target(mut self, target: Target) -> Self {
+    pub fn target(
+        mut self,
+        target: Target,
+    ) -> Self {
         self.target = Some(target);
         self
     }
 
     /// Set the features
-    pub fn features(mut self, features: Features) -> Self {
+    pub fn features(
+        mut self,
+        features: Features,
+    ) -> Self {
         self.features = Some(features);
         self
     }
 
     /// Set the pool of reusable code memory
-    pub fn code_memory_pool(mut self, pool: super::MemoryPool) -> Self {
+    pub fn code_memory_pool(
+        mut self,
+        pool: super::MemoryPool,
+    ) -> Self {
         self.pool = Some(pool);
         self
     }
@@ -50,8 +59,9 @@ impl Universal {
     /// Build the `UniversalEngine` for this configuration
     pub fn engine(self) -> UniversalEngine {
         let target = self.target.unwrap_or_default();
-        let pool =
-            self.pool.unwrap_or_else(|| panic!("Universal::code_memory_pool was not set up!"));
+        let pool = self
+            .pool
+            .unwrap_or_else(|| panic!("Universal::code_memory_pool was not set up!"));
         if let Some(compiler_config) = self.compiler_config {
             let features = self
                 .features

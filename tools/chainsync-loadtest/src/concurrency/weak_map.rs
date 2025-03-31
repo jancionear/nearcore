@@ -48,14 +48,24 @@ impl<K: Hash + Eq + Clone, V> WeakMap<K, V> {
     }
 
     // get() returns a reference to map[key], or None if not present.
-    pub fn get(self: &Arc<Self>, key: &K) -> Option<Arc<Ref<K, V>>> {
+    pub fn get(
+        self: &Arc<Self>,
+        key: &K,
+    ) -> Option<Arc<Ref<K, V>>> {
         let m = self.inner.lock().unwrap();
-        return m.get(key).map(|w| w.upgrade()).flatten();
+        return m
+            .get(key)
+            .map(|w| w.upgrade())
+            .flatten();
     }
 
     // get() returns a reference to map[key].
     // Uses new_value to initialize the map entry if missing.
-    pub fn get_or_insert(self: &Arc<Self>, key: &K, new_value: impl Fn() -> V) -> Arc<Ref<K, V>> {
+    pub fn get_or_insert(
+        self: &Arc<Self>,
+        key: &K,
+        new_value: impl Fn() -> V,
+    ) -> Arc<Ref<K, V>> {
         let mut m = self.inner.lock().unwrap();
         if let Some(w) = m.get(key) {
             if let Some(v) = w.upgrade() {

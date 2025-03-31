@@ -60,7 +60,9 @@ pub fn create_light_client_block_view(
 
     let after_next_block_hash = chain_store.get_next_block_hash(&next_block_hash)?;
     let after_next_block_header = chain_store.get_block_header(&after_next_block_hash)?;
-    let approvals_after_next = after_next_block_header.approvals().to_vec();
+    let approvals_after_next = after_next_block_header
+        .approvals()
+        .to_vec();
 
     Ok(LightClientBlockView {
         prev_block_hash: *block_header.prev_hash(),

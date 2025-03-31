@@ -60,7 +60,10 @@ where
         dur: Duration,
         f: Box<dyn FnOnce(&mut A, &mut dyn DelayedActionRunner<A>) + Send + 'static>,
     ) {
-        if self.shutting_down.load(Ordering::Relaxed) {
+        if self
+            .shutting_down
+            .load(Ordering::Relaxed)
+        {
             return;
         }
 
@@ -69,11 +72,12 @@ where
             let actor = data.get_mut(&this.actor_handle);
             f(actor, &mut this);
         };
-        self.pending_events_sender.send_with_delay(
-            format!("DelayedAction {}({:?})", pretty_type_name::<A>(), name),
-            Box::new(callback),
-            dur,
-        );
+        self.pending_events_sender
+            .send_with_delay(
+                format!("DelayedAction {}({:?})", pretty_type_name::<A>(), name),
+                Box::new(callback),
+                dur,
+            );
     }
 }
 
@@ -83,18 +87,18 @@ where
     A: Actor + HandlerWithContext<M> + 'static,
     M::Result: Send,
 {
-    fn send(&self, msg: M) {
+    fn send(
+        &self,
+        msg: M,
+    ) {
         let mut this = self.clone();
         let description = format!("{}({:?})", pretty_type_name::<A>(), &msg);
         let callback = move |data: &mut TestLoopData| {
             let actor = data.get_mut(&this.actor_handle);
             actor.handle(msg, &mut this);
         };
-        self.pending_events_sender.send_with_delay(
-            description,
-            Box::new(callback),
-            self.sender_delay,
-        );
+        self.pending_events_sender
+            .send_with_delay(description, Box::new(callback), self.sender_delay);
     }
 }
 
@@ -104,7 +108,10 @@ where
     A: Actor + HandlerWithContext<M> + 'static,
     R: 'static + Send,
 {
-    fn send(&self, msg: MessageWithCallback<M, R>) {
+    fn send(
+        &self,
+        msg: MessageWithCallback<M, R>,
+    ) {
         let mut this = self.clone();
         let description = format!("{}({:?})", pretty_type_name::<A>(), &msg.message);
         let callback = move |data: &mut TestLoopData| {
@@ -113,11 +120,8 @@ where
             let result = actor.handle(msg, &mut this);
             callback(async move { Ok(result) }.boxed());
         };
-        self.pending_events_sender.send_with_delay(
-            description,
-            Box::new(callback),
-            self.sender_delay,
-        );
+        self.pending_events_sender
+            .send_with_delay(description, Box::new(callback), self.sender_delay);
     }
 }
 
@@ -134,7 +138,10 @@ where
     }
 
     /// Returns a new TestLoopSender which sends messages with the given delay.
-    pub fn with_delay(self, delay: Duration) -> Self {
+    pub fn with_delay(
+        self,
+        delay: Duration,
+    ) -> Self {
         Self { sender_delay: delay, ..self }
     }
 
@@ -147,5 +154,8 @@ where
 // Does not work for more complex types like std::sync::Arc<std::sync::atomic::AtomicBool<...>>
 // example near_chunks::shards_manager_actor::ShardsManagerActor -> ShardsManagerActor
 fn pretty_type_name<T>() -> &'static str {
-    type_name::<T>().split("::").last().unwrap()
+    type_name::<T>()
+        .split("::")
+        .last()
+        .unwrap()
 }

@@ -8,16 +8,16 @@ impl QueryError {
         block_hash: near_primitives::hash::CryptoHash,
     ) -> Self {
         match error {
-            node_runtime::state_viewer::errors::CallFunctionError::InvalidAccountId {
+            | node_runtime::state_viewer::errors::CallFunctionError::InvalidAccountId {
                 requested_account_id,
             } => Self::InvalidAccount { requested_account_id, block_height, block_hash },
-            node_runtime::state_viewer::errors::CallFunctionError::AccountDoesNotExist {
+            | node_runtime::state_viewer::errors::CallFunctionError::AccountDoesNotExist {
                 requested_account_id,
             } => Self::UnknownAccount { requested_account_id, block_height, block_hash },
-            node_runtime::state_viewer::errors::CallFunctionError::InternalError {
+            | node_runtime::state_viewer::errors::CallFunctionError::InternalError {
                 error_message,
             } => Self::InternalError { error_message, block_height, block_hash },
-            node_runtime::state_viewer::errors::CallFunctionError::VMError { error_message } => {
+            | node_runtime::state_viewer::errors::CallFunctionError::VMError { error_message } => {
                 Self::ContractExecutionError { error_message, block_height, block_hash }
             }
         }
@@ -29,13 +29,13 @@ impl QueryError {
         block_hash: near_primitives::hash::CryptoHash,
     ) -> Self {
         match error {
-            node_runtime::state_viewer::errors::ViewAccountError::InvalidAccountId {
+            | node_runtime::state_viewer::errors::ViewAccountError::InvalidAccountId {
                 requested_account_id,
             } => Self::InvalidAccount { requested_account_id, block_height, block_hash },
-            node_runtime::state_viewer::errors::ViewAccountError::AccountDoesNotExist {
+            | node_runtime::state_viewer::errors::ViewAccountError::AccountDoesNotExist {
                 requested_account_id,
             } => Self::UnknownAccount { requested_account_id, block_height, block_hash },
-            node_runtime::state_viewer::errors::ViewAccountError::InternalError {
+            | node_runtime::state_viewer::errors::ViewAccountError::InternalError {
                 error_message,
             } => Self::InternalError { error_message, block_height, block_hash },
         }
@@ -47,16 +47,16 @@ impl QueryError {
         block_hash: near_primitives::hash::CryptoHash,
     ) -> Self {
         match error {
-            node_runtime::state_viewer::errors::ViewContractCodeError::InvalidAccountId {
+            | node_runtime::state_viewer::errors::ViewContractCodeError::InvalidAccountId {
                 requested_account_id,
             } => Self::InvalidAccount { requested_account_id, block_height, block_hash },
-            node_runtime::state_viewer::errors::ViewContractCodeError::AccountDoesNotExist {
+            | node_runtime::state_viewer::errors::ViewContractCodeError::AccountDoesNotExist {
                 requested_account_id,
             } => Self::UnknownAccount { requested_account_id, block_height, block_hash },
-            node_runtime::state_viewer::errors::ViewContractCodeError::InternalError {
+            | node_runtime::state_viewer::errors::ViewContractCodeError::InternalError {
                 error_message,
             } => Self::InternalError { error_message, block_height, block_hash },
-            node_runtime::state_viewer::errors::ViewContractCodeError::NoContractCode {
+            | node_runtime::state_viewer::errors::ViewContractCodeError::NoContractCode {
                 contract_account_id,
             } => Self::NoContractCode { contract_account_id, block_height, block_hash },
         }
@@ -68,16 +68,16 @@ impl QueryError {
         block_hash: near_primitives::hash::CryptoHash,
     ) -> Self {
         match error {
-            node_runtime::state_viewer::errors::ViewStateError::InvalidAccountId {
+            | node_runtime::state_viewer::errors::ViewStateError::InvalidAccountId {
                 requested_account_id,
             } => Self::InvalidAccount { requested_account_id, block_height, block_hash },
-            node_runtime::state_viewer::errors::ViewStateError::InternalError { error_message } => {
-                Self::InternalError { error_message, block_height, block_hash }
-            }
-            node_runtime::state_viewer::errors::ViewStateError::AccountDoesNotExist {
+            | node_runtime::state_viewer::errors::ViewStateError::InternalError {
+                error_message,
+            } => Self::InternalError { error_message, block_height, block_hash },
+            | node_runtime::state_viewer::errors::ViewStateError::AccountDoesNotExist {
                 requested_account_id,
             } => Self::UnknownAccount { requested_account_id, block_height, block_hash },
-            node_runtime::state_viewer::errors::ViewStateError::AccountStateTooLarge {
+            | node_runtime::state_viewer::errors::ViewStateError::AccountStateTooLarge {
                 requested_account_id,
             } => Self::TooLargeContractState { requested_account_id, block_height, block_hash },
         }
@@ -89,13 +89,13 @@ impl QueryError {
         block_hash: near_primitives::hash::CryptoHash,
     ) -> Self {
         match error {
-            node_runtime::state_viewer::errors::ViewAccessKeyError::InvalidAccountId {
+            | node_runtime::state_viewer::errors::ViewAccessKeyError::InvalidAccountId {
                 requested_account_id,
             } => Self::InvalidAccount { requested_account_id, block_height, block_hash },
-            node_runtime::state_viewer::errors::ViewAccessKeyError::AccessKeyDoesNotExist {
+            | node_runtime::state_viewer::errors::ViewAccessKeyError::AccessKeyDoesNotExist {
                 public_key,
             } => Self::UnknownAccessKey { public_key, block_height, block_hash },
-            node_runtime::state_viewer::errors::ViewAccessKeyError::InternalError {
+            | node_runtime::state_viewer::errors::ViewAccessKeyError::InternalError {
                 error_message,
             } => Self::InternalError { error_message, block_height, block_hash },
         }

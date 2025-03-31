@@ -80,48 +80,48 @@ impl BlockBody {
     #[inline]
     pub fn chunks(&self) -> &[ShardChunkHeader] {
         match self {
-            BlockBody::V1(body) => &body.chunks,
-            BlockBody::V2(body) => &body.chunks,
+            | BlockBody::V1(body) => &body.chunks,
+            | BlockBody::V2(body) => &body.chunks,
         }
     }
 
     #[inline]
     pub fn challenges(&self) -> &Challenges {
         match self {
-            BlockBody::V1(body) => &body.challenges,
-            BlockBody::V2(body) => &body.challenges,
+            | BlockBody::V1(body) => &body.challenges,
+            | BlockBody::V2(body) => &body.challenges,
         }
     }
 
     #[inline]
     pub fn vrf_value(&self) -> &Value {
         match self {
-            BlockBody::V1(body) => &body.vrf_value,
-            BlockBody::V2(body) => &body.vrf_value,
+            | BlockBody::V1(body) => &body.vrf_value,
+            | BlockBody::V2(body) => &body.vrf_value,
         }
     }
 
     #[inline]
     pub fn vrf_proof(&self) -> &Proof {
         match self {
-            BlockBody::V1(body) => &body.vrf_proof,
-            BlockBody::V2(body) => &body.vrf_proof,
+            | BlockBody::V1(body) => &body.vrf_proof,
+            | BlockBody::V2(body) => &body.vrf_proof,
         }
     }
 
     #[inline]
     pub fn chunk_endorsements(&self) -> &[ChunkEndorsementSignatures] {
         match self {
-            BlockBody::V1(_) => &[],
-            BlockBody::V2(body) => &body.chunk_endorsements,
+            | BlockBody::V1(_) => &[],
+            | BlockBody::V2(body) => &body.chunk_endorsements,
         }
     }
 
     pub fn compute_hash(&self) -> CryptoHash {
         // From BlockBodyV2 onwards, we hash the entire body including version.
         match self {
-            BlockBody::V1(body) => body.compute_hash(),
-            _ => CryptoHash::hash_borsh(self),
+            | BlockBody::V1(body) => body.compute_hash(),
+            | _ => CryptoHash::hash_borsh(self),
         }
     }
 }

@@ -36,7 +36,10 @@ extern "C" {
 /// Additionally no Rust destructors may be on the stack.
 /// They will be skipped and not executed.
 pub unsafe fn raise_user_trap(data: Box<dyn Error + Send + Sync>) -> ! {
-    tls::with(|info| info.unwrap().unwind_with(UnwindReason::UserTrap(data)))
+    tls::with(|info| {
+        info.unwrap()
+            .unwind_with(UnwindReason::UserTrap(data))
+    })
 }
 
 /// Raises a trap from inside library code immediately.
@@ -51,7 +54,10 @@ pub unsafe fn raise_user_trap(data: Box<dyn Error + Send + Sync>) -> ! {
 /// Additionally no Rust destructors may be on the stack.
 /// They will be skipped and not executed.
 pub unsafe fn raise_lib_trap(trap: Trap) -> ! {
-    tls::with(|info| info.unwrap().unwind_with(UnwindReason::LibTrap(trap)))
+    tls::with(|info| {
+        info.unwrap()
+            .unwind_with(UnwindReason::LibTrap(trap))
+    })
 }
 
 /// Carries a Rust panic across wasm code and resumes the panic on the other
@@ -63,7 +69,10 @@ pub unsafe fn raise_lib_trap(trap: Trap) -> ! {
 /// have been previously called and not returned. Additionally no Rust destructors may be on the
 /// stack. They will be skipped and not executed.
 pub unsafe fn resume_panic(payload: Box<dyn Any + Send>) -> ! {
-    tls::with(|info| info.unwrap().unwind_with(UnwindReason::Panic(payload)))
+    tls::with(|info| {
+        info.unwrap()
+            .unwind_with(UnwindReason::Panic(payload))
+    })
 }
 
 /// Stores trace message with backtrace.
@@ -107,7 +116,11 @@ impl Trap {
     /// Construct a new Wasm trap with the given source location and backtrace.
     ///
     /// Internally saves a backtrace when constructed.
-    pub fn wasm(pc: usize, backtrace: Backtrace, signal_trap: Option<TrapCode>) -> Self {
+    pub fn wasm(
+        pc: usize,
+        backtrace: Backtrace,
+        signal_trap: Option<TrapCode>,
+    ) -> Self {
         Self::Wasm { pc, backtrace, signal_trap }
     }
 
@@ -198,7 +211,9 @@ where
 {
     let mut global_results = MaybeUninit::<R>::uninit();
     catch_traps(|| {
-        global_results.as_mut_ptr().write(closure());
+        global_results
+            .as_mut_ptr()
+            .write(closure());
     })?;
     Ok(global_results.assume_init())
 }
@@ -232,7 +247,10 @@ impl<'a> CallThreadState {
         }
     }
 
-    fn with(self, closure: impl FnOnce(&Self) -> i32) -> Result<(), Trap> {
+    fn with(
+        self,
+        closure: impl FnOnce(&Self) -> i32,
+    ) -> Result<(), Trap> {
         let ret = tls::set(&self, || closure(&self))?;
         if ret != 0 {
             return Ok(());
@@ -242,18 +260,23 @@ impl<'a> CallThreadState {
         // assume that the `unwind` field is already initialized
         // at this moment.
         match unsafe { (*self.unwind.get()).as_ptr().read() } {
-            UnwindReason::UserTrap(data) => Err(Trap::User(data)),
-            UnwindReason::LibTrap(trap) => Err(trap),
-            UnwindReason::WasmTrap { backtrace, pc, signal_trap } => {
+            | UnwindReason::UserTrap(data) => Err(Trap::User(data)),
+            | UnwindReason::LibTrap(trap) => Err(trap),
+            | UnwindReason::WasmTrap { backtrace, pc, signal_trap } => {
                 Err(Trap::wasm(pc, backtrace, signal_trap))
             }
-            UnwindReason::Panic(panic) => std::panic::resume_unwind(panic),
+            | UnwindReason::Panic(panic) => std::panic::resume_unwind(panic),
         }
     }
 
-    fn unwind_with(&self, reason: UnwindReason) -> ! {
+    fn unwind_with(
+        &self,
+        reason: UnwindReason,
+    ) -> ! {
         unsafe {
-            (*self.unwind.get()).as_mut_ptr().write(reason);
+            (*self.unwind.get())
+                .as_mut_ptr()
+                .write(reason);
             near_vm_unwind(self.jmp_buf.get());
         }
     }
@@ -361,7 +384,10 @@ mod tls {
     /// Configures thread local state such that for the duration of the
     /// execution of `closure` any call to `with` will yield `ptr`, unless this
     /// is recursively called again.
-    pub fn set<R>(state: &CallThreadState, closure: impl FnOnce() -> R) -> Result<R, Trap> {
+    pub fn set<R>(
+        state: &CallThreadState,
+        closure: impl FnOnce() -> R,
+    ) -> Result<R, Trap> {
         struct Reset<'a>(&'a CallThreadState);
 
         impl Drop for Reset<'_> {
@@ -390,16 +416,21 @@ mod tls {
     }
 }
 
-extern "C" fn signal_less_trap_handler(pc: *const u8, trap: TrapCode) {
+extern "C" fn signal_less_trap_handler(
+    pc: *const u8,
+    trap: TrapCode,
+) {
     let jmp_buf = tls::with(|info| {
         let backtrace = Backtrace::new_unresolved();
         let info = info.unwrap();
         unsafe {
-            (*info.unwind.get()).as_mut_ptr().write(UnwindReason::WasmTrap {
-                backtrace,
-                signal_trap: Some(trap),
-                pc: pc as usize,
-            });
+            (*info.unwind.get())
+                .as_mut_ptr()
+                .write(UnwindReason::WasmTrap {
+                    backtrace,
+                    signal_trap: Some(trap),
+                    pc: pc as usize,
+                });
             info.jmp_buf.get()
         }
     });

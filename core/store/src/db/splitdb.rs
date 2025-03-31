@@ -24,7 +24,10 @@ pub struct SplitDB {
 }
 
 impl SplitDB {
-    pub fn new(hot: Arc<dyn Database>, cold: Arc<dyn Database>) -> Arc<Self> {
+    pub fn new(
+        hot: Arc<dyn Database>,
+        cold: Arc<dyn Database>,
+    ) -> Arc<Self> {
         return Arc::new(SplitDB { hot, cold });
     }
 
@@ -35,16 +38,19 @@ impl SplitDB {
     /// implements total order on values but always compares the error on the
     /// left as lesser. This isn't even partial order. It is fine for merging
     /// lists but should not be used for anything more complex like sorting.
-    pub(crate) fn db_iter_item_cmp(a: &DBIteratorItem, b: &DBIteratorItem) -> Ordering {
+    pub(crate) fn db_iter_item_cmp(
+        a: &DBIteratorItem,
+        b: &DBIteratorItem,
+    ) -> Ordering {
         match (a, b) {
             // Always put errors first.
-            (Err(_), _) => Ordering::Less,
-            (_, Err(_)) => Ordering::Greater,
+            | (Err(_), _) => Ordering::Less,
+            | (_, Err(_)) => Ordering::Greater,
             // When comparing two (key, value) paris only compare the keys.
             // - values in hot and cold may differ in rc but they are still the same
             // - values written to cold should be immutable anyway
             // - values written to cold should be final
-            (Ok((a_key, _)), Ok((b_key, _))) => Ord::cmp(a_key, b_key),
+            | (Ok((a_key, _)), Ok((b_key, _))) => Ord::cmp(a_key, b_key),
         }
     }
 
@@ -52,7 +58,10 @@ impl SplitDB {
     /// iterator will contain unique and sorted items from both input iterators.
     ///
     /// All errors from both inputs will be returned.
-    pub(crate) fn merge_iter<'a>(a: DBIterator<'a>, b: DBIterator<'a>) -> DBIterator<'a> {
+    pub(crate) fn merge_iter<'a>(
+        a: DBIterator<'a>,
+        b: DBIterator<'a>,
+    ) -> DBIterator<'a> {
         // Merge the two iterators using the cmp function. The result will be an
         // iter of EitherOrBoth.
         let iter = itertools::merge_join_by(a, b, Self::db_iter_item_cmp);
@@ -62,9 +71,9 @@ impl SplitDB {
         // EitherOrBoth::Both in the merged iter. Pick either and discard the
         // other - this will guarantee uniqueness of the resulting iterator.
         let iter = iter.map(|item| match item {
-            EitherOrBoth::Both(item, _) => item,
-            EitherOrBoth::Left(item) => item,
-            EitherOrBoth::Right(item) => item,
+            | EitherOrBoth::Both(item, _) => item,
+            | EitherOrBoth::Left(item) => item,
+            | EitherOrBoth::Right(item) => item,
         });
         Box::new(iter)
     }
@@ -76,7 +85,11 @@ impl Database for SplitDB {
     ///
     /// First tries to read the data from the hot db and returns it if found.
     /// Then it tries to read the data from the cold db and returns the result.
-    fn get_raw_bytes(&self, col: DBCol, key: &[u8]) -> io::Result<Option<DBSlice<'_>>> {
+    fn get_raw_bytes(
+        &self,
+        col: DBCol,
+        key: &[u8],
+    ) -> io::Result<Option<DBSlice<'_>>> {
         if let Some(hot_result) = self.hot.get_raw_bytes(col, key)? {
             return Ok(Some(hot_result));
         }
@@ -92,10 +105,17 @@ impl Database for SplitDB {
     ///
     /// First tries to read the data from the hot db and returns it if found.
     /// Then it tries to read the data from the cold db and returns the result.
-    fn get_with_rc_stripped(&self, col: DBCol, key: &[u8]) -> io::Result<Option<DBSlice<'_>>> {
+    fn get_with_rc_stripped(
+        &self,
+        col: DBCol,
+        key: &[u8],
+    ) -> io::Result<Option<DBSlice<'_>>> {
         assert!(col.is_rc());
 
-        if let Some(hot_result) = self.hot.get_with_rc_stripped(col, key)? {
+        if let Some(hot_result) = self
+            .hot
+            .get_with_rc_stripped(col, key)?
+        {
             return Ok(Some(hot_result));
         }
         if col.is_cold() {
@@ -109,7 +129,10 @@ impl Database for SplitDB {
     ///
     /// The returned iterator will iterate through items in both the cold store
     /// and the hot store. The items will be deduplicated and sorted.
-    fn iter<'a>(&'a self, col: DBCol) -> DBIterator<'a> {
+    fn iter<'a>(
+        &'a self,
+        col: DBCol,
+    ) -> DBIterator<'a> {
         if !col.is_cold() {
             return self.hot.iter(col);
         }
@@ -122,7 +145,11 @@ impl Database for SplitDB {
     ///
     /// The returned iterator will iterate through items in both the cold store
     /// and the hot store. The items will be unique and sorted.
-    fn iter_prefix<'a>(&'a self, col: DBCol, key_prefix: &'a [u8]) -> DBIterator<'a> {
+    fn iter_prefix<'a>(
+        &'a self,
+        col: DBCol,
+        key_prefix: &'a [u8],
+    ) -> DBIterator<'a> {
         if !col.is_cold() {
             return self.hot.iter_prefix(col, key_prefix);
         }
@@ -148,12 +175,16 @@ impl Database for SplitDB {
         upper_bound: Option<&[u8]>,
     ) -> DBIterator<'a> {
         if !col.is_cold() {
-            return self.hot.iter_range(col, lower_bound, upper_bound);
+            return self
+                .hot
+                .iter_range(col, lower_bound, upper_bound);
         }
 
         return Self::merge_iter(
-            self.hot.iter_range(col, lower_bound, upper_bound),
-            self.cold.iter_range(col, lower_bound, upper_bound),
+            self.hot
+                .iter_range(col, lower_bound, upper_bound),
+            self.cold
+                .iter_range(col, lower_bound, upper_bound),
         );
     }
 
@@ -162,7 +193,10 @@ impl Database for SplitDB {
     ///
     /// The returned iterator will iterate through items in both the cold store
     /// and the hot store. The items will be unique and sorted.
-    fn iter_raw_bytes<'a>(&'a self, col: DBCol) -> DBIterator<'a> {
+    fn iter_raw_bytes<'a>(
+        &'a self,
+        col: DBCol,
+    ) -> DBIterator<'a> {
         if !col.is_cold() {
             return self.hot.iter_raw_bytes(col);
         }
@@ -173,7 +207,10 @@ impl Database for SplitDB {
     /// The split db, in principle, should be read only and only used in view client.
     /// However the view client *does* write to the db in order to update cache.
     /// Hence we need to allow writing to the split db but only write to the hot db.
-    fn write(&self, batch: DBTransaction) -> io::Result<()> {
+    fn write(
+        &self,
+        batch: DBTransaction,
+    ) -> io::Result<()> {
         self.hot.write(batch)
     }
 
@@ -233,15 +270,27 @@ mod test {
         Arc::new(ColdDB::new(TestDB::new()))
     }
 
-    fn set(db: &Arc<dyn Database>, col: DBCol, key: &[u8], value: &[u8]) -> () {
+    fn set(
+        db: &Arc<dyn Database>,
+        col: DBCol,
+        key: &[u8],
+        value: &[u8],
+    ) -> () {
         let op = DBOp::Set { col, key: key.to_vec(), value: value.to_vec() };
-        db.write(DBTransaction { ops: vec![op] }).unwrap();
+        db.write(DBTransaction { ops: vec![op] })
+            .unwrap();
     }
 
-    fn set_rc(db: &Arc<dyn Database>, col: DBCol, key: &[u8], value: &[u8]) -> () {
+    fn set_rc(
+        db: &Arc<dyn Database>,
+        col: DBCol,
+        key: &[u8],
+        value: &[u8],
+    ) -> () {
         const ONE: &[u8] = &1i64.to_le_bytes();
         let op = DBOp::UpdateRefcount { col, key: key.to_vec(), value: [&value, ONE].concat() };
-        db.write(DBTransaction { ops: vec![op] }).unwrap();
+        db.write(DBTransaction { ops: vec![op] })
+            .unwrap();
     }
 
     fn bx<const SIZE: usize>(literal: &[u8; SIZE]) -> Box<[u8]> {
@@ -304,7 +353,9 @@ mod test {
         set_rc(&hot, col, key, FOO);
         set_rc(&cold, col, key, NOT_FOO);
 
-        let value = split.get_with_rc_stripped(col, key).unwrap();
+        let value = split
+            .get_with_rc_stripped(col, key)
+            .unwrap();
         assert_eq!(value.as_deref(), Some(FOO));
 
         // Test 2: Write to the cold db only and verify that we can read the
@@ -312,7 +363,9 @@ mod test {
         let key = BAR;
         set_rc(&cold, col, key, BAR);
 
-        let value = split.get_with_rc_stripped(col, key).unwrap();
+        let value = split
+            .get_with_rc_stripped(col, key)
+            .unwrap();
         assert_eq!(value.as_deref(), Some(BAR));
 
         // Test 3: nothing, there aren't any non-cold reference counted columns.
@@ -397,8 +450,10 @@ mod test {
         let iter = split.iter_prefix(col, key_prefix);
         let iter = iter.map(|item| item.unwrap());
         let result = iter.collect_vec();
-        let expected_result: Vec<(Box<[u8]>, Box<[u8]>)> =
-            vec![(BAR.into(), BAR_VALUE.into()), (BAZ.into(), BAZ_VALUE.into())];
+        let expected_result: Vec<(Box<[u8]>, Box<[u8]>)> = vec![
+            (BAR.into(), BAR_VALUE.into()),
+            (BAZ.into(), BAZ_VALUE.into()),
+        ];
         assert_eq!(result, expected_result);
     }
 

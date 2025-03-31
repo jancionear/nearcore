@@ -53,7 +53,10 @@ pub struct ShardTracker {
 }
 
 impl ShardTracker {
-    pub fn new(tracked_config: TrackedConfig, epoch_manager: Arc<dyn EpochManagerAdapter>) -> Self {
+    pub fn new(
+        tracked_config: TrackedConfig,
+        epoch_manager: Arc<dyn EpochManagerAdapter>,
+    ) -> Self {
         ShardTracker {
             tracked_config,
             // 1024 epochs on mainnet is about 512 days which is more than enough,
@@ -74,41 +77,55 @@ impl ShardTracker {
         epoch_id: &EpochId,
     ) -> Result<bool, EpochError> {
         match &self.tracked_config {
-            TrackedConfig::Accounts(tracked_accounts) => {
-                let shard_layout = self.epoch_manager.get_shard_layout(epoch_id)?;
-                let tracking_mask = self.tracking_shards_cache.get_or_try_put(
-                    *epoch_id,
-                    |_| -> Result<Vec<bool>, EpochError> {
-                        let mut tracking_mask =
-                            shard_layout.shard_ids().map(|_| false).collect_vec();
+            | TrackedConfig::Accounts(tracked_accounts) => {
+                let shard_layout = self
+                    .epoch_manager
+                    .get_shard_layout(epoch_id)?;
+                let tracking_mask = self
+                    .tracking_shards_cache
+                    .get_or_try_put(*epoch_id, |_| -> Result<Vec<bool>, EpochError> {
+                        let mut tracking_mask = shard_layout
+                            .shard_ids()
+                            .map(|_| false)
+                            .collect_vec();
                         for account_id in tracked_accounts {
                             let shard_id = shard_layout.account_id_to_shard_id(account_id);
                             let shard_index = shard_layout.get_shard_index(shard_id)?;
                             tracking_mask[shard_index] = true;
                         }
                         Ok(tracking_mask)
-                    },
-                )?;
+                    })?;
                 let shard_index = shard_layout.get_shard_index(shard_id)?;
-                Ok(tracking_mask.get(shard_index).copied().unwrap_or(false))
+                Ok(tracking_mask
+                    .get(shard_index)
+                    .copied()
+                    .unwrap_or(false))
             }
-            TrackedConfig::AllShards => Ok(true),
-            TrackedConfig::Schedule(schedule) => {
+            | TrackedConfig::AllShards => Ok(true),
+            | TrackedConfig::Schedule(schedule) => {
                 assert_ne!(schedule.len(), 0);
-                let epoch_info = self.epoch_manager.get_epoch_info(epoch_id)?;
+                let epoch_info = self
+                    .epoch_manager
+                    .get_epoch_info(epoch_id)?;
                 let epoch_height = epoch_info.epoch_height();
                 let index = epoch_height % schedule.len() as u64;
                 let subset = &schedule[index as usize];
                 Ok(subset.contains(&shard_id))
             }
-            TrackedConfig::ShadowValidator(account_id) => {
-                self.epoch_manager.cares_about_shard_in_epoch(epoch_id, account_id, shard_id)
-            }
+            | TrackedConfig::ShadowValidator(account_id) => self
+                .epoch_manager
+                .cares_about_shard_in_epoch(epoch_id, account_id, shard_id),
         }
     }
 
-    fn tracks_shard(&self, shard_id: ShardId, prev_hash: &CryptoHash) -> Result<bool, EpochError> {
-        let epoch_id = self.epoch_manager.get_epoch_id_from_prev_block(prev_hash)?;
+    fn tracks_shard(
+        &self,
+        shard_id: ShardId,
+        prev_hash: &CryptoHash,
+    ) -> Result<bool, EpochError> {
+        let epoch_id = self
+            .epoch_manager
+            .get_epoch_id_from_prev_block(prev_hash)?;
         self.tracks_shard_at_epoch(shard_id, &epoch_id)
     }
 
@@ -117,7 +134,9 @@ impl ShardTracker {
         shard_id: ShardId,
         prev_hash: &CryptoHash,
     ) -> Result<bool, EpochError> {
-        let epoch_id = self.epoch_manager.get_next_epoch_id_from_prev_block(prev_hash)?;
+        let epoch_id = self
+            .epoch_manager
+            .get_next_epoch_id_from_prev_block(prev_hash)?;
         self.tracks_shard_at_epoch(shard_id, &epoch_id)
     }
 
@@ -126,7 +145,9 @@ impl ShardTracker {
         shard_id: ShardId,
         prev_hash: &CryptoHash,
     ) -> Result<bool, EpochError> {
-        let epoch_id = self.epoch_manager.get_prev_epoch_id_from_prev_block(prev_hash)?;
+        let epoch_id = self
+            .epoch_manager
+            .get_prev_epoch_id_from_prev_block(prev_hash)?;
         self.tracks_shard_at_epoch(shard_id, &epoch_id)
     }
 
@@ -166,13 +187,13 @@ impl ShardTracker {
             }
         }
         match self.tracked_config {
-            TrackedConfig::AllShards => {
+            | TrackedConfig::AllShards => {
                 // Avoid looking up EpochId as a performance optimization.
                 true
             }
-            _ => {
-                self.tracks_shard_prev_epoch_from_prev_block(shard_id, parent_hash).unwrap_or(false)
-            }
+            | _ => self
+                .tracks_shard_prev_epoch_from_prev_block(shard_id, parent_hash)
+                .unwrap_or(false),
         }
     }
 
@@ -209,11 +230,13 @@ impl ShardTracker {
             }
         }
         match self.tracked_config {
-            TrackedConfig::AllShards => {
+            | TrackedConfig::AllShards => {
                 // Avoid looking up EpochId as a performance optimization.
                 true
             }
-            _ => self.tracks_shard(shard_id, parent_hash).unwrap_or(false),
+            | _ => self
+                .tracks_shard(shard_id, parent_hash)
+                .unwrap_or(false),
         }
     }
 
@@ -252,13 +275,13 @@ impl ShardTracker {
             }
         }
         match self.tracked_config {
-            TrackedConfig::AllShards => {
+            | TrackedConfig::AllShards => {
                 // Avoid looking up EpochId as a performance optimization.
                 true
             }
-            _ => {
-                self.tracks_shard_next_epoch_from_prev_block(shard_id, parent_hash).unwrap_or(false)
-            }
+            | _ => self
+                .tracks_shard_next_epoch_from_prev_block(shard_id, parent_hash)
+                .unwrap_or(false),
         }
     }
 
@@ -421,8 +444,14 @@ mod tests {
         let shard_ids = (0..4).map(ShardId::new).collect_vec();
         let epoch_manager =
             get_epoch_manager(PROTOCOL_VERSION, shard_ids.len() as NumShards, false);
-        let shard_layout = epoch_manager.read().get_shard_layout(&EpochId::default()).unwrap();
-        let tracked_accounts = vec!["test1".parse().unwrap(), "test2".parse().unwrap()];
+        let shard_layout = epoch_manager
+            .read()
+            .get_shard_layout(&EpochId::default())
+            .unwrap();
+        let tracked_accounts = vec![
+            "test1".parse().unwrap(),
+            "test2".parse().unwrap(),
+        ];
         let tracker =
             ShardTracker::new(TrackedConfig::Accounts(tracked_accounts), Arc::new(epoch_manager));
         let mut total_tracked_shards = HashSet::new();
@@ -464,17 +493,31 @@ mod tests {
 
         let epoch_manager =
             Arc::new(get_epoch_manager(PROTOCOL_VERSION, shard_ids.len() as NumShards, false));
-        let subset1: HashSet<ShardId> =
-            HashSet::from([0, 1]).into_iter().map(ShardId::new).collect();
-        let subset2: HashSet<ShardId> =
-            HashSet::from([1, 2]).into_iter().map(ShardId::new).collect();
-        let subset3: HashSet<ShardId> =
-            HashSet::from([2, 3]).into_iter().map(ShardId::new).collect();
+        let subset1: HashSet<ShardId> = HashSet::from([0, 1])
+            .into_iter()
+            .map(ShardId::new)
+            .collect();
+        let subset2: HashSet<ShardId> = HashSet::from([1, 2])
+            .into_iter()
+            .map(ShardId::new)
+            .collect();
+        let subset3: HashSet<ShardId> = HashSet::from([2, 3])
+            .into_iter()
+            .map(ShardId::new)
+            .collect();
         let tracker = ShardTracker::new(
             TrackedConfig::Schedule(vec![
                 subset1.clone().into_iter().collect(),
-                subset2.clone().into_iter().map(Into::into).collect(),
-                subset3.clone().into_iter().map(Into::into).collect(),
+                subset2
+                    .clone()
+                    .into_iter()
+                    .map(Into::into)
+                    .collect(),
+                subset3
+                    .clone()
+                    .into_iter()
+                    .map(Into::into)
+                    .collect(),
             ]),
             epoch_manager.clone(),
         );
@@ -509,8 +552,11 @@ mod tests {
     fn test_track_shards_shard_layout_change() {
         let simple_nightshade_version = SimpleNightshade.protocol_version();
         let epoch_manager = get_epoch_manager(simple_nightshade_version - 1, 1, true);
-        let tracked_accounts =
-            vec!["a.near".parse().unwrap(), "near".parse().unwrap(), "zoo".parse().unwrap()];
+        let tracked_accounts = vec![
+            "a.near".parse().unwrap(),
+            "near".parse().unwrap(),
+            "zoo".parse().unwrap(),
+        ];
         let tracker = ShardTracker::new(
             TrackedConfig::Accounts(tracked_accounts.clone()),
             Arc::new(epoch_manager.clone()),
@@ -538,11 +584,17 @@ mod tests {
                 );
             }
             assert_eq!(
-                epoch_manager.get_epoch_info(&EpochId(h[0])).unwrap().protocol_version(),
+                epoch_manager
+                    .get_epoch_info(&EpochId(h[0]))
+                    .unwrap()
+                    .protocol_version(),
                 simple_nightshade_version - 1
             );
             assert_eq!(
-                epoch_manager.get_epoch_info(&EpochId(h[1])).unwrap().protocol_version(),
+                epoch_manager
+                    .get_epoch_info(&EpochId(h[1]))
+                    .unwrap()
+                    .protocol_version(),
                 simple_nightshade_version
             );
         }
@@ -550,12 +602,20 @@ mod tests {
         // verify tracker is tracking the correct shards before and after resharding
         for i in 1..8 {
             let mut total_next_tracked_shards = HashSet::new();
-            let next_epoch_id = epoch_manager.get_next_epoch_id_from_prev_block(&h[i - 1]).unwrap();
-            let next_shard_layout = epoch_manager.get_shard_layout(&next_epoch_id).unwrap();
+            let next_epoch_id = epoch_manager
+                .get_next_epoch_id_from_prev_block(&h[i - 1])
+                .unwrap();
+            let next_shard_layout = epoch_manager
+                .get_shard_layout(&next_epoch_id)
+                .unwrap();
 
             let mut total_tracked_shards = HashSet::new();
-            let epoch_id = epoch_manager.get_epoch_id_from_prev_block(&h[i - 1]).unwrap();
-            let shard_layout = epoch_manager.get_shard_layout(&epoch_id).unwrap();
+            let epoch_id = epoch_manager
+                .get_epoch_id_from_prev_block(&h[i - 1])
+                .unwrap();
+            let shard_layout = epoch_manager
+                .get_shard_layout(&epoch_id)
+                .unwrap();
 
             for account_id in tracked_accounts.iter() {
                 let shard_id = shard_layout.account_id_to_shard_id(account_id);
@@ -568,7 +628,9 @@ mod tests {
             assert_eq!(
                 get_all_shards_care_about(
                     &tracker,
-                    &shard_layout.shard_ids().collect::<Vec<_>>(),
+                    &shard_layout
+                        .shard_ids()
+                        .collect::<Vec<_>>(),
                     &h[i - 1]
                 ),
                 total_tracked_shards
@@ -576,7 +638,9 @@ mod tests {
             assert_eq!(
                 get_all_shards_will_care_about(
                     &tracker,
-                    &next_shard_layout.shard_ids().collect::<Vec<_>>(),
+                    &next_shard_layout
+                        .shard_ids()
+                        .collect::<Vec<_>>(),
                     &h[i - 1]
                 ),
                 total_next_tracked_shards

@@ -74,7 +74,9 @@ pub struct FrozenValidatorConfig<'a> {
 
 impl ValidatorConfig {
     pub fn account_id(&self) -> Option<AccountId> {
-        self.signer.get().map(|s| s.validator_id().clone())
+        self.signer
+            .get()
+            .map(|s| s.validator_id().clone())
     }
 
     pub fn frozen_view(&self) -> FrozenValidatorConfig {
@@ -205,7 +207,10 @@ impl NetworkConfig {
     /// Overrides values of NetworkConfig with values for the JSON config.
     /// We need all the values from NetworkConfig to be configurable.
     /// We need this in case of emergency. It is faster to change the config than to recompile.
-    fn override_config(&mut self, overrides: crate::config_json::NetworkConfigOverrides) {
+    fn override_config(
+        &mut self,
+        overrides: crate::config_json::NetworkConfigOverrides,
+    ) {
         if let Some(connect_to_reliable_peers_on_startup) =
             overrides.connect_to_reliable_peers_on_startup
         {
@@ -242,7 +247,8 @@ impl NetworkConfig {
             self.routing_table_update_rate_limit = rate::Limit { qps, burst }
         }
         if let Some(rate_limits) = overrides.received_messages_rate_limits {
-            self.received_messages_rate_limits.apply_overrides(rate_limits);
+            self.received_messages_rate_limits
+                .apply_overrides(rate_limits);
         }
     }
 
@@ -274,9 +280,9 @@ impl NetworkConfig {
                 if ip.is_loopback()
                     || ip.is_unspecified()
                     || match ip {
-                        std::net::IpAddr::V4(ip) => ip.is_private(),
+                        | std::net::IpAddr::V4(ip) => ip.is_private(),
                         // TODO(gprusak): use ip.is_unique_local() once stable.
-                        std::net::IpAddr::V6(_) => false,
+                        | std::net::IpAddr::V6(_) => false,
                     }
                 {
                     anyhow::bail!("public_addrs: {ip} is not a public IP.");
@@ -294,9 +300,10 @@ impl NetworkConfig {
                 },
             },
             node_addr: match cfg.addr.as_str() {
-                "" => None,
-                addr => Some(tcp::ListenerAddr::new(
-                    addr.parse().context("Failed to parse SocketAddr")?,
+                | "" => None,
+                | addr => Some(tcp::ListenerAddr::new(
+                    addr.parse()
+                        .context("Failed to parse SocketAddr")?,
                 )),
             },
             peer_store: peer_store::Config {
@@ -316,9 +323,13 @@ impl NetworkConfig {
                     .collect::<Result<_, _>>()
                     .context("failed to parse blacklist")?,
                 peer_states_cache_size: cfg.peer_states_cache_size,
-                connect_only_to_boot_nodes: cfg.experimental.connect_only_to_boot_nodes,
+                connect_only_to_boot_nodes: cfg
+                    .experimental
+                    .connect_only_to_boot_nodes,
                 ban_window: cfg.ban_window.try_into()?,
-                peer_expiration_duration: cfg.peer_expiration_duration.try_into()?,
+                peer_expiration_duration: cfg
+                    .peer_expiration_duration
+                    .try_into()?,
             },
             snapshot_hosts: snapshot_hosts::Config {
                 snapshot_hosts_cache_size: cfg.snapshot_hosts_cache_size,
@@ -330,18 +341,20 @@ impl NetworkConfig {
                 cfg.whitelist_nodes
                     .split(',')
                     .map(|peer| match peer.parse::<PeerInfo>() {
-                        Ok(peer) if peer.addr.is_none() => anyhow::bail!(
+                        | Ok(peer) if peer.addr.is_none() => anyhow::bail!(
                             "whitelist_nodes are required to specify both PeerId and IP:port"
                         ),
-                        Ok(peer) => Ok(peer),
-                        Err(err) => Err(err.into()),
+                        | Ok(peer) => Ok(peer),
+                        | Err(err) => Err(err.into()),
                     })
                     .collect::<anyhow::Result<_>>()
                     .context("whitelist_nodes")?
             },
             connect_to_reliable_peers_on_startup: true,
             handshake_timeout: cfg.handshake_timeout.try_into()?,
-            monitor_peers_max_period: cfg.monitor_peers_max_period.try_into()?,
+            monitor_peers_max_period: cfg
+                .monitor_peers_max_period
+                .try_into()?,
             max_num_peers: cfg.max_num_peers,
             minimum_outbound_peers: cfg.minimum_outbound_peers,
             ideal_connections_lo: cfg.ideal_connections_lo,
@@ -366,15 +379,27 @@ impl NetworkConfig {
             snapshot_hosts_broadcast_rate_limit: rate::Limit { qps: 0.1, burst: 1 },
             routing_table_update_rate_limit: rate::Limit { qps: 1., burst: 1 },
             tier1: Some(Tier1 {
-                connect_interval: cfg.experimental.tier1_connect_interval.try_into()?,
-                new_connections_per_attempt: cfg.experimental.tier1_new_connections_per_attempt,
+                connect_interval: cfg
+                    .experimental
+                    .tier1_connect_interval
+                    .try_into()?,
+                new_connections_per_attempt: cfg
+                    .experimental
+                    .tier1_new_connections_per_attempt,
                 advertise_proxies_interval: time::Duration::minutes(15),
                 enable_inbound: cfg.experimental.tier1_enable_inbound,
                 enable_outbound: cfg.experimental.tier1_enable_outbound,
             }),
             inbound_disabled: cfg.experimental.inbound_disabled,
-            skip_tombstones: if cfg.experimental.skip_sending_tombstones_seconds > 0 {
-                Some(time::Duration::seconds(cfg.experimental.skip_sending_tombstones_seconds))
+            skip_tombstones: if cfg
+                .experimental
+                .skip_sending_tombstones_seconds
+                > 0
+            {
+                Some(time::Duration::seconds(
+                    cfg.experimental
+                        .skip_sending_tombstones_seconds,
+                ))
             } else {
                 None
             },
@@ -385,7 +410,10 @@ impl NetworkConfig {
                 near_async::messaging::noop(),
             ),
         };
-        this.override_config(cfg.experimental.network_config_overrides);
+        this.override_config(
+            cfg.experimental
+                .network_config_overrides,
+        );
         Ok(this)
     }
 
@@ -394,7 +422,10 @@ impl NetworkConfig {
     }
 
     /// TEST-ONLY: Returns network config with given seed used for peer id.
-    pub fn from_seed(seed: &str, node_addr: tcp::ListenerAddr) -> Self {
+    pub fn from_seed(
+        seed: &str,
+        node_addr: tcp::ListenerAddr,
+    ) -> Self {
         let node_key = SecretKey::from_seed(KeyType::ED25519, seed);
         let validator = ValidatorConfig {
             signer: MutableConfigValue::new(
@@ -511,7 +542,10 @@ impl NetworkConfig {
             .validate()
             .context("routing_table_update_rate_limit")?;
 
-        if let Err(err) = self.received_messages_rate_limits.validate() {
+        if let Err(err) = self
+            .received_messages_rate_limits
+            .validate()
+        {
             anyhow::bail!("One or more invalid rate limits: {err:?}");
         }
 
@@ -636,13 +670,21 @@ mod test {
                 &overrides.outbound_disabled
             ));
             assert!(check_override_field(
-                &before.accounts_data_broadcast_rate_limit.burst,
-                &after.accounts_data_broadcast_rate_limit.burst,
+                &before
+                    .accounts_data_broadcast_rate_limit
+                    .burst,
+                &after
+                    .accounts_data_broadcast_rate_limit
+                    .burst,
                 &overrides.accounts_data_broadcast_rate_limit_burst
             ));
             assert!(check_override_field(
-                &before.accounts_data_broadcast_rate_limit.qps,
-                &after.accounts_data_broadcast_rate_limit.qps,
+                &before
+                    .accounts_data_broadcast_rate_limit
+                    .qps,
+                &after
+                    .accounts_data_broadcast_rate_limit
+                    .qps,
                 &overrides.accounts_data_broadcast_rate_limit_qps
             ));
         };

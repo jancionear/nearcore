@@ -98,7 +98,10 @@ impl Ctx {
         self.0.canceled.send();
     }
 
-    pub fn sub(&self, deadline: near_async::time::Deadline) -> Ctx {
+    pub fn sub(
+        &self,
+        deadline: near_async::time::Deadline,
+    ) -> Ctx {
         let child = Ctx(Arc::new(Inner {
             canceled: signal::Once::new(),
             clock: self.0.clock.clone(),
@@ -147,7 +150,10 @@ pub(super) fn local() -> Ctx {
 impl Ctx {
     /// Awaits until f completes, or the context gets canceled.
     /// f is required to be cancellable.
-    async fn wait<F: Future>(&self, f: F) -> OrCanceled<F::Output> {
+    async fn wait<F: Future>(
+        &self,
+        f: F,
+    ) -> OrCanceled<F::Output> {
         tokio::select! {
             v = f => Ok(v),
             _ = self.0.canceled.recv() => Err(ErrCanceled),

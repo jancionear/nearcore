@@ -18,12 +18,18 @@ impl CircularUniqueQueue {
         Self { v: Vec::with_capacity(limit), index: 0, limit }
     }
 
-    fn contains(&self, hash: &CryptoHash) -> bool {
+    fn contains(
+        &self,
+        hash: &CryptoHash,
+    ) -> bool {
         self.v.contains(hash)
     }
 
     /// Pushes an element if it's not in the queue already. The queue will pop the oldest element.
-    fn push(&mut self, hash: CryptoHash) {
+    fn push(
+        &mut self,
+        hash: CryptoHash,
+    ) {
         if !self.contains(&hash) {
             if self.v.len() < self.limit {
                 self.v.push(hash);
@@ -63,11 +69,19 @@ impl Default for Tracker {
 }
 
 impl Tracker {
-    pub(crate) fn increment_received(&mut self, clock: &time::Clock, size: u64) {
+    pub(crate) fn increment_received(
+        &mut self,
+        clock: &time::Clock,
+        size: u64,
+    ) {
         self.received_bytes.record(clock, size);
     }
 
-    pub(crate) fn increment_sent(&mut self, clock: &time::Clock, size: u64) {
+    pub(crate) fn increment_sent(
+        &mut self,
+        clock: &time::Clock,
+        size: u64,
+    ) {
         self.sent_bytes.record(clock, size);
     }
 
@@ -78,15 +92,24 @@ impl Tracker {
     }
      */
 
-    pub(crate) fn push_received(&mut self, hash: CryptoHash) {
+    pub(crate) fn push_received(
+        &mut self,
+        hash: CryptoHash,
+    ) {
         self.received.push(hash);
     }
 
-    pub(crate) fn has_request(&self, hash: &CryptoHash) -> bool {
+    pub(crate) fn has_request(
+        &self,
+        hash: &CryptoHash,
+    ) -> bool {
         self.requested.contains(hash)
     }
 
-    pub(crate) fn push_request(&mut self, hash: CryptoHash) {
+    pub(crate) fn push_request(
+        &mut self,
+        hash: CryptoHash,
+    ) {
         self.requested.push(hash);
     }
 }

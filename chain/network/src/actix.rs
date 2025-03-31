@@ -37,7 +37,8 @@ impl<A: actix::Actor> ActixSystem<A> {
             s.block_on(async move {
                 let system = actix::System::current();
                 let addr = f();
-                send.send((system, addr)).map_err(|_| anyhow!("send failed"))
+                send.send((system, addr))
+                    .map_err(|_| anyhow!("send failed"))
             })
             .unwrap();
             s.run().unwrap();

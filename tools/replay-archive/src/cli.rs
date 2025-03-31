@@ -7,7 +7,7 @@ use near_chain::chain::{
     ShardContext, StorageContext,
 };
 use near_chain::migrations::check_if_block_is_first_with_chunk_of_version;
-use near_chain::sharding::{get_receipts_shuffle_salt, shuffle_receipt_proofs};
+use near_chain::sharding::shuffle_receipt_proofs;
 use near_chain::stateless_validation::chunk_endorsement::validate_chunk_endorsements_in_block;
 use near_chain::stateless_validation::chunk_validation::apply_result_to_chunk_extra;
 use near_chain::types::StorageDataSource;
@@ -49,7 +49,11 @@ pub struct ReplayArchiveCommand {
 }
 
 impl ReplayArchiveCommand {
-    pub fn run(self, home_dir: &Path, genesis_validation: GenesisValidationMode) -> Result<()> {
+    pub fn run(
+        self,
+        home_dir: &Path,
+        genesis_validation: GenesisValidationMode,
+    ) -> Result<()> {
         let near_config = load_config(home_dir, genesis_validation)
             .unwrap_or_else(|e| panic!("Error loading config: {:#}", e));
 
@@ -68,11 +72,19 @@ impl ReplayArchiveCommand {
 
         println!(
             "Columns read during replay: {}",
-            controller.storage.get_columns_read().iter().join(", ")
+            controller
+                .storage
+                .get_columns_read()
+                .iter()
+                .join(", ")
         );
         println!(
             "Columns written during replay: {}",
-            controller.storage.get_columns_written().iter().join(", ")
+            controller
+                .storage
+                .get_columns_written()
+                .iter()
+                .join(", ")
         );
 
         Ok(())
@@ -115,17 +127,28 @@ impl ReplayController {
         let storage = open_storage_for_replay(home_dir, &near_config)?;
         let store = Store::new(storage.clone());
 
-        let genesis_height = near_config.genesis.config.genesis_height;
+        let genesis_height = near_config
+            .genesis
+            .config
+            .genesis_height;
         let chain_store = ChainStore::new(
             store.clone(),
             genesis_height,
             false,
-            near_config.genesis.config.transaction_validity_period,
+            near_config
+                .genesis
+                .config
+                .transaction_validity_period,
         );
 
-        let head_height = chain_store.head().context("Failed to get head of the chain")?.height;
+        let head_height = chain_store
+            .head()
+            .context("Failed to get head of the chain")?
+            .height;
         let start_height = start_height.unwrap_or(genesis_height);
-        let end_height = end_height.unwrap_or(head_height).min(head_height);
+        let end_height = end_height
+            .unwrap_or(head_height)
+            .min(head_height);
 
         let epoch_manager = EpochManager::new_arc_handle(
             store.clone(),
@@ -162,8 +185,10 @@ impl ReplayController {
     }
 
     fn init_start_block(&mut self) -> Result<()> {
-        let block_hash =
-            self.chain_store.get_block_hash_by_height(self.start_height).map_err(|e| {
+        let block_hash = self
+            .chain_store
+            .get_block_hash_by_height(self.start_height)
+            .map_err(|e| {
                 anyhow!("Failed to get block hash for start height {}: {:#}", self.start_height, e)
             })?;
         let block = self
@@ -185,17 +210,18 @@ impl ReplayController {
         }
         if self.next_height == self.start_height {
             // Initialize the DB columns that are not archival but need to be there for the replay.
-            self.init_start_block().context("Failed to initialize store")?;
+            self.init_start_block()
+                .context("Failed to initialize store")?;
         }
         let mut total_gas_burnt: Option<Gas> = None;
         match self.replay_block(self.next_height)? {
-            ReplayBlockOutput::Genesis(block) => {
+            | ReplayBlockOutput::Genesis(block) => {
                 tracing::debug!(target: "replay-archive", "Skipping genesis block at height {}", block.header().height());
             }
-            ReplayBlockOutput::Missing(height) => {
+            | ReplayBlockOutput::Missing(height) => {
                 tracing::debug!(target: "replay-archive", "Skipping missing block at height {}", height);
             }
-            ReplayBlockOutput::Replayed(block, gas_burnt) => {
+            | ReplayBlockOutput::Replayed(block, gas_burnt) => {
                 tracing::debug!(target: "replay-archive", "Replayed block at height {}", block.header().height());
                 total_gas_burnt = Some(gas_burnt);
             }
@@ -206,17 +232,27 @@ impl ReplayController {
         Ok(self.next_height <= self.end_height)
     }
 
-    fn replay_block(&mut self, height: BlockHeight) -> Result<ReplayBlockOutput> {
+    fn replay_block(
+        &mut self,
+        height: BlockHeight,
+    ) -> Result<ReplayBlockOutput> {
         tracing::info!(target: "replay-archive", "Replaying block at height {}", self.next_height);
 
-        let Ok(block_hash) = self.chain_store.get_block_hash_by_height(height) else {
+        let Ok(block_hash) = self
+            .chain_store
+            .get_block_hash_by_height(height)
+        else {
             return Ok(ReplayBlockOutput::Missing(height));
         };
 
-        let block = self.chain_store.get_block(&block_hash)?;
+        let block = self
+            .chain_store
+            .get_block(&block_hash)?;
 
         let epoch_id = block.header().epoch_id();
-        let protocol_version = self.epoch_manager.get_epoch_protocol_version(epoch_id)?;
+        let protocol_version = self
+            .epoch_manager
+            .get_epoch_protocol_version(epoch_id)?;
 
         self.validate_block(&block, protocol_version)?;
 
@@ -299,7 +335,9 @@ impl ReplayController {
         let prev_block_header = prev_block.header();
         let prev_block_hash = prev_block_header.hash();
 
-        let prev_chunk_extra = self.chain_store.get_chunk_extra(prev_block_hash, &shard_uid)?;
+        let prev_chunk_extra = self
+            .chain_store
+            .get_chunk_extra(prev_block_hash, &shard_uid)?;
 
         let height = block_header.height();
         let is_new_chunk: bool = chunk_header.is_new_chunk(height);
@@ -365,7 +403,7 @@ impl ReplayController {
             process_shard_update(&span, self.runtime.as_ref(), update_reason, shard_context)?;
 
         let output = match shard_update_result {
-            ShardUpdateResult::NewChunk(NewChunkResult {
+            | ShardUpdateResult::NewChunk(NewChunkResult {
                 gas_limit: _,
                 shard_uid: _,
                 apply_result,
@@ -375,7 +413,7 @@ impl ReplayController {
                     apply_result_to_chunk_extra(protocol_version, apply_result, &chunk_header);
                 ReplayChunkOutput { chunk_extra, outgoing_receipts }
             }
-            ShardUpdateResult::OldChunk(OldChunkResult { shard_uid: _, apply_result }) => {
+            | ShardUpdateResult::OldChunk(OldChunkResult { shard_uid: _, apply_result }) => {
                 let mut chunk_extra = ChunkExtra::clone(&prev_chunk_extra.as_ref());
                 *chunk_extra.state_root_mut() = apply_result.new_root;
                 let outgoing_receipts = apply_result.outgoing_receipts;
@@ -393,22 +431,29 @@ impl ReplayController {
         shard_id: ShardId,
         prev_chunk_height_included: BlockHeight,
     ) -> Result<Vec<Receipt>> {
-        let shard_layout =
-            self.epoch_manager.get_shard_layout_from_prev_block(block_header.prev_hash())?;
-        let receipt_response = &self.chain_store.get_incoming_receipts_for_shard(
-            self.epoch_manager.as_ref(),
-            shard_id,
-            &shard_layout,
-            *block_header.hash(),
-            prev_chunk_height_included,
-            ReceiptFilter::TargetShard,
-        )?;
+        let shard_layout = self
+            .epoch_manager
+            .get_shard_layout_from_prev_block(block_header.prev_hash())?;
+        let receipt_response = &self
+            .chain_store
+            .get_incoming_receipts_for_shard(
+                self.epoch_manager.as_ref(),
+                shard_id,
+                &shard_layout,
+                *block_header.hash(),
+                prev_chunk_height_included,
+                ReceiptFilter::TargetShard,
+            )?;
         let receipts = collect_receipts_from_response(receipt_response);
         Ok(receipts)
     }
 
     /// Validates a given block. The current set of checks may be extended later.
-    fn validate_block(&self, block: &Block, protocol_version: ProtocolVersion) -> Result<()> {
+    fn validate_block(
+        &self,
+        block: &Block,
+        protocol_version: ProtocolVersion,
+    ) -> Result<()> {
         // Chunk endorsements will only exist for a non-genesis block generated with stateless validation.
         if !block.header().is_genesis() {
             if ProtocolFeature::StatelessValidation.enabled(protocol_version) {
@@ -453,18 +498,27 @@ impl ReplayController {
         Ok(())
     }
 
-    fn update_epoch_manager(&mut self, block: &Block) -> Result<()> {
-        let last_finalized_height =
-            self.chain_store.get_block_height(block.header().last_final_block())?;
-        let store_update = self.epoch_manager.add_validator_proposals(
-            BlockInfo::from_header(block.header(), last_finalized_height),
-            *block.header().random_value(),
-        )?;
+    fn update_epoch_manager(
+        &mut self,
+        block: &Block,
+    ) -> Result<()> {
+        let last_finalized_height = self
+            .chain_store
+            .get_block_height(block.header().last_final_block())?;
+        let store_update = self
+            .epoch_manager
+            .add_validator_proposals(
+                BlockInfo::from_header(block.header(), last_finalized_height),
+                *block.header().random_value(),
+            )?;
         let _ = store_update.commit()?;
         Ok(())
     }
 
-    pub fn update_incoming_receipts(&mut self, block: &Block) -> Result<()> {
+    pub fn update_incoming_receipts(
+        &mut self,
+        block: &Block,
+    ) -> Result<()> {
         let block_height = block.header().height();
         let block_hash = block.header().hash();
         let mut receipt_proofs_by_shard_id: HashMap<ShardId, Vec<ReceiptProof>> = HashMap::new();
@@ -492,9 +546,8 @@ impl ReplayController {
         }
 
         let mut store_update = self.chain_store.store_update();
-        let receipts_shuffle_salt = get_receipts_shuffle_salt(self.epoch_manager.as_ref(), block)?;
         for (shard_id, mut receipts) in receipt_proofs_by_shard_id.into_iter() {
-            shuffle_receipt_proofs(&mut receipts, receipts_shuffle_salt);
+            shuffle_receipt_proofs(&mut receipts, block_hash);
             store_update.save_incoming_receipt(&block_hash, shard_id, Arc::new(receipts));
         }
         store_update.commit().unwrap();
@@ -503,7 +556,10 @@ impl ReplayController {
 
     /// Generates a ShardContext specific to replaying the blocks, which indicates that
     /// we care about all the shards and should always apply chunk.
-    fn get_shard_context(&self, shard_uid: ShardUId) -> Result<ShardContext> {
+    fn get_shard_context(
+        &self,
+        shard_uid: ShardUId,
+    ) -> Result<ShardContext> {
         let shard_context = ShardContext { shard_uid, should_apply_chunk: true };
         Ok(shard_context)
     }
@@ -511,7 +567,10 @@ impl ReplayController {
     /// Saves the ChunkExtras for the shards in the genesis block.
     /// Note that there are no chunks in the genesis block, so we directly generate the ChunkExtras
     /// from the information in the genesis block without applying any transactions or receipts.
-    fn save_genesis_chunk_extras(&mut self, genesis_block: &Block) -> Result<()> {
+    fn save_genesis_chunk_extras(
+        &mut self,
+        genesis_block: &Block,
+    ) -> Result<()> {
         let chain_genesis = ChainGenesis::new(&self.near_config.genesis.config);
         let state_roots = get_genesis_state_roots(&self.chain_store.store())?
             .ok_or_else(|| anyhow!("genesis state roots do not exist in the db".to_owned()))?;

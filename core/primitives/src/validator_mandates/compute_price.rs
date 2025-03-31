@@ -6,7 +6,10 @@ use {
 
 /// Given the stakes for the validators and the target number of mandates to have,
 /// this function computes the mandate price to use. It works by using a binary search.
-pub fn compute_mandate_price(config: ValidatorMandatesConfig, stakes: &[Balance]) -> Balance {
+pub fn compute_mandate_price(
+    config: ValidatorMandatesConfig,
+    stakes: &[Balance],
+) -> Balance {
     let ValidatorMandatesConfig { target_mandates_per_shard, num_shards } = config;
     let total_stake = saturating_sum(stakes.iter().copied());
 
@@ -29,7 +32,11 @@ pub fn compute_mandate_price(config: ValidatorMandatesConfig, stakes: &[Balance]
     // When we use a larger `m` value, `T / m` decreases but we need the LHS
     // to remain constant, therefore `\sum r_i` must also decrease.
     binary_search(1, total_stake, target_mandates, |mandate_price| {
-        saturating_sum(stakes.iter().map(|s| *s / mandate_price))
+        saturating_sum(
+            stakes
+                .iter()
+                .map(|s| *s / mandate_price),
+        )
     })
 }
 
@@ -38,7 +45,12 @@ pub fn compute_mandate_price(config: ValidatorMandatesConfig, stakes: &[Balance]
 /// `f(x) == target`, `low <= x` and `x <= high`.
 /// If there is no such `x` then it will return the unique input `x` such that
 /// `f(x) > target`, `f(x + 1) < target`, `low <= x` and `x <= high`.
-fn binary_search<F>(low: Balance, high: Balance, target: u128, f: F) -> Balance
+fn binary_search<F>(
+    low: Balance,
+    high: Balance,
+    target: u128,
+    f: F,
+) -> Balance
 where
     F: Fn(Balance) -> u128,
 {
@@ -59,9 +71,9 @@ where
         let f_mid = f(mid);
 
         match f_mid.cmp(&target) {
-            Ordering::Equal => return highest_exact(mid, high, target, f),
-            Ordering::Less => high = mid,
-            Ordering::Greater => low = mid,
+            | Ordering::Equal => return highest_exact(mid, high, target, f),
+            | Ordering::Less => high = mid,
+            | Ordering::Greater => low = mid,
         }
     }
 
@@ -73,7 +85,12 @@ where
 /// Assume `f` is a non-increasing function (f(x) <= f(y) if x > y), `f(low) == target`
 /// and `f(high) < target`. This function uses a binary search to find the largest input, `x`
 /// such that `f(x) == target`.
-fn highest_exact<F>(low: Balance, high: Balance, target: u128, f: F) -> Balance
+fn highest_exact<F>(
+    low: Balance,
+    high: Balance,
+    target: u128,
+    f: F,
+) -> Balance
 where
     F: Fn(Balance) -> u128,
 {
@@ -89,9 +106,9 @@ where
         let f_mid = f(mid);
 
         match f_mid.cmp(&target) {
-            Ordering::Equal => low = mid,
-            Ordering::Less => high = mid,
-            Ordering::Greater => unreachable!("Given function must be non-increasing"),
+            | Ordering::Equal => low = mid,
+            | Ordering::Less => high = mid,
+            | Ordering::Greater => unreachable!("Given function must be non-increasing"),
         }
     }
 
@@ -246,7 +263,14 @@ mod tests {
         assert_eq!(count_whole_mandates(&stakes, price), target_mandates_per_shard);
     }
 
-    fn count_whole_mandates(stakes: &[u128], mandate_price: u128) -> usize {
-        saturating_sum(stakes.iter().map(|s| *s / mandate_price)) as usize
+    fn count_whole_mandates(
+        stakes: &[u128],
+        mandate_price: u128,
+    ) -> usize {
+        saturating_sum(
+            stakes
+                .iter()
+                .map(|s| *s / mandate_price),
+        ) as usize
     }
 }

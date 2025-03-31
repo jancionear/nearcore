@@ -59,7 +59,9 @@ impl Client {
         transactions_storage_proof: Option<PartialState>,
         validator_signer: &Option<Arc<ValidatorSigner>>,
     ) -> Result<(), Error> {
-        let protocol_version = self.epoch_manager.get_epoch_protocol_version(epoch_id)?;
+        let protocol_version = self
+            .epoch_manager
+            .get_epoch_protocol_version(epoch_id)?;
         if !checked_feature!("stable", StatelessValidation, protocol_version) {
             return Ok(());
         }
@@ -80,7 +82,9 @@ impl Client {
             )?;
 
         if self.config.save_latest_witnesses {
-            self.chain.chain_store.save_latest_chunk_state_witness(&state_witness)?;
+            self.chain
+                .chain_store
+                .save_latest_chunk_state_witness(&state_witness)?;
         }
 
         let height = chunk_header.height_created();
@@ -95,7 +99,10 @@ impl Client {
                 &chunk_header,
                 self.epoch_manager.as_ref(),
                 my_signer.as_ref(),
-                &self.network_adapter.clone().into_sender(),
+                &self
+                    .network_adapter
+                    .clone()
+                    .into_sender(),
             );
         }
 
@@ -105,11 +112,12 @@ impl Client {
             .then_some(contract_updates)
             .unwrap_or_default();
 
-        self.partial_witness_adapter.send(DistributeStateWitnessRequest {
-            state_witness,
-            contract_updates,
-            main_transition_shard_id,
-        });
+        self.partial_witness_adapter
+            .send(DistributeStateWitnessRequest {
+                state_witness,
+                contract_updates,
+                main_transition_shard_id,
+            });
         Ok(())
     }
 
@@ -122,10 +130,15 @@ impl Client {
         transactions_storage_proof: Option<PartialState>,
     ) -> Result<CreateWitnessResult, Error> {
         let chunk_header = chunk.cloned_header();
-        let epoch_id =
-            self.epoch_manager.get_epoch_id_from_prev_block(chunk_header.prev_block_hash())?;
-        let protocol_version = self.epoch_manager.get_epoch_protocol_version(&epoch_id)?;
-        let prev_chunk = self.chain.get_chunk(&prev_chunk_header.chunk_hash())?;
+        let epoch_id = self
+            .epoch_manager
+            .get_epoch_id_from_prev_block(chunk_header.prev_block_hash())?;
+        let protocol_version = self
+            .epoch_manager
+            .get_epoch_protocol_version(&epoch_id)?;
+        let prev_chunk = self
+            .chain
+            .get_chunk(&prev_chunk_header.chunk_hash())?;
         let StateTransitionData {
             main_transition,
             main_transition_shard_id,
@@ -195,13 +208,16 @@ impl Client {
         // TODO(logunov): consider uniting with `get_incoming_receipts_for_shard`
         // because it has the same purpose.
         let mut current_block_hash = *chunk_header.prev_block_hash();
-        let mut next_epoch_id =
-            self.epoch_manager.get_epoch_id_from_prev_block(&current_block_hash)?;
+        let mut next_epoch_id = self
+            .epoch_manager
+            .get_epoch_id_from_prev_block(&current_block_hash)?;
         let mut next_shard_id = chunk_header.shard_id();
         let mut implicit_transitions = vec![];
 
         loop {
-            let header = self.chain.get_block_header(&current_block_hash)?;
+            let header = self
+                .chain
+                .get_block_header(&current_block_hash)?;
             if header.height() < prev_chunk_height_included {
                 return Err(Error::InvalidBlockHeight(prev_chunk_height_included));
             }
@@ -264,7 +280,10 @@ impl Client {
         epoch_id: &EpochId,
         shard_id: ShardId,
     ) -> Result<(ChunkStateTransition, CryptoHash, ContractUpdates), Error> {
-        let shard_uid = self.chain.epoch_manager.shard_id_to_uid(shard_id, epoch_id)?;
+        let shard_uid = self
+            .chain
+            .epoch_manager
+            .shard_id_to_uid(shard_id, epoch_id)?;
         let stored_chunk_state_transition_data = self
             .chain
             .chain_store()
@@ -290,13 +309,19 @@ impl Client {
         }) = stored_chunk_state_transition_data;
         let contract_updates = ContractUpdates {
             contract_accesses: contract_accesses.into_iter().collect(),
-            contract_deploys: contract_deploys.into_iter().map(|c| c.into()).collect(),
+            contract_deploys: contract_deploys
+                .into_iter()
+                .map(|c| c.into())
+                .collect(),
         };
         Ok((
             ChunkStateTransition {
                 block_hash: *block_hash,
                 base_state,
-                post_state_root: *self.chain.get_chunk_extra(block_hash, &shard_uid)?.state_root(),
+                post_state_root: *self
+                    .chain
+                    .get_chunk_extra(block_hash, &shard_uid)?
+                    .state_root(),
             },
             receipts_hash,
             contract_updates,
@@ -309,12 +334,17 @@ impl Client {
         epoch_id: &EpochId,
         shard_id: ShardId,
     ) -> Result<(ChunkStateTransition, CryptoHash, ContractUpdates), Error> {
-        let shard_uid = self.epoch_manager.shard_id_to_uid(shard_id, &epoch_id)?;
+        let shard_uid = self
+            .epoch_manager
+            .shard_id_to_uid(shard_id, &epoch_id)?;
         Ok((
             ChunkStateTransition {
                 block_hash: *block_hash,
                 base_state: Default::default(),
-                post_state_root: *self.chain.get_chunk_extra(block_hash, &shard_uid)?.state_root(),
+                post_state_root: *self
+                    .chain
+                    .get_chunk_extra(block_hash, &shard_uid)?
+                    .state_root(),
             },
             hash(&borsh::to_vec::<[Receipt]>(&[]).unwrap()),
             Default::default(),
@@ -348,14 +378,19 @@ impl Client {
                     break cur_block;
                 }
 
-                cur_block = self.chain.chain_store().get_block_header(cur_block.prev_hash())?;
+                cur_block = self
+                    .chain
+                    .chain_store()
+                    .get_block_header(cur_block.prev_hash())?;
             }
         };
 
         // Get the last block that contained `prev_prev_chunk` (the chunk before `prev_chunk`).
         // We are interested in all incoming receipts that weren't handled by `prev_prev_chunk`.
-        let prev_prev_chunk_block =
-            self.chain.chain_store().get_block(prev_chunk_original_block.prev_hash())?;
+        let prev_prev_chunk_block = self
+            .chain
+            .chain_store()
+            .get_block(prev_chunk_original_block.prev_hash())?;
         // Find the header of the chunk before `prev_chunk`
         let prev_prev_chunk_header = Chain::get_prev_chunk_header(
             self.epoch_manager.as_ref(),
@@ -369,21 +404,28 @@ impl Client {
         let shard_layout = self
             .epoch_manager
             .get_shard_layout_from_prev_block(prev_chunk_original_block.prev_hash())?;
-        let incoming_receipt_proofs = self.chain.chain_store().get_incoming_receipts_for_shard(
-            self.epoch_manager.as_ref(),
-            prev_chunk_header.shard_id(),
-            &shard_layout,
-            *prev_chunk_original_block.hash(),
-            prev_prev_chunk_header.height_included(),
-            ReceiptFilter::All,
-        )?;
+        let incoming_receipt_proofs = self
+            .chain
+            .chain_store()
+            .get_incoming_receipts_for_shard(
+                self.epoch_manager.as_ref(),
+                prev_chunk_header.shard_id(),
+                &shard_layout,
+                *prev_chunk_original_block.hash(),
+                prev_prev_chunk_header.height_included(),
+                ReceiptFilter::All,
+            )?;
 
         // Convert to the right format (from [block_hash -> Vec<ReceiptProof>] to [chunk_hash -> ReceiptProof])
         let mut source_receipt_proofs = HashMap::new();
         for receipt_proof_response in incoming_receipt_proofs {
-            let from_block = self.chain.chain_store().get_block(&receipt_proof_response.0)?;
-            let shard_layout =
-                self.epoch_manager.get_shard_layout(from_block.header().epoch_id())?;
+            let from_block = self
+                .chain
+                .chain_store()
+                .get_block(&receipt_proof_response.0)?;
+            let shard_layout = self
+                .epoch_manager
+                .get_shard_layout(from_block.header().epoch_id())?;
             for proof in receipt_proof_response.1.iter() {
                 let from_shard_id = proof.1.from_shard_id;
                 let from_shard_index = shard_layout.get_shard_index(from_shard_id)?;

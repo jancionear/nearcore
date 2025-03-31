@@ -36,7 +36,11 @@ impl PeerConfig {
         self.network.node_id()
     }
 
-    pub fn partial_edge_info(&self, other: &PeerId, nonce: u64) -> PartialEdgeInfo {
+    pub fn partial_edge_info(
+        &self,
+        other: &PeerId,
+        nonce: u64,
+    ) -> PartialEdgeInfo {
         PartialEdgeInfo::new(&self.id(), other, nonce, &self.network.node_key)
     }
 }
@@ -59,7 +63,10 @@ pub(crate) struct PeerHandle {
 }
 
 impl PeerHandle {
-    pub async fn send(&self, message: PeerMessage) {
+    pub async fn send(
+        &self,
+        message: PeerMessage,
+    ) {
         self.actix
             .addr
             .send(SendMessage { message: Arc::new(message) }.with_span_context())
@@ -71,13 +78,13 @@ impl PeerHandle {
         self.edge = Some(
             self.events
                 .recv_until(|ev| match ev {
-                    Event::Network(peer_manager_actor::Event::HandshakeCompleted(ev)) => {
+                    | Event::Network(peer_manager_actor::Event::HandshakeCompleted(ev)) => {
                         Some(ev.edge)
                     }
-                    Event::Network(peer_manager_actor::Event::ConnectionClosed(ev)) => {
+                    | Event::Network(peer_manager_actor::Event::ConnectionClosed(ev)) => {
                         panic!("handshake failed: {}", ev.reason)
                     }
-                    _ => None,
+                    | _ => None,
                 })
                 .await,
         );
@@ -143,16 +150,26 @@ impl PeerHandle {
             peer_store::PeerStore::new(&clock, network_cfg.peer_store.clone()).unwrap(),
             network_cfg.verify().unwrap(),
             cfg.chain.genesis_id.clone(),
-            client_sender.break_apart().into_multi_sender(),
-            peer_manager_sender.break_apart().into_multi_sender(),
+            client_sender
+                .break_apart()
+                .into_multi_sender(),
+            peer_manager_sender
+                .break_apart()
+                .into_multi_sender(),
             shards_manager_sender,
-            state_witness_sender.break_apart().into_multi_sender(),
+            state_witness_sender
+                .break_apart()
+                .into_multi_sender(),
             vec![],
         ));
         let actix = ActixSystem::spawn({
             let clock = clock.clone();
             let cfg = cfg.clone();
-            move || PeerActor::spawn(clock, stream, cfg.force_encoding, network_state).unwrap().0
+            move || {
+                PeerActor::spawn(clock, stream, cfg.force_encoding, network_state)
+                    .unwrap()
+                    .0
+            }
         })
         .await;
         Self { actix, cfg, events: recv, edge: None }

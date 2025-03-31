@@ -34,7 +34,9 @@ struct OrphanWitnessTestEnv {
 /// When `excluded_validator` receives a witness for the chunk belonging to `block2`, it doesn't
 /// have `block1` which is required to process the witness, so it becomes an orphaned state witness.
 fn setup_orphan_witness_test() -> OrphanWitnessTestEnv {
-    let accounts: Vec<AccountId> = (0..4).map(|i| format!("test{i}").parse().unwrap()).collect();
+    let accounts: Vec<AccountId> = (0..4)
+        .map(|i| format!("test{i}").parse().unwrap())
+        .collect();
     let genesis = Genesis::test(accounts.clone(), accounts.len().try_into().unwrap());
     let mut env = TestEnv::builder(&genesis.config)
         .clients(accounts.clone())
@@ -48,7 +50,11 @@ fn setup_orphan_witness_test() -> OrphanWitnessTestEnv {
         let tip = env.clients[0].chain.head().unwrap();
         let block_producer = env.get_block_producer_at_offset(&tip, 1);
         tracing::info!(target: "test", "Producing block at height: {height} by {block_producer}");
-        let block = env.client(&block_producer).produce_block(tip.height + 1).unwrap().unwrap();
+        let block = env
+            .client(&block_producer)
+            .produce_block(tip.height + 1)
+            .unwrap()
+            .unwrap();
         tracing::info!(target: "test", "Block produced at height {} has chunk {:?}", height, block.chunks()[0].chunk_hash());
 
         // The first block after genesis doesn't have any chunks, but all other blocks should have a new chunk inside.
@@ -62,8 +68,9 @@ fn setup_orphan_witness_test() -> OrphanWitnessTestEnv {
 
         // Pass network messages around
         for i in 0..env.clients.len() {
-            let blocks_processed =
-                env.clients[i].process_block_test(block.clone().into(), Provenance::NONE).unwrap();
+            let blocks_processed = env.clients[i]
+                .process_block_test(block.clone().into(), Provenance::NONE)
+                .unwrap();
             assert_eq!(blocks_processed, vec![*block.hash()]);
         }
 
@@ -77,7 +84,13 @@ fn setup_orphan_witness_test() -> OrphanWitnessTestEnv {
         let heads = env
             .clients
             .iter()
-            .map(|client| client.chain.head().unwrap().last_block_hash)
+            .map(|client| {
+                client
+                    .chain
+                    .head()
+                    .unwrap()
+                    .last_block_hash
+            })
             .collect::<HashSet<_>>();
         assert_eq!(heads.len(), 1, "All clients should have the same head");
     }
@@ -86,7 +99,10 @@ fn setup_orphan_witness_test() -> OrphanWitnessTestEnv {
     // The `excluded_validator` will receive a chunk witness for the chunk in `block2`, but it won't
     // have `block1`, so it will become an orphaned chunk state witness.
     let tip = env.clients[0].chain.head().unwrap();
-    let shard_layout = env.clients[0].epoch_manager.get_shard_layout(&tip.epoch_id).unwrap();
+    let shard_layout = env.clients[0]
+        .epoch_manager
+        .get_shard_layout(&tip.epoch_id)
+        .unwrap();
     let shard_id = shard_layout.shard_ids().next().unwrap();
 
     let block1_producer = env.get_block_producer_at_offset(&tip, 1);
@@ -108,7 +124,11 @@ fn setup_orphan_witness_test() -> OrphanWitnessTestEnv {
         (0..env.clients.len()).filter(|idx| *idx != excluded_validator_idx);
 
     tracing::info!(target:"test", "Producing block1 at height {}", tip.height + 1);
-    let block1 = env.client(&block1_producer).produce_block(tip.height + 1).unwrap().unwrap();
+    let block1 = env
+        .client(&block1_producer)
+        .produce_block(tip.height + 1)
+        .unwrap()
+        .unwrap();
     assert_eq!(
         block1.chunks()[0].height_created(),
         block1.header().height(),
@@ -146,7 +166,10 @@ fn setup_orphan_witness_test() -> OrphanWitnessTestEnv {
             .ordered_chunk_validators();
 
         let mut witness_processing_done_waiters: Vec<ProcessingDoneWaiter> = Vec::new();
-        for account_id in chunk_validators.into_iter().filter(|acc| *acc != excluded_validator) {
+        for account_id in chunk_validators
+            .into_iter()
+            .filter(|acc| *acc != excluded_validator)
+        {
             let processing_done_tracker = ProcessingDoneTracker::new();
             witness_processing_done_waiters.push(processing_done_tracker.make_waiter());
             let client = env.client(&account_id);
@@ -168,7 +191,11 @@ fn setup_orphan_witness_test() -> OrphanWitnessTestEnv {
     env.propagate_chunk_endorsements(false);
 
     tracing::info!(target:"test", "Producing block2 at height {}", tip.height + 2);
-    let block2 = env.client(&block2_producer).produce_block(tip.height + 2).unwrap().unwrap();
+    let block2 = env
+        .client(&block2_producer)
+        .produce_block(tip.height + 2)
+        .unwrap()
+        .unwrap();
     assert_eq!(
         block2.chunks()[0].height_created(),
         block2.header().height(),
@@ -262,14 +289,16 @@ fn test_orphan_witness_far_from_head() {
 
     let bad_height = 10000;
     modify_witness_header_inner(&mut witness, |header| match &mut header.inner {
-        ShardChunkHeaderInner::V1(inner) => inner.height_created = bad_height,
-        ShardChunkHeaderInner::V2(inner) => inner.height_created = bad_height,
-        ShardChunkHeaderInner::V3(inner) => inner.height_created = bad_height,
-        ShardChunkHeaderInner::V4(inner) => inner.height_created = bad_height,
+        | ShardChunkHeaderInner::V1(inner) => inner.height_created = bad_height,
+        | ShardChunkHeaderInner::V2(inner) => inner.height_created = bad_height,
+        | ShardChunkHeaderInner::V3(inner) => inner.height_created = bad_height,
+        | ShardChunkHeaderInner::V4(inner) => inner.height_created = bad_height,
     });
 
-    let outcome =
-        env.client(&excluded_validator).handle_orphan_state_witness(witness, 2000).unwrap();
+    let outcome = env
+        .client(&excluded_validator)
+        .handle_orphan_state_witness(witness, 2000)
+        .unwrap();
     assert_eq!(
         outcome,
         HandleOrphanWitnessOutcome::TooFarFromHead {
@@ -317,10 +346,10 @@ fn modify_witness_header_inner(
     f: impl FnOnce(&mut ShardChunkHeaderV3),
 ) {
     match &mut witness.chunk_header {
-        ShardChunkHeader::V3(header) => {
+        | ShardChunkHeader::V3(header) => {
             f(header);
         }
-        _ => unreachable!(),
+        | _ => unreachable!(),
     };
 }
 

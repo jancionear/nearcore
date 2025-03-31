@@ -40,8 +40,12 @@ impl TryFrom<crate::models::Operation> for AddKeyOperation {
 
     fn try_from(operation: crate::models::Operation) -> Result<Self, Self::Error> {
         Self::validate_operation_type(operation.type_)?;
-        let metadata = operation.metadata.ok_or_else(required_fields_error)?;
-        let public_key = metadata.public_key.ok_or_else(required_fields_error)?;
+        let metadata = operation
+            .metadata
+            .ok_or_else(required_fields_error)?;
+        let public_key = metadata
+            .public_key
+            .ok_or_else(required_fields_error)?;
 
         Ok(Self { account: operation.account, public_key })
     }

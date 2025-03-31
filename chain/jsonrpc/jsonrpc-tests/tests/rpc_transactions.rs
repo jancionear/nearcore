@@ -34,25 +34,29 @@ fn test_send_tx_async() {
         let tx_hash2_2 = tx_hash2;
         let signer_account_id = "test1".to_string();
 
-        actix::spawn(client.block(BlockReference::latest()).then(move |res| {
-            let block_hash = res.unwrap().header.hash;
-            let signer = InMemorySigner::test_signer(&"test1".parse().unwrap());
-            let tx = SignedTransaction::send_money(
-                1,
-                signer_account_id.parse().unwrap(),
-                "test2".parse().unwrap(),
-                &signer,
-                100,
-                block_hash,
-            );
-            let bytes = borsh::to_vec(&tx).unwrap();
-            let tx_hash = tx.get_hash().to_string();
-            *tx_hash2_1.lock().unwrap() = Some(tx.get_hash());
+        actix::spawn(
             client
-                .broadcast_tx_async(to_base64(&bytes))
-                .map_ok(move |result| assert_eq!(tx_hash, result))
-                .map(drop)
-        }));
+                .block(BlockReference::latest())
+                .then(move |res| {
+                    let block_hash = res.unwrap().header.hash;
+                    let signer = InMemorySigner::test_signer(&"test1".parse().unwrap());
+                    let tx = SignedTransaction::send_money(
+                        1,
+                        signer_account_id.parse().unwrap(),
+                        "test2".parse().unwrap(),
+                        &signer,
+                        100,
+                        block_hash,
+                    );
+                    let bytes = borsh::to_vec(&tx).unwrap();
+                    let tx_hash = tx.get_hash().to_string();
+                    *tx_hash2_1.lock().unwrap() = Some(tx.get_hash());
+                    client
+                        .broadcast_tx_async(to_base64(&bytes))
+                        .map_ok(move |result| assert_eq!(tx_hash, result))
+                        .map(drop)
+                }),
+        );
         let client1 = new_client(&format!("http://{}", addr));
         WaitOrTimeoutActor::new(
             Box::new(move |_| {
@@ -69,8 +73,11 @@ fn test_send_tx_async() {
                             })
                             .map_err(|err| println!("Error: {:?}", err))
                             .map_ok(|result| {
-                                if let FinalExecutionStatus::SuccessValue(_) =
-                                    result.final_execution_outcome.unwrap().into_outcome().status
+                                if let FinalExecutionStatus::SuccessValue(_) = result
+                                    .final_execution_outcome
+                                    .unwrap()
+                                    .into_outcome()
+                                    .status
                                 {
                                     System::current().stop();
                                 }
@@ -90,7 +97,12 @@ fn test_send_tx_async() {
 #[test]
 fn test_send_tx_commit() {
     test_with_client!(test_utils::NodeType::Validator, client, async move {
-        let block_hash = client.block(BlockReference::latest()).await.unwrap().header.hash;
+        let block_hash = client
+            .block(BlockReference::latest())
+            .await
+            .unwrap()
+            .header
+            .hash;
         let signer = InMemorySigner::test_signer(&"test1".parse().unwrap());
         let tx = SignedTransaction::send_money(
             1,
@@ -101,14 +113,24 @@ fn test_send_tx_commit() {
             block_hash,
         );
         let bytes = borsh::to_vec(&tx).unwrap();
-        let result = client.broadcast_tx_commit(to_base64(&bytes)).await.unwrap();
+        let result = client
+            .broadcast_tx_commit(to_base64(&bytes))
+            .await
+            .unwrap();
         assert_eq!(
-            result.final_execution_outcome.unwrap().into_outcome().status,
+            result
+                .final_execution_outcome
+                .unwrap()
+                .into_outcome()
+                .status,
             FinalExecutionStatus::SuccessValue(Vec::new())
         );
         assert!(
-            [TxExecutionStatus::Executed, TxExecutionStatus::Final]
-                .contains(&result.final_execution_status),
+            [
+                TxExecutionStatus::Executed,
+                TxExecutionStatus::Final
+            ]
+            .contains(&result.final_execution_status),
             "All the receipts should be already executed"
         );
     });
@@ -134,45 +156,50 @@ fn test_expired_tx() {
                 let block_hash = block_hash.clone();
                 let block_height = block_height.clone();
                 let client = new_client(&format!("http://{}", addr));
-                actix::spawn(client.block(BlockReference::latest()).then(move |res| {
-                    let header = res.unwrap().header;
-                    let hash = *block_hash.lock().unwrap();
-                    let height = *block_height.lock().unwrap();
-                    if let Some(block_hash) = hash {
-                        if let Some(height) = height {
-                            if header.height - height >= 2 {
-                                let signer = InMemorySigner::test_signer(&"test1".parse().unwrap());
-                                let tx = SignedTransaction::send_money(
-                                    1,
-                                    "test1".parse().unwrap(),
-                                    "test2".parse().unwrap(),
-                                    &signer,
-                                    100,
-                                    block_hash,
-                                );
-                                let bytes = borsh::to_vec(&tx).unwrap();
-                                actix::spawn(
-                                    client
-                                        .broadcast_tx_commit(to_base64(&bytes))
-                                        .map_err(|err| {
-                                            assert_eq!(
-                                                err.data.unwrap(),
-                                                serde_json::json!({"TxExecutionError": {
-                                                    "InvalidTxError": "Expired"
-                                                }})
-                                            );
-                                            System::current().stop();
-                                        })
-                                        .map(|_| ()),
-                                );
-                            }
-                        }
-                    } else {
-                        *block_hash.lock().unwrap() = Some(header.hash);
-                        *block_height.lock().unwrap() = Some(header.height);
-                    };
-                    future::ready(())
-                }));
+                actix::spawn(
+                    client
+                        .block(BlockReference::latest())
+                        .then(move |res| {
+                            let header = res.unwrap().header;
+                            let hash = *block_hash.lock().unwrap();
+                            let height = *block_height.lock().unwrap();
+                            if let Some(block_hash) = hash {
+                                if let Some(height) = height {
+                                    if header.height - height >= 2 {
+                                        let signer =
+                                            InMemorySigner::test_signer(&"test1".parse().unwrap());
+                                        let tx = SignedTransaction::send_money(
+                                            1,
+                                            "test1".parse().unwrap(),
+                                            "test2".parse().unwrap(),
+                                            &signer,
+                                            100,
+                                            block_hash,
+                                        );
+                                        let bytes = borsh::to_vec(&tx).unwrap();
+                                        actix::spawn(
+                                            client
+                                                .broadcast_tx_commit(to_base64(&bytes))
+                                                .map_err(|err| {
+                                                    assert_eq!(
+                                                        err.data.unwrap(),
+                                                        serde_json::json!({"TxExecutionError": {
+                                                            "InvalidTxError": "Expired"
+                                                        }})
+                                                    );
+                                                    System::current().stop();
+                                                })
+                                                .map(|_| ()),
+                                        );
+                                    }
+                                }
+                            } else {
+                                *block_hash.lock().unwrap() = Some(header.hash);
+                                *block_height.lock().unwrap() = Some(header.height);
+                            };
+                            future::ready(())
+                        }),
+                );
             }),
             100,
             1000,
@@ -195,7 +222,10 @@ fn test_replay_protection() {
             hash(&[1]),
         );
         let bytes = borsh::to_vec(&tx).unwrap();
-        if let Ok(_) = client.broadcast_tx_commit(to_base64(&bytes)).await {
+        if let Ok(_) = client
+            .broadcast_tx_commit(to_base64(&bytes))
+            .await
+        {
             panic!("transaction should not succeed");
         }
     });
@@ -212,11 +242,11 @@ fn test_tx_status_missing_tx() {
             wait_until: TxExecutionStatus::None,
         };
         match client.tx(request).await {
-            Err(e) => {
+            | Err(e) => {
                 let s = serde_json::to_string(&e.data.unwrap()).unwrap();
                 assert_eq!(s, "\"Transaction 11111111111111111111111111111111 doesn't exist\"");
             }
-            Ok(_) => panic!("transaction should not succeed"),
+            | Ok(_) => panic!("transaction should not succeed"),
         }
     });
 }
@@ -238,11 +268,11 @@ fn test_check_invalid_tx() {
             wait_until: TxExecutionStatus::None,
         };
         match client.tx(request).await {
-            Err(e) => {
+            | Err(e) => {
                 let s = serde_json::to_string(&e.data.unwrap()).unwrap();
                 assert_eq!(s, "{\"TxExecutionError\":{\"InvalidTxError\":\"Expired\"}}");
             }
-            Ok(_) => panic!("transaction should not succeed"),
+            | Ok(_) => panic!("transaction should not succeed"),
         }
     });
 }

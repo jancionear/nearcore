@@ -41,8 +41,8 @@ fn query_client() {
         );
         let actor = actor.then(|res| {
             match res.unwrap().unwrap().kind {
-                QueryResponseKind::ViewAccount(_) => (),
-                _ => panic!("Invalid response"),
+                | QueryResponseKind::ViewAccount(_) => (),
+                | _ => panic!("Invalid response"),
             }
             System::current().stop();
             future::ready(())
@@ -80,7 +80,12 @@ fn query_status_not_crash() {
                 &header,
                 block.header.height + 1,
                 header.block_ordinal() + 1,
-                block.chunks.iter().cloned().map(|c| c.into()).collect(),
+                block
+                    .chunks
+                    .iter()
+                    .cloned()
+                    .map(|c| c.into())
+                    .collect(),
                 vec![vec![]; block.chunks.len()],
                 EpochId(block.header.next_epoch_id),
                 EpochId(block.header.hash),
@@ -96,7 +101,6 @@ fn query_status_not_crash() {
                 block.header.next_bp_hash,
                 block_merkle_tree.root(),
                 Clock::real(),
-                None,
                 None,
             );
             let timestamp = next_block.header().timestamp();
@@ -207,7 +211,9 @@ fn test_execution_outcome_for_chunk() {
                 .unwrap()
                 .unwrap();
             assert_eq!(execution_outcomes_in_block.len(), 1);
-            let outcomes = execution_outcomes_in_block.remove(&ShardId::new(0)).unwrap();
+            let outcomes = execution_outcomes_in_block
+                .remove(&ShardId::new(0))
+                .unwrap();
             assert_eq!(outcomes[0].id, tx_hash);
             System::current().stop();
         });

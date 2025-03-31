@@ -63,13 +63,22 @@ pub(crate) struct ParameterRow {
 impl EstimationRow {
     const SELECT_ALL: &'static str =
         "name,gas,parameter,wall_clock_time,icount,io_read,io_write,uncertain_reason,commit_hash";
-    pub fn get(db: &Db, name: &str, commit: &str, metric: Metric) -> anyhow::Result<Vec<Self>> {
+    pub fn get(
+        db: &Db,
+        name: &str,
+        commit: &str,
+        metric: Metric,
+    ) -> anyhow::Result<Vec<Self>> {
         Ok(Self::get_any_metric(db, name, commit)?
             .into_iter()
             .filter(|row| row.is_metric(metric))
             .collect())
     }
-    pub fn get_any_metric(db: &Db, name: &str, commit: &str) -> anyhow::Result<Vec<Self>> {
+    pub fn get_any_metric(
+        db: &Db,
+        name: &str,
+        commit: &str,
+    ) -> anyhow::Result<Vec<Self>> {
         let select = Self::SELECT_ALL;
         let mut stmt = db.conn.prepare(&format!(
             "SELECT {select} FROM estimation WHERE name = ?1 AND commit_hash = ?2;"
@@ -79,7 +88,10 @@ impl EstimationRow {
             .collect::<Result<Vec<_>, rusqlite::Error>>()?;
         Ok(data)
     }
-    pub(crate) fn insert(&self, db: &Db) -> anyhow::Result<()> {
+    pub(crate) fn insert(
+        &self,
+        db: &Db,
+    ) -> anyhow::Result<()> {
         db.conn.execute(
             "INSERT INTO estimation(name,gas,parameter,wall_clock_time,icount,io_read,io_write,uncertain_reason,commit_hash) values (?1,?2,?3,?4,?,?6,?7,?8,?9)",
             params![
@@ -123,8 +135,8 @@ impl EstimationRow {
         metric: Option<Metric>,
     ) -> anyhow::Result<Vec<(String, NaiveDateTime)>> {
         let metric_condition = match metric {
-            Some(m) => format!("WHERE {}", m.condition()),
-            None => "".to_owned(),
+            | Some(m) => format!("WHERE {}", m.condition()),
+            | None => "".to_owned(),
         };
         let sql = format!("SELECT commit_hash,min(date) FROM estimation {metric_condition} GROUP BY commit_hash ORDER BY date ASC;");
         let mut stmt = db.conn.prepare(&sql)?;
@@ -133,26 +145,39 @@ impl EstimationRow {
             .collect::<Result<Vec<_>, rusqlite::Error>>()?;
         Ok(data)
     }
-    pub fn count_by_metric(db: &Db, metric: Metric) -> anyhow::Result<u64> {
+    pub fn count_by_metric(
+        db: &Db,
+        metric: Metric,
+    ) -> anyhow::Result<u64> {
         let sql = match metric {
-            Metric::ICount => "SELECT COUNT(*) FROM estimation WHERE icount IS NOT NULL;",
-            Metric::Time => "SELECT COUNT(*) FROM estimation WHERE wall_clock_time IS NOT NULL;",
+            | Metric::ICount => "SELECT COUNT(*) FROM estimation WHERE icount IS NOT NULL;",
+            | Metric::Time => "SELECT COUNT(*) FROM estimation WHERE wall_clock_time IS NOT NULL;",
         };
-        let count = db.conn.query_row::<i32, _, _>(sql, [], |row| row.get(0))?;
+        let count = db
+            .conn
+            .query_row::<i32, _, _>(sql, [], |row| row.get(0))?;
         Ok(count as u64)
     }
-    pub fn last_updated(db: &Db, metric: Metric) -> anyhow::Result<Option<NaiveDateTime>> {
+    pub fn last_updated(
+        db: &Db,
+        metric: Metric,
+    ) -> anyhow::Result<Option<NaiveDateTime>> {
         let sql = match metric {
-            Metric::ICount => "SELECT MAX(date) FROM estimation WHERE icount IS NOT NULL;",
-            Metric::Time => "SELECT MAX(date) FROM estimation WHERE wall_clock_time IS NOT NULL;",
+            | Metric::ICount => "SELECT MAX(date) FROM estimation WHERE icount IS NOT NULL;",
+            | Metric::Time => "SELECT MAX(date) FROM estimation WHERE wall_clock_time IS NOT NULL;",
         };
-        let dt = db.conn.query_row::<Option<NaiveDateTime>, _, _>(sql, [], |row| row.get(0))?;
+        let dt = db
+            .conn
+            .query_row::<Option<NaiveDateTime>, _, _>(sql, [], |row| row.get(0))?;
         Ok(dt)
     }
-    fn is_metric(&self, metric: Metric) -> bool {
+    fn is_metric(
+        &self,
+        metric: Metric,
+    ) -> bool {
         match metric {
-            Metric::ICount => self.icount.is_some(),
-            Metric::Time => self.icount.is_none() && self.wall_clock_time.is_some(),
+            | Metric::ICount => self.icount.is_some(),
+            | Metric::Time => self.icount.is_none() && self.wall_clock_time.is_some(),
         }
     }
     fn from_row(row: &Row) -> rusqlite::Result<Self> {
@@ -173,12 +198,16 @@ impl EstimationRow {
 impl ParameterRow {
     pub fn count(db: &Db) -> anyhow::Result<u64> {
         let sql = "SELECT COUNT(*) FROM parameter;";
-        let count = db.conn.query_row::<u64, _, _>(sql, [], |row| row.get(0))?;
+        let count = db
+            .conn
+            .query_row::<u64, _, _>(sql, [], |row| row.get(0))?;
         Ok(count)
     }
     pub fn latest_protocol_version(db: &Db) -> anyhow::Result<Option<u32>> {
         let sql = "SELECT MAX(protocol_version) FROM parameter;";
-        let max = db.conn.query_row::<Option<u32>, _, _>(sql, [], |row| row.get(0))?;
+        let max = db
+            .conn
+            .query_row::<Option<u32>, _, _>(sql, [], |row| row.get(0))?;
         Ok(max)
     }
 }
@@ -186,8 +215,8 @@ impl ParameterRow {
 impl Metric {
     fn condition(&self) -> &'static str {
         match self {
-            Metric::ICount => "icount IS NOT NULL",
-            Metric::Time => "wall_clock_time IS NOT NULL",
+            | Metric::ICount => "icount IS NOT NULL",
+            | Metric::Time => "wall_clock_time IS NOT NULL",
         }
     }
 }
@@ -207,7 +236,10 @@ mod tests {
             conn.execute_batch(init_sql).unwrap();
             let db = Self::new(conn);
             db.mock_time(
-                NaiveDate::from_ymd_opt(2015, 5, 15).unwrap().and_hms_opt(11, 22, 33).unwrap(),
+                NaiveDate::from_ymd_opt(2015, 5, 15)
+                    .unwrap()
+                    .and_hms_opt(11, 22, 33)
+                    .unwrap(),
             );
             db
         }
@@ -221,8 +253,10 @@ mod tests {
             for block in input.split("\n\n") {
                 if block.trim() == "WAIT" {
                     // Update mocked time to ensure the following data is considered to be later.
-                    let mocked_now: NaiveDateTime =
-                        db.conn.query_row("SELECT datetime('now')", [], |r| r.get(0)).unwrap();
+                    let mocked_now: NaiveDateTime = db
+                        .conn
+                        .query_row("SELECT datetime('now')", [], |r| r.get(0))
+                        .unwrap();
                     db.mock_time(mocked_now + chrono::Duration::seconds(1));
                 } else {
                     let (commit_hash, input) = block.split_once("\n").unwrap();
@@ -230,14 +264,20 @@ mod tests {
                         commit_hash: Some(commit_hash.to_string()),
                         protocol_version: None,
                     };
-                    db.import_json_lines(&conf, input).unwrap();
+                    db.import_json_lines(&conf, input)
+                        .unwrap();
                 }
             }
             db
         }
 
-        pub(crate) fn mock_time(&self, dt: NaiveDateTime) {
-            let string_rep = dt.format("%Y-%m-%d %H:%M:%S").to_string();
+        pub(crate) fn mock_time(
+            &self,
+            dt: NaiveDateTime,
+        ) {
+            let string_rep = dt
+                .format("%Y-%m-%d %H:%M:%S")
+                .to_string();
             self.conn
                 .create_scalar_function("datetime", 1, FunctionFlags::SQLITE_UTF8, move |_ctx| {
                     Ok(string_rep.clone())

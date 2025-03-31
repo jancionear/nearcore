@@ -21,22 +21,33 @@ pub(crate) fn generate_thunks(
     // First, we need to collect all function indices that should be replaced by thunks
 
     let mut replacement_map: BTreeMap<u32, Thunk> = {
-        let exports = module.export_section().map(|es| es.entries()).unwrap_or(&[]);
-        let elem_segments = module.elements_section().map(|es| es.entries()).unwrap_or(&[]);
+        let exports = module
+            .export_section()
+            .map(|es| es.entries())
+            .unwrap_or(&[]);
+        let elem_segments = module
+            .elements_section()
+            .map(|es| es.entries())
+            .unwrap_or(&[]);
         let start_func_idx = module.start_section();
 
-        let exported_func_indices = exports.iter().filter_map(|entry| match entry.internal() {
-            Internal::Function(function_idx) => Some(*function_idx),
-            _ => None,
-        });
-        let table_func_indices =
-            elem_segments.iter().flat_map(|segment| segment.members()).cloned();
+        let exported_func_indices = exports
+            .iter()
+            .filter_map(|entry| match entry.internal() {
+                | Internal::Function(function_idx) => Some(*function_idx),
+                | _ => None,
+            });
+        let table_func_indices = elem_segments
+            .iter()
+            .flat_map(|segment| segment.members())
+            .cloned();
 
         // Replacement map is at least export section size.
         let mut replacement_map: BTreeMap<u32, Thunk> = BTreeMap::new();
 
-        for func_idx in
-            exported_func_indices.chain(table_func_indices).chain(start_func_idx.into_iter())
+        for func_idx in exported_func_indices
+            .chain(table_func_indices)
+            .chain(start_func_idx.into_iter())
         {
             let callee_stack_cost = ctx
                 .stack_cost(func_idx)
@@ -47,7 +58,9 @@ pub(crate) fn generate_thunks(
                 replacement_map.insert(
                     func_idx,
                     Thunk {
-                        signature: module_ctx.resolve_func_type(func_idx)?.clone(),
+                        signature: module_ctx
+                            .resolve_func_type(func_idx)?
+                            .clone(),
                         idx: None,
                         callee_stack_cost,
                     },
@@ -78,7 +91,12 @@ pub(crate) fn generate_thunks(
         let mut thunk_body: Vec<elements::Instruction> =
             Vec::with_capacity(thunk.signature.params().len() + instrumented_call.len() + 1);
 
-        for (arg_idx, _) in thunk.signature.params().iter().enumerate() {
+        for (arg_idx, _) in thunk
+            .signature
+            .params()
+            .iter()
+            .enumerate()
+        {
             thunk_body.push(elements::Instruction::GetLocal(arg_idx as u32));
         }
         thunk_body.extend(instrumented_call.iter().cloned());
@@ -110,29 +128,30 @@ pub(crate) fn generate_thunks(
         // Check whether this function is in replacement_map, since
         // we can skip thunk generation (e.g. if stack_cost of function is 0).
         if let Some(thunk) = replacement_map.get(function_idx) {
-            *function_idx =
-                thunk.idx.expect("At this point an index must be assigned to each thunk");
+            *function_idx = thunk
+                .idx
+                .expect("At this point an index must be assigned to each thunk");
         }
     };
 
     for section in module.sections_mut() {
         match section {
-            elements::Section::Export(export_section) => {
+            | elements::Section::Export(export_section) => {
                 for entry in export_section.entries_mut() {
                     if let Internal::Function(function_idx) = entry.internal_mut() {
                         fixup(function_idx)
                     }
                 }
             }
-            elements::Section::Element(elem_section) => {
+            | elements::Section::Element(elem_section) => {
                 for segment in elem_section.entries_mut() {
                     for function_idx in segment.members_mut() {
                         fixup(function_idx)
                     }
                 }
             }
-            elements::Section::Start(start_idx) => fixup(start_idx),
-            _ => {}
+            | elements::Section::Start(start_idx) => fixup(start_idx),
+            | _ => {}
         }
     }
 

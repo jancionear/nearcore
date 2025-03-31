@@ -167,77 +167,80 @@ fn normalize_cmdline_arg(value: &str) -> String {
 // Add workloads here to simulate them with `cargo run`.
 fn workload(workload_name: &str) -> Box<dyn Producer> {
     match workload_name {
-        "Balanced" => Box::<BalancedProducer>::default(),
-        "Increasing Size" => {
+        | "Balanced" => Box::<BalancedProducer>::default(),
+        | "Increasing Size" => {
             // Transform the tx to a small local receipt which produces 3 large receipts to another shard.
             Box::new(BalancedProducer::with_sizes_and_fan_out(vec![100, 1_000_000], 3))
         }
-        "Extreme Increasing Size" => {
+        | "Extreme Increasing Size" => {
             // Produce 50 big receipts instead of 3 as in "Increasing Size"
             Box::new(BalancedProducer::with_sizes_and_fan_out(vec![100, 2_000_000], 10))
         }
-        "Shard War" => {
+        | "Shard War" => {
             // Each shard transforms one local tx into 4^3 = 64 receipts of 100kB to another shard
             Box::new(BalancedProducer::with_sizes_and_fan_out(vec![100, 100, 100, 100_000], 4))
         }
-        "Mixed All To One" => Box::<AllForOneProducer>::default(),
-        "Indirect All To One" => Box::new(AllForOneProducer::new(false, true, true)),
-        "One Hop All To One" => Box::new(AllForOneProducer::new(true, false, false)),
-        "Two Hop All To One" => Box::new(AllForOneProducer::new(false, true, false)),
-        "Three Hop All To One" => Box::new(AllForOneProducer::new(false, false, true)),
-        "Relayed Hot" => Box::new(AllForOneProducer::hot_tg()),
-        "Linear Imbalance" => Box::<LinearImbalanceProducer>::default(),
-        "Big Linear Imbalance" => Box::new(LinearImbalanceProducer::big_receipts()),
-        "Fairness Test" => Box::<FairnessBenchmarkProducer>::default(),
-        _ => panic!("unknown workload: {}", workload_name),
+        | "Mixed All To One" => Box::<AllForOneProducer>::default(),
+        | "Indirect All To One" => Box::new(AllForOneProducer::new(false, true, true)),
+        | "One Hop All To One" => Box::new(AllForOneProducer::new(true, false, false)),
+        | "Two Hop All To One" => Box::new(AllForOneProducer::new(false, true, false)),
+        | "Three Hop All To One" => Box::new(AllForOneProducer::new(false, false, true)),
+        | "Relayed Hot" => Box::new(AllForOneProducer::hot_tg()),
+        | "Linear Imbalance" => Box::<LinearImbalanceProducer>::default(),
+        | "Big Linear Imbalance" => Box::new(LinearImbalanceProducer::big_receipts()),
+        | "Fairness Test" => Box::<FairnessBenchmarkProducer>::default(),
+        | _ => panic!("unknown workload: {}", workload_name),
     }
 }
 
 // Add strategies here to simulate them with `cargo run`.
 // Returns a vector of strategies, one for each shard.
-fn strategy(strategy_name: &str, num_shards: usize) -> Vec<Box<dyn CongestionStrategy>> {
+fn strategy(
+    strategy_name: &str,
+    num_shards: usize,
+) -> Vec<Box<dyn CongestionStrategy>> {
     let mut result = vec![];
     for _ in 0..num_shards {
         let strategy = match strategy_name {
-            "No queues" => Box::new(NoQueueShard {}) as Box<dyn CongestionStrategy>,
-            "Global TX stop" => Box::<GlobalTxStopShard>::default(),
-            "Simple backpressure" => Box::<SimpleBackpressure>::default(),
-            "Fancy Stop" => Box::<FancyGlobalTransactionStop>::default(),
-            "New TX last" => Box::<NewTxLast>::default(),
-            "Traffic Light" => Box::<TrafficLight>::default(),
-            "Smooth Traffic Light" => Box::<SmoothTrafficLight>::default(),
+            | "No queues" => Box::new(NoQueueShard {}) as Box<dyn CongestionStrategy>,
+            | "Global TX stop" => Box::<GlobalTxStopShard>::default(),
+            | "Simple backpressure" => Box::<SimpleBackpressure>::default(),
+            | "Fancy Stop" => Box::<FancyGlobalTransactionStop>::default(),
+            | "New TX last" => Box::<NewTxLast>::default(),
+            | "Traffic Light" => Box::<TrafficLight>::default(),
+            | "Smooth Traffic Light" => Box::<SmoothTrafficLight>::default(),
             // Trade essentially unbounded outgoing delays for higher
             // utilization. If run for long enough, it will still fill the
             // buffer and hit a memory limit, but full throughput can be
             // sustained for a long time this way.
-            "STL_MAX_UTIL" => Box::new(
+            | "STL_MAX_UTIL" => Box::new(
                 SmoothTrafficLight::default()
                     .with_smooth_slow_down(false)
                     .with_gas_limits(50 * PGAS, u64::MAX)
                     .with_tx_reject_threshold(0.125),
             ),
-            "STL_HIGH_UTIL" => Box::new(
+            | "STL_HIGH_UTIL" => Box::new(
                 SmoothTrafficLight::default()
                     .with_smooth_slow_down(false)
                     .with_gas_limits(50 * PGAS, 50 * PGAS)
                     .with_tx_reject_threshold(0.125),
             ),
             // Keep queues short enough that the can be emptied in one round.
-            "STL_MIN_DELAY" => Box::new(
+            | "STL_MIN_DELAY" => Box::new(
                 SmoothTrafficLight::default()
                     .with_gas_limits(1300 * TGAS, 1 * PGAS)
                     .with_tx_reject_threshold(0.95),
             ),
-            "STL_LOW_DELAY" => Box::new(
+            | "STL_LOW_DELAY" => Box::new(
                 SmoothTrafficLight::default()
                     .with_gas_limits(5 * PGAS, 1 * PGAS)
                     .with_tx_reject_threshold(0.5),
             ),
-            "NEP" => Box::<NepStrategy>::default(),
-            "NEP 200MB" => Box::new(
+            | "NEP" => Box::<NepStrategy>::default(),
+            | "NEP 200MB" => Box::new(
                 NepStrategy::default().with_memory_limits(ByteSize::mb(100), ByteSize::mb(100)),
             ),
-            "NEP 450/50MB" => Box::new(
+            | "NEP 450/50MB" => Box::new(
                 // keep outgoing limit small
                 // (1) if we hit this, it's due to another shard's incoming congestion,
                 //     so we are already in a second stage of congestion and should be more aggressive
@@ -245,56 +248,60 @@ fn strategy(strategy_name: &str, num_shards: usize) -> Vec<Box<dyn CongestionStr
                 //     as we don't stop executing receipts
                 NepStrategy::default().with_memory_limits(ByteSize::mb(450), ByteSize::mb(50)),
             ),
-            "NEP 1GB" => Box::new(
+            | "NEP 1GB" => Box::new(
                 NepStrategy::default().with_memory_limits(ByteSize::mb(500), ByteSize::mb(500)),
             ),
-            "NEP 10 Pgas" => Box::new(NepStrategy::default().with_gas_limits(10 * PGAS, 10 * PGAS)),
-            "NEP 1 Pgas" => Box::new(NepStrategy::default().with_gas_limits(10 * PGAS, 10 * PGAS)),
-            "NEP 10/1 Pgas" => {
+            | "NEP 10 Pgas" => {
+                Box::new(NepStrategy::default().with_gas_limits(10 * PGAS, 10 * PGAS))
+            }
+            | "NEP 1 Pgas" => {
+                Box::new(NepStrategy::default().with_gas_limits(10 * PGAS, 10 * PGAS))
+            }
+            | "NEP 10/1 Pgas" => {
                 Box::new(NepStrategy::default().with_gas_limits(10 * PGAS, 1 * PGAS))
             }
             // NEP v2 takes results from memory and gas limits into account and fixes those
-            "NEPv2" => Box::new(
+            | "NEPv2" => Box::new(
                 NepStrategy::default()
                     .with_gas_limits(10 * PGAS, 1 * PGAS)
                     .with_memory_limits(ByteSize::mb(450), ByteSize::mb(50)),
             ),
-            "NEPv2 1GB" => Box::new(
+            | "NEPv2 1GB" => Box::new(
                 NepStrategy::default()
                     .with_gas_limits(10 * PGAS, 1 * PGAS)
                     .with_memory_limits(ByteSize::mb(900), ByteSize::mb(100)),
             ),
-            "NEPv2 early global stop" => Box::new(
+            | "NEPv2 early global stop" => Box::new(
                 NepStrategy::default()
                     .with_gas_limits(10 * PGAS, 1 * PGAS)
                     .with_memory_limits(ByteSize::mb(450), ByteSize::mb(50))
                     .with_global_stop_limit(0.5),
             ),
-            "NEPv2 late global stop" => Box::new(
+            | "NEPv2 late global stop" => Box::new(
                 NepStrategy::default()
                     .with_gas_limits(10 * PGAS, 1 * PGAS)
                     .with_memory_limits(ByteSize::mb(450), ByteSize::mb(50))
                     .with_global_stop_limit(1.0),
             ),
-            "NEPv2 less forwarding" => Box::new(
+            | "NEPv2 less forwarding" => Box::new(
                 NepStrategy::default()
                     .with_gas_limits(10 * PGAS, 1 * PGAS)
                     .with_memory_limits(ByteSize::mb(450), ByteSize::mb(50))
                     .with_send_gas_limit_range(PGAS / 2, 2 * PGAS),
             ),
-            "NEPv2 more forwarding" => Box::new(
+            | "NEPv2 more forwarding" => Box::new(
                 NepStrategy::default()
                     .with_gas_limits(10 * PGAS, 1 * PGAS)
                     .with_memory_limits(ByteSize::mb(450), ByteSize::mb(50))
                     .with_send_gas_limit_range(PGAS / 2, 100 * PGAS),
             ),
-            "NEPv2 less tx" => Box::new(
+            | "NEPv2 less tx" => Box::new(
                 NepStrategy::default()
                     .with_gas_limits(10 * PGAS, 1 * PGAS)
                     .with_memory_limits(ByteSize::mb(450), ByteSize::mb(50))
                     .with_tx_gas_limit_range(0, 100 * TGAS),
             ),
-            "NEPv2 more tx" => Box::new(
+            | "NEPv2 more tx" => Box::new(
                 NepStrategy::default()
                     .with_gas_limits(10 * PGAS, 1 * PGAS)
                     .with_memory_limits(ByteSize::mb(450), ByteSize::mb(50))
@@ -302,7 +309,7 @@ fn strategy(strategy_name: &str, num_shards: usize) -> Vec<Box<dyn CongestionStr
             ),
             // NEP v3 takes results from v2 into account, and lots of further fine-tuning.
             // Unfortunately, no configuration can pass the fairness test in a satisfying way.
-            "NEPv3" => Box::new(
+            | "NEPv3" => Box::new(
                 NepStrategy::default()
                     // small outgoing buffers is great for low latency
                     .with_gas_limits(10 * PGAS, 1 * PGAS)
@@ -312,7 +319,7 @@ fn strategy(strategy_name: &str, num_shards: usize) -> Vec<Box<dyn CongestionStr
                     .with_send_gas_limit_range(0, 5 * PGAS)
                     .with_global_stop_limit(0.95),
             ),
-            _ => panic!("unknown strategy: {}", strategy_name),
+            | _ => panic!("unknown strategy: {}", strategy_name),
         };
 
         result.push(strategy);

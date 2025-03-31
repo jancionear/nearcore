@@ -19,7 +19,11 @@ use crate::test_loop::utils::transactions::{
 use crate::test_loop::utils::ONE_NEAR;
 
 /// Write block height to contract storage.
-fn do_call_contract(env: &mut TestLoopEnv, rpc_id: &AccountId, contract_id: &AccountId) {
+fn do_call_contract(
+    env: &mut TestLoopEnv,
+    rpc_id: &AccountId,
+    contract_id: &AccountId,
+) {
     tracing::info!(target: "test", "Calling contract.");
     let nonce = get_next_nonce(&env.test_loop.data, &env.datas, contract_id);
     let tx = call_contract(
@@ -32,7 +36,8 @@ fn do_call_contract(env: &mut TestLoopEnv, rpc_id: &AccountId, contract_id: &Acc
         vec![],
         nonce,
     );
-    env.test_loop.run_for(Duration::seconds(5));
+    env.test_loop
+        .run_for(Duration::seconds(5));
     check_txs(&env.test_loop.data, &env.datas, rpc_id, &[tx]);
 }
 
@@ -46,7 +51,10 @@ fn check_chunks(
     let tip = client.chain.head().unwrap().height;
     if tip > latest_block_height.get() {
         latest_block_height.set(tip);
-        let block = client.chain.get_block_by_height(tip).unwrap();
+        let block = client
+            .chain
+            .get_block_by_height(tip)
+            .unwrap();
         let num_shards = block.header().chunk_mask().len();
         println!("Chain tip: {} Chunks: {:?}", tip, block.header().chunk_mask());
         assert_eq!(block.header().chunk_mask(), vec![true; num_shards]);
@@ -64,12 +72,16 @@ fn test_create_delete_account() {
     let builder = TestLoopBuilder::new();
 
     let epoch_length = 5;
-    let accounts =
-        (0..5).map(|i| format!("account{}", i).parse().unwrap()).collect::<Vec<AccountId>>();
+    let accounts = (0..5)
+        .map(|i| format!("account{}", i).parse().unwrap())
+        .collect::<Vec<AccountId>>();
     let clients = accounts.clone();
 
     // Split the clients into producers, validators, and rpc nodes.
-    let tmp = accounts.iter().map(|t| t.as_str()).collect_vec();
+    let tmp = accounts
+        .iter()
+        .map(|t| t.as_str())
+        .collect_vec();
     let (producers, tmp) = tmp.split_at(2);
     let (validators, tmp) = tmp.split_at(2);
     let (rpcs, tmp) = tmp.split_at(1);
@@ -89,8 +101,11 @@ fn test_create_delete_account() {
         |epoch_config_builder| epoch_config_builder,
     );
 
-    let mut env =
-        builder.genesis(genesis).epoch_config_store(epoch_config_store).clients(clients).build();
+    let mut env = builder
+        .genesis(genesis)
+        .epoch_config_store(epoch_config_store)
+        .clients(clients)
+        .build();
 
     // Launch a task to check that all chunks are produced.
     // Needed to make sure that chunks are valid. Currently, if chunk
@@ -103,7 +118,9 @@ fn test_create_delete_account() {
         check_chunks(actor, runner, std::cell::Cell::new(0));
     });
 
-    let new_account: AccountId = format!("alice.{}", accounts[0]).parse().unwrap();
+    let new_account: AccountId = format!("alice.{}", accounts[0])
+        .parse()
+        .unwrap();
     let contract_code = near_test_contracts::rs_contract().to_vec();
 
     // Create account.

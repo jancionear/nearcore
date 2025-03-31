@@ -46,7 +46,10 @@ impl<T: ReservedValue> PackedOption<T> {
     }
 
     /// Maps a `PackedOption<T>` to `Option<U>` by applying a function to a contained value.
-    pub fn map<U, F>(self, f: F) -> Option<U>
+    pub fn map<U, F>(
+        self,
+        f: F,
+    ) -> Option<U>
     where
         F: FnOnce(T) -> U,
     {
@@ -59,7 +62,10 @@ impl<T: ReservedValue> PackedOption<T> {
     }
 
     /// Unwrap a packed `Some` value or panic.
-    pub fn expect(self, msg: &str) -> T {
+    pub fn expect(
+        self,
+        msg: &str,
+    ) -> T {
         self.expand().expect(msg)
     }
 
@@ -88,8 +94,8 @@ impl<T: ReservedValue> From<Option<T>> for PackedOption<T> {
     /// Convert an option into its packed equivalent.
     fn from(opt: Option<T>) -> Self {
         match opt {
-            None => Self::default(),
-            Some(t) => t.into(),
+            | None => Self::default(),
+            | Some(t) => t.into(),
         }
     }
 }
@@ -104,7 +110,10 @@ impl<T> fmt::Debug for PackedOption<T>
 where
     T: ReservedValue + fmt::Debug,
 {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter,
+    ) -> fmt::Result {
         if self.is_none() {
             write!(f, "None")
         } else {

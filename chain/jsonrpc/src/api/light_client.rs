@@ -45,26 +45,27 @@ impl RpcFrom<Option<Arc<LightClientBlockView>>> for RpcLightClientNextBlockRespo
 impl RpcFrom<GetExecutionOutcomeError> for RpcLightClientProofError {
     fn rpc_from(error: GetExecutionOutcomeError) -> Self {
         match error {
-            GetExecutionOutcomeError::UnknownBlock { error_message } => {
+            | GetExecutionOutcomeError::UnknownBlock { error_message } => {
                 Self::UnknownBlock { error_message }
             }
-            GetExecutionOutcomeError::InconsistentState {
+            | GetExecutionOutcomeError::InconsistentState {
                 number_or_shards,
                 execution_outcome_shard_id,
             } => Self::InconsistentState { number_or_shards, execution_outcome_shard_id },
-            GetExecutionOutcomeError::NotConfirmed { transaction_or_receipt_id } => {
+            | GetExecutionOutcomeError::NotConfirmed { transaction_or_receipt_id } => {
                 Self::NotConfirmed { transaction_or_receipt_id }
             }
-            GetExecutionOutcomeError::UnknownTransactionOrReceipt { transaction_or_receipt_id } => {
-                Self::UnknownTransactionOrReceipt { transaction_or_receipt_id }
-            }
-            GetExecutionOutcomeError::UnavailableShard { transaction_or_receipt_id, shard_id } => {
-                Self::UnavailableShard { transaction_or_receipt_id, shard_id }
-            }
-            GetExecutionOutcomeError::InternalError { error_message } => {
+            | GetExecutionOutcomeError::UnknownTransactionOrReceipt {
+                transaction_or_receipt_id,
+            } => Self::UnknownTransactionOrReceipt { transaction_or_receipt_id },
+            | GetExecutionOutcomeError::UnavailableShard {
+                transaction_or_receipt_id,
+                shard_id,
+            } => Self::UnavailableShard { transaction_or_receipt_id, shard_id },
+            | GetExecutionOutcomeError::InternalError { error_message } => {
                 Self::InternalError { error_message }
             }
-            GetExecutionOutcomeError::Unreachable { ref error_message } => {
+            | GetExecutionOutcomeError::Unreachable { ref error_message } => {
                 tracing::warn!(target: "jsonrpc", "Unreachable error occurred: {}", error_message);
                 crate::metrics::RPC_UNREACHABLE_ERROR_COUNT
                     .with_label_values(&["RpcLightClientProofError"])
@@ -84,13 +85,13 @@ impl RpcFrom<AsyncSendError> for RpcLightClientProofError {
 impl RpcFrom<GetBlockProofError> for RpcLightClientProofError {
     fn rpc_from(error: GetBlockProofError) -> Self {
         match error {
-            GetBlockProofError::UnknownBlock { error_message } => {
+            | GetBlockProofError::UnknownBlock { error_message } => {
                 Self::UnknownBlock { error_message }
             }
-            GetBlockProofError::InternalError { error_message } => {
+            | GetBlockProofError::InternalError { error_message } => {
                 Self::InternalError { error_message }
             }
-            GetBlockProofError::Unreachable { ref error_message } => {
+            | GetBlockProofError::Unreachable { ref error_message } => {
                 tracing::warn!(target: "jsonrpc", "Unreachable error occurred: {}", error_message);
                 crate::metrics::RPC_UNREACHABLE_ERROR_COUNT
                     .with_label_values(&["RpcLightClientProofError"])
@@ -110,16 +111,16 @@ impl RpcFrom<AsyncSendError> for RpcLightClientNextBlockError {
 impl RpcFrom<GetNextLightClientBlockError> for RpcLightClientNextBlockError {
     fn rpc_from(error: GetNextLightClientBlockError) -> Self {
         match error {
-            GetNextLightClientBlockError::InternalError { error_message } => {
+            | GetNextLightClientBlockError::InternalError { error_message } => {
                 Self::InternalError { error_message }
             }
-            GetNextLightClientBlockError::UnknownBlock { error_message } => {
+            | GetNextLightClientBlockError::UnknownBlock { error_message } => {
                 Self::UnknownBlock { error_message }
             }
-            GetNextLightClientBlockError::EpochOutOfBounds { epoch_id } => {
+            | GetNextLightClientBlockError::EpochOutOfBounds { epoch_id } => {
                 Self::EpochOutOfBounds { epoch_id }
             }
-            GetNextLightClientBlockError::Unreachable { ref error_message } => {
+            | GetNextLightClientBlockError::Unreachable { ref error_message } => {
                 tracing::warn!(target: "jsonrpc", "Unreachable error occurred: {}", error_message);
                 crate::metrics::RPC_UNREACHABLE_ERROR_COUNT
                     .with_label_values(&["RpcLightClientNextBlockError"])

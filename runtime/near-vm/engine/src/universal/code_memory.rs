@@ -17,7 +17,10 @@ pub(crate) const ARCH_FUNCTION_ALIGNMENT: u16 = 16;
 ///
 pub(crate) const DATA_SECTION_ALIGNMENT: u16 = 64;
 
-fn round_up(size: usize, multiple: usize) -> usize {
+fn round_up(
+    size: usize,
+    multiple: usize,
+) -> usize {
     debug_assert!(multiple.is_power_of_two());
     (size + (multiple - 1)) & !(multiple - 1)
 }
@@ -36,7 +39,11 @@ impl<'a> CodeMemoryWriter<'a> {
     /// calls.
     ///
     /// Returns the position within the mapping at which the buffer was written.
-    pub fn write_data(&mut self, mut alignment: u16, input: &[u8]) -> Result<usize, CompileError> {
+    pub fn write_data(
+        &mut self,
+        mut alignment: u16,
+        input: &[u8],
+    ) -> Result<usize, CompileError> {
         if self.offset == self.memory.executable_end {
             alignment = u16::try_from(rustix::param::page_size()).expect("page size > u16::MAX");
         }
@@ -64,7 +71,11 @@ impl<'a> CodeMemoryWriter<'a> {
         result
     }
 
-    fn write_inner(&mut self, alignment: u16, input: &[u8]) -> Result<usize, CompileError> {
+    fn write_inner(
+        &mut self,
+        alignment: u16,
+        input: &[u8],
+    ) -> Result<usize, CompileError> {
         let entry_offset = self.offset;
         let aligned_offset = round_up(entry_offset, usize::from(alignment));
         let final_offset = aligned_offset + input.len();
@@ -134,7 +145,10 @@ impl CodeMemory {
     ///
     /// This will invalidate any data previously written into the mapping if the mapping needs to
     /// be resized.
-    pub fn resize(mut self, size: usize) -> rustix::io::Result<Self> {
+    pub fn resize(
+        mut self,
+        size: usize,
+    ) -> rustix::io::Result<Self> {
         if self.size < size {
             // Ideally we would use mremap, but see
             // https://bugzilla.kernel.org/show_bug.cgi?id=8691
@@ -179,7 +193,10 @@ impl CodeMemory {
     /// Remap the offset into an absolute address within a read-execute mapping.
     ///
     /// Offset must not exceed `isize::MAX`.
-    pub unsafe fn executable_address(&self, offset: usize) -> *const u8 {
+    pub unsafe fn executable_address(
+        &self,
+        offset: usize,
+    ) -> *const u8 {
         // TODO: encapsulate offsets so that this `offset` is guaranteed to be sound.
         debug_assert!(offset <= isize::MAX as usize);
         self.map.offset(offset as isize)
@@ -188,7 +205,10 @@ impl CodeMemory {
     /// Remap the offset into an absolute address within a read-write mapping.
     ///
     /// Offset must not exceed `isize::MAX`.
-    pub unsafe fn writable_address(&self, offset: usize) -> *mut u8 {
+    pub unsafe fn writable_address(
+        &self,
+        offset: usize,
+    ) -> *mut u8 {
         // TODO: encapsulate offsets so that this `offset` is guaranteed to be sound.
         debug_assert!(offset <= isize::MAX as usize);
         self.map.offset(offset as isize)
@@ -212,7 +232,9 @@ impl Drop for CodeMemory {
                     );
                 }
             }
-            let mut guard = source_pool.lock().expect("unreachable due to panic=abort");
+            let mut guard = source_pool
+                .lock()
+                .expect("unreachable due to panic=abort");
             guard.push(Self {
                 source_pool: None,
                 map: self.map,
@@ -245,7 +267,10 @@ pub struct MemoryPool {
 
 impl MemoryPool {
     /// Create a new pool with `preallocate_count` mappings initialized to `initial_map_size` each.
-    pub fn new(preallocate_count: usize, initial_map_size: usize) -> rustix::io::Result<Self> {
+    pub fn new(
+        preallocate_count: usize,
+        initial_map_size: usize,
+    ) -> rustix::io::Result<Self> {
         let mut pool = Vec::with_capacity(preallocate_count);
         for _ in 0..preallocate_count {
             pool.push(CodeMemory::create(initial_map_size)?);
@@ -255,12 +280,18 @@ impl MemoryPool {
     }
 
     /// Get a memory mapping, at least `size` bytes large.
-    pub fn get(&self, size: usize) -> rustix::io::Result<CodeMemory> {
-        let mut guard = self.pool.lock().expect("unreachable due to panic=abort");
+    pub fn get(
+        &self,
+        size: usize,
+    ) -> rustix::io::Result<CodeMemory> {
+        let mut guard = self
+            .pool
+            .lock()
+            .expect("unreachable due to panic=abort");
         let mut memory = match guard.pop() {
-            Some(m) => m,
+            | Some(m) => m,
             // This memory will later return to this pool via the drop of `CodeMemory`.
-            None => CodeMemory::create(std::cmp::max(size, 1))?,
+            | None => CodeMemory::create(std::cmp::max(size, 1))?,
         };
         memory.source_pool = Some(Arc::clone(&self.pool));
         if memory.size < size {

@@ -9,10 +9,14 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 impl Inner {
-    pub(crate) fn verify_and_cache_edge_nonces(&mut self, edges: &Vec<Edge>) -> bool {
+    pub(crate) fn verify_and_cache_edge_nonces(
+        &mut self,
+        edges: &Vec<Edge>,
+    ) -> bool {
         // In tests we make fake edges and don't bother to sign them
         for edge in edges {
-            self.edge_cache.write_verified_nonce(edge);
+            self.edge_cache
+                .write_verified_nonce(edge);
         }
         true
     }
@@ -20,7 +24,9 @@ impl Inner {
 
 impl GraphV2 {
     pub(crate) fn compute_next_hops(&self) -> (NextHopTable, HashMap<PeerId, u32>) {
-        self.inner.lock().compute_next_hops(&HashSet::new())
+        self.inner
+            .lock()
+            .compute_next_hops(&HashSet::new())
     }
 
     pub(crate) fn update_distance_vector(
@@ -29,11 +35,9 @@ impl GraphV2 {
         distances: Vec<AdvertisedPeerDistance>,
         edges: Vec<Edge>,
     ) -> bool {
-        self.inner.lock().handle_distance_vector(&network_protocol::DistanceVector {
-            root,
-            distances,
-            edges,
-        })
+        self.inner
+            .lock()
+            .handle_distance_vector(&network_protocol::DistanceVector { root, distances, edges })
     }
 
     pub(crate) async fn process_network_event(
@@ -41,8 +45,9 @@ impl GraphV2 {
         event: NetworkTopologyChange,
     ) -> Option<network_protocol::DistanceVector> {
         let clock = time::FakeClock::default();
-        let (to_broadcast, oks) =
-            self.batch_process_network_changes(&clock.clock(), vec![event]).await;
+        let (to_broadcast, oks) = self
+            .batch_process_network_changes(&clock.clock(), vec![event])
+            .await;
         assert!(oks[0]);
         to_broadcast
     }
@@ -52,7 +57,9 @@ impl GraphV2 {
         event: NetworkTopologyChange,
     ) {
         let clock = time::FakeClock::default();
-        let (_, oks) = self.batch_process_network_changes(&clock.clock(), vec![event]).await;
+        let (_, oks) = self
+            .batch_process_network_changes(&clock.clock(), vec![event])
+            .await;
         assert!(!oks[0]);
     }
 
@@ -60,7 +67,9 @@ impl GraphV2 {
         self: &Arc<Self>,
         clock: &time::Clock,
     ) -> Option<network_protocol::DistanceVector> {
-        let (to_broadcast, _) = self.batch_process_network_changes(&clock, vec![]).await;
+        let (to_broadcast, _) = self
+            .batch_process_network_changes(&clock, vec![])
+            .await;
         to_broadcast
     }
 
@@ -83,11 +92,19 @@ impl GraphV2 {
 
         assert_eq!(
             expected_distances_by_id,
-            inner.validate_routing_distances(distance_vector).unwrap()
+            inner
+                .validate_routing_distances(distance_vector)
+                .unwrap()
         );
     }
 
-    pub(crate) fn has_distance_vector(&self, peer_id: &PeerId) -> bool {
-        self.inner.lock().peer_distances.contains_key(peer_id)
+    pub(crate) fn has_distance_vector(
+        &self,
+        peer_id: &PeerId,
+    ) -> bool {
+        self.inner
+            .lock()
+            .peer_distances
+            .contains_key(peer_id)
     }
 }

@@ -36,14 +36,18 @@ impl ModuleTranslationState {
 
     /// Build map of imported functions names for intrinsification.
     #[tracing::instrument(target = "near_vm", level = "trace", skip_all)]
-    pub fn build_import_map(&mut self, module: &ModuleInfo) {
+    pub fn build_import_map(
+        &mut self,
+        module: &ModuleInfo,
+    ) {
         for key in module.imports.keys() {
             let value = &module.imports[key];
             match value {
-                ImportIndex::Function(index) => {
-                    self.import_map.insert(*index, key.1.clone());
+                | ImportIndex::Function(index) => {
+                    self.import_map
+                        .insert(*index, key.1.clone());
                 }
-                _ => {
+                | _ => {
                     // Non-function import.
                 }
             }

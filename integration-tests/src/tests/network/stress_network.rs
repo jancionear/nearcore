@@ -63,17 +63,25 @@ fn stress_test() {
 
     run_actix(async {
         let num_nodes = 7;
-        let addrs: Vec<_> = (0..num_nodes).map(|_| tcp::ListenerAddr::reserve_for_test()).collect();
+        let addrs: Vec<_> = (0..num_nodes)
+            .map(|_| tcp::ListenerAddr::reserve_for_test())
+            .collect();
 
-        let boot_nodes: Vec<_> =
-            addrs.iter().enumerate().map(|(ix, addr)| (format!("test{}", ix), **addr)).collect();
+        let boot_nodes: Vec<_> = addrs
+            .iter()
+            .enumerate()
+            .map(|(ix, addr)| (format!("test{}", ix), **addr))
+            .collect();
 
         let mut pms: Vec<_> = (0..num_nodes)
             .map(|ix| {
                 Arc::new(make_peer_manager(
                     format!("test{}", ix).as_str(),
                     addrs[ix],
-                    boot_nodes.iter().map(|(acc, addr)| (acc.as_str(), *addr)).collect(),
+                    boot_nodes
+                        .iter()
+                        .map(|(acc, addr)| (acc.as_str(), *addr))
+                        .collect(),
                 ))
             })
             .collect();
@@ -85,7 +93,9 @@ fn stress_test() {
         // 1 -> Spawn node0 and schedule crash.
         // 2 -> Timeout.
         let state = Arc::new(AtomicUsize::new(0));
-        let flags: Vec<_> = (0..num_nodes).map(|_| Arc::new(AtomicBool::new(false))).collect();
+        let flags: Vec<_> = (0..num_nodes)
+            .map(|_| Arc::new(AtomicBool::new(false)))
+            .collect();
         let round = Arc::new(AtomicUsize::new(0));
 
         WaitOrTimeoutActor::new(
@@ -115,7 +125,11 @@ fn stress_test() {
                         }
                     }
 
-                    if flags.iter().skip(1).all(|flag| flag.load(Ordering::Relaxed)) {
+                    if flags
+                        .iter()
+                        .skip(1)
+                        .all(|flag| flag.load(Ordering::Relaxed))
+                    {
                         state.store(1, Ordering::Relaxed);
                     }
                 } else if s == 1 {
@@ -128,7 +142,10 @@ fn stress_test() {
                     pms[0] = Arc::new(make_peer_manager(
                         "test0",
                         addrs[0],
-                        boot_nodes.iter().map(|(acc, addr)| (acc.as_str(), *addr)).collect(),
+                        boot_nodes
+                            .iter()
+                            .map(|(acc, addr)| (acc.as_str(), *addr))
+                            .collect(),
                     ));
 
                     let pm0 = pms[0].clone();

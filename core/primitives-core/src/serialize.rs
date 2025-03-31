@@ -73,7 +73,8 @@ pub mod dec_format {
 
     impl<T: DecType> DecType for Option<T> {
         fn serialize(&self) -> Option<String> {
-            self.as_ref().and_then(DecType::serialize)
+            self.as_ref()
+                .and_then(DecType::serialize)
         }
         fn try_from_unit() -> Result<Self, ParseUnitError> {
             Ok(None)
@@ -91,7 +92,10 @@ pub mod dec_format {
     impl<'de, T: DecType> de::Visitor<'de> for Visitor<T> {
         type Value = T;
 
-        fn expecting(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
+        fn expecting(
+            &self,
+            fmt: &mut std::fmt::Formatter,
+        ) -> std::fmt::Result {
             fmt.write_str("a non-negative integer as a string")
         }
 
@@ -99,11 +103,17 @@ pub mod dec_format {
             T::try_from_unit().map_err(|_| de::Error::invalid_type(de::Unexpected::Option, &self))
         }
 
-        fn visit_u64<E: de::Error>(self, value: u64) -> Result<T, E> {
+        fn visit_u64<E: de::Error>(
+            self,
+            value: u64,
+        ) -> Result<T, E> {
             Ok(T::from_u64(value))
         }
 
-        fn visit_str<E: de::Error>(self, value: &str) -> Result<T, E> {
+        fn visit_str<E: de::Error>(
+            self,
+            value: &str,
+        ) -> Result<T, E> {
             T::try_from_str(value).map_err(de::Error::custom)
         }
     }
@@ -116,14 +126,17 @@ pub mod dec_format {
         deserializer.deserialize_any(Visitor(Default::default()))
     }
 
-    pub fn serialize<S, T>(num: &T, serializer: S) -> Result<S::Ok, S::Error>
+    pub fn serialize<S, T>(
+        num: &T,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
         T: DecType,
     {
         match num.serialize() {
-            Some(value) => serializer.serialize_str(&value),
-            None => serializer.serialize_none(),
+            | Some(value) => serializer.serialize_str(&value),
+            | None => serializer.serialize_none(),
         }
     }
 }
@@ -184,8 +197,10 @@ fn test_option_u128_dec_format() {
 
 #[cfg(test)]
 #[track_caller]
-fn assert_round_trip<'a, T>(serialized: &'a str, obj: T)
-where
+fn assert_round_trip<'a, T>(
+    serialized: &'a str,
+    obj: T,
+) where
     T: serde::Deserialize<'a> + serde::Serialize + std::fmt::Debug + std::cmp::PartialEq,
 {
     assert_eq!(serialized, serde_json::to_string(&obj).unwrap());
@@ -194,8 +209,10 @@ where
 
 #[cfg(test)]
 #[track_caller]
-fn assert_deserialize<'a, T>(serialized: &'a str, obj: T)
-where
+fn assert_deserialize<'a, T>(
+    serialized: &'a str,
+    obj: T,
+) where
     T: serde::Deserialize<'a> + std::fmt::Debug + std::cmp::PartialEq,
 {
     assert_eq!(obj, serde_json::from_str(serialized).unwrap());

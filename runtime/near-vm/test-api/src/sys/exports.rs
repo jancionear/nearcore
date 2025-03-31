@@ -36,22 +36,35 @@ impl Exports {
     }
 
     /// Insert a new export into this `Exports` map.
-    pub fn insert<S, E>(&mut self, name: S, value: E)
-    where
+    pub fn insert<S, E>(
+        &mut self,
+        name: S,
+        value: E,
+    ) where
         S: Into<String>,
         E: Into<Extern>,
     {
-        Arc::get_mut(&mut self.map).unwrap().insert(name.into(), value.into());
+        Arc::get_mut(&mut self.map)
+            .unwrap()
+            .insert(name.into(), value.into());
     }
 }
 
 impl LikeNamespace for Exports {
-    fn get_namespace_export(&self, name: &str) -> Option<Export> {
-        self.map.get(name).map(|is_export| is_export.to_export())
+    fn get_namespace_export(
+        &self,
+        name: &str,
+    ) -> Option<Export> {
+        self.map
+            .get(name)
+            .map(|is_export| is_export.to_export())
     }
 
     fn get_namespace_exports(&self) -> Vec<(String, Export)> {
-        self.map.iter().map(|(k, v)| (k.clone(), v.to_export())).collect()
+        self.map
+            .iter()
+            .map(|(k, v)| (k.clone(), v.to_export()))
+            .collect()
     }
 }
 

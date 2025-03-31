@@ -38,16 +38,16 @@ impl Crumb {
         };
 
         self.status = match (&self.status, &node.node) {
-            (&CrumbStatus::Entering, _) => CrumbStatus::At,
-            (&CrumbStatus::At, RawTrieNode::BranchNoValue(_)) => CrumbStatus::AtChild(0),
-            (&CrumbStatus::At, RawTrieNode::BranchWithValue(_, _)) => CrumbStatus::AtChild(0),
-            (&CrumbStatus::AtChild(x), RawTrieNode::BranchNoValue(_))
+            | (&CrumbStatus::Entering, _) => CrumbStatus::At,
+            | (&CrumbStatus::At, RawTrieNode::BranchNoValue(_)) => CrumbStatus::AtChild(0),
+            | (&CrumbStatus::At, RawTrieNode::BranchWithValue(_, _)) => CrumbStatus::AtChild(0),
+            | (&CrumbStatus::AtChild(x), RawTrieNode::BranchNoValue(_))
             | (&CrumbStatus::AtChild(x), RawTrieNode::BranchWithValue(_, _))
                 if x < 15 =>
             {
                 CrumbStatus::AtChild(x + 1)
             }
-            _ => CrumbStatus::Exiting,
+            | _ => CrumbStatus::Exiting,
         }
     }
 }
@@ -112,15 +112,22 @@ impl<'a> DiskTrieIterator<'a> {
     }
 
     /// Position the iterator on the first element with key >= `key`.
-    pub fn seek_prefix<K: AsRef<[u8]>>(&mut self, key: K) -> Result<(), StorageError> {
-        self.seek_nibble_slice(NibbleSlice::new(key.as_ref()), true).map(drop)
+    pub fn seek_prefix<K: AsRef<[u8]>>(
+        &mut self,
+        key: K,
+    ) -> Result<(), StorageError> {
+        self.seek_nibble_slice(NibbleSlice::new(key.as_ref()), true)
+            .map(drop)
     }
 
     /// Configures whether the iterator should remember all the nodes its
     /// visiting.
     ///
     /// Use [`Self::into_visited_nodes`] to retrieve the list.
-    pub fn remember_visited_nodes(&mut self, remember: bool) {
+    pub fn remember_visited_nodes(
+        &mut self,
+        remember: bool,
+    ) {
         self.visited_nodes = remember.then(|| Vec::new());
     }
 
@@ -168,15 +175,16 @@ impl<'a> DiskTrieIterator<'a> {
                 break;
             };
             match &node.node {
-                RawTrieNode::Leaf(leaf_key, _) => {
+                | RawTrieNode::Leaf(leaf_key, _) => {
                     let existing_key = NibbleSlice::from_encoded(leaf_key).0;
                     if !check_ext_key(&key, &existing_key) {
-                        self.key_nibbles.extend(existing_key.iter());
+                        self.key_nibbles
+                            .extend(existing_key.iter());
                         *status = CrumbStatus::Exiting;
                     }
                     break;
                 }
-                RawTrieNode::BranchNoValue(children)
+                | RawTrieNode::BranchNoValue(children)
                 | RawTrieNode::BranchWithValue(_, children) => {
                     if key.is_empty() {
                         break;
@@ -192,17 +200,19 @@ impl<'a> DiskTrieIterator<'a> {
                         break;
                     }
                 }
-                RawTrieNode::Extension(ext_key, child) => {
+                | RawTrieNode::Extension(ext_key, child) => {
                     let existing_key = NibbleSlice::from_encoded(ext_key).0;
                     if key.starts_with(&existing_key) {
                         key = key.mid(existing_key.len());
                         hash = *child;
                         *status = CrumbStatus::At;
-                        self.key_nibbles.extend(existing_key.iter());
+                        self.key_nibbles
+                            .extend(existing_key.iter());
                     } else {
                         if !check_ext_key(&key, &existing_key) {
                             *status = CrumbStatus::Exiting;
-                            self.key_nibbles.extend(existing_key.iter());
+                            self.key_nibbles
+                                .extend(existing_key.iter());
                         }
                         break;
                     }
@@ -218,15 +228,22 @@ impl<'a> DiskTrieIterator<'a> {
     /// configured to remember all the nodes its visiting (which can be enabled
     /// with [`Self::remember_visited_nodes`]), the node will be added to the
     /// list.
-    fn descend_into_node(&mut self, hash: &CryptoHash) -> Result<(), StorageError> {
-        let node = self.trie.retrieve_raw_node(hash, true, true)?.map(|(bytes, node)| {
-            if let Some(ref mut visited) = self.visited_nodes {
-                visited.push(bytes);
-            }
-            node
-        });
+    fn descend_into_node(
+        &mut self,
+        hash: &CryptoHash,
+    ) -> Result<(), StorageError> {
+        let node = self
+            .trie
+            .retrieve_raw_node(hash, true, true)?
+            .map(|(bytes, node)| {
+                if let Some(ref mut visited) = self.visited_nodes {
+                    visited.push(bytes);
+                }
+                node
+            });
 
-        self.trail.push(Crumb { status: CrumbStatus::Entering, node, prefix_boundary: false });
+        self.trail
+            .push(Crumb { status: CrumbStatus::Entering, node, prefix_boundary: false });
         Ok(())
     }
 
@@ -240,13 +257,15 @@ impl<'a> DiskTrieIterator<'a> {
 
     fn has_value(&self) -> bool {
         match self.trail.last() {
-            Some(b) => match &b.status {
-                CrumbStatus::At => {
-                    b.node.as_ref().map(|node| node.node.has_value()).unwrap_or_default()
-                }
-                _ => false,
+            | Some(b) => match &b.status {
+                | CrumbStatus::At => b
+                    .node
+                    .as_ref()
+                    .map(|node| node.node.has_value())
+                    .unwrap_or_default(),
+                | _ => false,
             },
-            None => false, // Trail finished
+            | None => false, // Trail finished
         }
     }
 
@@ -257,53 +276,60 @@ impl<'a> DiskTrieIterator<'a> {
             return Some(IterStep::PopTrail);
         };
         Some(match (last.status, &node.node) {
-            (CrumbStatus::Exiting, n) => {
+            | (CrumbStatus::Exiting, n) => {
                 match n {
-                    RawTrieNode::Leaf(ref key, _) | RawTrieNode::Extension(ref key, _) => {
+                    | RawTrieNode::Leaf(ref key, _) | RawTrieNode::Extension(ref key, _) => {
                         let existing_key = NibbleSlice::from_encoded(key).0;
                         let l = self.key_nibbles.len();
-                        self.key_nibbles.truncate(l - existing_key.len());
+                        self.key_nibbles
+                            .truncate(l - existing_key.len());
                     }
-                    RawTrieNode::BranchNoValue(_) | RawTrieNode::BranchWithValue(_, _) => {
+                    | RawTrieNode::BranchNoValue(_) | RawTrieNode::BranchWithValue(_, _) => {
                         self.key_nibbles.pop();
                     }
                 }
                 IterStep::PopTrail
             }
-            (CrumbStatus::At, RawTrieNode::BranchWithValue(value, _)) => {
+            | (CrumbStatus::At, RawTrieNode::BranchWithValue(value, _)) => {
                 IterStep::Value(value.hash)
             }
-            (CrumbStatus::At, RawTrieNode::BranchNoValue(_)) => IterStep::Continue,
-            (CrumbStatus::At, RawTrieNode::Leaf(key, value)) => {
+            | (CrumbStatus::At, RawTrieNode::BranchNoValue(_)) => IterStep::Continue,
+            | (CrumbStatus::At, RawTrieNode::Leaf(key, value)) => {
                 let key = NibbleSlice::from_encoded(key).0;
                 self.key_nibbles.extend(key.iter());
                 IterStep::Value(value.hash)
             }
-            (CrumbStatus::At, RawTrieNode::Extension(key, child)) => {
+            | (CrumbStatus::At, RawTrieNode::Extension(key, child)) => {
                 let hash = *child;
                 let key = NibbleSlice::from_encoded(key).0;
                 self.key_nibbles.extend(key.iter());
                 IterStep::Descend(hash)
             }
-            (CrumbStatus::AtChild(i), RawTrieNode::BranchNoValue(children))
+            | (CrumbStatus::AtChild(i), RawTrieNode::BranchNoValue(children))
             | (CrumbStatus::AtChild(i), RawTrieNode::BranchWithValue(_, children)) => {
                 if i == 0 {
                     self.key_nibbles.push(0);
                 }
                 if let Some(ref child) = children[i] {
                     if i != 0 {
-                        *self.key_nibbles.last_mut().expect("Pushed child value before") = i;
+                        *self
+                            .key_nibbles
+                            .last_mut()
+                            .expect("Pushed child value before") = i;
                     }
                     IterStep::Descend(*child)
                 } else {
                     IterStep::Continue
                 }
             }
-            _ => panic!("Should never see Entering or AtChild without a Branch here."),
+            | _ => panic!("Should never see Entering or AtChild without a Branch here."),
         })
     }
 
-    fn common_prefix(str1: &[u8], str2: &[u8]) -> usize {
+    fn common_prefix(
+        str1: &[u8],
+        str2: &[u8],
+    ) -> usize {
         let mut prefix = 0;
         while prefix < str1.len() && prefix < str2.len() && str1[prefix] == str2[prefix] {
             prefix += 1;
@@ -323,7 +349,9 @@ impl<'a> DiskTrieIterator<'a> {
         let mut trie_items = vec![];
         for item in self {
             let trie_item = item?;
-            let key_encoded: Vec<_> = NibbleSlice::new(&trie_item.0).iter().collect();
+            let key_encoded: Vec<_> = NibbleSlice::new(&trie_item.0)
+                .iter()
+                .collect();
             if &key_encoded[..] >= path_end {
                 return Ok(trie_items);
             }
@@ -363,15 +391,15 @@ impl<'a> DiskTrieIterator<'a> {
 
         loop {
             let iter_step = match self.iter_step() {
-                Some(iter_step) => iter_step,
-                None => break,
+                | Some(iter_step) => iter_step,
+                | None => break,
             };
             match iter_step {
-                IterStep::PopTrail => {
+                | IterStep::PopTrail => {
                     self.trail.pop();
                     prefix = std::cmp::min(self.key_nibbles.len(), prefix);
                 }
-                IterStep::Descend(hash) => {
+                | IterStep::Descend(hash) => {
                     prefix += Self::common_prefix(&path_end[prefix..], &self.key_nibbles[prefix..]);
                     if self.key_nibbles[prefix..] >= path_end[prefix..] {
                         break;
@@ -379,8 +407,8 @@ impl<'a> DiskTrieIterator<'a> {
                     self.descend_into_node(&hash)?;
                     nodes_list.push(TrieTraversalItem { hash, key: None });
                 }
-                IterStep::Continue => {}
-                IterStep::Value(hash) => {
+                | IterStep::Continue => {}
+                | IterStep::Value(hash) => {
                     if self.key_nibbles[prefix..] >= path_end[prefix..] {
                         break;
                     }
@@ -412,24 +440,26 @@ impl<'a> Iterator for DiskTrieIterator<'a> {
             let iter_step = self.iter_step()?;
 
             let can_process = match &self.prune_condition {
-                Some(prune_condition) => !prune_condition(&self.key_nibbles),
-                None => true,
+                | Some(prune_condition) => !prune_condition(&self.key_nibbles),
+                | None => true,
             };
 
             match (iter_step, can_process) {
-                (IterStep::Continue, _) => {}
-                (IterStep::PopTrail, _) => {
+                | (IterStep::Continue, _) => {}
+                | (IterStep::PopTrail, _) => {
                     self.trail.pop();
                 }
                 // Skip processing the node if can process is false.
-                (_, false) => {}
-                (IterStep::Descend(hash), true) => match self.descend_into_node(&hash) {
-                    Ok(_) => (),
-                    Err(err) => return Some(Err(err)),
+                | (_, false) => {}
+                | (IterStep::Descend(hash), true) => match self.descend_into_node(&hash) {
+                    | Ok(_) => (),
+                    | Err(err) => return Some(Err(err)),
                 },
-                (IterStep::Value(hash), true) => {
+                | (IterStep::Value(hash), true) => {
                     return Some(
-                        self.trie.retrieve_value(&hash).map(|value| (self.key(), value.to_vec())),
+                        self.trie
+                            .retrieve_value(&hash)
+                            .map(|value| (self.key(), value.to_vec())),
                     )
                 }
             }
@@ -447,17 +477,20 @@ impl<'a> Iterator for TrieIterator<'a> {
 
     fn next(&mut self) -> Option<Result<TrieItem, StorageError>> {
         match self {
-            TrieIterator::Disk(iter) => iter.next(),
-            TrieIterator::Memtrie(iter) => iter.next(),
+            | TrieIterator::Disk(iter) => iter.next(),
+            | TrieIterator::Memtrie(iter) => iter.next(),
         }
     }
 }
 
 impl<'a> TrieIterator<'a> {
-    pub fn seek_prefix<K: AsRef<[u8]>>(&mut self, key: K) -> Result<(), StorageError> {
+    pub fn seek_prefix<K: AsRef<[u8]>>(
+        &mut self,
+        key: K,
+    ) -> Result<(), StorageError> {
         match self {
-            TrieIterator::Disk(iter) => iter.seek_prefix(key),
-            TrieIterator::Memtrie(iter) => Ok(iter.seek_prefix(key)),
+            | TrieIterator::Disk(iter) => iter.seek_prefix(key),
+            | TrieIterator::Memtrie(iter) => Ok(iter.seek_prefix(key)),
         }
     }
 }
@@ -482,16 +515,27 @@ mod tests {
     /// included and the last one is excluded.
     #[test]
     fn test_visit_interval() {
-        let trie_changes = vec![(b"aa".to_vec(), Some(vec![1])), (b"abb".to_vec(), Some(vec![2]))];
+        let trie_changes = vec![
+            (b"aa".to_vec(), Some(vec![1])),
+            (b"abb".to_vec(), Some(vec![2])),
+        ];
         let tries = TestTriesBuilder::new().build();
         let state_root =
             test_populate_trie(&tries, &Trie::EMPTY_ROOT, ShardUId::single_shard(), trie_changes);
         let trie = tries.get_trie_for_shard(ShardUId::single_shard(), state_root);
         let path_begin: Vec<_> = NibbleSlice::new(b"aa").iter().collect();
-        let path_end: Vec<_> = NibbleSlice::new(b"abb").iter().collect();
+        let path_end: Vec<_> = NibbleSlice::new(b"abb")
+            .iter()
+            .collect();
         let mut trie_iter = trie.disk_iter().unwrap();
-        let items = trie_iter.visit_nodes_interval(&path_begin, &path_end).unwrap();
-        let trie_items: Vec<_> = items.into_iter().map(|item| item.key).flatten().collect();
+        let items = trie_iter
+            .visit_nodes_interval(&path_begin, &path_end)
+            .unwrap();
+        let trie_items: Vec<_> = items
+            .into_iter()
+            .map(|item| item.key)
+            .flatten()
+            .collect();
         assert_eq!(trie_items, vec![b"aa"]);
     }
 
@@ -509,7 +553,10 @@ mod tests {
                     assert!(matches!(iter, crate::trie::iterator::TrieIterator::Disk(_)));
                 }
                 let result1: Vec<_> = iter.map(Result::unwrap).collect();
-                let result2: Vec<_> = map.iter().map(|(k, v)| (k.clone(), v.clone())).collect();
+                let result2: Vec<_> = map
+                    .iter()
+                    .map(|(k, v)| (k.clone(), v.clone()))
+                    .collect();
                 assert_eq!(result1, result2);
             }
             test_seek_prefix(&trie, &map, &[], use_memtries);
@@ -520,8 +567,9 @@ mod tests {
             for _ in 0..20 {
                 let alphabet = &b"abcdefgh"[0..rng.gen_range(2..8)];
                 let key_length = rng.gen_range(1..8);
-                let seek_key: Vec<u8> =
-                    (0..key_length).map(|_| *alphabet.choose(&mut rng).unwrap()).collect();
+                let seek_key: Vec<u8> = (0..key_length)
+                    .map(|_| *alphabet.choose(&mut rng).unwrap())
+                    .collect();
                 test_seek_prefix(&trie, &map, &seek_key, use_memtries);
             }
         }
@@ -546,7 +594,9 @@ mod tests {
             // Check that pruning just one key (and it's subtree) works as expected.
             for (prune_key, _) in &trie_changes {
                 let prune_key = prune_key.clone();
-                let prune_key_nibbles = NibbleSlice::new(prune_key.as_slice()).iter().collect_vec();
+                let prune_key_nibbles = NibbleSlice::new(prune_key.as_slice())
+                    .iter()
+                    .collect_vec();
                 let prune_condition =
                     move |key_nibbles: &Vec<u8>| key_nibbles.starts_with(&prune_key_nibbles);
 
@@ -559,7 +609,11 @@ mod tests {
                 let result2 = map
                     .iter()
                     .filter(|(key, _)| {
-                        !prune_condition(&NibbleSlice::new(key).iter().collect_vec())
+                        !prune_condition(
+                            &NibbleSlice::new(key)
+                                .iter()
+                                .collect_vec(),
+                        )
                     })
                     .map(|(key, value)| (key.clone(), value.clone()))
                     .collect_vec();
@@ -585,11 +639,15 @@ mod tests {
                 // prunes a single node but not it's subtree. This is
                 // intentional to test that iterator won't descend into the
                 // subtree.
-                let prune_key_nibbles = NibbleSlice::new(prune_key.as_slice()).iter().collect_vec();
+                let prune_key_nibbles = NibbleSlice::new(prune_key.as_slice())
+                    .iter()
+                    .collect_vec();
                 let prune_condition =
                     move |key_nibbles: &Vec<u8>| key_nibbles == &prune_key_nibbles;
                 // This is how the prune condition should work.
-                let prune_key_nibbles = NibbleSlice::new(prune_key.as_slice()).iter().collect_vec();
+                let prune_key_nibbles = NibbleSlice::new(prune_key.as_slice())
+                    .iter()
+                    .collect_vec();
                 let proper_prune_condition =
                     move |key_nibbles: &Vec<u8>| key_nibbles.starts_with(&prune_key_nibbles);
 
@@ -601,7 +659,11 @@ mod tests {
                 let result2 = map
                     .iter()
                     .filter(|(key, _)| {
-                        !proper_prune_condition(&NibbleSlice::new(key).iter().collect_vec())
+                        !proper_prune_condition(
+                            &NibbleSlice::new(key)
+                                .iter()
+                                .collect_vec(),
+                        )
                     })
                     .map(|(key, value)| (key.clone(), value.clone()))
                     .collect_vec();
@@ -621,11 +683,18 @@ mod tests {
     ) {
         let shard_uid = ShardUId::single_shard();
         let tries = TestTriesBuilder::new().build();
-        let trie_changes = keys.iter().map(|key| (key.clone(), value())).collect();
+        let trie_changes = keys
+            .iter()
+            .map(|key| (key.clone(), value()))
+            .collect();
         let state_root = test_populate_trie(&tries, &Trie::EMPTY_ROOT, shard_uid, trie_changes);
         let trie = tries.get_trie_for_shard(shard_uid, state_root);
-        let iter = trie.disk_iter_with_max_depth(max_depth).unwrap();
-        let keys: Vec<_> = iter.map(|item| item.unwrap().0).collect();
+        let iter = trie
+            .disk_iter_with_max_depth(max_depth)
+            .unwrap();
+        let keys: Vec<_> = iter
+            .map(|item| item.unwrap().0)
+            .collect();
 
         assert_eq!(&keys, pruned_keys);
     }
@@ -636,7 +705,10 @@ mod tests {
         //     extension(11111)
         //      branch(5, 6)
         //    leaf(5)  leaf(6)
-        let extension_keys = vec![vec![0x11, 0x11, 0x15], vec![0x11, 0x11, 0x16]];
+        let extension_keys = vec![
+            vec![0x11, 0x11, 0x15],
+            vec![0x11, 0x11, 0x16],
+        ];
         // max_depth is expressed in nibbles
         // both leaf nodes are at depth 6 (11 11 15) and (11 11 16)
 
@@ -665,7 +737,10 @@ mod tests {
         use_memtries: bool,
     ) -> (Vec<(Vec<u8>, Option<Vec<u8>>)>, BTreeMap<Vec<u8>, Vec<u8>>, Trie) {
         let shard_layout = ShardLayout::multi_shard(2, 1);
-        let shard_uid = shard_layout.shard_uids().next().unwrap();
+        let shard_uid = shard_layout
+            .shard_uids()
+            .next()
+            .unwrap();
         let tries = TestTriesBuilder::new()
             .with_shard_layout(shard_layout)
             .with_flat_storage(use_memtries)
@@ -734,19 +809,21 @@ mod tests {
             let mut iterator = trie.disk_iter().unwrap();
             loop {
                 let iter_step = match iterator.iter_step() {
-                    Some(iter_step) => iter_step,
-                    None => break,
+                    | Some(iter_step) => iter_step,
+                    | None => break,
                 };
                 match iter_step {
-                    IterStep::Value(_) => assert!(iterator.has_value()),
-                    _ => assert!(!iterator.has_value()),
+                    | IterStep::Value(_) => assert!(iterator.has_value()),
+                    | _ => assert!(!iterator.has_value()),
                 }
                 match iter_step {
-                    IterStep::PopTrail => {
+                    | IterStep::PopTrail => {
                         iterator.trail.pop();
                     }
-                    IterStep::Descend(hash) => iterator.descend_into_node(&hash).unwrap(),
-                    _ => {}
+                    | IterStep::Descend(hash) => iterator
+                        .descend_into_node(&hash)
+                        .unwrap(),
+                    | _ => {}
                 }
             }
         }

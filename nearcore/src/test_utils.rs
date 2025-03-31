@@ -12,8 +12,14 @@ use std::sync::Arc;
 use crate::NightshadeRuntime;
 
 pub trait TestEnvNightshadeSetupExt {
-    fn nightshade_runtimes(self, genesis: &Genesis) -> Self;
-    fn nightshade_runtimes_congestion_control_disabled(self, genesis: &Genesis) -> Self;
+    fn nightshade_runtimes(
+        self,
+        genesis: &Genesis,
+    ) -> Self;
+    fn nightshade_runtimes_congestion_control_disabled(
+        self,
+        genesis: &Genesis,
+    ) -> Self;
     fn nightshade_runtimes_with_runtime_config_store(
         self,
         genesis: &Genesis,
@@ -27,12 +33,18 @@ pub trait TestEnvNightshadeSetupExt {
 }
 
 impl TestEnvNightshadeSetupExt for TestEnvBuilder {
-    fn nightshade_runtimes(self, genesis: &Genesis) -> Self {
+    fn nightshade_runtimes(
+        self,
+        genesis: &Genesis,
+    ) -> Self {
         let runtime_configs = vec![RuntimeConfigStore::test(); self.num_clients()];
         self.nightshade_runtimes_with_runtime_config_store(genesis, runtime_configs)
     }
 
-    fn nightshade_runtimes_congestion_control_disabled(self, genesis: &Genesis) -> Self {
+    fn nightshade_runtimes_congestion_control_disabled(
+        self,
+        genesis: &Genesis,
+    ) -> Self {
         let runtime_config_store = RuntimeConfigStore::test_congestion_control_disabled();
         let runtime_configs = vec![runtime_config_store; self.num_clients()];
         self.nightshade_runtimes_with_runtime_config_store(genesis, runtime_configs)

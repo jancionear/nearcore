@@ -36,7 +36,8 @@ fn main() -> anyhow::Result<()> {
     for rule in rules {
         if let Err(err) = rule(&workspace) {
             failed |= true;
-            err.downcast::<types::ComplianceError>()?.report(&workspace);
+            err.downcast::<types::ComplianceError>()?
+                .report(&workspace);
         }
     }
 

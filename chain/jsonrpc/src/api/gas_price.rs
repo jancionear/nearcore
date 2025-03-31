@@ -22,13 +22,13 @@ impl RpcFrom<AsyncSendError> for RpcGasPriceError {
 impl RpcFrom<GetGasPriceError> for RpcGasPriceError {
     fn rpc_from(error: GetGasPriceError) -> Self {
         match error {
-            GetGasPriceError::UnknownBlock { error_message } => {
+            | GetGasPriceError::UnknownBlock { error_message } => {
                 Self::UnknownBlock { error_message }
             }
-            GetGasPriceError::InternalError { error_message } => {
+            | GetGasPriceError::InternalError { error_message } => {
                 Self::InternalError { error_message }
             }
-            GetGasPriceError::Unreachable { ref error_message } => {
+            | GetGasPriceError::Unreachable { ref error_message } => {
                 tracing::warn!(target: "jsonrpc", "Unreachable error occurred: {}", error_message);
                 crate::metrics::RPC_UNREACHABLE_ERROR_COUNT
                     .with_label_values(&["RpcGasPriceError"])

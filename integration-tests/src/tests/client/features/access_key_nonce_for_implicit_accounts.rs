@@ -38,7 +38,10 @@ fn check_tx_processing(
     let tx_hash = tx.get_hash();
     assert_eq!(env.clients[0].process_tx(tx, false, false), ProcessTxResponse::ValidTx);
     let next_height = produce_blocks_from_height(env, blocks_number, height);
-    let final_outcome = env.clients[0].chain.get_final_transaction_result(&tx_hash).unwrap();
+    let final_outcome = env.clients[0]
+        .chain
+        .get_final_transaction_result(&tx_hash)
+        .unwrap();
     assert_matches!(final_outcome.status, FinalExecutionStatus::SuccessValue(_));
     next_height
 }
@@ -47,10 +50,21 @@ fn check_tx_processing(
 #[test]
 fn test_transaction_hash_collision() {
     let epoch_length = 5;
-    let mut genesis = Genesis::test(vec!["test0".parse().unwrap(), "test1".parse().unwrap()], 1);
+    let mut genesis = Genesis::test(
+        vec![
+            "test0".parse().unwrap(),
+            "test1".parse().unwrap(),
+        ],
+        1,
+    );
     genesis.config.epoch_length = epoch_length;
-    let mut env = TestEnv::builder(&genesis.config).nightshade_runtimes(&genesis).build();
-    let genesis_block = env.clients[0].chain.get_block_by_height(0).unwrap();
+    let mut env = TestEnv::builder(&genesis.config)
+        .nightshade_runtimes(&genesis)
+        .build();
+    let genesis_block = env.clients[0]
+        .chain
+        .get_block_by_height(0)
+        .unwrap();
 
     let signer0 = InMemorySigner::test_signer(&"test0".parse().unwrap());
     let signer1 = InMemorySigner::test_signer(&"test1".parse().unwrap());
@@ -116,11 +130,22 @@ fn get_status_of_tx_hash_collision_for_near_implicit_account(
     near_implicit_account_signer: Signer,
 ) -> ProcessTxResponse {
     let epoch_length = 100;
-    let mut genesis = Genesis::test(vec!["test0".parse().unwrap(), "test1".parse().unwrap()], 1);
+    let mut genesis = Genesis::test(
+        vec![
+            "test0".parse().unwrap(),
+            "test1".parse().unwrap(),
+        ],
+        1,
+    );
     genesis.config.epoch_length = epoch_length;
     genesis.config.protocol_version = protocol_version;
-    let mut env = TestEnv::builder(&genesis.config).nightshade_runtimes(&genesis).build();
-    let genesis_block = env.clients[0].chain.get_block_by_height(0).unwrap();
+    let mut env = TestEnv::builder(&genesis.config)
+        .nightshade_runtimes(&genesis)
+        .build();
+    let genesis_block = env.clients[0]
+        .chain
+        .get_block_by_height(0)
+        .unwrap();
     let deposit_for_account_creation = 10u128.pow(23);
     let mut height = 1;
     let blocks_number = 5;
@@ -137,7 +162,10 @@ fn get_status_of_tx_hash_collision_for_near_implicit_account(
         *genesis_block.hash(),
     );
     height = check_tx_processing(&mut env, send_money_tx, height, blocks_number);
-    let block = env.clients[0].chain.get_block_by_height(height - 1).unwrap();
+    let block = env.clients[0]
+        .chain
+        .get_block_by_height(height - 1)
+        .unwrap();
 
     // Delete NEAR-implicit account.
     let delete_account_tx = SignedTransaction::delete_account(
@@ -150,7 +178,10 @@ fn get_status_of_tx_hash_collision_for_near_implicit_account(
         *block.hash(),
     );
     height = check_tx_processing(&mut env, delete_account_tx, height, blocks_number);
-    let block = env.clients[0].chain.get_block_by_height(height - 1).unwrap();
+    let block = env.clients[0]
+        .chain
+        .get_block_by_height(height - 1)
+        .unwrap();
 
     // Send money to NEAR-implicit account again, invoking its second creation.
     let send_money_again_tx = SignedTransaction::send_money(
@@ -162,7 +193,10 @@ fn get_status_of_tx_hash_collision_for_near_implicit_account(
         *block.hash(),
     );
     height = check_tx_processing(&mut env, send_money_again_tx, height, blocks_number);
-    let block = env.clients[0].chain.get_block_by_height(height - 1).unwrap();
+    let block = env.clients[0]
+        .chain
+        .get_block_by_height(height - 1)
+        .unwrap();
 
     // Send money from NEAR-implicit account with incorrect nonce.
     let send_money_from_near_implicit_account_tx = SignedTransaction::send_money(
@@ -231,11 +265,22 @@ fn test_transaction_hash_collision_for_near_implicit_account_ok() {
 #[test]
 fn test_chunk_transaction_validity() {
     let epoch_length = 5;
-    let mut genesis = Genesis::test(vec!["test0".parse().unwrap(), "test1".parse().unwrap()], 1);
+    let mut genesis = Genesis::test(
+        vec![
+            "test0".parse().unwrap(),
+            "test1".parse().unwrap(),
+        ],
+        1,
+    );
     genesis.config.epoch_length = epoch_length;
     genesis.config.min_gas_price = 0;
-    let mut env = TestEnv::builder(&genesis.config).nightshade_runtimes(&genesis).build();
-    let genesis_block = env.clients[0].chain.get_block_by_height(0).unwrap();
+    let mut env = TestEnv::builder(&genesis.config)
+        .nightshade_runtimes(&genesis)
+        .build();
+    let genesis_block = env.clients[0]
+        .chain
+        .get_block_by_height(0)
+        .unwrap();
     let signer = InMemorySigner::test_signer(&"test0".parse().unwrap());
     let tx = SignedTransaction::send_money(
         1,
@@ -252,36 +297,56 @@ fn test_chunk_transaction_validity() {
         ProduceChunkResult { chunk, encoded_chunk_parts_paths: merkle_paths, receipts, .. },
         block,
     ) = create_chunk_with_transactions(&mut env.clients[0], vec![tx]);
-    let validator_id = env.clients[0].validator_signer.get().unwrap().validator_id().clone();
+    let validator_id = env.clients[0]
+        .validator_signer
+        .get()
+        .unwrap()
+        .validator_id()
+        .clone();
     env.clients[0]
         .persist_and_distribute_encoded_chunk(chunk, merkle_paths, receipts, validator_id)
         .unwrap();
     let res = env.clients[0].process_block_test(block.into(), Provenance::NONE);
     match res.as_deref() {
-        Ok([h]) => {
+        | Ok([h]) => {
             let Ok(block) = env.clients[0].chain.get_block(&h) else {
                 panic!("did not find block from result!");
             };
             for chunk_hdr in block.chunks().iter_raw() {
                 let hash = chunk_hdr.chunk_hash();
-                let Ok(chunk) = env.clients[0].chain.mut_chain_store().get_chunk(&hash) else {
+                let Ok(chunk) = env.clients[0]
+                    .chain
+                    .mut_chain_store()
+                    .get_chunk(&hash)
+                else {
                     continue;
                 };
                 assert_eq!(chunk.prev_outgoing_receipts().len(), 0);
             }
         }
-        Err(Error::InvalidTransactions) => (),
-        e => panic!("unexpected result {e:?}"),
+        | Err(Error::InvalidTransactions) => (),
+        | e => panic!("unexpected result {e:?}"),
     }
 }
 
 #[test]
 fn test_transaction_nonce_too_large() {
     let epoch_length = 5;
-    let mut genesis = Genesis::test(vec!["test0".parse().unwrap(), "test1".parse().unwrap()], 1);
+    let mut genesis = Genesis::test(
+        vec![
+            "test0".parse().unwrap(),
+            "test1".parse().unwrap(),
+        ],
+        1,
+    );
     genesis.config.epoch_length = epoch_length;
-    let mut env = TestEnv::builder(&genesis.config).nightshade_runtimes(&genesis).build();
-    let genesis_block = env.clients[0].chain.get_block_by_height(0).unwrap();
+    let mut env = TestEnv::builder(&genesis.config)
+        .nightshade_runtimes(&genesis)
+        .build();
+    let genesis_block = env.clients[0]
+        .chain
+        .get_block_by_height(0)
+        .unwrap();
     let signer = InMemorySigner::test_signer(&"test0".parse().unwrap());
     let large_nonce = AccessKey::ACCESS_KEY_NONCE_RANGE_MULTIPLIER + 1;
     let tx = SignedTransaction::send_money(
@@ -334,33 +399,48 @@ fn test_request_chunks_for_orphan() {
     let num_validators = 1;
     let epoch_length = 10;
 
-    let accounts: Vec<AccountId> =
-        (0..num_clients).map(|i| format!("test{}", i).parse().unwrap()).collect();
+    let accounts: Vec<AccountId> = (0..num_clients)
+        .map(|i| format!("test{}", i).parse().unwrap())
+        .collect();
     let mut genesis = Genesis::test(accounts, num_validators);
     genesis.config.epoch_length = epoch_length;
     // make the blockchain to 4 shards
     genesis.config.shard_layout = ShardLayout::multi_shard(4, 3);
-    genesis.config.num_block_producer_seats_per_shard =
-        vec![num_validators, num_validators, num_validators, num_validators];
+    genesis
+        .config
+        .num_block_producer_seats_per_shard = vec![
+        num_validators,
+        num_validators,
+        num_validators,
+        num_validators,
+    ];
     let mut env = TestEnv::builder(&genesis.config)
         .clients_count(num_clients)
         .validator_seats(num_validators as usize)
         .track_all_shards()
         .nightshade_runtimes_with_runtime_config_store(
             &genesis,
-            vec![RuntimeConfigStore::test(), RuntimeConfigStore::test()],
+            vec![
+                RuntimeConfigStore::test(),
+                RuntimeConfigStore::test(),
+            ],
         )
         .build();
 
     let mut blocks = vec![];
     // produce 20 blocks
     for i in 1..=20 {
-        let block = env.clients[0].produce_block(i).unwrap().unwrap();
+        let block = env.clients[0]
+            .produce_block(i)
+            .unwrap()
+            .unwrap();
         blocks.push(block.clone());
         env.process_block(0, block, Provenance::PRODUCED);
     }
 
-    let _ = env.clients[1].process_block_test(blocks[0].clone().into(), Provenance::NONE).unwrap();
+    let _ = env.clients[1]
+        .process_block_test(blocks[0].clone().into(), Provenance::NONE)
+        .unwrap();
     // process blocks 1, 2 successfully
     for i in 1..3 {
         let res = env.clients[1].process_block_test(blocks[i].clone().into(), Provenance::NONE);
@@ -387,17 +467,23 @@ fn test_request_chunks_for_orphan() {
     // check that block 4-2+NUM_ORPHAN_ANCESTORS_CHECK requested partial encoded chunks already
     for i in 4..3 + NUM_ORPHAN_ANCESTORS_CHECK {
         assert!(
-            env.clients[1].chain.check_orphan_partial_chunks_requested(blocks[i as usize].hash()),
+            env.clients[1]
+                .chain
+                .check_orphan_partial_chunks_requested(blocks[i as usize].hash()),
             "{}",
             i
         );
     }
-    assert!(!env.clients[1].chain.check_orphan_partial_chunks_requested(
-        blocks[3 + NUM_ORPHAN_ANCESTORS_CHECK as usize].hash()
-    ));
-    assert!(!env.clients[1].chain.check_orphan_partial_chunks_requested(
-        blocks[4 + NUM_ORPHAN_ANCESTORS_CHECK as usize].hash()
-    ));
+    assert!(!env.clients[1]
+        .chain
+        .check_orphan_partial_chunks_requested(
+            blocks[3 + NUM_ORPHAN_ANCESTORS_CHECK as usize].hash()
+        ));
+    assert!(!env.clients[1]
+        .chain
+        .check_orphan_partial_chunks_requested(
+            blocks[4 + NUM_ORPHAN_ANCESTORS_CHECK as usize].hash()
+        ));
     // process all the partial encoded chunk requests for block 4 - 2 + NUM_ORPHAN_ANCESTORS_CHECK
     env.process_partial_encoded_chunks_requests(1);
     env.process_shards_manager_responses_and_finish_processing_blocks(1);
@@ -406,7 +492,11 @@ fn test_request_chunks_for_orphan() {
     env.process_partial_encoded_chunk_request(1, missing_chunk_request);
     env.process_shards_manager_responses_and_finish_processing_blocks(1);
     assert_eq!(
-        &env.clients[1].chain.head().unwrap().last_block_hash,
+        &env.clients[1]
+            .chain
+            .head()
+            .unwrap()
+            .last_block_hash,
         blocks[2 + NUM_ORPHAN_ANCESTORS_CHECK as usize].hash()
     );
 
@@ -423,9 +513,18 @@ fn test_request_chunks_for_orphan() {
             env.process_shards_manager_responses_and_finish_processing_blocks(1);
         }
     }
-    assert_eq!(&env.clients[1].chain.head().unwrap().last_block_hash, blocks[8].hash());
+    assert_eq!(
+        &env.clients[1]
+            .chain
+            .head()
+            .unwrap()
+            .last_block_hash,
+        blocks[8].hash()
+    );
     // blocks[10] is at the new epoch, so we can't request partial chunks for it yet
-    assert!(!env.clients[1].chain.check_orphan_partial_chunks_requested(blocks[10].hash()));
+    assert!(!env.clients[1]
+        .chain
+        .check_orphan_partial_chunks_requested(blocks[10].hash()));
 
     // process missing chunks for block 9, which has 4 chunks, so there are 4 requests in total
     for _ in 0..4 {
@@ -433,7 +532,14 @@ fn test_request_chunks_for_orphan() {
         env.process_partial_encoded_chunk_request(1, request);
         env.process_shards_manager_responses_and_finish_processing_blocks(1);
     }
-    assert_eq!(&env.clients[1].chain.head().unwrap().last_block_hash, blocks[9].hash());
+    assert_eq!(
+        &env.clients[1]
+            .chain
+            .head()
+            .unwrap()
+            .last_block_hash,
+        blocks[9].hash()
+    );
 
     for i in 11..10 + NUM_ORPHAN_ANCESTORS_CHECK {
         assert!(env.clients[1]
@@ -449,7 +555,14 @@ fn test_request_chunks_for_orphan() {
             env.process_partial_encoded_chunk_request(1, request);
         }
         env.process_shards_manager_responses_and_finish_processing_blocks(1);
-        assert_eq!(&env.clients[1].chain.head().unwrap().last_block_hash, blocks[i].hash());
+        assert_eq!(
+            &env.clients[1]
+                .chain
+                .head()
+                .unwrap()
+                .last_block_hash,
+            blocks[i].hash()
+        );
     }
 }
 
@@ -473,14 +586,21 @@ fn test_processing_chunks_sanity() {
     let num_validators = 1;
     let epoch_length = 10;
 
-    let accounts: Vec<AccountId> =
-        (0..num_clients).map(|i| format!("test{}", i).parse().unwrap()).collect();
+    let accounts: Vec<AccountId> = (0..num_clients)
+        .map(|i| format!("test{}", i).parse().unwrap())
+        .collect();
     let mut genesis = Genesis::test(accounts, num_validators);
     genesis.config.epoch_length = epoch_length;
     // make the blockchain to 4 shards
     genesis.config.shard_layout = ShardLayout::multi_shard(4, 3);
-    genesis.config.num_block_producer_seats_per_shard =
-        vec![num_validators, num_validators, num_validators, num_validators];
+    genesis
+        .config
+        .num_block_producer_seats_per_shard = vec![
+        num_validators,
+        num_validators,
+        num_validators,
+        num_validators,
+    ];
     let mut env = TestEnv::builder(&genesis.config)
         .clients_count(num_clients)
         .validator_seats(num_validators as usize)
@@ -491,7 +611,10 @@ fn test_processing_chunks_sanity() {
     let mut blocks = vec![];
     // produce 21 blocks
     for i in 1..=21 {
-        let block = env.clients[0].produce_block(i).unwrap().unwrap();
+        let block = env.clients[0]
+            .produce_block(i)
+            .unwrap()
+            .unwrap();
         let chunks = block
             .chunks()
             .iter_deprecated()
@@ -542,7 +665,14 @@ fn test_processing_chunks_sanity() {
         num_requests += 1;
     }
 
-    assert_eq!(env.clients[1].chain.head().unwrap().height, 21);
+    assert_eq!(
+        env.clients[1]
+            .chain
+            .head()
+            .unwrap()
+            .height,
+        21
+    );
 
     // Check each chunk is only requested once.
     // There are 21 blocks in total, but the first block has no chunks,
@@ -566,8 +696,9 @@ impl ChunkForwardingOptimizationTestData {
         let num_block_producers = 1;
         let epoch_length = 10;
 
-        let accounts: Vec<AccountId> =
-            (0..num_clients).map(|i| format!("test{}", i).parse().unwrap()).collect();
+        let accounts: Vec<AccountId> = (0..num_clients)
+            .map(|i| format!("test{}", i).parse().unwrap())
+            .collect();
         let mut genesis = Genesis::test(accounts, num_validators as u64);
         {
             let config = &mut genesis.config;
@@ -604,14 +735,11 @@ impl ChunkForwardingOptimizationTestData {
         requests: NetworkRequests,
     ) -> Option<NetworkRequests> {
         match requests {
-            NetworkRequests::PartialEncodedChunkRequest { ref target, ref request, .. } => {
+            | NetworkRequests::PartialEncodedChunkRequest { ref target, ref request, .. } => {
                 for part_ord in &request.part_ords {
                     assert!(
-                        self.chunk_parts_that_must_be_known.insert((
-                            request.chunk_hash.clone(),
-                            *part_ord,
-                            client_id
-                        )),
+                        self.chunk_parts_that_must_be_known
+                            .insert((request.chunk_hash.clone(), *part_ord, client_id)),
                         "chunk request from {} to {:?} for chunk {} with part_ords {:?}",
                         client_id,
                         target,
@@ -628,13 +756,14 @@ impl ChunkForwardingOptimizationTestData {
                     request.part_ords
                 );
                 self.num_part_ords_requested += request.part_ords.len();
-                self.env.process_partial_encoded_chunk_request(
-                    client_id,
-                    PeerManagerMessageRequest::NetworkRequests(requests),
-                );
+                self.env
+                    .process_partial_encoded_chunk_request(
+                        client_id,
+                        PeerManagerMessageRequest::NetworkRequests(requests),
+                    );
                 None
             }
-            NetworkRequests::PartialEncodedChunkMessage { account_id, partial_encoded_chunk } => {
+            | NetworkRequests::PartialEncodedChunkMessage { account_id, partial_encoded_chunk } => {
                 debug!(
                     target: "test",
                     "chunk msg from {} to {} height {} hash {} shard {} parts {:?}",
@@ -646,22 +775,25 @@ impl ChunkForwardingOptimizationTestData {
                     partial_encoded_chunk.parts.iter().map(|p| p.part_ord).collect::<Vec<_>>()
                 );
                 for part in &partial_encoded_chunk.parts {
-                    self.chunk_parts_that_must_be_known.insert((
-                        partial_encoded_chunk.header.chunk_hash(),
-                        part.part_ord,
-                        client_id,
-                    ));
+                    self.chunk_parts_that_must_be_known
+                        .insert((
+                            partial_encoded_chunk
+                                .header
+                                .chunk_hash(),
+                            part.part_ord,
+                            client_id,
+                        ));
                 }
                 self.num_part_ords_sent_as_partial_encoded_chunk +=
                     partial_encoded_chunk.parts.len();
-                self.env.shards_manager(&account_id).send(
-                    ShardsManagerRequestFromNetwork::ProcessPartialEncodedChunk(
+                self.env
+                    .shards_manager(&account_id)
+                    .send(ShardsManagerRequestFromNetwork::ProcessPartialEncodedChunk(
                         partial_encoded_chunk.into(),
-                    ),
-                );
+                    ));
                 None
             }
-            NetworkRequests::PartialEncodedChunkForward { account_id, forward } => {
+            | NetworkRequests::PartialEncodedChunkForward { account_id, forward } => {
                 debug!(
                     target: "test",
                     "chunk forward from {} to {} hash {} parts {:?}",
@@ -671,19 +803,18 @@ impl ChunkForwardingOptimizationTestData {
                     forward.parts.iter().map(|p| p.part_ord).collect::<Vec<_>>()
                 );
                 for part_ord in &forward.parts {
-                    self.chunk_parts_that_must_be_known.insert((
-                        forward.chunk_hash.clone(),
-                        part_ord.part_ord,
-                        client_id,
-                    ));
+                    self.chunk_parts_that_must_be_known
+                        .insert((forward.chunk_hash.clone(), part_ord.part_ord, client_id));
                 }
                 self.num_part_ords_forwarded += forward.parts.len();
-                self.env.shards_manager(&account_id).send(
-                    ShardsManagerRequestFromNetwork::ProcessPartialEncodedChunkForward(forward),
-                );
+                self.env
+                    .shards_manager(&account_id)
+                    .send(ShardsManagerRequestFromNetwork::ProcessPartialEncodedChunkForward(
+                        forward,
+                    ));
                 None
             }
-            _ => Some(requests),
+            | _ => Some(requests),
         }
     }
 
@@ -695,12 +826,12 @@ impl ChunkForwardingOptimizationTestData {
                 let network_adapter = self.env.network_adapters[i].clone();
 
                 any_message_processed |= network_adapter.handle_filtered(|request| match request {
-                    PeerManagerMessageRequest::NetworkRequests(requests) => {
-                        self.process_one_peer_message(i, requests).map(|ignored_request| {
+                    | PeerManagerMessageRequest::NetworkRequests(requests) => self
+                        .process_one_peer_message(i, requests)
+                        .map(|ignored_request| {
                             PeerManagerMessageRequest::NetworkRequests(ignored_request)
-                        })
-                    }
-                    _ => Some(request),
+                        }),
+                    | _ => Some(request),
                 });
             }
             if !any_message_processed {
@@ -719,12 +850,19 @@ fn test_chunk_forwarding_optimization() {
     PARTIAL_ENCODED_CHUNK_FORWARD_CACHED_WITHOUT_HEADER.reset();
     let mut test = ChunkForwardingOptimizationTestData::new();
     loop {
-        let height = test.env.clients[0].chain.head().unwrap().height;
+        let height = test.env.clients[0]
+            .chain
+            .head()
+            .unwrap()
+            .height;
         if height >= 31 {
             break;
         }
         debug!(target: "test", "======= Height {} ======", height + 1);
-        let block = test.env.clients[0].produce_block(height + 1).unwrap().unwrap();
+        let block = test.env.clients[0]
+            .produce_block(height + 1)
+            .unwrap()
+            .unwrap();
         if block.header().height() > 1 {
             // For any block except the first, the previous block's application at each
             // current chunk producer should have produced a chunk and distributed the chunk.
@@ -738,7 +876,9 @@ fn test_chunk_forwarding_optimization() {
         // The block producer of course has the complete block so we can process that.
         for i in 0..test.num_validators {
             debug!(target: "test", "Processing block {} as validator #{}", block.header().height(), i);
-            let signer = test.env.clients[i].validator_signer.get();
+            let signer = test.env.clients[i]
+                .validator_signer
+                .get();
             let _ = test.env.clients[i].start_process_block(
                 block.clone().into(),
                 if i == 0 { Provenance::PRODUCED } else { Provenance::NONE },
@@ -750,7 +890,8 @@ fn test_chunk_forwarding_optimization() {
             // Process any chunk part requests that this client sent. Note that this would also
             // process other network messages (such as production of the next chunk) which is OK.
             test.process_network_messages();
-            test.env.process_shards_manager_responses(i);
+            test.env
+                .process_shards_manager_responses(i);
             accepted_blocks.extend(test.env.clients[i].finish_blocks_in_processing());
             assert_eq!(
                 accepted_blocks.len(),
@@ -760,14 +901,23 @@ fn test_chunk_forwarding_optimization() {
                 i
             );
             assert_eq!(&accepted_blocks[0], block.header().hash());
-            assert_eq!(test.env.clients[i].chain.head().unwrap().height, block.header().height());
+            assert_eq!(
+                test.env.clients[i]
+                    .chain
+                    .head()
+                    .unwrap()
+                    .height,
+                block.header().height()
+            );
         }
 
         test.process_network_messages();
-        test.env.process_shards_manager_responses(0);
+        test.env
+            .process_shards_manager_responses(0);
 
         // Propagating state witnesses and chunk endorsements is required for block production
-        test.env.propagate_chunk_state_witnesses_and_endorsements(false);
+        test.env
+            .propagate_chunk_state_witnesses_and_endorsements(false);
     }
 
     debug!(target: "test",
@@ -794,14 +944,21 @@ fn test_processing_blocks_async() {
     let num_validators = 1;
     let epoch_length = 10;
 
-    let accounts: Vec<AccountId> =
-        (0..num_clients).map(|i| format!("test{}", i).parse().unwrap()).collect();
+    let accounts: Vec<AccountId> = (0..num_clients)
+        .map(|i| format!("test{}", i).parse().unwrap())
+        .collect();
     let mut genesis = Genesis::test(accounts, num_validators);
     genesis.config.epoch_length = epoch_length;
     // make the blockchain to 4 shards
     genesis.config.shard_layout = ShardLayout::multi_shard(4, 3);
-    genesis.config.num_block_producer_seats_per_shard =
-        vec![num_validators, num_validators, num_validators, num_validators];
+    genesis
+        .config
+        .num_block_producer_seats_per_shard = vec![
+        num_validators,
+        num_validators,
+        num_validators,
+        num_validators,
+    ];
     let mut env = TestEnv::builder(&genesis.config)
         .clients_count(num_clients)
         .validator_seats(num_validators as usize)
@@ -812,7 +969,10 @@ fn test_processing_blocks_async() {
     let mut blocks = vec![];
     // produce 20 blocks
     for i in 1..=20 {
-        let block = env.clients[0].produce_block(i).unwrap().unwrap();
+        let block = env.clients[0]
+            .produce_block(i)
+            .unwrap()
+            .unwrap();
         blocks.push(block.clone());
         env.process_block(0, block, Provenance::PRODUCED);
     }
@@ -836,5 +996,12 @@ fn test_processing_blocks_async() {
         env.process_shards_manager_responses_and_finish_processing_blocks(1);
     }
 
-    assert_eq!(env.clients[1].chain.head().unwrap().height, 20);
+    assert_eq!(
+        env.clients[1]
+            .chain
+            .head()
+            .unwrap()
+            .height,
+        20
+    );
 }

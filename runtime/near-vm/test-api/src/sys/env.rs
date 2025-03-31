@@ -35,7 +35,10 @@ pub trait WasmerEnv: Clone + Send + Sync {
     ///
     /// This function is called after `Instance` is created but before it is
     /// returned to the user via `Instance::new_with_config`.
-    fn init_with_instance(&mut self, _instance: &Instance) -> Result<(), HostEnvInitError> {
+    fn init_with_instance(
+        &mut self,
+        _instance: &Instance,
+    ) -> Result<(), HostEnvInitError> {
         Ok(())
     }
 }
@@ -68,13 +71,19 @@ impl<'a> WasmerEnv for &'a ::std::sync::atomic::AtomicI64 {}
 impl<'a> WasmerEnv for &'a ::std::sync::atomic::AtomicUsize {}
 impl<'a> WasmerEnv for &'a ::std::sync::atomic::AtomicIsize {}
 impl<T: WasmerEnv> WasmerEnv for Box<T> {
-    fn init_with_instance(&mut self, instance: &Instance) -> Result<(), HostEnvInitError> {
+    fn init_with_instance(
+        &mut self,
+        instance: &Instance,
+    ) -> Result<(), HostEnvInitError> {
         (&mut **self).init_with_instance(instance)
     }
 }
 
 impl<T: WasmerEnv> WasmerEnv for ::std::sync::Arc<::std::sync::Mutex<T>> {
-    fn init_with_instance(&mut self, instance: &Instance) -> Result<(), HostEnvInitError> {
+    fn init_with_instance(
+        &mut self,
+        instance: &Instance,
+    ) -> Result<(), HostEnvInitError> {
         let mut guard = self.lock().unwrap();
         guard.init_with_instance(instance)
     }
@@ -110,7 +119,10 @@ impl<T> LazyInit<T> {
     }
 
     /// Sets a value and marks the data as initialized.
-    pub fn initialize(&mut self, value: T) -> bool {
+    pub fn initialize(
+        &mut self,
+        value: T,
+    ) -> bool {
         if self.initialized {
             return false;
         }
@@ -123,8 +135,13 @@ impl<T> LazyInit<T> {
 }
 
 impl<T: std::fmt::Debug> std::fmt::Debug for LazyInit<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        f.debug_struct("LazyInit").field("data", &self.get_ref()).finish()
+    fn fmt(
+        &self,
+        f: &mut std::fmt::Formatter,
+    ) -> std::fmt::Result {
+        f.debug_struct("LazyInit")
+            .field("data", &self.get_ref())
+            .finish()
     }
 }
 

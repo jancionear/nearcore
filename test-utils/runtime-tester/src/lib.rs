@@ -16,8 +16,13 @@ fn scenario_smoke_test() {
 
     let num_accounts = 5;
 
-    let seeds: Vec<String> = (0..num_accounts).map(|i| format!("test{}", i)).collect();
-    let accounts: Vec<AccountId> = seeds.iter().map(|id| id.parse().unwrap()).collect();
+    let seeds: Vec<String> = (0..num_accounts)
+        .map(|i| format!("test{}", i))
+        .collect();
+    let accounts: Vec<AccountId> = seeds
+        .iter()
+        .map(|id| id.parse().unwrap())
+        .collect();
 
     let mut scenario = Scenario {
         network_config: NetworkConfig { seeds },
@@ -43,7 +48,9 @@ fn scenario_smoke_test() {
                 signer_id,
                 receiver_id,
                 signer,
-                actions: vec![Action::Transfer(TransferAction { deposit: 10 })],
+                actions: vec![Action::Transfer(TransferAction {
+                    deposit: 10,
+                })],
             }
         };
         block.transactions.push(transaction);

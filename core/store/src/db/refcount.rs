@@ -35,11 +35,11 @@ use crate::DBCol;
 /// too short to fit 64-bit reference count.
 pub fn decode_value_with_rc(bytes: &[u8]) -> (Option<&[u8]>, i64) {
     match bytes.split_last_chunk::<8>() {
-        None => {
+        | None => {
             debug_assert!(bytes.is_empty());
             return (None, 0);
         }
-        Some((head, tail)) => {
+        | Some((head, tail)) => {
             let rc = i64::from_le_bytes(*tail);
             if rc <= 0 {
                 (None, rc)
@@ -73,7 +73,10 @@ pub(crate) fn strip_refcount(mut bytes: Vec<u8>) -> Option<Vec<u8>> {
 /// in the last 8 bytes. It overwrites this value with the new value.
 ///
 /// Returns None if the input bytes are too short to contain a refcount.
-pub(crate) fn set_refcount(data: &mut Vec<u8>, refcount: i64) -> io::Result<()> {
+pub(crate) fn set_refcount(
+    data: &mut Vec<u8>,
+    refcount: i64,
+) -> io::Result<()> {
     const BYTE_COUNT: usize = std::mem::size_of::<i64>();
 
     if let Some(len) = data.len().checked_sub(BYTE_COUNT) {
@@ -89,7 +92,10 @@ pub(crate) fn set_refcount(data: &mut Vec<u8>, refcount: i64) -> io::Result<()> 
 }
 
 /// Encode a positive reference count into the value.
-pub(crate) fn add_positive_refcount(data: &[u8], rc: std::num::NonZeroU32) -> Vec<u8> {
+pub(crate) fn add_positive_refcount(
+    data: &[u8],
+    rc: std::num::NonZeroU32,
+) -> Vec<u8> {
     [data, &i64::from(rc.get()).to_le_bytes()].concat()
 }
 
@@ -115,7 +121,10 @@ pub(crate) fn refcount_merge<'a>(
     operands: impl IntoIterator<Item = &'a [u8]>,
 ) -> Vec<u8> {
     let (mut payload, mut rc) = existing.map_or((None, 0), decode_value_with_rc);
-    for (new_payload, delta) in operands.into_iter().map(decode_value_with_rc) {
+    for (new_payload, delta) in operands
+        .into_iter()
+        .map(decode_value_with_rc)
+    {
         if payload.is_none() {
             payload = new_payload;
         } else if new_payload.is_some() {
@@ -130,7 +139,11 @@ pub(crate) fn refcount_merge<'a>(
     if rc <= 0 {
         Vec::new()
     } else {
-        [payload.unwrap_or(b""), &rc.to_le_bytes()].concat()
+        [
+            payload.unwrap_or(b""),
+            &rc.to_le_bytes(),
+        ]
+        .concat()
     }
 }
 
@@ -141,8 +154,8 @@ pub(crate) fn iter_with_rc_logic<'a>(
 ) -> crate::db::DBIterator<'a> {
     if col.is_rc() {
         Box::new(iterator.filter_map(|item| match item {
-            Err(err) => Some(Err(err)),
-            Ok((key, value)) => {
+            | Err(err) => Some(Err(err)),
+            | Ok((key, value)) => {
                 strip_refcount(value.into_vec()).map(|value| Ok((key, value.into_boxed_slice())))
             }
         }))
@@ -186,8 +199,10 @@ mod test {
     const PLUS_ONE: &[u8] = b"\x01\0\0\0\0\0\0\0";
     const PLUS_TWO: &[u8] = b"\x02\0\0\0\0\0\0\0";
 
-    fn check_debug_assert_or<F, P, R>(callback: F, predicate: P)
-    where
+    fn check_debug_assert_or<F, P, R>(
+        callback: F,
+        predicate: P,
+    ) where
         F: FnOnce() -> R + std::panic::UnwindSafe,
         P: FnOnce(R),
         R: std::fmt::Debug,
@@ -202,7 +217,11 @@ mod test {
 
     #[test]
     fn decode_value_with_rc() {
-        fn test(want_value: Option<&[u8]>, want_rc: i64, bytes: &[u8]) {
+        fn test(
+            want_value: Option<&[u8]>,
+            want_rc: i64,
+            bytes: &[u8],
+        ) {
             let got = super::decode_value_with_rc(bytes);
             assert_eq!((want_value, want_rc), got);
 
@@ -226,7 +245,11 @@ mod test {
 
     #[test]
     fn add_encode_refcount() {
-        fn test(want: &[u8], data: &[u8], rc: u32) {
+        fn test(
+            want: &[u8],
+            data: &[u8],
+            rc: u32,
+        ) {
             let rc = std::num::NonZeroU32::new(rc).unwrap();
             assert_eq!(want, &super::add_positive_refcount(data, rc));
         }
@@ -240,7 +263,11 @@ mod test {
 
     #[test]
     fn set_refcount() {
-        fn test(want: Vec<u8>, data: &[u8], refcount: i64) {
+        fn test(
+            want: Vec<u8>,
+            data: &[u8],
+            refcount: i64,
+        ) {
             let mut data = data.to_vec();
             let result = super::set_refcount(&mut data, refcount);
             assert!(result.is_ok());
@@ -253,7 +280,10 @@ mod test {
 
     #[test]
     fn refcount_merge() {
-        fn test(want: &[u8], operands: &[&[u8]]) {
+        fn test(
+            want: &[u8],
+            operands: &[&[u8]],
+        ) {
             let it = operands.into_iter().copied();
             let got = super::refcount_merge(None, it);
             assert_eq!(want, got.as_slice());
@@ -270,16 +300,36 @@ mod test {
         test(b"", &[PLUS_ONE, MINUS_ONE]);
         test(b"", &[PLUS_TWO, MINUS_ONE, MINUS_ONE]);
         test(b"", &[b"foo\x01\0\0\0\0\0\0\0", MINUS_ONE]);
-        test(b"", &[b"foo\x02\0\0\0\0\0\0\0", MINUS_ONE, MINUS_ONE]);
+        test(
+            b"",
+            &[
+                b"foo\x02\0\0\0\0\0\0\0",
+                MINUS_ONE,
+                MINUS_ONE,
+            ],
+        );
         test(b"", &[b"foo\x02\0\0\0\0\0\0\0", MINUS_TWO]);
 
         test(b"", &[MINUS_ONE]);
         test(b"", &[b"", MINUS_ONE]);
         test(b"", &[ZERO, MINUS_ONE]);
         test(b"", &[b"foo\x01\0\0\0\0\0\0\0", MINUS_TWO]);
-        test(b"", &[b"foo\x01\0\0\0\0\0\0\0", MINUS_ONE, MINUS_ONE]);
+        test(
+            b"",
+            &[
+                b"foo\x01\0\0\0\0\0\0\0",
+                MINUS_ONE,
+                MINUS_ONE,
+            ],
+        );
 
-        test(b"foo\x02\0\0\0\0\0\0\0", &[b"foo\x01\0\0\0\0\0\0\0", b"foo\x01\0\0\0\0\0\0\0"]);
+        test(
+            b"foo\x02\0\0\0\0\0\0\0",
+            &[
+                b"foo\x01\0\0\0\0\0\0\0",
+                b"foo\x01\0\0\0\0\0\0\0",
+            ],
+        );
         test(b"foo\x01\0\0\0\0\0\0\0", &[b"foo\x01\0\0\0\0\0\0\0"]);
         test(b"foo\x01\0\0\0\0\0\0\0", &[b"foo\x02\0\0\0\0\0\0\0", MINUS_ONE]);
     }
@@ -288,7 +338,10 @@ mod test {
     fn compaction_filter() {
         use rocksdb::compaction_filter::Decision;
 
-        fn test(want: Decision, value: &[u8]) {
+        fn test(
+            want: Decision,
+            value: &[u8],
+        ) {
             let got = super::RocksDB::empty_value_compaction_filter(42, b"key", value);
             assert_eq!(std::mem::discriminant(&want), std::mem::discriminant(&got));
         }
@@ -312,11 +365,17 @@ mod test {
             data.to_vec().into_boxed_slice()
         }
 
-        fn test(want: &[&[u8]], col: DBCol, values: &[&[u8]]) {
+        fn test(
+            want: &[&[u8]],
+            col: DBCol,
+            values: &[&[u8]],
+        ) {
             use std::ops::Deref;
 
             const KEY: &[u8] = b"key";
-            let iter = values.into_iter().map(|value| Ok((into_box(KEY), into_box(value))));
+            let iter = values
+                .into_iter()
+                .map(|value| Ok((into_box(KEY), into_box(value))));
             let got = super::iter_with_rc_logic(col, iter)
                 .map(Result::unwrap)
                 .map(|(key, value)| {
@@ -324,16 +383,31 @@ mod test {
                     value
                 })
                 .collect::<Vec<_>>();
-            let got = got.iter().map(Box::deref).collect::<Vec<_>>();
+            let got = got
+                .iter()
+                .map(Box::deref)
+                .collect::<Vec<_>>();
             assert_eq!(want, got.as_slice());
         }
 
         // Column without reference counting.  ALl values are returned as is.
         assert!(!DBCol::Block.is_rc());
         test(
-            &[&b""[..], &b"foo"[..], MINUS_ONE, ZERO, PLUS_ONE],
+            &[
+                &b""[..],
+                &b"foo"[..],
+                MINUS_ONE,
+                ZERO,
+                PLUS_ONE,
+            ],
             DBCol::Block,
-            &[&b""[..], &b"foo"[..], MINUS_ONE, ZERO, PLUS_ONE],
+            &[
+                &b""[..],
+                &b"foo"[..],
+                MINUS_ONE,
+                ZERO,
+                PLUS_ONE,
+            ],
         );
 
         // Column with reference counting.  Count is extracted.

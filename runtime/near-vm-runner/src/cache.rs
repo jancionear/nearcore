@@ -32,26 +32,29 @@ enum ContractCacheKey {
 fn vm_hash(vm_kind: VMKind) -> u64 {
     match vm_kind {
         #[cfg(all(feature = "wasmer0_vm", target_arch = "x86_64"))]
-        VMKind::Wasmer0 => crate::wasmer_runner::wasmer0_vm_hash(),
+        | VMKind::Wasmer0 => crate::wasmer_runner::wasmer0_vm_hash(),
         #[cfg(not(all(feature = "wasmer0_vm", target_arch = "x86_64")))]
-        VMKind::Wasmer0 => panic!("Wasmer0 is not enabled"),
+        | VMKind::Wasmer0 => panic!("Wasmer0 is not enabled"),
         #[cfg(all(feature = "wasmer2_vm", target_arch = "x86_64"))]
-        VMKind::Wasmer2 => crate::wasmer2_runner::wasmer2_vm_hash(),
+        | VMKind::Wasmer2 => crate::wasmer2_runner::wasmer2_vm_hash(),
         #[cfg(not(all(feature = "wasmer2_vm", target_arch = "x86_64")))]
-        VMKind::Wasmer2 => panic!("Wasmer2 is not enabled"),
+        | VMKind::Wasmer2 => panic!("Wasmer2 is not enabled"),
         #[cfg(feature = "wasmtime_vm")]
-        VMKind::Wasmtime => crate::wasmtime_runner::wasmtime_vm_hash(),
+        | VMKind::Wasmtime => crate::wasmtime_runner::wasmtime_vm_hash(),
         #[cfg(not(feature = "wasmtime_vm"))]
-        VMKind::Wasmtime => panic!("Wasmtime is not enabled"),
+        | VMKind::Wasmtime => panic!("Wasmtime is not enabled"),
         #[cfg(all(feature = "near_vm", target_arch = "x86_64"))]
-        VMKind::NearVm => crate::near_vm_runner::near_vm_vm_hash(),
+        | VMKind::NearVm => crate::near_vm_runner::near_vm_vm_hash(),
         #[cfg(not(all(feature = "near_vm", target_arch = "x86_64")))]
-        VMKind::NearVm => panic!("NearVM is not enabled"),
+        | VMKind::NearVm => panic!("NearVM is not enabled"),
     }
 }
 
 #[tracing::instrument(level = "trace", target = "vm", "get_key", skip_all)]
-pub fn get_contract_cache_key(code_hash: CryptoHash, config: &Config) -> CryptoHash {
+pub fn get_contract_cache_key(
+    code_hash: CryptoHash,
+    config: &Config,
+) -> CryptoHash {
     let key = ContractCacheKey::Version5 {
         code_hash,
         vm_config_non_crypto_hash: config.non_crypto_hash(),
@@ -73,8 +76,8 @@ impl CompiledContract {
     /// If the `CompiledContract` represents a compilation failure, returns `0`.
     pub fn debug_len(&self) -> usize {
         match self {
-            CompiledContract::CompileModuleError(_) => 0,
-            CompiledContract::Code(c) => c.len(),
+            | CompiledContract::CompileModuleError(_) => 0,
+            | CompiledContract::Code(c) => c.len(),
         }
     }
 }
@@ -94,10 +97,21 @@ pub trait ContractRuntimeCache: Send + Sync {
             std::sync::LazyLock::new(|| AnyCache::new(0));
         &ZERO_ANY_CACHE
     }
-    fn put(&self, key: &CryptoHash, value: CompiledContractInfo) -> std::io::Result<()>;
-    fn get(&self, key: &CryptoHash) -> std::io::Result<Option<CompiledContractInfo>>;
-    fn has(&self, key: &CryptoHash) -> std::io::Result<bool> {
-        self.get(key).map(|entry| entry.is_some())
+    fn put(
+        &self,
+        key: &CryptoHash,
+        value: CompiledContractInfo,
+    ) -> std::io::Result<()>;
+    fn get(
+        &self,
+        key: &CryptoHash,
+    ) -> std::io::Result<Option<CompiledContractInfo>>;
+    fn has(
+        &self,
+        key: &CryptoHash,
+    ) -> std::io::Result<bool> {
+        self.get(key)
+            .map(|entry| entry.is_some())
     }
     /// TESTING ONLY: Clears the cache including in-memory and persistent data (if any).
     ///
@@ -113,7 +127,10 @@ pub trait ContractRuntimeCache: Send + Sync {
 }
 
 impl fmt::Debug for dyn ContractRuntimeCache {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter,
+    ) -> fmt::Result {
         write!(f, "Compiled contracts cache")
     }
 }
@@ -123,15 +140,25 @@ impl ContractRuntimeCache for Box<dyn ContractRuntimeCache> {
         <dyn ContractRuntimeCache>::handle(&**self)
     }
 
-    fn put(&self, key: &CryptoHash, value: CompiledContractInfo) -> std::io::Result<()> {
+    fn put(
+        &self,
+        key: &CryptoHash,
+        value: CompiledContractInfo,
+    ) -> std::io::Result<()> {
         <dyn ContractRuntimeCache>::put(&**self, key, value)
     }
 
-    fn get(&self, key: &CryptoHash) -> std::io::Result<Option<CompiledContractInfo>> {
+    fn get(
+        &self,
+        key: &CryptoHash,
+    ) -> std::io::Result<Option<CompiledContractInfo>> {
         <dyn ContractRuntimeCache>::get(&**self, key)
     }
 
-    fn has(&self, key: &CryptoHash) -> std::io::Result<bool> {
+    fn has(
+        &self,
+        key: &CryptoHash,
+    ) -> std::io::Result<bool> {
         <dyn ContractRuntimeCache>::has(&**self, key)
     }
 }
@@ -141,15 +168,25 @@ impl<C: ContractRuntimeCache> ContractRuntimeCache for &C {
         <C as ContractRuntimeCache>::handle(self)
     }
 
-    fn put(&self, key: &CryptoHash, value: CompiledContractInfo) -> std::io::Result<()> {
+    fn put(
+        &self,
+        key: &CryptoHash,
+        value: CompiledContractInfo,
+    ) -> std::io::Result<()> {
         <C as ContractRuntimeCache>::put(self, key, value)
     }
 
-    fn get(&self, key: &CryptoHash) -> std::io::Result<Option<CompiledContractInfo>> {
+    fn get(
+        &self,
+        key: &CryptoHash,
+    ) -> std::io::Result<Option<CompiledContractInfo>> {
         <C as ContractRuntimeCache>::get(self, key)
     }
 
-    fn has(&self, key: &CryptoHash) -> std::io::Result<bool> {
+    fn has(
+        &self,
+        key: &CryptoHash,
+    ) -> std::io::Result<bool> {
         <C as ContractRuntimeCache>::has(self, key)
     }
 }
@@ -162,11 +199,18 @@ impl ContractRuntimeCache for NoContractRuntimeCache {
         Box::new(self.clone())
     }
 
-    fn put(&self, _: &CryptoHash, _: CompiledContractInfo) -> std::io::Result<()> {
+    fn put(
+        &self,
+        _: &CryptoHash,
+        _: CompiledContractInfo,
+    ) -> std::io::Result<()> {
         Ok(())
     }
 
-    fn get(&self, _: &CryptoHash) -> std::io::Result<Option<CompiledContractInfo>> {
+    fn get(
+        &self,
+        _: &CryptoHash,
+    ) -> std::io::Result<Option<CompiledContractInfo>> {
         Ok(None)
     }
 }
@@ -183,13 +227,28 @@ impl MockContractRuntimeCache {
 }
 
 impl ContractRuntimeCache for MockContractRuntimeCache {
-    fn put(&self, key: &CryptoHash, value: CompiledContractInfo) -> std::io::Result<()> {
-        self.store.lock().unwrap().insert(*key, value);
+    fn put(
+        &self,
+        key: &CryptoHash,
+        value: CompiledContractInfo,
+    ) -> std::io::Result<()> {
+        self.store
+            .lock()
+            .unwrap()
+            .insert(*key, value);
         Ok(())
     }
 
-    fn get(&self, key: &CryptoHash) -> std::io::Result<Option<CompiledContractInfo>> {
-        Ok(self.store.lock().unwrap().get(key).map(Clone::clone))
+    fn get(
+        &self,
+        key: &CryptoHash,
+    ) -> std::io::Result<Option<CompiledContractInfo>> {
+        Ok(self
+            .store
+            .lock()
+            .unwrap()
+            .get(key)
+            .map(Clone::clone))
     }
 
     fn handle(&self) -> Box<dyn ContractRuntimeCache> {
@@ -198,7 +257,10 @@ impl ContractRuntimeCache for MockContractRuntimeCache {
 }
 
 impl fmt::Debug for MockContractRuntimeCache {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
         let guard = self.store.lock().unwrap();
         let hm: &HashMap<_, _> = &*guard;
         fmt::Debug::fmt(hm, f)
@@ -248,9 +310,16 @@ impl FilesystemContractRuntimeCache {
         store_path: Option<&SP>,
         memory_cache_size: usize,
     ) -> std::io::Result<Self> {
-        let store_path = store_path.map(AsRef::as_ref).unwrap_or_else(|| "data".as_ref());
-        let path: std::path::PathBuf =
-            [home_dir, store_path, "contracts".as_ref()].into_iter().collect();
+        let store_path = store_path
+            .map(AsRef::as_ref)
+            .unwrap_or_else(|| "data".as_ref());
+        let path: std::path::PathBuf = [
+            home_dir,
+            store_path,
+            "contracts".as_ref(),
+        ]
+        .into_iter()
+        .collect();
         std::fs::create_dir_all(&path)?;
         let dir =
             rustix::fs::open(&path, rustix::fs::OFlags::DIRECTORY, rustix::fs::Mode::empty())?;
@@ -271,7 +340,9 @@ impl FilesystemContractRuntimeCache {
     pub fn test() -> std::io::Result<Self> {
         let tempdir = tempfile::TempDir::new()?;
         let mut cache = Self::new(tempdir.path(), None::<&str>)?;
-        Arc::get_mut(&mut cache.state).unwrap().test_temp_dir = Some(tempdir);
+        Arc::get_mut(&mut cache.state)
+            .unwrap()
+            .test_temp_dir = Some(tempdir);
         Ok(cache)
     }
 }
@@ -303,7 +374,11 @@ impl ContractRuntimeCache for FilesystemContractRuntimeCache {
         skip_all,
         fields(key = key.to_string(), value.len = value.compiled.debug_len()),
     )]
-    fn put(&self, key: &CryptoHash, value: CompiledContractInfo) -> std::io::Result<()> {
+    fn put(
+        &self,
+        key: &CryptoHash,
+        value: CompiledContractInfo,
+    ) -> std::io::Result<()> {
         use rustix::fs::{Mode, OFlags};
         let final_filename = key.to_string();
         let mut temp_file = tempfile::Builder::new().make_in("", |filename| {
@@ -315,11 +390,11 @@ impl ContractRuntimeCache for FilesystemContractRuntimeCache {
         // unnecessary overheads and in order to enable things like mmap-based file access, we want
         // to have full control of what has been written.
         match value.compiled {
-            CompiledContract::CompileModuleError(e) => {
+            | CompiledContract::CompileModuleError(e) => {
                 borsh::to_writer(&mut temp_file, &e)?;
                 temp_file.write_all(&[ERROR_TAG])?;
             }
-            CompiledContract::Code(bytes) => {
+            | CompiledContract::Code(bytes) => {
                 temp_file.write_all(&bytes)?;
                 // Writing the tag at the end gives us well aligned buffer of the data above which
                 // is necessary for 0-copy deserialization later on.
@@ -342,16 +417,19 @@ impl ContractRuntimeCache for FilesystemContractRuntimeCache {
         skip_all,
         fields(key = key.to_string()),
     )]
-    fn get(&self, key: &CryptoHash) -> std::io::Result<Option<CompiledContractInfo>> {
+    fn get(
+        &self,
+        key: &CryptoHash,
+    ) -> std::io::Result<Option<CompiledContractInfo>> {
         use rustix::fs::{Mode, OFlags};
         let filename = key.to_string();
         let mode = Mode::empty();
         let flags = OFlags::RDONLY;
         let file = rustix::fs::openat(&self.state.dir, &filename, flags, mode);
         let file = match file {
-            Err(rustix::io::Errno::NOENT) => return Ok(None),
-            Err(e) => return Err(e.into()),
-            Ok(file) => file,
+            | Err(rustix::io::Errno::NOENT) => return Ok(None),
+            | Err(e) => return Err(e.into()),
+            | Ok(file) => file,
         };
         let stat = rustix::fs::fstat(&file)?;
         // TODO: explore mmaping the file and lending the map to the caller via a closure callback.
@@ -364,14 +442,18 @@ impl ContractRuntimeCache for FilesystemContractRuntimeCache {
             // The file turns out to be empty/truncated? Treat as if there's no cached file.
             return Ok(None);
         }
-        let wasm_bytes = u64::from_le_bytes(buffer[buffer.len() - 8..].try_into().unwrap());
+        let wasm_bytes = u64::from_le_bytes(
+            buffer[buffer.len() - 8..]
+                .try_into()
+                .unwrap(),
+        );
         let tag = buffer[buffer.len() - 9];
         buffer.truncate(buffer.len() - 9);
         Ok(match tag {
-            CODE_TAG => {
+            | CODE_TAG => {
                 Some(CompiledContractInfo { wasm_bytes, compiled: CompiledContract::Code(buffer) })
             }
-            ERROR_TAG => Some(CompiledContractInfo {
+            | ERROR_TAG => Some(CompiledContractInfo {
                 wasm_bytes,
                 compiled: CompiledContract::CompileModuleError(borsh::from_slice(&buffer)?),
             }),
@@ -379,7 +461,7 @@ impl ContractRuntimeCache for FilesystemContractRuntimeCache {
             // it as if there is no cached file as well. The cached file may eventually be
             // overwritten with a valid copy. And since we can compile a new copy, there doesn't
             // seem to be much reason to possibly crash the node due to this.
-            _ => {
+            | _ => {
                 tracing::debug!(
                     target: "vm",
                     message = "cached contract executable was found to be malformed",
@@ -399,8 +481,13 @@ impl ContractRuntimeCache for FilesystemContractRuntimeCache {
             panic!("must be called for testing only");
         };
         self.memory_cache().clear();
-        let dir_path: std::path::PathBuf =
-            [temp_dir.path(), "data".as_ref(), "contracts".as_ref()].into_iter().collect();
+        let dir_path: std::path::PathBuf = [
+            temp_dir.path(),
+            "data".as_ref(),
+            "contracts".as_ref(),
+        ]
+        .into_iter()
+        .collect();
         for entry in std::fs::read_dir(dir_path).unwrap() {
             if let Ok(entry) = entry {
                 let path = entry.path();
@@ -519,7 +606,10 @@ impl AnyCache {
     }
 
     /// Checks if the cache contains the key without modifying the cache.
-    pub fn contains(&self, key: CryptoHash) -> bool {
+    pub fn contains(
+        &self,
+        key: CryptoHash,
+    ) -> bool {
         let Some(cache) = &self.cache else { return false };
         let guard = cache.lock().unwrap();
         guard.contains(&key)
@@ -540,12 +630,15 @@ pub fn precompile_contract(
         .runtime(Arc::clone(&config))
         .unwrap_or_else(|| panic!("the {vm_kind:?} runtime has not been enabled at compile time"));
     let cache = match cache {
-        Some(it) => it,
-        None => return Ok(Ok(ContractPrecompilatonResult::CacheNotAvailable)),
+        | Some(it) => it,
+        | None => return Ok(Ok(ContractPrecompilatonResult::CacheNotAvailable)),
     };
     let key = get_contract_cache_key(*code.hash(), &config);
     // Check if we already cached with such a key.
-    if cache.has(&key).map_err(CacheError::ReadError)? {
+    if cache
+        .has(&key)
+        .map_err(CacheError::ReadError)?
+    {
         return Ok(Ok(ContractPrecompilatonResult::ContractAlreadyInCache));
     }
     runtime.precompile(code, cache)
@@ -656,11 +749,27 @@ mod tests {
         };
 
         let insert_and_assert_keys_exist = || {
-            cache.put(contract1.hash(), compiled_contract1.clone()).unwrap();
-            cache.put(contract2.hash(), compiled_contract2.clone()).unwrap();
+            cache
+                .put(contract1.hash(), compiled_contract1.clone())
+                .unwrap();
+            cache
+                .put(contract2.hash(), compiled_contract2.clone())
+                .unwrap();
 
-            assert_eq!(cache.get(contract1.hash()).unwrap().unwrap(), compiled_contract1);
-            assert_eq!(cache.get(contract2.hash()).unwrap().unwrap(), compiled_contract2);
+            assert_eq!(
+                cache
+                    .get(contract1.hash())
+                    .unwrap()
+                    .unwrap(),
+                compiled_contract1
+            );
+            assert_eq!(
+                cache
+                    .get(contract2.hash())
+                    .unwrap()
+                    .unwrap(),
+                compiled_contract2
+            );
         };
 
         let assert_keys_absent = || {

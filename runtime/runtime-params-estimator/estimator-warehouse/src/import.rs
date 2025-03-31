@@ -33,18 +33,29 @@ struct EstimationResult {
 }
 
 impl Db {
-    pub(crate) fn import_json_lines(&self, info: &ImportConfig, input: &str) -> anyhow::Result<()> {
+    pub(crate) fn import_json_lines(
+        &self,
+        info: &ImportConfig,
+        input: &str,
+    ) -> anyhow::Result<()> {
         for line in input.lines() {
             self.import(info, line)?;
         }
         Ok(())
     }
 
-    fn import(&self, info: &ImportConfig, line: &str) -> anyhow::Result<()> {
+    fn import(
+        &self,
+        info: &ImportConfig,
+        line: &str,
+    ) -> anyhow::Result<()> {
         if let Ok(estimator_output) = serde_json::from_str::<EstimatorOutput>(line) {
-            let commit_hash = info.commit_hash.as_ref().with_context(|| {
-                "Missing --commit-hash argument while importing estimation data".to_owned()
-            })?;
+            let commit_hash = info
+                .commit_hash
+                .as_ref()
+                .with_context(|| {
+                    "Missing --commit-hash argument while importing estimation data".to_owned()
+                })?;
             let row = EstimationRow {
                 name: estimator_output.name,
                 gas: estimator_output.result.gas,
@@ -148,7 +159,8 @@ mod test {
         metric: Metric,
     ) {
         let db = Db::test();
-        db.import_json_lines(info, input).unwrap();
+        db.import_json_lines(info, input)
+            .unwrap();
         let output = EstimationRow::select_by_commit_and_metric(
             &db,
             info.commit_hash.as_ref().unwrap(),

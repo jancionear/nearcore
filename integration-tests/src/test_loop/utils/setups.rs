@@ -21,9 +21,14 @@ pub fn standard_setup_1() -> TestLoopEnv {
     let num_producers = 2;
     let num_validators = 2;
     let num_rpc = 1;
-    let accounts =
-        (0..20).map(|i| format!("account{}", i).parse().unwrap()).collect::<Vec<AccountId>>();
-    let clients = accounts.iter().take(num_clients).cloned().collect_vec();
+    let accounts = (0..20)
+        .map(|i| format!("account{}", i).parse().unwrap())
+        .collect::<Vec<AccountId>>();
+    let clients = accounts
+        .iter()
+        .take(num_clients)
+        .cloned()
+        .collect_vec();
 
     // split the clients into producers, validators, and rpc nodes
     let tmp = clients.clone();
@@ -32,8 +37,14 @@ pub fn standard_setup_1() -> TestLoopEnv {
     let (rpcs, tmp) = tmp.split_at(num_rpc);
     assert!(tmp.is_empty());
 
-    let producers = producers.iter().map(|account| account.as_str()).collect_vec();
-    let validators = validators.iter().map(|account| account.as_str()).collect_vec();
+    let producers = producers
+        .iter()
+        .map(|account| account.as_str())
+        .collect_vec();
+    let validators = validators
+        .iter()
+        .map(|account| account.as_str())
+        .collect_vec();
     let [_rpc_id] = rpcs else { panic!("Expected exactly one rpc node") };
 
     let epoch_length = 10;
@@ -48,7 +59,11 @@ pub fn standard_setup_1() -> TestLoopEnv {
             validators_spec,
             accounts: &accounts,
         },
-        |genesis_builder| genesis_builder.genesis_height(10000).transaction_validity_period(1000),
+        |genesis_builder| {
+            genesis_builder
+                .genesis_height(10000)
+                .transaction_validity_period(1000)
+        },
         |epoch_config_builder| {
             epoch_config_builder.shuffle_shard_assignment_for_chunk_producers(true)
         },
@@ -76,7 +91,7 @@ pub fn derive_new_epoch_config_from_boundary(
 /// Two protocol upgrades would happen as soon as possible,
 /// usually in two consecutive epochs, unless upgrade voting decides differently.
 pub fn two_upgrades_voting_schedule(
-    target_protocol_version: ProtocolVersion,
+    target_protocol_version: ProtocolVersion
 ) -> ProtocolUpgradeVotingSchedule {
     let past_datetime_1 =
         ProtocolUpgradeVotingSchedule::parse_datetime("1970-01-01 00:00:00").unwrap();

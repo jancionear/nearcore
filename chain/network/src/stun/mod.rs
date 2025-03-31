@@ -16,8 +16,14 @@ pub(crate) type Error = stun::Error;
 
 /// Convert from ServerAddr to SocketAddr via DNS resolution.
 /// Looks for IPv4 or IPv6 according to `want_ipv4`.
-pub(crate) async fn lookup_host(addr: &ServerAddr, want_ipv4: bool) -> Option<SocketAddr> {
-    for socket_addr in tokio::net::lookup_host(addr).await.ok()? {
+pub(crate) async fn lookup_host(
+    addr: &ServerAddr,
+    want_ipv4: bool,
+) -> Option<SocketAddr> {
+    for socket_addr in tokio::net::lookup_host(addr)
+        .await
+        .ok()?
+    {
         if want_ipv4 == socket_addr.is_ipv4() {
             return Some(socket_addr);
         }
@@ -36,13 +42,17 @@ pub(crate) async fn query(
 ) -> Result<std::net::IpAddr, Error> {
     let socket = tokio::net::UdpSocket::bind("[::]:0").await?;
     socket.connect(addr).await?;
-    let mut client = stun::client::ClientBuilder::new().with_conn(Arc::new(socket)).build()?;
+    let mut client = stun::client::ClientBuilder::new()
+        .with_conn(Arc::new(socket))
+        .build()?;
     let mut msg = stun::message::Message::new();
     msg.new_transaction_id()?;
     msg.set_type(stun::message::BINDING_REQUEST);
     msg.build(&[])?;
     let (send, mut recv) = tokio::sync::mpsc::unbounded_channel();
-    client.send(&msg, Some(Arc::new(send))).await?;
+    client
+        .send(&msg, Some(Arc::new(send)))
+        .await?;
     // Note that both clock.sleep() and recv.recv() are cancellable,
     // so it is safe to use them in tokio::select!.
     let ip = tokio::select! {

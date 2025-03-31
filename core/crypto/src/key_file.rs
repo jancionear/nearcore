@@ -17,7 +17,10 @@ pub struct KeyFile {
 }
 
 impl KeyFile {
-    pub fn write_to_file(&self, path: &Path) -> io::Result<()> {
+    pub fn write_to_file(
+        &self,
+        path: &Path,
+    ) -> io::Result<()> {
         let data = serde_json::to_string_pretty(self)?;
         let mut file = Self::create(path)?;
         file.write_all(data.as_bytes())
@@ -26,7 +29,12 @@ impl KeyFile {
     #[cfg(unix)]
     fn create(path: &Path) -> io::Result<File> {
         use std::os::unix::fs::OpenOptionsExt;
-        std::fs::File::options().mode(0o600).write(true).create(true).truncate(true).open(path)
+        std::fs::File::options()
+            .mode(0o600)
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .open(path)
     }
 
     #[cfg(not(unix))]
@@ -73,7 +81,10 @@ mod test {
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
-            let got = std::fs::metadata(&path).unwrap().permissions().mode();
+            let got = std::fs::metadata(&path)
+                .unwrap()
+                .permissions()
+                .mode();
             assert_eq!(0o600, got & 0o777);
         }
     }
@@ -82,7 +93,9 @@ mod test {
     fn test_from_file() {
         fn load(contents: &[u8]) -> io::Result<()> {
             let tmp = tempfile::NamedTempFile::new().unwrap();
-            tmp.as_file().write_all(contents).unwrap();
+            tmp.as_file()
+                .write_all(contents)
+                .unwrap();
             let result = KeyFile::from_file(tmp.path());
             tmp.close().unwrap();
 

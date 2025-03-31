@@ -35,12 +35,22 @@ fn announcement_same_epoch() {
         vec![announce0.clone()]
     );
     assert_eq!(announcements_cache.get_announcements(), vec![announce0.clone()]);
-    assert_eq!(announcements_cache.get_account_owner(&announce0.account_id).unwrap(), peer_id0);
+    assert_eq!(
+        announcements_cache
+            .get_account_owner(&announce0.account_id)
+            .unwrap(),
+        peer_id0
+    );
 
     // Adding a conflicting announcement later. Should be a noop.
     assert_eq!(announcements_cache.add_accounts(vec![announce1]), vec![]);
     assert_eq!(announcements_cache.get_announcements(), vec![announce0.clone()]);
-    assert_eq!(announcements_cache.get_account_owner(&announce0.account_id).unwrap(), peer_id0);
+    assert_eq!(
+        announcements_cache
+            .get_account_owner(&announce0.account_id)
+            .unwrap(),
+        peer_id0
+    );
 }
 
 #[test]
@@ -72,11 +82,18 @@ fn dont_load_on_build() {
     announcements_cache.add_accounts(vec![announce0.clone()]);
     announcements_cache.add_accounts(vec![announce1.clone()]);
     let accounts: Vec<AnnounceAccount> = announcements_cache.get_announcements();
-    assert!(vec![announce0, announce1].iter().all(|announce| { accounts.contains(&announce) }));
+    assert!(vec![announce0, announce1]
+        .iter()
+        .all(|announce| { accounts.contains(&announce) }));
     assert_eq!(accounts.len(), 2);
 
     let announcements_cache1 = AnnounceAccountCache::new(store);
-    assert_eq!(announcements_cache1.get_announcements().len(), 0);
+    assert_eq!(
+        announcements_cache1
+            .get_announcements()
+            .len(),
+        0
+    );
 }
 
 #[test]
@@ -98,11 +115,31 @@ fn load_from_disk() {
 
     // Announcement is added to first cache and to disk
     announcements_cache.add_accounts(vec![announce0.clone()]);
-    assert_eq!(announcements_cache.get_announcements().len(), 1);
+    assert_eq!(
+        announcements_cache
+            .get_announcements()
+            .len(),
+        1
+    );
     // Second cache is empty
-    assert_eq!(announcements_cache1.get_announcements().len(), 0);
+    assert_eq!(
+        announcements_cache1
+            .get_announcements()
+            .len(),
+        0
+    );
     // Try to find this peer and load it from disk
-    assert_eq!(announcements_cache1.get_account_owner(&announce0.account_id).unwrap(), peer_id0);
+    assert_eq!(
+        announcements_cache1
+            .get_account_owner(&announce0.account_id)
+            .unwrap(),
+        peer_id0
+    );
     // Second cache should contain account loaded from disk
-    assert_eq!(announcements_cache1.get_announcements().len(), 1);
+    assert_eq!(
+        announcements_cache1
+            .get_announcements()
+            .len(),
+        1
+    );
 }

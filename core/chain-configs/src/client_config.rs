@@ -239,11 +239,13 @@ impl ReshardingHandle {
     }
 
     pub fn get(&self) -> bool {
-        self.keep_going.load(std::sync::atomic::Ordering::Relaxed)
+        self.keep_going
+            .load(std::sync::atomic::Ordering::Relaxed)
     }
 
     pub fn stop(&self) -> () {
-        self.keep_going.store(false, std::sync::atomic::Ordering::Relaxed);
+        self.keep_going
+            .store(false, std::sync::atomic::Ordering::Relaxed);
     }
 }
 

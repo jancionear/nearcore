@@ -50,7 +50,10 @@ impl Machine {
         self.stack_offset.0
     }
 
-    fn get_used_in<T>(mut v: u32, to_return_type: impl Fn(u8) -> T) -> Vec<T> {
+    fn get_used_in<T>(
+        mut v: u32,
+        to_return_type: impl Fn(u8) -> T,
+    ) -> Vec<T> {
         let mut n = 0u8;
         let mut res = Vec::with_capacity(v.count_ones() as usize);
         while v != 0 {
@@ -97,7 +100,10 @@ impl Machine {
         Self::pick_one_in(!self.used_gprs & REGS).map(|r| GPR::from_repr(r).unwrap())
     }
 
-    fn get_gpr_used(&self, r: GPR) -> bool {
+    fn get_gpr_used(
+        &self,
+        r: GPR,
+    ) -> bool {
         if 0 != (self.used_gprs & bitset_of_regs!(r)) {
             true
         } else {
@@ -105,15 +111,24 @@ impl Machine {
         }
     }
 
-    fn set_gpr_used(&mut self, r: GPR) {
+    fn set_gpr_used(
+        &mut self,
+        r: GPR,
+    ) {
         self.used_gprs |= bitset_of_regs!(r);
     }
 
-    fn set_gpr_unused(&mut self, r: GPR) {
+    fn set_gpr_unused(
+        &mut self,
+        r: GPR,
+    ) {
         self.used_gprs &= !bitset_of_regs!(r);
     }
 
-    fn get_xmm_used(&self, r: XMM) -> bool {
+    fn get_xmm_used(
+        &self,
+        r: XMM,
+    ) -> bool {
         if 0 != (self.used_xmms & bitset_of_regs!(r)) {
             true
         } else {
@@ -121,11 +136,17 @@ impl Machine {
         }
     }
 
-    fn set_xmm_used(&mut self, r: XMM) {
+    fn set_xmm_used(
+        &mut self,
+        r: XMM,
+    ) {
         self.used_xmms |= bitset_of_regs!(r);
     }
 
-    fn set_xmm_unused(&mut self, r: XMM) {
+    fn set_xmm_unused(
+        &mut self,
+        r: XMM,
+    ) {
         self.used_xmms &= !bitset_of_regs!(r);
     }
 
@@ -139,13 +160,19 @@ impl Machine {
     }
 
     /// Releases a temporary GPR.
-    pub(crate) fn release_temp_gpr(&mut self, gpr: GPR) {
+    pub(crate) fn release_temp_gpr(
+        &mut self,
+        gpr: GPR,
+    ) {
         assert!(self.get_gpr_used(gpr));
         self.set_gpr_unused(gpr);
     }
 
     /// Specify that a given register is in use.
-    pub(crate) fn reserve_unused_temp_gpr(&mut self, gpr: GPR) -> GPR {
+    pub(crate) fn reserve_unused_temp_gpr(
+        &mut self,
+        gpr: GPR,
+    ) -> GPR {
         assert!(!self.get_gpr_used(gpr));
         self.set_gpr_used(gpr);
         gpr
@@ -179,17 +206,28 @@ impl Machine {
     }
 
     /// Releases a temporary XMM register.
-    pub(crate) fn release_temp_xmm(&mut self, xmm: XMM) {
+    pub(crate) fn release_temp_xmm(
+        &mut self,
+        xmm: XMM,
+    ) {
         assert!(self.get_xmm_used(xmm));
         self.set_xmm_unused(xmm);
     }
 
-    fn increase_rsp(&mut self, a: &mut impl Emitter, sz: usize) {
+    fn increase_rsp(
+        &mut self,
+        a: &mut impl Emitter,
+        sz: usize,
+    ) {
         a.emit_add(Size::S64, Location::Imm32(u32::try_from(sz).unwrap()), Location::GPR(GPR::RSP));
         self.stack_offset.0 -= sz;
     }
 
-    fn decrease_rsp(&mut self, a: &mut impl Emitter, sz: usize) {
+    fn decrease_rsp(
+        &mut self,
+        a: &mut impl Emitter,
+        sz: usize,
+    ) {
         a.emit_sub(Size::S64, Location::Imm32(u32::try_from(sz).unwrap()), Location::GPR(GPR::RSP));
         self.stack_offset.0 += sz;
     }
@@ -209,10 +247,10 @@ impl Machine {
 
         for ty in tys {
             let loc = match *ty {
-                WpType::F32 | WpType::F64 => self.pick_xmm().map(Location::XMM),
-                WpType::I32 | WpType::I64 => self.pick_gpr().map(Location::GPR),
-                WpType::FuncRef | WpType::ExternRef => self.pick_gpr().map(Location::GPR),
-                _ => unreachable!("can't acquire location for type {:?}", ty),
+                | WpType::F32 | WpType::F64 => self.pick_xmm().map(Location::XMM),
+                | WpType::I32 | WpType::I64 => self.pick_gpr().map(Location::GPR),
+                | WpType::FuncRef | WpType::ExternRef => self.pick_gpr().map(Location::GPR),
+                | _ => unreachable!("can't acquire location for type {:?}", ty),
             };
 
             let loc = if let Some(x) = loc {
@@ -241,20 +279,24 @@ impl Machine {
     }
 
     /// Releases locations used for stack value.
-    pub(crate) fn release_locations<E: Emitter>(&mut self, assembler: &mut E, locs: &[Location]) {
+    pub(crate) fn release_locations<E: Emitter>(
+        &mut self,
+        assembler: &mut E,
+        locs: &[Location],
+    ) {
         let mut delta_stack_offset: usize = 0;
 
         for loc in locs.iter().rev() {
             match *loc {
-                Location::GPR(x) => {
+                | Location::GPR(x) => {
                     assert!(self.get_gpr_used(x));
                     self.set_gpr_unused(x);
                 }
-                Location::XMM(x) => {
+                | Location::XMM(x) => {
                     assert!(self.get_xmm_used(x));
                     self.set_xmm_unused(x);
                 }
-                Location::Memory(GPR::RBP, x) => {
+                | Location::Memory(GPR::RBP, x) => {
                     if x >= 0 {
                         unreachable!();
                     }
@@ -264,7 +306,7 @@ impl Machine {
                     }
                     delta_stack_offset += 8;
                 }
-                _ => {}
+                | _ => {}
             }
         }
 
@@ -273,18 +315,21 @@ impl Machine {
         }
     }
 
-    pub(crate) fn release_locations_only_regs(&mut self, locs: &[Location]) {
+    pub(crate) fn release_locations_only_regs(
+        &mut self,
+        locs: &[Location],
+    ) {
         for loc in locs.iter().rev() {
             match *loc {
-                Location::GPR(x) => {
+                | Location::GPR(x) => {
                     assert!(self.get_gpr_used(x));
                     self.set_gpr_unused(x);
                 }
-                Location::XMM(x) => {
+                | Location::XMM(x) => {
                     assert!(self.get_xmm_used(x));
                     self.set_xmm_unused(x);
                 }
-                _ => {}
+                | _ => {}
             }
         }
     }
@@ -346,20 +391,28 @@ impl Machine {
 
     const LOCAL_REGISTERS: &'static [GPR] = &[GPR::R12, GPR::R13, GPR::R14, GPR::RBX];
 
-    pub(crate) fn get_local_location(&self, idx: u32) -> Location {
+    pub(crate) fn get_local_location(
+        &self,
+        idx: u32,
+    ) -> Location {
         // NB: This calculation cannot reasonably overflow. `self.locals_offset` will typically be
         // small (< 32), and `idx` is bounded to `51000` due to limits imposed by the wasmparser
         // validator. We introduce a debug_assert here to ensure that `idx` never really exceeds
         // some incredibly large value.
         debug_assert!(idx <= 999_999, "this runtime can't deal with unreasonable number of locals");
-        Self::LOCAL_REGISTERS.get(idx as usize).map(|r| Location::GPR(*r)).unwrap_or_else(|| {
-            let local_offset =
-                idx.checked_sub(Self::LOCAL_REGISTERS.len() as u32).unwrap().wrapping_mul(8);
-            Location::Memory(
-                GPR::RBP,
-                (local_offset.wrapping_add(self.locals_offset.0 as u32) as i32).wrapping_neg(),
-            )
-        })
+        Self::LOCAL_REGISTERS
+            .get(idx as usize)
+            .map(|r| Location::GPR(*r))
+            .unwrap_or_else(|| {
+                let local_offset = idx
+                    .checked_sub(Self::LOCAL_REGISTERS.len() as u32)
+                    .unwrap()
+                    .wrapping_mul(8);
+                Location::Memory(
+                    GPR::RBP,
+                    (local_offset.wrapping_add(self.locals_offset.0 as u32) as i32).wrapping_neg(),
+                )
+            })
     }
 
     // `setup_registers`, `init_locals`, `finalize_locals` and `restore_registers` work together,
@@ -401,7 +454,11 @@ impl Machine {
         self.decrease_rsp(a, static_area_size);
 
         // Save callee-saved registers
-        for (i, local_reg) in Self::LOCAL_REGISTERS.iter().take(n as usize).enumerate() {
+        for (i, local_reg) in Self::LOCAL_REGISTERS
+            .iter()
+            .take(n as usize)
+            .enumerate()
+        {
             a.emit_mov(
                 Size::S64,
                 Location::GPR(*local_reg),
@@ -431,30 +488,32 @@ impl Machine {
         // Locals are allocated on the stack from higher address to lower address,
         // so we won't skip the stack guard page here.
         self.locals_offset = MachineStackOffset(self.stack_offset.0 + 8); // + 8 because locals_offset is supposed to point to 1st local
-        let params_size =
-            (n_params as usize).saturating_sub(Self::LOCAL_REGISTERS.len()).checked_mul(8).unwrap();
+        let params_size = (n_params as usize)
+            .saturating_sub(Self::LOCAL_REGISTERS.len())
+            .checked_mul(8)
+            .unwrap();
         self.decrease_rsp(a, params_size);
         for i in 0..n_params {
             // NB: the 0th parameter is used for passing around the internal VM data (vmctx).
             let loc = Self::get_param_location((i + 1) as usize, calling_convention);
             let local_loc = self.get_local_location(i);
             match loc {
-                Location::GPR(_) => {
+                | Location::GPR(_) => {
                     a.emit_mov(Size::S64, loc, local_loc);
                 }
                 // TODO: move Location::Memory args init into init_locals down below so it happens after instrumentation
                 // Registers *must* stay here because we’re using registers between setup_registers and init_locals
-                Location::Memory(_, _) => match local_loc {
-                    Location::GPR(_) => {
+                | Location::Memory(_, _) => match local_loc {
+                    | Location::GPR(_) => {
                         a.emit_mov(Size::S64, loc, local_loc);
                     }
-                    Location::Memory(_, _) => {
+                    | Location::Memory(_, _) => {
                         a.emit_mov(Size::S64, loc, Location::GPR(GPR::RAX));
                         a.emit_mov(Size::S64, Location::GPR(GPR::RAX), local_loc);
                     }
-                    _ => unreachable!(),
+                    | _ => unreachable!(),
                 },
-                _ => unreachable!(),
+                | _ => unreachable!(),
             }
         }
 
@@ -473,11 +532,14 @@ impl Machine {
         n_params: u32,
         _calling_convention: CallingConvention,
     ) {
-        let registers_remaining_for_locals =
-            Self::LOCAL_REGISTERS.len().saturating_sub(n_params as usize);
+        let registers_remaining_for_locals = Self::LOCAL_REGISTERS
+            .len()
+            .saturating_sub(n_params as usize);
         let locals_to_init = (n - n_params) as usize;
-        let locals_size =
-            locals_to_init.saturating_sub(registers_remaining_for_locals).checked_mul(8).unwrap();
+        let locals_size = locals_to_init
+            .saturating_sub(registers_remaining_for_locals)
+            .checked_mul(8)
+            .unwrap();
 
         // Allocate the stack, without actually writing to it.
         self.decrease_rsp(a, locals_size);
@@ -486,7 +548,10 @@ impl Machine {
         //
         // `rep stosq` writes data from low address to high address and may skip the stack guard page.
         // so here we probe it explicitly when needed.
-        for i in (n_params..n).step_by(NATIVE_PAGE_SIZE / 8).skip(1) {
+        for i in (n_params..n)
+            .step_by(NATIVE_PAGE_SIZE / 8)
+            .skip(1)
+        {
             a.emit_mov(Size::S64, Location::Imm32(0), self.get_local_location(i));
         }
 
@@ -497,8 +562,10 @@ impl Machine {
         // the fact that we allocate some registers to the first couple local slots.
         //
         // First: handle the locals that are allocated to registers...
-        for local_reg_idx in
-            Self::LOCAL_REGISTERS.iter().skip(n_params as usize).take((n_params..n).len())
+        for local_reg_idx in Self::LOCAL_REGISTERS
+            .iter()
+            .skip(n_params as usize)
+            .take((n_params..n).len())
         {
             a.emit_mov(Size::S64, Location::Imm32(0), Location::GPR(*local_reg_idx));
         }
@@ -517,11 +584,21 @@ impl Machine {
         }
     }
 
-    pub(crate) fn finalize_locals<E: Emitter>(&mut self, a: &mut E) {
+    pub(crate) fn finalize_locals<E: Emitter>(
+        &mut self,
+        a: &mut E,
+    ) {
         // Unwind stack to the "save area".
         a.emit_lea(
             Size::S64,
-            Location::Memory(GPR::RBP, -(self.save_area_offset.as_ref().unwrap().0 as i32)),
+            Location::Memory(
+                GPR::RBP,
+                -(self
+                    .save_area_offset
+                    .as_ref()
+                    .unwrap()
+                    .0 as i32),
+            ),
             Location::GPR(GPR::RSP),
         );
     }
@@ -541,7 +618,11 @@ impl Machine {
         a.emit_pop(Size::S64, Location::GPR(GPR::R15));
 
         // Restore callee-saved registers that we used for locals.
-        for reg in Self::LOCAL_REGISTERS.iter().take(local_count as usize).rev() {
+        for reg in Self::LOCAL_REGISTERS
+            .iter()
+            .take(local_count as usize)
+            .rev()
+        {
             a.emit_pop(Size::S64, Location::GPR(*reg));
         }
     }
@@ -551,21 +632,21 @@ impl Machine {
         calling_convention: CallingConvention,
     ) -> Location {
         match calling_convention {
-            CallingConvention::WindowsFastcall => match idx {
-                0 => Location::GPR(GPR::RCX),
-                1 => Location::GPR(GPR::RDX),
-                2 => Location::GPR(GPR::R8),
-                3 => Location::GPR(GPR::R9),
-                _ => Location::Memory(GPR::RBP, (16 + 32 + (idx - 4) * 8) as i32),
+            | CallingConvention::WindowsFastcall => match idx {
+                | 0 => Location::GPR(GPR::RCX),
+                | 1 => Location::GPR(GPR::RDX),
+                | 2 => Location::GPR(GPR::R8),
+                | 3 => Location::GPR(GPR::R9),
+                | _ => Location::Memory(GPR::RBP, (16 + 32 + (idx - 4) * 8) as i32),
             },
-            _ => match idx {
-                0 => Location::GPR(GPR::RDI),
-                1 => Location::GPR(GPR::RSI),
-                2 => Location::GPR(GPR::RDX),
-                3 => Location::GPR(GPR::RCX),
-                4 => Location::GPR(GPR::R8),
-                5 => Location::GPR(GPR::R9),
-                _ => Location::Memory(GPR::RBP, (16 + (idx - 6) * 8) as i32),
+            | _ => match idx {
+                | 0 => Location::GPR(GPR::RDI),
+                | 1 => Location::GPR(GPR::RSI),
+                | 2 => Location::GPR(GPR::RDX),
+                | 3 => Location::GPR(GPR::RCX),
+                | 4 => Location::GPR(GPR::R8),
+                | 5 => Location::GPR(GPR::R9),
+                | _ => Location::Memory(GPR::RBP, (16 + (idx - 6) * 8) as i32),
             },
         }
     }
@@ -584,7 +665,9 @@ mod test {
         let mut assembler = Assembler::new(0);
         let locs = machine.acquire_locations(
             &mut assembler,
-            &(0..10).map(|_| WpType::I32).collect::<Vec<_>>(),
+            &(0..10)
+                .map(|_| WpType::I32)
+                .collect::<Vec<_>>(),
             false,
         );
 

@@ -33,7 +33,10 @@ pub struct GaugePoint(IntGauge);
 
 impl<L: Labels> Gauge<L> {
     /// Constructs a new prometheus Gauge with schema `L`.
-    pub fn new(name: &str, help: &str) -> Result<Self, near_o11y::metrics::prometheus::Error> {
+    pub fn new(
+        name: &str,
+        help: &str,
+    ) -> Result<Self, near_o11y::metrics::prometheus::Error> {
         Ok(Self {
             inner: try_create_int_gauge_vec(name, help, L::NAMES.as_ref())?,
             _labels: std::marker::PhantomData,
@@ -43,8 +46,13 @@ impl<L: Labels> Gauge<L> {
     /// Adds a point represented by `labels` to the gauge.
     /// Returns a guard of the point - when the guard is dropped
     /// the point is removed from the gauge.
-    pub fn new_point(&'static self, labels: &L) -> GaugePoint {
-        let point = self.inner.with_label_values(labels.values().as_ref());
+    pub fn new_point(
+        &'static self,
+        labels: &L,
+    ) -> GaugePoint {
+        let point = self
+            .inner
+            .with_label_values(labels.values().as_ref());
         point.inc();
         GaugePoint(point)
     }
@@ -66,7 +74,13 @@ impl Labels for Connection {
     type Array = [&'static str; 3];
     const NAMES: Self::Array = ["tier", "peer_type", "encoding"];
     fn values(&self) -> Self::Array {
-        [self.tier.into(), self.type_.into(), self.encoding.map(|e| e.into()).unwrap_or("unknown")]
+        [
+            self.tier.into(),
+            self.type_.into(),
+            self.encoding
+                .map(|e| e.into())
+                .unwrap_or("unknown"),
+        ]
     }
 }
 
@@ -80,13 +94,19 @@ impl<M: prometheus::core::Metric> MetricGuard<M> {
         metric_vec: &'static MetricVec<T>,
         labels: Vec<String>,
     ) -> Self {
-        let labels_str: Vec<_> = labels.iter().map(String::as_str).collect();
+        let labels_str: Vec<_> = labels
+            .iter()
+            .map(String::as_str)
+            .collect();
         Self {
             metric: metric_vec.with_label_values(&labels_str[..]),
             drop: Some(Box::new(move || {
                 // This can return an error in tests, when multiple PeerManagerActors
                 // connect to the same endpoint.
-                let labels: Vec<_> = labels.iter().map(String::as_str).collect();
+                let labels: Vec<_> = labels
+                    .iter()
+                    .map(String::as_str)
+                    .collect();
                 let _ = metric_vec.remove_label_values(&labels[..]);
             })),
         }
@@ -208,7 +228,11 @@ pub(crate) static SYNC_ACCOUNTS_DATA: LazyLock<IntCounterVec> = LazyLock::new(||
     try_create_int_counter_vec(
         "near_sync_accounts_data",
         "Number of SyncAccountsData messages sent/received",
-        &["direction", "incremental", "requesting_full_sync"],
+        &[
+            "direction",
+            "incremental",
+            "requesting_full_sync",
+        ],
     )
     .unwrap()
 });
@@ -419,8 +443,8 @@ pub(crate) fn record_routed_msg_metrics(
 
 pub(crate) fn bool_to_str(b: bool) -> &'static str {
     match b {
-        true => "true",
-        false => "false",
+        | true => "true",
+        | false => "false",
     }
 }
 
@@ -436,7 +460,11 @@ fn record_routed_msg_latency(
         let now = clock.now_utc();
         let duration = now - created_at;
         NETWORK_ROUTED_MSG_LATENCY
-            .with_label_values(&[msg.body_variant(), tier.as_ref(), bool_to_str(fastest)])
+            .with_label_values(&[
+                msg.body_variant(),
+                tier.as_ref(),
+                bool_to_str(fastest),
+            ])
             .observe(duration.as_seconds_f64());
     }
 }
@@ -449,7 +477,10 @@ fn record_routed_msg_hops(msg: &RoutedMessageV2) {
     // As long as the number of hops is below 10, this metric will not consume too much memory.
     let num_hops = std::cmp::min(MAX_NUM_HOPS, msg.num_hops);
     NETWORK_ROUTED_MSG_NUM_HOPS
-        .with_label_values(&[msg.body_variant(), &num_hops.to_string()])
+        .with_label_values(&[
+            msg.body_variant(),
+            &num_hops.to_string(),
+        ])
         .inc();
 }
 
@@ -464,7 +495,10 @@ pub(crate) enum MessageDropped {
 }
 
 impl MessageDropped {
-    pub fn inc(self, msg: &RoutedMessageBody) {
+    pub fn inc(
+        self,
+        msg: &RoutedMessageBody,
+    ) {
         self.inc_msg_type(msg.into())
     }
 
@@ -472,8 +506,13 @@ impl MessageDropped {
         self.inc_msg_type("unknown")
     }
 
-    fn inc_msg_type(self, msg_type: &str) {
+    fn inc_msg_type(
+        self,
+        msg_type: &str,
+    ) {
         let reason = self.as_ref();
-        DROPPED_MESSAGE_COUNT.with_label_values(&[msg_type, reason]).inc();
+        DROPPED_MESSAGE_COUNT
+            .with_label_values(&[msg_type, reason])
+            .inc();
     }
 }

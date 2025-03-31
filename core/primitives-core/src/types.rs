@@ -122,13 +122,19 @@ impl ShardId {
 }
 
 impl std::fmt::Debug for ShardId {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+    ) -> std::fmt::Result {
         write!(f, "{}", self.0)
     }
 }
 
 impl std::fmt::Display for ShardId {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+    ) -> std::fmt::Result {
         write!(f, "{}", self.0)
     }
 }
@@ -193,13 +199,19 @@ where
 {
     type Output = Self;
 
-    fn add(self, rhs: T) -> Self::Output {
+    fn add(
+        self,
+        rhs: T,
+    ) -> Self::Output {
         Self(T::add(rhs, self.0))
     }
 }
 
 impl PartialEq<u64> for ShardId {
-    fn eq(&self, other: &u64) -> bool {
+    fn eq(
+        &self,
+        other: &u64,
+    ) -> bool {
         self.0 == *other
     }
 }

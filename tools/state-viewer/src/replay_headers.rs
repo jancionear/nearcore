@@ -35,9 +35,17 @@ pub(crate) fn replay_headers(
 ) {
     let chain_store = ChainStore::new(
         store.clone(),
-        near_config.genesis.config.genesis_height,
-        near_config.client_config.save_trie_changes,
-        near_config.genesis.config.transaction_validity_period,
+        near_config
+            .genesis
+            .config
+            .genesis_height,
+        near_config
+            .client_config
+            .save_trie_changes,
+        near_config
+            .genesis
+            .config
+            .transaction_validity_period,
     );
     let start_height: BlockHeight =
         start_height.unwrap_or_else(|| chain_store.get_genesis_height());
@@ -51,7 +59,10 @@ pub(crate) fn replay_headers(
 
     for height in start_height..=end_height {
         if let Ok(block_hash) = chain_store.get_block_hash_by_height(height) {
-            let header = chain_store.get_block_header(&block_hash).unwrap().clone();
+            let header = chain_store
+                .get_block_header(&block_hash)
+                .unwrap()
+                .clone();
             tracing::trace!("Height: {}, header: {:#?}", height, header);
 
             let block_info = get_block_info(&header, &chain_store, epoch_manager.as_ref())
@@ -73,10 +84,12 @@ pub(crate) fn replay_headers(
                 .expect("Could not determine if block is last block in epoch")
             {
                 let identifier = ValidatorInfoIdentifier::BlockHash(block_hash);
-                let original_validators =
-                    epoch_manager.get_validator_info(identifier.clone()).unwrap();
-                let replayed_validators =
-                    epoch_manager_replay.get_validator_info(identifier).unwrap();
+                let original_validators = epoch_manager
+                    .get_validator_info(identifier.clone())
+                    .unwrap();
+                let replayed_validators = epoch_manager_replay
+                    .get_validator_info(identifier)
+                    .unwrap();
 
                 assert_eq!(original_validators.epoch_height, replayed_validators.epoch_height);
                 println!(
@@ -104,11 +117,17 @@ struct ValidatorSummary {
     chunk_endorsement_percent: i64,
 }
 
-fn compare_validator_production_stats(left: &EpochValidatorInfo, right: &EpochValidatorInfo) {
+fn compare_validator_production_stats(
+    left: &EpochValidatorInfo,
+    right: &EpochValidatorInfo,
+) {
     let left_summaries = get_validator_summary(left);
     let right_summaries = get_validator_summary(right);
     let left_accounts: HashSet<AccountId> = left_summaries.keys().cloned().collect();
-    let right_accounts: HashSet<AccountId> = right_summaries.keys().cloned().collect();
+    let right_accounts: HashSet<AccountId> = right_summaries
+        .keys()
+        .cloned()
+        .collect();
     for account_id in left_accounts.union(&right_accounts) {
         let left_summary = left_summaries.get(account_id);
         let right_summary = right_summaries.get(account_id);
@@ -158,7 +177,10 @@ fn compare_validator_production_stats(left: &EpochValidatorInfo, right: &EpochVa
     }
 }
 
-fn compare_validator_kickout_stats(left: &EpochValidatorInfo, right: &EpochValidatorInfo) {
+fn compare_validator_kickout_stats(
+    left: &EpochValidatorInfo,
+    right: &EpochValidatorInfo,
+) {
     let left_kickouts = get_validator_kickouts(left);
     let right_kickouts = get_validator_kickouts(right);
     let left_accounts: HashSet<AccountId> = left_kickouts.keys().cloned().collect();
@@ -181,7 +203,7 @@ fn compare_validator_kickout_stats(left: &EpochValidatorInfo, right: &EpochValid
 
 /// Returns a mapping from validator account id to the summary of production statistics.
 fn get_validator_summary(
-    validator_info: &EpochValidatorInfo,
+    validator_info: &EpochValidatorInfo
 ) -> HashMap<AccountId, ValidatorSummary> {
     let mut validator_to_summary = HashMap::new();
     for validator in validator_info.current_validators.iter() {
@@ -204,7 +226,7 @@ fn get_validator_summary(
 
 /// Returns a mapping from validator account id to the kickout reason (from previous epoch).
 fn get_validator_kickouts(
-    validator_info: &EpochValidatorInfo,
+    validator_info: &EpochValidatorInfo
 ) -> HashMap<AccountId, ValidatorKickoutReason> {
     let mut kickouts = HashMap::new();
     for kickout in validator_info.prev_epoch_kickout.iter() {
@@ -242,7 +264,9 @@ fn get_block_info(
             let prev_block_epoch_id =
                 epoch_manager.get_epoch_id_from_prev_block(header.prev_hash())?;
             for (shard_index, chunk_header) in chunks.iter_deprecated().enumerate() {
-                let shard_id = shard_layout.get_shard_id(shard_index).unwrap();
+                let shard_id = shard_layout
+                    .get_shard_id(shard_index)
+                    .unwrap();
                 let endorsements = &endorsement_signatures[shard_index];
                 if !chunk_header.is_new_chunk(height) {
                     assert_eq!(endorsements.len(), 0);
@@ -258,7 +282,10 @@ fn get_block_info(
                     assert_eq!(endorsements.len(), assignments.len());
                     bitmap.add_endorsements(
                         shard_index,
-                        endorsements.iter().map(|signature| signature.is_some()).collect_vec(),
+                        endorsements
+                            .iter()
+                            .map(|signature| signature.is_some())
+                            .collect_vec(),
                     );
                 }
             }
@@ -268,7 +295,9 @@ fn get_block_info(
         };
     Ok(BlockInfo::from_header_and_endorsements(
         &header,
-        chain_store.get_block_height(header.last_final_block()).unwrap(),
+        chain_store
+            .get_block_height(header.last_final_block())
+            .unwrap(),
         chunk_endorsements_bitmap,
     ))
 }
@@ -276,13 +305,18 @@ fn get_block_info(
 /// Returns a stored that reads from the original chain store, but also allows writes to a temporary DB.
 /// This allows to execute a new algorithm for EpochManager without changing the original chain data.
 /// If the node has cold storage, the read DB is the split store (Hot+Cold). Write store is a TestDB (in memory).
-fn create_replay_store(home_dir: &Path, near_config: &NearConfig) -> Store {
+fn create_replay_store(
+    home_dir: &Path,
+    near_config: &NearConfig,
+) -> Store {
     let store_opener = NodeStorage::opener(
         home_dir,
         &near_config.config.store,
         near_config.config.archival_config(),
     );
-    let storage = store_opener.open_in_mode(Mode::ReadOnly).unwrap();
+    let storage = store_opener
+        .open_in_mode(Mode::ReadOnly)
+        .unwrap();
 
     let read_db = if storage.has_cold() {
         storage.get_split_db().unwrap()

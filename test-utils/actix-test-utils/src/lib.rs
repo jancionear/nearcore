@@ -7,7 +7,10 @@ pub struct ShutdownableThread {
 }
 
 impl ShutdownableThread {
-    pub fn start<F>(_name: &'static str, f: F) -> ShutdownableThread
+    pub fn start<F>(
+        _name: &'static str,
+        f: F,
+    ) -> ShutdownableThread
     where
         F: FnOnce() + Send + 'static,
     {
@@ -15,7 +18,8 @@ impl ShutdownableThread {
         let join = std::thread::spawn(move || {
             run_actix(async move {
                 f();
-                tx.send(actix_rt::System::current()).unwrap();
+                tx.send(actix_rt::System::current())
+                    .unwrap();
             });
         });
 
@@ -31,13 +35,17 @@ impl ShutdownableThread {
 impl Drop for ShutdownableThread {
     fn drop(&mut self) {
         self.shutdown();
-        self.join.take().unwrap().join().unwrap();
+        self.join
+            .take()
+            .unwrap()
+            .join()
+            .unwrap();
     }
 }
 
 #[inline]
 pub fn spawn_interruptible<F: std::future::Future + 'static>(
-    f: F,
+    f: F
 ) -> actix_rt::task::JoinHandle<F::Output> {
     actix_rt::spawn(f)
 }

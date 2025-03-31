@@ -82,15 +82,15 @@ pub enum RpcLightClientNextBlockError {
 impl From<RpcLightClientProofError> for crate::errors::RpcError {
     fn from(error: RpcLightClientProofError) -> Self {
         let error_data = match &error {
-            RpcLightClientProofError::UnknownBlock { error_message } => {
+            | RpcLightClientProofError::UnknownBlock { error_message } => {
                 Some(Value::String(format!("DB Not Found Error: {}", error_message)))
             }
-            _ => Some(Value::String(error.to_string())),
+            | _ => Some(Value::String(error.to_string())),
         };
 
         let error_data_value = match serde_json::to_value(error) {
-            Ok(value) => value,
-            Err(err) => {
+            | Ok(value) => value,
+            | Err(err) => {
                 return Self::new_internal_error(
                     None,
                     format!("Failed to serialize RpcLightClientProofError: {:?}", err),
@@ -105,8 +105,8 @@ impl From<RpcLightClientProofError> for crate::errors::RpcError {
 impl From<RpcLightClientNextBlockError> for crate::errors::RpcError {
     fn from(error: RpcLightClientNextBlockError) -> Self {
         let error_data = match serde_json::to_value(error) {
-            Ok(value) => value,
-            Err(err) => {
+            | Ok(value) => value,
+            | Err(err) => {
                 return Self::new_internal_error(
                     None,
                     format!("Failed to serialize RpcLightClientNextBlockError: {:?}", err),

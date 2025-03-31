@@ -24,46 +24,46 @@ pub fn translate_module<'data>(
 
     for payload in Parser::new(0).parse_all(data) {
         match payload? {
-            Payload::Version { .. } | Payload::End(_) => {}
+            | Payload::Version { .. } | Payload::End(_) => {}
 
-            Payload::TypeSection(types) => {
+            | Payload::TypeSection(types) => {
                 parse_type_section(types, &mut module_translation_state, environ)?;
             }
 
-            Payload::ImportSection(imports) => {
+            | Payload::ImportSection(imports) => {
                 parse_import_section(imports, environ)?;
             }
 
-            Payload::FunctionSection(functions) => {
+            | Payload::FunctionSection(functions) => {
                 parse_function_section(functions, environ)?;
             }
 
-            Payload::TableSection(tables) => {
+            | Payload::TableSection(tables) => {
                 parse_table_section(tables, environ)?;
             }
 
-            Payload::MemorySection(memories) => {
+            | Payload::MemorySection(memories) => {
                 parse_memory_section(memories, environ)?;
             }
 
-            Payload::GlobalSection(globals) => {
+            | Payload::GlobalSection(globals) => {
                 parse_global_section(globals, environ)?;
             }
 
-            Payload::ExportSection(exports) => {
+            | Payload::ExportSection(exports) => {
                 parse_export_section(exports, environ)?;
             }
 
-            Payload::StartSection { func, .. } => {
+            | Payload::StartSection { func, .. } => {
                 parse_start_section(func, environ)?;
             }
 
-            Payload::ElementSection(elements) => {
+            | Payload::ElementSection(elements) => {
                 parse_element_section(elements, environ)?;
             }
 
-            Payload::CodeSectionStart { .. } => {}
-            Payload::CodeSectionEntry(code) => {
+            | Payload::CodeSectionStart { .. } => {}
+            | Payload::CodeSectionEntry(code) => {
                 let mut code = code.get_binary_reader();
                 let size = code.bytes_remaining();
                 let offset = code.original_position();
@@ -74,23 +74,23 @@ pub fn translate_module<'data>(
                 )?;
             }
 
-            Payload::DataSection(data) => {
+            | Payload::DataSection(data) => {
                 parse_data_section(data, environ)?;
             }
 
-            Payload::DataCountSection { count, .. } => {
+            | Payload::DataCountSection { count, .. } => {
                 environ.reserve_passive_data(count)?;
             }
 
-            Payload::InstanceSection(_) => {
+            | Payload::InstanceSection(_) => {
                 unimplemented!("module linking not implemented yet")
             }
 
-            Payload::TagSection(_) => {
+            | Payload::TagSection(_) => {
                 unimplemented!("exception handling proposal is not implemented yet")
             }
 
-            Payload::CustomSection(reader) => {
+            | Payload::CustomSection(reader) => {
                 if reader.name() == "name" {
                     parse_name_section(
                         NameSectionReader::new(reader.data(), reader.data_offset()),
@@ -101,36 +101,36 @@ pub fn translate_module<'data>(
                 }
             }
 
-            Payload::ModuleSection { .. } => unimplemented!("module sections not supported yet"), // which proposal is this coming from?
-            Payload::CoreTypeSection { .. } => {
+            | Payload::ModuleSection { .. } => unimplemented!("module sections not supported yet"), // which proposal is this coming from?
+            | Payload::CoreTypeSection { .. } => {
                 unimplemented!("component proposal is not implemented yet")
             }
-            Payload::ComponentSection { .. } => {
+            | Payload::ComponentSection { .. } => {
                 unimplemented!("component proposal is not implemented yet")
             }
-            Payload::ComponentInstanceSection { .. } => {
+            | Payload::ComponentInstanceSection { .. } => {
                 unimplemented!("component proposal is not implemented yet")
             }
-            Payload::ComponentAliasSection { .. } => {
+            | Payload::ComponentAliasSection { .. } => {
                 unimplemented!("component proposal is not implemented yet")
             }
-            Payload::ComponentTypeSection { .. } => {
+            | Payload::ComponentTypeSection { .. } => {
                 unimplemented!("component proposal is not implemented yet")
             }
-            Payload::ComponentCanonicalSection { .. } => {
+            | Payload::ComponentCanonicalSection { .. } => {
                 unimplemented!("component proposal is not implemented yet")
             }
-            Payload::ComponentStartSection { .. } => {
+            | Payload::ComponentStartSection { .. } => {
                 unimplemented!("component proposal is not implemented yet")
             }
-            Payload::ComponentImportSection { .. } => {
+            | Payload::ComponentImportSection { .. } => {
                 unimplemented!("component proposal is not implemented yet")
             }
-            Payload::ComponentExportSection { .. } => {
+            | Payload::ComponentExportSection { .. } => {
                 unimplemented!("component proposal is not implemented yet")
             }
 
-            Payload::UnknownSection { .. } => unreachable!(),
+            | Payload::UnknownSection { .. } => unreachable!(),
         }
     }
 

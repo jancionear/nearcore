@@ -78,13 +78,22 @@ pub fn epoch_info_with_num_seats(
     num_seats: NumSeats,
     protocol_version: ProtocolVersion,
 ) -> EpochInfo {
-    let seat_price =
-        find_threshold(&accounts.iter().map(|(_, s)| *s).collect::<Vec<_>>(), num_seats).unwrap();
+    let seat_price = find_threshold(
+        &accounts
+            .iter()
+            .map(|(_, s)| *s)
+            .collect::<Vec<_>>(),
+        num_seats,
+    )
+    .unwrap();
     accounts.sort();
-    let validator_to_index = accounts.iter().enumerate().fold(HashMap::new(), |mut acc, (i, x)| {
-        acc.insert(x.0.clone(), i as u64);
-        acc
-    });
+    let validator_to_index = accounts
+        .iter()
+        .enumerate()
+        .fold(HashMap::new(), |mut acc, (i, x)| {
+            acc.insert(x.0.clone(), i as u64);
+            acc
+        });
     let account_to_validators = |accounts: Vec<(AccountId, Balance)>| -> Vec<ValidatorStake> {
         accounts
             .into_iter()
@@ -100,8 +109,9 @@ pub fn epoch_info_with_num_seats(
     let all_validators = account_to_validators(accounts);
     let validator_mandates = {
         let num_shards = chunk_producers_settlement.len();
-        let total_stake =
-            all_validators.iter().fold(0_u128, |acc, v| acc.saturating_add(v.stake()));
+        let total_stake = all_validators
+            .iter()
+            .fold(0_u128, |acc, v| acc.saturating_add(v.stake()));
         // For tests we estimate the target number of seats based on the seat price of the old algorithm.
         let target_mandates_per_shard = (total_stake / seat_price) as usize;
         let config = ValidatorMandatesConfig::new(target_mandates_per_shard, num_shards);
@@ -184,7 +194,10 @@ pub fn epoch_config(
     )
 }
 
-pub fn stake(account_id: AccountId, amount: Balance) -> ValidatorStake {
+pub fn stake(
+    account_id: AccountId,
+    amount: Balance,
+) -> ValidatorStake {
     let public_key = SecretKey::from_seed(KeyType::ED25519, account_id.as_ref()).public_key();
     ValidatorStake::new(account_id, public_key, amount)
 }
@@ -303,8 +316,9 @@ pub fn setup_epoch_manager_with_block_and_chunk_producers(
         .get_all_block_producers_ordered(&EpochId::default(), &CryptoHash::default())
         .unwrap();
     assert_eq!(actual_block_producers.len(), block_producers.len());
-    let actual_chunk_producers =
-        epoch_manager.get_all_chunk_producers(&EpochId::default()).unwrap();
+    let actual_chunk_producers = epoch_manager
+        .get_all_chunk_producers(&EpochId::default())
+        .unwrap();
     assert_eq!(actual_chunk_producers.len(), block_producers.len() + chunk_only_producers.len());
     epoch_manager
 }
@@ -410,6 +424,13 @@ pub fn block_info(
     })
 }
 
-pub fn record_with_block_info(epoch_manager: &mut EpochManager, block_info: BlockInfo) {
-    epoch_manager.record_block_info(block_info, [0; 32]).unwrap().commit().unwrap();
+pub fn record_with_block_info(
+    epoch_manager: &mut EpochManager,
+    block_info: BlockInfo,
+) {
+    epoch_manager
+        .record_block_info(block_info, [0; 32])
+        .unwrap()
+        .commit()
+        .unwrap();
 }

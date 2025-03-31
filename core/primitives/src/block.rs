@@ -11,7 +11,6 @@ use crate::congestion_info::{BlockCongestionInfo, ExtendedCongestionInfo};
 use crate::hash::CryptoHash;
 use crate::merkle::{merklize, verify_path, MerklePath};
 use crate::num_rational::Rational32;
-use crate::optimistic_block::OptimisticBlock;
 use crate::sharding::{ChunkHashHeight, ShardChunkHeader, ShardChunkHeaderV1};
 use crate::types::{Balance, BlockHeight, EpochId, Gas};
 use crate::version::{ProtocolVersion, SHARD_CHUNK_HEADER_UPGRADE_VERSION};
@@ -106,7 +105,9 @@ pub fn genesis_chunks(
         state_roots
     } else {
         assert_eq!(state_roots.len(), 1);
-        std::iter::repeat(state_roots[0]).take(shard_ids.len()).collect()
+        std::iter::repeat(state_roots[0])
+            .take(shard_ids.len())
+            .collect()
     };
 
     let mut chunks = vec![];
@@ -127,7 +128,9 @@ pub fn genesis_chunks(
             state_root,
             congestion_info,
         );
-        let mut chunk = encoded_chunk.decode_chunk(1).expect("Failed to decode genesis chunk");
+        let mut chunk = encoded_chunk
+            .decode_chunk(1)
+            .expect("Failed to decode genesis chunk");
         chunk.set_height_included(genesis_height);
         chunks.push(chunk);
     }
@@ -186,11 +189,11 @@ impl Block {
                 .iter()
                 .cloned()
                 .map(|chunk| match chunk {
-                    ShardChunkHeader::V1(header) => header,
-                    ShardChunkHeader::V2(_) => panic!(
+                    | ShardChunkHeader::V1(header) => header,
+                    | ShardChunkHeader::V2(_) => panic!(
                         "Attempted to include VersionedShardChunkHeaderV2 in old protocol version"
                     ),
-                    ShardChunkHeader::V3(_) => panic!(
+                    | ShardChunkHeader::V3(_) => panic!(
                         "Attempted to include VersionedShardChunkHeaderV3 in old protocol version"
                     ),
                 })
@@ -214,8 +217,8 @@ impl Block {
         } else if !checked_feature!("stable", StatelessValidation, this_epoch_protocol_version) {
             // BlockV3 should only have BlockBodyV1
             match body {
-                BlockBody::V1(body) => Block::BlockV3(Arc::new(BlockV3 { header, body })),
-                _ => {
+                | BlockBody::V1(body) => Block::BlockV3(Arc::new(BlockV3 { header, body })),
+                | _ => {
                     panic!("Attempted to include newer BlockBody version in old protocol version")
                 }
             }
@@ -223,10 +226,10 @@ impl Block {
             // BlockV4 and BlockBodyV2 were introduced in the same protocol version `ChunkValidation`
             // We should not expect BlockV4 to have BlockBodyV1
             match body {
-                BlockBody::V1(_) => {
+                | BlockBody::V1(_) => {
                     panic!("Attempted to include BlockBodyV1 in new protocol version")
                 }
-                _ => Block::BlockV4(Arc::new(BlockV4 { header, body })),
+                | _ => Block::BlockV4(Arc::new(BlockV4 { header, body })),
             }
         }
     }
@@ -306,14 +309,12 @@ impl Block {
         block_merkle_root: CryptoHash,
         clock: near_time::Clock,
         sandbox_delta_time: Option<near_time::Duration>,
-        optimistic_block: Option<OptimisticBlock>,
     ) -> Self {
         use itertools::Itertools;
         use near_primitives_core::version::ProtocolFeature;
 
         use crate::{
-            stateless_validation::chunk_endorsements_bitmap::ChunkEndorsementsBitmap,
-            utils::get_block_metadata,
+            hash::hash, stateless_validation::chunk_endorsements_bitmap::ChunkEndorsementsBitmap,
         };
         // Collect aggregate of validators and gas usage/limits from chunks.
         let mut prev_validator_proposals = vec![];
@@ -343,19 +344,18 @@ impl Block {
         );
 
         let new_total_supply = prev.total_supply() + minted_amount.unwrap_or(0) - balance_burnt;
+        let now = clock.now_utc().unix_timestamp_nanos() as u64;
+        #[cfg(feature = "sandbox")]
+        let now = now
+            + sandbox_delta_time
+                .unwrap()
+                .whole_nanoseconds() as u64;
+        #[cfg(not(feature = "sandbox"))]
+        debug_assert!(sandbox_delta_time.is_none());
+        let time = if now <= prev.raw_timestamp() { prev.raw_timestamp() + 1 } else { now };
 
-        // Use the optimistic block data if available, otherwise compute it.
-        let (time, vrf_value, vrf_proof, random_value) = optimistic_block
-            .as_ref()
-            .map(|ob| {
-                (
-                    ob.inner.block_timestamp,
-                    ob.inner.vrf_value,
-                    ob.inner.vrf_proof,
-                    ob.inner.random_value,
-                )
-            })
-            .unwrap_or_else(|| get_block_metadata(prev, signer, clock, sandbox_delta_time));
+        let (vrf_value, vrf_proof) = signer.compute_vrf_with_proof(prev.random_value().as_ref());
+        let random_value = hash(vrf_value.0.as_ref());
 
         let last_ds_final_block =
             if height == prev.height() + 1 { prev.hash() } else { prev.last_ds_final_block() };
@@ -368,10 +368,10 @@ impl Block {
             };
 
         match prev {
-            BlockHeader::BlockHeaderV1(_) | BlockHeader::BlockHeaderV2(_) => {
+            | BlockHeader::BlockHeaderV1(_) | BlockHeader::BlockHeaderV2(_) => {
                 debug_assert_eq!(prev.block_ordinal(), 0)
             }
-            BlockHeader::BlockHeaderV3(_)
+            | BlockHeader::BlockHeaderV3(_)
             | BlockHeader::BlockHeaderV4(_)
             | BlockHeader::BlockHeaderV5(_) => {
                 debug_assert_eq!(prev.block_ordinal() + 1, block_ordinal)
@@ -392,7 +392,10 @@ impl Block {
                 chunk_endorsements
                     .iter()
                     .map(|endorsements_for_shard| {
-                        endorsements_for_shard.iter().map(|e| e.is_some()).collect_vec()
+                        endorsements_for_shard
+                            .iter()
+                            .map(|e| e.is_some())
+                            .collect_vec()
                     })
                     .collect_vec(),
             ))
@@ -519,14 +522,19 @@ impl Block {
         let next_gas_price =
             U256::from(gas_price) * U256::from(numerator) / U256::from(denominator);
 
-        next_gas_price.clamp(U256::from(min_gas_price), U256::from(max_gas_price)).as_u128()
+        next_gas_price
+            .clamp(U256::from(min_gas_price), U256::from(max_gas_price))
+            .as_u128()
     }
 
     pub fn compute_state_root<'a, T: IntoIterator<Item = &'a ShardChunkHeader>>(
-        chunks: T,
+        chunks: T
     ) -> CryptoHash {
         merklize(
-            &chunks.into_iter().map(|chunk| chunk.prev_state_root()).collect::<Vec<CryptoHash>>(),
+            &chunks
+                .into_iter()
+                .map(|chunk| chunk.prev_state_root())
+                .collect::<Vec<CryptoHash>>(),
         )
         .0
     }
@@ -535,7 +543,7 @@ impl Block {
         'a,
         T: IntoIterator<Item = &'a ShardChunkHeader>,
     >(
-        chunks: T,
+        chunks: T
     ) -> CryptoHash {
         merklize(
             &chunks
@@ -547,7 +555,7 @@ impl Block {
     }
 
     pub fn compute_chunk_headers_root<'a, T: IntoIterator<Item = &'a ShardChunkHeader>>(
-        chunks: T,
+        chunks: T
     ) -> (CryptoHash, Vec<MerklePath>) {
         merklize(
             &chunks
@@ -558,48 +566,70 @@ impl Block {
     }
 
     pub fn compute_chunk_tx_root<'a, T: IntoIterator<Item = &'a ShardChunkHeader>>(
-        chunks: T,
+        chunks: T
     ) -> CryptoHash {
-        merklize(&chunks.into_iter().map(|chunk| chunk.tx_root()).collect::<Vec<CryptoHash>>()).0
+        merklize(
+            &chunks
+                .into_iter()
+                .map(|chunk| chunk.tx_root())
+                .collect::<Vec<CryptoHash>>(),
+        )
+        .0
     }
 
     pub fn compute_outcome_root<'a, T: IntoIterator<Item = &'a ShardChunkHeader>>(
-        chunks: T,
+        chunks: T
     ) -> CryptoHash {
         merklize(
-            &chunks.into_iter().map(|chunk| chunk.prev_outcome_root()).collect::<Vec<CryptoHash>>(),
+            &chunks
+                .into_iter()
+                .map(|chunk| chunk.prev_outcome_root())
+                .collect::<Vec<CryptoHash>>(),
         )
         .0
     }
 
     pub fn compute_challenges_root(challenges: &Challenges) -> CryptoHash {
-        merklize(&challenges.iter().map(|challenge| challenge.hash).collect::<Vec<CryptoHash>>()).0
+        merklize(
+            &challenges
+                .iter()
+                .map(|challenge| challenge.hash)
+                .collect::<Vec<CryptoHash>>(),
+        )
+        .0
     }
 
     pub fn compute_gas_used<'a, T: IntoIterator<Item = &'a ShardChunkHeader>>(
         chunks: T,
         height: BlockHeight,
     ) -> Gas {
-        chunks.into_iter().fold(0, |acc, chunk| {
-            if chunk.height_included() == height {
-                acc + chunk.prev_gas_used()
-            } else {
-                acc
-            }
-        })
+        chunks
+            .into_iter()
+            .fold(0, |acc, chunk| {
+                if chunk.height_included() == height {
+                    acc + chunk.prev_gas_used()
+                } else {
+                    acc
+                }
+            })
     }
 
     pub fn compute_gas_limit<'a, T: IntoIterator<Item = &'a ShardChunkHeader>>(
         chunks: T,
         height: BlockHeight,
     ) -> Gas {
-        chunks.into_iter().fold(0, |acc, chunk| {
-            if chunk.height_included() == height {
-                acc + chunk.gas_limit()
-            } else {
-                acc
-            }
-        })
+        chunks
+            .into_iter()
+            .fold(
+                0,
+                |acc, chunk| {
+                    if chunk.height_included() == height {
+                        acc + chunk.gas_limit()
+                    } else {
+                        acc
+                    }
+                },
+            )
     }
 
     pub fn validate_chunk_header_proof(
@@ -617,10 +647,10 @@ impl Block {
     #[inline]
     pub fn header(&self) -> &BlockHeader {
         match self {
-            Block::BlockV1(block) => &block.header,
-            Block::BlockV2(block) => &block.header,
-            Block::BlockV3(block) => &block.header,
-            Block::BlockV4(block) => &block.header,
+            | Block::BlockV1(block) => &block.header,
+            | Block::BlockV2(block) => &block.header,
+            | Block::BlockV3(block) => &block.header,
+            | Block::BlockV4(block) => &block.header,
         }
     }
 
@@ -631,38 +661,38 @@ impl Block {
     #[inline]
     pub fn challenges(&self) -> &Challenges {
         match self {
-            Block::BlockV1(block) => &block.challenges,
-            Block::BlockV2(block) => &block.challenges,
-            Block::BlockV3(block) => &block.body.challenges,
-            Block::BlockV4(block) => block.body.challenges(),
+            | Block::BlockV1(block) => &block.challenges,
+            | Block::BlockV2(block) => &block.challenges,
+            | Block::BlockV3(block) => &block.body.challenges,
+            | Block::BlockV4(block) => block.body.challenges(),
         }
     }
 
     #[inline]
     pub fn vrf_value(&self) -> &near_crypto::vrf::Value {
         match self {
-            Block::BlockV1(block) => &block.vrf_value,
-            Block::BlockV2(block) => &block.vrf_value,
-            Block::BlockV3(block) => &block.body.vrf_value,
-            Block::BlockV4(block) => &block.body.vrf_value(),
+            | Block::BlockV1(block) => &block.vrf_value,
+            | Block::BlockV2(block) => &block.vrf_value,
+            | Block::BlockV3(block) => &block.body.vrf_value,
+            | Block::BlockV4(block) => &block.body.vrf_value(),
         }
     }
 
     #[inline]
     pub fn vrf_proof(&self) -> &near_crypto::vrf::Proof {
         match self {
-            Block::BlockV1(block) => &block.vrf_proof,
-            Block::BlockV2(block) => &block.vrf_proof,
-            Block::BlockV3(block) => &block.body.vrf_proof,
-            Block::BlockV4(block) => &block.body.vrf_proof(),
+            | Block::BlockV1(block) => &block.vrf_proof,
+            | Block::BlockV2(block) => &block.vrf_proof,
+            | Block::BlockV3(block) => &block.body.vrf_proof,
+            | Block::BlockV4(block) => &block.body.vrf_proof(),
         }
     }
 
     #[inline]
     pub fn chunk_endorsements(&self) -> &[ChunkEndorsementSignatures] {
         match self {
-            Block::BlockV1(_) | Block::BlockV2(_) | Block::BlockV3(_) => &[],
-            Block::BlockV4(block) => block.body.chunk_endorsements(),
+            | Block::BlockV1(_) | Block::BlockV2(_) | Block::BlockV3(_) => &[],
+            | Block::BlockV4(block) => block.body.chunk_endorsements(),
         }
     }
 
@@ -680,10 +710,10 @@ impl Block {
 
     pub fn compute_block_body_hash(&self) -> Option<CryptoHash> {
         match self {
-            Block::BlockV1(_) => None,
-            Block::BlockV2(_) => None,
-            Block::BlockV3(block) => Some(block.body.compute_hash()),
-            Block::BlockV4(block) => Some(block.body.compute_hash()),
+            | Block::BlockV1(_) => None,
+            | Block::BlockV2(_) => None,
+            | Block::BlockV3(block) => Some(block.body.compute_hash()),
+            | Block::BlockV4(block) => Some(block.body.compute_hash()),
         }
     }
 
@@ -698,7 +728,11 @@ impl Block {
         // Check that chunk receipts root stored in the header matches the state root of the chunks
         let chunk_receipts_root =
             Block::compute_chunk_prev_outgoing_receipts_root(self.chunks().iter_deprecated());
-        if self.header().prev_chunk_outgoing_receipts_root() != &chunk_receipts_root {
+        if self
+            .header()
+            .prev_chunk_outgoing_receipts_root()
+            != &chunk_receipts_root
+        {
             return Err(InvalidReceiptRoot);
         }
 
@@ -771,10 +805,13 @@ impl<'a> Index<ShardIndex> for Chunks<'a> {
     type Output = ShardChunkHeader;
 
     /// Deprecated. Please use get instead, it's safer.
-    fn index(&self, index: usize) -> &Self::Output {
+    fn index(
+        &self,
+        index: usize,
+    ) -> &Self::Output {
         match &self.chunks {
-            ChunksCollection::V1(chunks) => &chunks[index],
-            ChunksCollection::V2(chunks) => &chunks[index],
+            | ChunksCollection::V1(chunks) => &chunks[index],
+            | ChunksCollection::V2(chunks) => &chunks[index],
         }
     }
 }
@@ -782,12 +819,16 @@ impl<'a> Index<ShardIndex> for Chunks<'a> {
 impl<'a> Chunks<'a> {
     pub fn new(block: &'a Block) -> Self {
         let chunks = match block {
-            Block::BlockV1(block) => ChunksCollection::V1(
-                block.chunks.iter().map(|h| ShardChunkHeader::V1(h.clone())).collect(),
+            | Block::BlockV1(block) => ChunksCollection::V1(
+                block
+                    .chunks
+                    .iter()
+                    .map(|h| ShardChunkHeader::V1(h.clone()))
+                    .collect(),
             ),
-            Block::BlockV2(block) => ChunksCollection::V2(&block.chunks),
-            Block::BlockV3(block) => ChunksCollection::V2(&block.body.chunks),
-            Block::BlockV4(block) => ChunksCollection::V2(&block.body.chunks()),
+            | Block::BlockV2(block) => ChunksCollection::V2(&block.chunks),
+            | Block::BlockV3(block) => ChunksCollection::V2(&block.body.chunks),
+            | Block::BlockV4(block) => ChunksCollection::V2(&block.body.chunks()),
         };
 
         Self { chunks, block_height: block.header().height() }
@@ -795,8 +836,8 @@ impl<'a> Chunks<'a> {
 
     pub fn len(&self) -> usize {
         match &self.chunks {
-            ChunksCollection::V1(chunks) => chunks.len(),
-            ChunksCollection::V2(chunks) => chunks.len(),
+            | ChunksCollection::V1(chunks) => chunks.len(),
+            | ChunksCollection::V2(chunks) => chunks.len(),
         }
     }
 
@@ -804,34 +845,41 @@ impl<'a> Chunks<'a> {
     /// distinguish between old and new headers.
     pub fn iter_deprecated(&'a self) -> Box<dyn Iterator<Item = &'a ShardChunkHeader> + 'a> {
         match &self.chunks {
-            ChunksCollection::V1(chunks) => Box::new(chunks.iter()),
-            ChunksCollection::V2(chunks) => Box::new(chunks.iter()),
+            | ChunksCollection::V1(chunks) => Box::new(chunks.iter()),
+            | ChunksCollection::V2(chunks) => Box::new(chunks.iter()),
         }
     }
 
     pub fn iter_raw(&'a self) -> Box<dyn Iterator<Item = &'a ShardChunkHeader> + 'a> {
         match &self.chunks {
-            ChunksCollection::V1(chunks) => Box::new(chunks.iter()),
-            ChunksCollection::V2(chunks) => Box::new(chunks.iter()),
+            | ChunksCollection::V1(chunks) => Box::new(chunks.iter()),
+            | ChunksCollection::V2(chunks) => Box::new(chunks.iter()),
         }
     }
 
     /// Returns an iterator over the shard chunk headers, differentiating between new and old chunks.
     pub fn iter(&'a self) -> Box<dyn Iterator<Item = MaybeNew<'a, ShardChunkHeader>> + 'a> {
         match &self.chunks {
-            ChunksCollection::V1(chunks) => {
-                Box::new(chunks.iter().map(|chunk| annotate_chunk(chunk, self.block_height)))
-            }
-            ChunksCollection::V2(chunks) => {
-                Box::new(chunks.iter().map(|chunk| annotate_chunk(chunk, self.block_height)))
-            }
+            | ChunksCollection::V1(chunks) => Box::new(
+                chunks
+                    .iter()
+                    .map(|chunk| annotate_chunk(chunk, self.block_height)),
+            ),
+            | ChunksCollection::V2(chunks) => Box::new(
+                chunks
+                    .iter()
+                    .map(|chunk| annotate_chunk(chunk, self.block_height)),
+            ),
         }
     }
 
-    pub fn get(&self, index: ShardIndex) -> Option<&ShardChunkHeader> {
+    pub fn get(
+        &self,
+        index: ShardIndex,
+    ) -> Option<&ShardChunkHeader> {
         match &self.chunks {
-            ChunksCollection::V1(chunks) => chunks.get(index),
-            ChunksCollection::V2(chunks) => chunks.get(index),
+            | ChunksCollection::V1(chunks) => chunks.get(index),
+            | ChunksCollection::V2(chunks) => chunks.get(index),
         }
     }
 
@@ -864,8 +912,8 @@ impl<'a> Chunks<'a> {
             // the chunk was missing so it didn't send anything and still
             // wants to send out the same receipts.
             let chunk = match chunk {
-                MaybeNew::New(new_chunk) => new_chunk,
-                MaybeNew::Old(missing_chunk) => missing_chunk,
+                | MaybeNew::New(new_chunk) => new_chunk,
+                | MaybeNew::Old(missing_chunk) => missing_chunk,
             };
 
             let shard_id = chunk.shard_id();

@@ -39,8 +39,11 @@ fn test_storage_write() {
     //  `insert_strings(from: u64, to: u64)` makes (`to` - `from`) `storage_write` calls.
     let method_name = "insert_strings".to_owned();
     let num_writes = 100u64;
-    let method_args: Vec<u8> =
-        0u64.to_le_bytes().into_iter().chain(num_writes.to_le_bytes()).collect();
+    let method_args: Vec<u8> = 0u64
+        .to_le_bytes()
+        .into_iter()
+        .chain(num_writes.to_le_bytes())
+        .collect();
     let num_transactions = 200;
     let uses_storage = true;
     let expectation = Expectation::ShouldSucceed;
@@ -61,8 +64,11 @@ fn test_storage_remove() {
     //  `delete_strings(from: u64, to: u64)` makes (`to` - `from`) `storage_remove` calls.
     let method_name = "delete_strings".to_owned();
     let num_deletes = 1000u64;
-    let method_args: Vec<u8> =
-        0u64.to_le_bytes().into_iter().chain(num_deletes.to_le_bytes()).collect();
+    let method_args: Vec<u8> = 0u64
+        .to_le_bytes()
+        .into_iter()
+        .chain(num_deletes.to_le_bytes())
+        .collect();
     let num_transactions = 10;
     let uses_storage = true;
     let expectation = Expectation::ShouldSucceed;
@@ -85,8 +91,11 @@ fn test_storage_write_gas_exceeded() {
     let method_name = "insert_strings".to_owned();
     // 10000 writes should be too much and result in gas exceeded
     let num_writes = 10000u64;
-    let method_args: Vec<u8> =
-        0u64.to_le_bytes().into_iter().chain(num_writes.to_le_bytes()).collect();
+    let method_args: Vec<u8> = 0u64
+        .to_le_bytes()
+        .into_iter()
+        .chain(num_writes.to_le_bytes())
+        .collect();
     let num_transactions = 10;
     let uses_storage = true;
     let expectation = Expectation::ShouldFail;
@@ -192,10 +201,20 @@ fn assert_compute_limit_reached(
     let contract_account: AccountId = "test0".parse().unwrap();
     let user_account: AccountId = "test1".parse().unwrap();
     let runtime_config_store = RuntimeConfigStore::new(None);
-    let old_config = runtime_config_store.get_config(old_protocol_version).clone();
-    let new_config = runtime_config_store.get_config(new_protocol_version).clone();
+    let old_config = runtime_config_store
+        .get_config(old_protocol_version)
+        .clone();
+    let new_config = runtime_config_store
+        .get_config(new_protocol_version)
+        .clone();
     let mut env = {
-        let mut genesis = Genesis::test(vec![contract_account.clone(), user_account.clone()], 1);
+        let mut genesis = Genesis::test(
+            vec![
+                contract_account.clone(),
+                user_account.clone(),
+            ],
+            1,
+        );
         genesis.config.epoch_length = epoch_length;
         genesis.config.protocol_version = old_protocol_version;
         genesis.config.gas_limit = genesis.config.gas_limit / gas_divider;
@@ -208,11 +227,15 @@ fn assert_compute_limit_reached(
     {
         // This contract has a bunch of methods to invoke storage operations.
         let code = near_test_contracts::backwards_compatible_rs_contract().to_vec();
-        let actions = vec![Action::DeployContract(DeployContractAction { code })];
+        let actions = vec![Action::DeployContract(
+            DeployContractAction { code },
+        )];
 
         let signer = InMemorySigner::test_signer(&contract_account);
         let tx = env.tx_from_actions(actions, &signer, signer.get_account_id());
-        env.execute_tx(tx).unwrap().assert_success();
+        env.execute_tx(tx)
+            .unwrap()
+            .assert_success();
     }
 
     // Fetching the correct nonce from `env` is a bit fiddly, we would have to
@@ -291,12 +314,9 @@ fn produce_saturated_chunk(
 ) -> std::sync::Arc<ShardChunk> {
     let msg_len = (method_name.len() + args.len()) as u64; // needed for gas computation later
     let gas = 300_000_000_000_000;
-    let actions = vec![Action::FunctionCall(Box::new(FunctionCallAction {
-        method_name,
-        args,
-        gas,
-        deposit: 0,
-    }))];
+    let actions = vec![Action::FunctionCall(Box::new(
+        FunctionCallAction { method_name, args, gas, deposit: 0 },
+    ))];
     let signer: Signer = InMemorySigner::test_signer(&user_account);
 
     let tip = env.clients[0].chain.head().unwrap();
@@ -367,9 +387,19 @@ fn produce_saturated_chunk(
         // transactions from previous chunk, so the gas here is for
         // transactions -> receipt conversion.
         let gas_burnt = chunk.cloned_header().prev_gas_used();
-        let want_gas_per_tx = config.fees.fee(ActionCosts::new_action_receipt).send_not_sir
-            + config.fees.fee(ActionCosts::function_call_base).send_not_sir
-            + config.fees.fee(ActionCosts::function_call_byte).send_not_sir * msg_len;
+        let want_gas_per_tx = config
+            .fees
+            .fee(ActionCosts::new_action_receipt)
+            .send_not_sir
+            + config
+                .fees
+                .fee(ActionCosts::function_call_base)
+                .send_not_sir
+            + config
+                .fees
+                .fee(ActionCosts::function_call_byte)
+                .send_not_sir
+                * msg_len;
         assert_eq!(
             gas_burnt,
             want_gas_per_tx * num_transactions,
@@ -396,7 +426,11 @@ fn produce_saturated_chunk(
     // explicitly wants failing receipts)
     if let Expectation::ShouldSucceed = expectation {
         for id in tx_ids {
-            env.clients[0].chain.get_final_transaction_result(&id).unwrap().assert_success();
+            env.clients[0]
+                .chain
+                .get_final_transaction_result(&id)
+                .unwrap()
+                .assert_success();
         }
     }
 
@@ -404,10 +438,19 @@ fn produce_saturated_chunk(
 }
 
 /// fetch chunk for shard 0 and specified block height
-fn chunk_info(env: &TestEnv, height: u64) -> std::sync::Arc<near_primitives::sharding::ShardChunk> {
-    let block = &env.clients[0].chain.get_block_by_height(height).unwrap();
+fn chunk_info(
+    env: &TestEnv,
+    height: u64,
+) -> std::sync::Arc<near_primitives::sharding::ShardChunk> {
+    let block = &env.clients[0]
+        .chain
+        .get_block_by_height(height)
+        .unwrap();
     let chunks = &block.chunks();
     assert_eq!(chunks.len(), 1, "test assumes single shard");
     let chunk_header = chunks.get(0).unwrap().clone();
-    env.clients[0].chain.get_chunk(&chunk_header.chunk_hash()).unwrap()
+    env.clients[0]
+        .chain
+        .get_chunk(&chunk_header.chunk_hash())
+        .unwrap()
 }

@@ -67,7 +67,10 @@ pub(super) struct FunctionCallActionIndex {
 }
 
 impl ReceiptManager {
-    pub(super) fn get_receipt_receiver(&self, receipt_index: ReceiptIndex) -> &AccountId {
+    pub(super) fn get_receipt_receiver(
+        &self,
+        receipt_index: ReceiptIndex,
+    ) -> &AccountId {
         &self
             .action_receipts
             .get(receipt_index as usize)
@@ -76,7 +79,11 @@ impl ReceiptManager {
     }
 
     /// Appends an action and returns the index the action was inserted in the receipt
-    fn append_action(&mut self, receipt_index: ReceiptIndex, action: Action) -> usize {
+    fn append_action(
+        &mut self,
+        receipt_index: ReceiptIndex,
+        action: Action,
+    ) -> usize {
         let actions = &mut self
             .action_receipts
             .get_mut(receipt_index as usize)
@@ -107,7 +114,10 @@ impl ReceiptManager {
         receiver_id: AccountId,
     ) -> Result<ReceiptIndex, VMLogicError> {
         assert_eq!(input_data_ids.len(), receipt_indices.len());
-        for (data_id, receipt_index) in input_data_ids.iter().zip(receipt_indices.into_iter()) {
+        for (data_id, receipt_index) in input_data_ids
+            .iter()
+            .zip(receipt_indices.into_iter())
+        {
             self.action_receipts
                 .get_mut(receipt_index as usize)
                 .ok_or(HostError::InvalidReceiptIndex { receipt_index })?
@@ -150,7 +160,8 @@ impl ReceiptManager {
         };
         let new_receipt_index = self.action_receipts.len();
         self.action_receipts.push(new_receipt);
-        self.promise_yield_receipt_index.insert(input_data_id, new_receipt_index);
+        self.promise_yield_receipt_index
+            .insert(input_data_id, new_receipt_index);
         Ok(new_receipt_index as ReceiptIndex)
     }
 
@@ -167,11 +178,8 @@ impl ReceiptManager {
         data_id: CryptoHash,
         data: Vec<u8>,
     ) -> Result<(), VMLogicError> {
-        self.data_receipts.push(DataReceiptMetadata {
-            data_id,
-            data: Some(data),
-            is_promise_resume: true,
-        });
+        self.data_receipts
+            .push(DataReceiptMetadata { data_id, data: Some(data), is_promise_resume: true });
         Ok(())
     }
 
@@ -187,22 +195,28 @@ impl ReceiptManager {
         data_id: CryptoHash,
         data: Vec<u8>,
     ) -> Result<bool, VMLogicError> {
-        Ok(if let Some(receipt_index) = self.promise_yield_receipt_index.remove(&data_id) {
-            // Convert existing PromiseYield to a standard Action receipt
-            let receipt = &mut self.action_receipts[receipt_index];
-            assert!(receipt.is_promise_yield, "receipt should be promise yield");
-            receipt.is_promise_yield = false;
+        Ok(
+            if let Some(receipt_index) = self
+                .promise_yield_receipt_index
+                .remove(&data_id)
+            {
+                // Convert existing PromiseYield to a standard Action receipt
+                let receipt = &mut self.action_receipts[receipt_index];
+                assert!(receipt.is_promise_yield, "receipt should be promise yield");
+                receipt.is_promise_yield = false;
 
-            // Create Data receipt delivering the payload
-            self.data_receipts.push(DataReceiptMetadata {
-                data_id,
-                data: Some(data),
-                is_promise_resume: false,
-            });
-            true
-        } else {
-            false
-        })
+                // Create Data receipt delivering the payload
+                self.data_receipts
+                    .push(DataReceiptMetadata {
+                        data_id,
+                        data: Some(data),
+                        is_promise_resume: false,
+                    });
+                true
+            } else {
+                false
+            },
+        )
     }
 
     /// Attach the [`CreateAccountAction`] action to an existing receipt.
@@ -455,14 +469,20 @@ impl ReceiptManager {
     /// to their assigned weights.
     ///
     /// Returns the amount of gas distributed (either `0` or `unused_gas`.)
-    pub(super) fn distribute_gas(&mut self, unused_gas: Gas) -> Result<Gas, RuntimeError> {
+    pub(super) fn distribute_gas(
+        &mut self,
+        unused_gas: Gas,
+    ) -> Result<Gas, RuntimeError> {
         let ReceiptManager {
             action_receipts,
             data_receipts: _,
             gas_weights,
             promise_yield_receipt_index: _,
         } = self;
-        let gas_weight_sum: u128 = gas_weights.iter().map(|(_, gv)| u128::from(gv.0)).sum();
+        let gas_weight_sum: u128 = gas_weights
+            .iter()
+            .map(|(_, gv)| u128::from(gv.0))
+            .sum();
         if gas_weight_sum == 0 || unused_gas == 0 {
             return Ok(0);
         }
@@ -503,7 +523,10 @@ mod tests {
     use near_primitives_core::types::{Gas, GasWeight};
 
     #[track_caller]
-    fn function_call_weight_verify(function_calls: &[(Gas, u64, Gas)], after_distribute: bool) {
+    fn function_call_weight_verify(
+        function_calls: &[(Gas, u64, Gas)],
+        after_distribute: bool,
+    ) {
         let mut gas_limit = 10_000_000_000u64;
 
         // Schedule all function calls
@@ -525,7 +548,9 @@ mod tests {
                 .unwrap();
         }
         let accessor: fn(&(Gas, u64, Gas)) -> Gas = if after_distribute {
-            receipt_manager.distribute_gas(gas_limit).unwrap();
+            receipt_manager
+                .distribute_gas(gas_limit)
+                .unwrap();
             |(_, _, expected)| *expected
         } else {
             |(static_gas, _, _)| *static_gas
@@ -574,10 +599,16 @@ mod tests {
         function_call_weight_check(&[(0, 11u64.pow(14), 10_000_000_000)]);
 
         // Split two
-        function_call_weight_check(&[(0, 3, 6_000_000_000), (0, 2, 4_000_000_000)]);
+        function_call_weight_check(&[
+            (0, 3, 6_000_000_000),
+            (0, 2, 4_000_000_000),
+        ]);
 
         // Split two with static gas
-        function_call_weight_check(&[(1_000_000, 3, 5_998_600_000), (3_000_000, 2, 4_001_400_000)]);
+        function_call_weight_check(&[
+            (1_000_000, 3, 5_998_600_000),
+            (3_000_000, 2, 4_001_400_000),
+        ]);
 
         // Many different gas weights
         function_call_weight_check(&[
@@ -589,7 +620,10 @@ mod tests {
         ]);
 
         // Weight over u64 bounds
-        function_call_weight_check(&[(0, u64::MAX, 9_999_999_999), (0, 1000, 1)]);
+        function_call_weight_check(&[
+            (0, u64::MAX, 9_999_999_999),
+            (0, 1000, 1),
+        ]);
 
         // Weight over gas limit with three function calls
         function_call_weight_check(&[

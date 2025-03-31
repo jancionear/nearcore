@@ -65,8 +65,12 @@ impl EpochSync {
             .get_ser::<EpochSyncProof>(DBCol::EpochSyncProof, &[])
             .expect("IO error querying epoch sync proof")
             .map(|proof| proof.into_v1());
-        let my_own_epoch_sync_boundary_block_header = epoch_sync_proof_we_used_to_bootstrap
-            .map(|proof| proof.current_epoch.first_block_header_in_epoch);
+        let my_own_epoch_sync_boundary_block_header =
+            epoch_sync_proof_we_used_to_bootstrap.map(|proof| {
+                proof
+                    .current_epoch
+                    .first_block_header_in_epoch
+            });
 
         Self {
             clock,
@@ -83,7 +87,8 @@ impl EpochSync {
     /// bootstrapped to using epoch sync, or None if this node was not bootstrapped using
     /// epoch sync.
     pub fn my_own_epoch_sync_boundary_block_header(&self) -> Option<&BlockHeader> {
-        self.my_own_epoch_sync_boundary_block_header.as_ref()
+        self.my_own_epoch_sync_boundary_block_header
+            .as_ref()
     }
 
     /// Derives an epoch sync proof for a recent epoch, that can be directly used to bootstrap
@@ -106,7 +111,9 @@ impl EpochSync {
         let target_epoch_second_last_block_header = store
             .get_ser::<BlockHeader>(
                 DBCol::BlockHeader,
-                target_epoch_last_block_header.prev_hash().as_bytes(),
+                target_epoch_last_block_header
+                    .prev_hash()
+                    .as_bytes(),
             )?
             .ok_or_else(|| {
                 Error::Other("Could not find second last block of target epoch".to_string())
@@ -125,8 +132,8 @@ impl EpochSync {
             target_epoch_second_last_block_header,
         );
         let (proof, _) = match CompressedEpochSyncProof::encode(&proof?) {
-            Ok(proof) => proof,
-            Err(err) => {
+            | Ok(proof) => proof,
+            | Err(err) => {
                 return Err(Error::Other(format!("Failed to compress epoch sync proof: {:?}", err)))
             }
         };
@@ -204,7 +211,9 @@ impl EpochSync {
         let last_final_block_header_in_current_epoch = store
             .get_ser::<BlockHeader>(
                 DBCol::BlockHeader,
-                next_block_header_after_last_final_block_of_current_epoch.prev_hash().as_bytes(),
+                next_block_header_after_last_final_block_of_current_epoch
+                    .prev_hash()
+                    .as_bytes(),
             )?
             .ok_or_else(|| Error::Other("Could not find final block header".to_string()))?;
 
@@ -233,12 +242,21 @@ impl EpochSync {
                 existing_proof
                     .all_epochs
                     .last()
-                    .map(|last_epoch| *last_epoch.last_final_block_header.epoch_id())
+                    .map(|last_epoch| {
+                        *last_epoch
+                            .last_final_block_header
+                            .epoch_id()
+                    })
             })
             .unwrap_or_else(EpochId::default);
         let last_epoch_height_we_have_proof_for = existing_epoch_sync_proof
             .as_ref()
-            .map(|existing_proof| existing_proof.last_epoch.next_epoch_info.epoch_height())
+            .map(|existing_proof| {
+                existing_proof
+                    .last_epoch
+                    .next_epoch_info
+                    .epoch_height()
+            })
             .unwrap_or_else(|| genesis_epoch_info.epoch_height() + 1);
 
         // If the proof we stored is for the same epoch as current or older, then just return that.
@@ -255,7 +273,9 @@ impl EpochSync {
             last_epoch_we_have_proof_for,
             next_epoch,
             &last_final_block_header_in_current_epoch,
-            next_block_header_after_last_final_block_of_current_epoch.approvals().to_vec(),
+            next_block_header_after_last_final_block_of_current_epoch
+                .approvals()
+                .to_vec(),
         )?;
         if all_epochs_since_last_proof.len() < 2 {
             return Err(Error::Other("Not enough epochs after genesis to epoch sync".to_string()));
@@ -274,13 +294,20 @@ impl EpochSync {
             .ok_or_else(|| Error::Other("Could not find last block of target epoch".to_string()))?;
 
         let last_block_info_of_prev_epoch = store
-            .get_ser::<BlockInfo>(DBCol::BlockInfo, last_block_of_prev_epoch.hash().as_bytes())?
+            .get_ser::<BlockInfo>(
+                DBCol::BlockInfo,
+                last_block_of_prev_epoch
+                    .hash()
+                    .as_bytes(),
+            )?
             .ok_or_else(|| Error::Other("Could not find last block info".to_string()))?;
 
         let second_last_block_of_prev_epoch = store
             .get_ser::<BlockHeader>(
                 DBCol::BlockHeader,
-                last_block_of_prev_epoch.prev_hash().as_bytes(),
+                last_block_of_prev_epoch
+                    .prev_hash()
+                    .as_bytes(),
             )?
             .ok_or_else(|| {
                 Error::Other("Could not find second last block of target epoch".to_string())
@@ -289,21 +316,27 @@ impl EpochSync {
         let second_last_block_info_of_prev_epoch = store
             .get_ser::<BlockInfo>(
                 DBCol::BlockInfo,
-                last_block_of_prev_epoch.prev_hash().as_bytes(),
+                last_block_of_prev_epoch
+                    .prev_hash()
+                    .as_bytes(),
             )?
             .ok_or_else(|| Error::Other("Could not find second last block info".to_string()))?;
 
         let first_block_info_of_prev_epoch = store
             .get_ser::<BlockInfo>(
                 DBCol::BlockInfo,
-                last_block_info_of_prev_epoch.epoch_first_block().as_bytes(),
+                last_block_info_of_prev_epoch
+                    .epoch_first_block()
+                    .as_bytes(),
             )?
             .ok_or_else(|| Error::Other("Could not find first block info".to_string()))?;
 
         let block_info_for_final_block_of_current_epoch = store
             .get_ser::<BlockInfo>(
                 DBCol::BlockInfo,
-                last_final_block_header_in_current_epoch.hash().as_bytes(),
+                last_final_block_header_in_current_epoch
+                    .hash()
+                    .as_bytes(),
             )?
             .ok_or_else(|| {
                 Error::Other("Could not find block info for latest final block".to_string())
@@ -312,7 +345,9 @@ impl EpochSync {
         let first_block_of_current_epoch = store
             .get_ser::<BlockHeader>(
                 DBCol::BlockHeader,
-                block_info_for_final_block_of_current_epoch.epoch_first_block().as_bytes(),
+                block_info_for_final_block_of_current_epoch
+                    .epoch_first_block()
+                    .as_bytes(),
             )?
             .ok_or_else(|| Error::Other("Could not find first block of next epoch".to_string()))?;
 
@@ -325,7 +360,9 @@ impl EpochSync {
         let partial_merkle_tree_for_first_block_of_current_epoch = store
             .get_ser::<PartialMerkleTree>(
                 DBCol::BlockMerkleTree,
-                first_block_of_current_epoch.hash().as_bytes(),
+                first_block_of_current_epoch
+                    .hash()
+                    .as_bytes(),
             )?
             .ok_or_else(|| {
                 Error::Other(
@@ -417,9 +454,11 @@ impl EpochSync {
         let mut epoch_ids = vec![];
         let mut current_epoch = next_epoch;
         while current_epoch != after_epoch {
-            let prev_epoch = epoch_to_prev_epoch.get(&current_epoch).ok_or_else(|| {
-                Error::Other(format!("Could not find prev epoch for {:?}", current_epoch))
-            })?;
+            let prev_epoch = epoch_to_prev_epoch
+                .get(&current_epoch)
+                .ok_or_else(|| {
+                    Error::Other(format!("Could not find prev epoch for {:?}", current_epoch))
+                })?;
             epoch_ids.push(current_epoch);
             current_epoch = *prev_epoch;
         }
@@ -461,7 +500,9 @@ impl EpochSync {
                         let third_last_block_header = store
                             .get_ser::<BlockHeader>(
                                 DBCol::BlockHeader,
-                                second_last_block_header.prev_hash().as_bytes(),
+                                second_last_block_header
+                                    .prev_hash()
+                                    .as_bytes(),
                             )?
                             .ok_or_else(|| {
                                 Error::Other(format!(
@@ -469,22 +510,39 @@ impl EpochSync {
                                     epoch_id
                                 ))
                             })?;
-                        (third_last_block_header, second_last_block_header.approvals().to_vec())
+                        (
+                            third_last_block_header,
+                            second_last_block_header
+                                .approvals()
+                                .to_vec(),
+                        )
                     } else {
                         (
                             current_epoch_last_final_block_header.clone(),
                             current_epoch_second_last_block_approvals.clone(),
                         )
                     };
-                let prev_epoch_info = all_epoch_infos.get(&prev_epoch_id).ok_or_else(|| {
-                    Error::Other(format!("Could not find epoch info for epoch {:?}", prev_epoch_id))
-                })?;
-                let epoch_info = all_epoch_infos.get(&epoch_id).ok_or_else(|| {
-                    Error::Other(format!("Could not find epoch info for epoch {:?}", epoch_id))
-                })?;
-                let next_epoch_info = all_epoch_infos.get(&next_epoch_id).ok_or_else(|| {
-                    Error::Other(format!("Could not find epoch info for epoch {:?}", next_epoch_id))
-                })?;
+                let prev_epoch_info = all_epoch_infos
+                    .get(&prev_epoch_id)
+                    .ok_or_else(|| {
+                        Error::Other(format!(
+                            "Could not find epoch info for epoch {:?}",
+                            prev_epoch_id
+                        ))
+                    })?;
+                let epoch_info = all_epoch_infos
+                    .get(&epoch_id)
+                    .ok_or_else(|| {
+                        Error::Other(format!("Could not find epoch info for epoch {:?}", epoch_id))
+                    })?;
+                let next_epoch_info = all_epoch_infos
+                    .get(&next_epoch_id)
+                    .ok_or_else(|| {
+                        Error::Other(format!(
+                            "Could not find epoch info for epoch {:?}",
+                            next_epoch_id
+                        ))
+                    })?;
 
                 let this_epoch_block_producers = Self::get_epoch_info_block_producers(epoch_info);
                 let next_epoch_block_producers =
@@ -545,7 +603,11 @@ impl EpochSync {
         }
         this_epoch_block_producers
             .iter()
-            .map(|validator| approver_to_signature.get(validator.account_id()).cloned())
+            .map(|validator| {
+                approver_to_signature
+                    .get(validator.account_id())
+                    .cloned()
+            })
             .collect()
     }
 
@@ -565,12 +627,12 @@ impl EpochSync {
         for (ord, validator_stake) in settlement.into_iter().enumerate() {
             let account_id = validator_stake.account_id();
             match validators.get(account_id) {
-                None => {
+                | None => {
                     validators.insert(account_id.clone(), result.len());
                     result
                         .push(validator_stake.get_approval_stake(ord >= settlement_epoch_boundary));
                 }
-                Some(old_ord) => {
+                | Some(old_ord) => {
                     if ord >= settlement_epoch_boundary {
                         result[*old_ord].stake_next_epoch = validator_stake.stake();
                     };
@@ -589,10 +651,16 @@ impl EpochSync {
         highest_height: BlockHeight,
         highest_height_peers: &[HighestHeightPeerInfo],
     ) -> Result<(), Error> {
-        if self.config.disable_epoch_sync_for_bootstrapping {
+        if self
+            .config
+            .disable_epoch_sync_for_bootstrapping
+        {
             return Ok(());
         }
-        let tip_height = chain.chain_store().header_head()?.height;
+        let tip_height = chain
+            .chain_store()
+            .header_head()?
+            .height;
         if tip_height != chain.genesis().height() {
             // Epoch Sync only supports bootstrapping at genesis. This is because there is no reason
             // to use Epoch Sync on an already existing node; we would have to carefully delete old
@@ -604,14 +672,14 @@ impl EpochSync {
             return Ok(());
         }
         match status {
-            SyncStatus::EpochSync(status) => {
+            | SyncStatus::EpochSync(status) => {
                 if status.attempt_time + self.config.timeout_for_epoch_sync < self.clock.now_utc() {
                     tracing::warn!("Epoch sync from {} timed out; retrying", status.source_peer_id);
                 } else {
                     return Ok(());
                 }
             }
-            _ => {}
+            | _ => {}
         }
 
         // TODO(#11976): Implement a more robust logic for picking a peer to request epoch sync from.
@@ -627,9 +695,10 @@ impl EpochSync {
             attempt_time: self.clock.now_utc(),
         });
 
-        self.network_adapter.send(PeerManagerMessageRequest::NetworkRequests(
-            NetworkRequests::EpochSyncRequest { peer_id: peer.peer_info.id.clone() },
-        ));
+        self.network_adapter
+            .send(PeerManagerMessageRequest::NetworkRequests(NetworkRequests::EpochSyncRequest {
+                peer_id: peer.peer_info.id.clone(),
+            }));
 
         Ok(())
     }
@@ -652,7 +721,11 @@ impl EpochSync {
                 .current_epoch
                 .first_block_header_in_epoch
                 .height()
-                .saturating_add(chain.epoch_length.max(chain.transaction_validity_period()))
+                .saturating_add(
+                    chain
+                        .epoch_length
+                        .max(chain.transaction_validity_period()),
+                )
                 >= status.source_peer_height
             {
                 tracing::error!(
@@ -689,14 +762,21 @@ impl EpochSync {
         store_update.set_ser(DBCol::EpochSyncProof, &[], &proof)?;
         let proof = proof.into_v1();
 
-        let last_header = proof.current_epoch.first_block_header_in_epoch;
+        let last_header = proof
+            .current_epoch
+            .first_block_header_in_epoch;
         let mut update = chain.mut_chain_store().store_update();
         update.save_block_header_no_update_tree(last_header.clone())?;
         update.save_block_header_no_update_tree(
-            proof.current_epoch.last_block_header_in_prev_epoch,
+            proof
+                .current_epoch
+                .last_block_header_in_prev_epoch,
         )?;
         update.save_block_header_no_update_tree(
-            proof.current_epoch.second_last_block_header_in_prev_epoch.clone(),
+            proof
+                .current_epoch
+                .second_last_block_header_in_prev_epoch
+                .clone(),
         )?;
         update.save_block_header_no_update_tree(
             proof
@@ -712,9 +792,17 @@ impl EpochSync {
         epoch_manager.init_after_epoch_sync(
             &mut store_update,
             proof.last_epoch.first_block_in_epoch,
-            proof.last_epoch.second_last_block_in_epoch,
-            proof.last_epoch.last_block_in_epoch.clone(),
-            proof.last_epoch.last_block_in_epoch.epoch_id(),
+            proof
+                .last_epoch
+                .second_last_block_in_epoch,
+            proof
+                .last_epoch
+                .last_block_in_epoch
+                .clone(),
+            proof
+                .last_epoch
+                .last_block_in_epoch
+                .epoch_id(),
             proof.last_epoch.epoch_info,
             last_header.epoch_id(),
             proof.last_epoch.next_epoch_info,
@@ -726,8 +814,9 @@ impl EpochSync {
         // and header of the first block of current epoch.
         // At least the third last block of last past epoch is final.
         // It means that `update` contains header of last final block of the first block of current epoch.
-        let last_header_last_finalized_height =
-            update.get_block_header(last_header.last_final_block())?.height();
+        let last_header_last_finalized_height = update
+            .get_block_header(last_header.last_final_block())?
+            .height();
         let mut first_block_info_in_epoch =
             BlockInfo::from_header(&last_header, last_header_last_finalized_height);
         // We need to populate fields below manually, as they are set to defaults by `BlockInfo::from_header`.
@@ -742,7 +831,12 @@ impl EpochSync {
 
         store_update.set_ser(
             DBCol::BlockOrdinal,
-            &index_to_bytes(proof.current_epoch.partial_merkle_tree_for_first_block.size()),
+            &index_to_bytes(
+                proof
+                    .current_epoch
+                    .partial_merkle_tree_for_first_block
+                    .size(),
+            ),
             last_header.hash(),
         )?;
 
@@ -755,7 +849,9 @@ impl EpochSync {
         store_update.set_ser(
             DBCol::BlockMerkleTree,
             last_header.hash().as_bytes(),
-            &proof.current_epoch.partial_merkle_tree_for_first_block,
+            &proof
+                .current_epoch
+                .partial_merkle_tree_for_first_block,
         )?;
 
         update.merge(store_update);
@@ -810,7 +906,9 @@ impl EpochSync {
             if !Self::verify_block_producer_handoff(
                 &epoch.block_producers,
                 epoch.use_versioned_bp_hash_format,
-                prev_epoch.last_final_block_header.next_bp_hash(),
+                prev_epoch
+                    .last_final_block_header
+                    .next_bp_hash(),
             )? {
                 return Err(Error::InvalidEpochSyncProof(format!(
                     "invalid block producer handoff to epoch index {}",
@@ -824,7 +922,10 @@ impl EpochSync {
 
         Self::verify_current_epoch_data(
             current_epoch,
-            &all_epochs.last().unwrap().last_final_block_header,
+            &all_epochs
+                .last()
+                .unwrap()
+                .last_final_block_header,
         )?;
         Ok(())
     }
@@ -850,7 +951,10 @@ impl EpochSync {
         // needs to be valid and have the correct root.
         //
         // Note that the block_ordinal in the header is 1-based, so we need to add 1 to the size.
-        if current_epoch.partial_merkle_tree_for_first_block.size() + 1
+        if current_epoch
+            .partial_merkle_tree_for_first_block
+            .size()
+            + 1
             != first_block_header.block_ordinal()
         {
             return Err(Error::InvalidEpochSyncProof(
@@ -858,8 +962,12 @@ impl EpochSync {
             ));
         }
 
-        if !current_epoch.partial_merkle_tree_for_first_block.is_well_formed()
-            || current_epoch.partial_merkle_tree_for_first_block.root()
+        if !current_epoch
+            .partial_merkle_tree_for_first_block
+            .is_well_formed()
+            || current_epoch
+                .partial_merkle_tree_for_first_block
+                .root()
                 != *first_block_header.block_merkle_root()
         {
             return Err(Error::InvalidEpochSyncProof(
@@ -868,15 +976,23 @@ impl EpochSync {
         }
 
         // Verify the two headers before the first block.
-        if current_epoch.last_block_header_in_prev_epoch.hash()
-            != current_epoch.first_block_header_in_epoch.prev_hash()
+        if current_epoch
+            .last_block_header_in_prev_epoch
+            .hash()
+            != current_epoch
+                .first_block_header_in_epoch
+                .prev_hash()
         {
             return Err(Error::InvalidEpochSyncProof(
                 "invalid last_block_header_in_prev_epoch".to_string(),
             ));
         }
-        if current_epoch.second_last_block_header_in_prev_epoch.hash()
-            != current_epoch.last_block_header_in_prev_epoch.prev_hash()
+        if current_epoch
+            .second_last_block_header_in_prev_epoch
+            .hash()
+            != current_epoch
+                .last_block_header_in_prev_epoch
+                .prev_hash()
         {
             return Err(Error::InvalidEpochSyncProof(
                 "invalid second_last_block_header_in_prev_epoch".to_string(),
@@ -899,8 +1015,9 @@ impl EpochSync {
             &last_epoch.next_epoch_info,
             &last_epoch.next_next_epoch_info,
         ));
-        let expected_epoch_sync_data_hash =
-            current_epoch_first_block_header.epoch_sync_data_hash().ok_or_else(|| {
+        let expected_epoch_sync_data_hash = current_epoch_first_block_header
+            .epoch_sync_data_hash()
+            .ok_or_else(|| {
                 Error::InvalidEpochSyncProof("missing epoch_sync_data_hash".to_string())
             })?;
         if epoch_sync_data_hash != expected_epoch_sync_data_hash {
@@ -958,7 +1075,10 @@ impl EpochSync {
         let mut total_stake: Balance = 0;
         let mut endorsed_stake: Balance = 0;
 
-        for (validator, may_be_signature) in block_producers.iter().zip(endorsements.iter()) {
+        for (validator, may_be_signature) in block_producers
+            .iter()
+            .zip(endorsements.iter())
+        {
             if let Some(signature) = may_be_signature {
                 if !signature.verify(&message_to_sign, validator.public_key()) {
                     return Err(near_chain::Error::InvalidEpochSyncProof(format!(
@@ -985,26 +1105,42 @@ impl EpochSync {
 
 impl Handler<EpochSyncRequestMessage> for ClientActorInner {
     #[perf]
-    fn handle(&mut self, msg: EpochSyncRequestMessage) {
-        if self.client.epoch_sync.config.ignore_epoch_sync_network_requests {
+    fn handle(
+        &mut self,
+        msg: EpochSyncRequestMessage,
+    ) {
+        if self
+            .client
+            .epoch_sync
+            .config
+            .ignore_epoch_sync_network_requests
+        {
             // Temporary kill switch for the rare case there were issues with this network request.
             return;
         }
         let store = self.client.chain.chain_store.store();
         let network_adapter = self.client.network_adapter.clone();
         let requester_peer_id = msg.from_peer;
-        let cache = self.client.epoch_sync.last_epoch_sync_response_cache.clone();
-        let transaction_validity_period = self.client.chain.transaction_validity_period();
-        self.client.epoch_sync.async_computation_spawner.spawn(
-            "respond to epoch sync request",
-            move || {
+        let cache = self
+            .client
+            .epoch_sync
+            .last_epoch_sync_response_cache
+            .clone();
+        let transaction_validity_period = self
+            .client
+            .chain
+            .transaction_validity_period();
+        self.client
+            .epoch_sync
+            .async_computation_spawner
+            .spawn("respond to epoch sync request", move || {
                 let proof = match EpochSync::derive_epoch_sync_proof(
                     store,
                     transaction_validity_period,
                     cache,
                 ) {
-                    Ok(epoch_sync_proof) => epoch_sync_proof,
-                    Err(err) => {
+                    | Ok(epoch_sync_proof) => epoch_sync_proof,
+                    | Err(err) => {
                         tracing::error!(?err, "Failed to derive epoch sync proof");
                         return;
                     }
@@ -1012,17 +1148,19 @@ impl Handler<EpochSyncRequestMessage> for ClientActorInner {
                 network_adapter.send(PeerManagerMessageRequest::NetworkRequests(
                     NetworkRequests::EpochSyncResponse { peer_id: requester_peer_id, proof },
                 ));
-            },
-        )
+            })
     }
 }
 
 impl Handler<EpochSyncResponseMessage> for ClientActorInner {
     #[perf]
-    fn handle(&mut self, msg: EpochSyncResponseMessage) {
+    fn handle(
+        &mut self,
+        msg: EpochSyncResponseMessage,
+    ) {
         let (proof, _) = match msg.proof.decode() {
-            Ok(proof) => proof,
-            Err(err) => {
+            | Ok(proof) => proof,
+            | Err(err) => {
                 tracing::error!(?err, "Failed to uncompress epoch sync proof");
                 return;
             }

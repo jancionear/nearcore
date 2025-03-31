@@ -65,8 +65,14 @@ impl BlockProductionTracker {
         Self(lru::LruCache::new(NonZeroUsize::new(PRODUCTION_TIMES_CACHE_SIZE).unwrap()))
     }
 
-    pub(crate) fn get(&mut self, height: BlockHeight) -> BlockProduction {
-        self.0.get(&height).cloned().unwrap_or_default()
+    pub(crate) fn get(
+        &mut self,
+        height: BlockHeight,
+    ) -> BlockProduction {
+        self.0
+            .get(&height)
+            .cloned()
+            .unwrap_or_default()
     }
 
     /// Record approvals received so far for this block. Must be called before block is produced.
@@ -87,7 +93,9 @@ impl BlockProductionTracker {
             },
         ) {
             log_assert!(
-                prev_block_production.block_production_time.is_none(),
+                prev_block_production
+                    .block_production_time
+                    .is_none(),
                 "record approvals called after block {} produced",
                 height
             );
@@ -108,7 +116,11 @@ impl BlockProductionTracker {
 
     /// Record chunk collected after a block is produced if the block didn't include a chunk for the shard.
     /// If called before the block was produced, nothing happens.
-    pub(crate) fn record_chunk_collected(&mut self, height: BlockHeight, shard_index: ShardIndex) {
+    pub(crate) fn record_chunk_collected(
+        &mut self,
+        height: BlockHeight,
+        shard_index: ShardIndex,
+    ) {
         if let Some(block_production) = self.0.get_mut(&height) {
             let chunk_collections = &mut block_production.chunks_collection_time;
             // Check that chunk_collection is set and we haven't received this chunk yet.
@@ -165,31 +177,38 @@ impl BlockProductionTracker {
 
 impl Handler<DebugStatus> for ClientActorInner {
     #[perf]
-    fn handle(&mut self, msg: DebugStatus) -> Result<DebugStatusResponse, StatusError> {
+    fn handle(
+        &mut self,
+        msg: DebugStatus,
+    ) -> Result<DebugStatusResponse, StatusError> {
         match msg {
-            DebugStatus::SyncStatus => {
+            | DebugStatus::SyncStatus => {
                 Ok(DebugStatusResponse::SyncStatus(self.client.sync_status.clone().into()))
             }
-            DebugStatus::TrackedShards => {
+            | DebugStatus::TrackedShards => {
                 Ok(DebugStatusResponse::TrackedShards(self.get_tracked_shards_view()?))
             }
-            DebugStatus::EpochInfo => {
+            | DebugStatus::EpochInfo => {
                 Ok(DebugStatusResponse::EpochInfo(self.get_recent_epoch_info()?))
             }
-            DebugStatus::BlockStatus(height) => {
+            | DebugStatus::BlockStatus(height) => {
                 Ok(DebugStatusResponse::BlockStatus(self.get_last_blocks_info(height)?))
             }
-            DebugStatus::ValidatorStatus => {
+            | DebugStatus::ValidatorStatus => {
                 Ok(DebugStatusResponse::ValidatorStatus(self.get_validator_status()?))
             }
-            DebugStatus::CatchupStatus => {
+            | DebugStatus::CatchupStatus => {
                 Ok(DebugStatusResponse::CatchupStatus(self.client.get_catchup_status()?))
             }
-            DebugStatus::RequestedStateParts => Ok(DebugStatusResponse::RequestedStateParts(
-                self.client.chain.get_requested_state_parts(),
+            | DebugStatus::RequestedStateParts => Ok(DebugStatusResponse::RequestedStateParts(
+                self.client
+                    .chain
+                    .get_requested_state_parts(),
             )),
-            DebugStatus::ChainProcessingStatus => Ok(DebugStatusResponse::ChainProcessingStatus(
-                self.client.chain.get_chain_processing_info(),
+            | DebugStatus::ChainProcessingStatus => Ok(DebugStatusResponse::ChainProcessingStatus(
+                self.client
+                    .chain
+                    .get_chain_processing_info(),
             )),
         }
     }
@@ -209,7 +228,12 @@ impl ClientActorInner {
             .get_epoch_block_producers_ordered(epoch_id, last_known_block_hash)?
             .into_iter()
             .map(|(validator_stake, is_slashed)| {
-                block_producers_set.insert(validator_stake.account_id().as_str().to_owned());
+                block_producers_set.insert(
+                    validator_stake
+                        .account_id()
+                        .as_str()
+                        .to_owned(),
+                );
                 ValidatorInfo { account_id: validator_stake.take_account_id(), is_slashed }
             })
             .collect();
@@ -236,12 +260,20 @@ impl ClientActorInner {
         current_block: CryptoHash,
         is_current_block_head: bool,
     ) -> Result<(EpochInfoView, CryptoHash), Error> {
-        let epoch_start_height =
-            self.client.epoch_manager.get_epoch_start_height(&current_block)?;
+        let epoch_start_height = self
+            .client
+            .epoch_manager
+            .get_epoch_start_height(&current_block)?;
 
-        let block = self.client.chain.get_block_by_height(epoch_start_height)?;
+        let block = self
+            .client
+            .chain
+            .get_block_by_height(epoch_start_height)?;
         let epoch_id = block.header().epoch_id();
-        let shard_layout = self.client.epoch_manager.get_shard_layout(&epoch_id)?;
+        let shard_layout = self
+            .client
+            .epoch_manager
+            .get_shard_layout(&epoch_id)?;
 
         let (validators, chunk_only_producers) =
             self.get_producers_for_epoch(&epoch_id, &current_block)?;
@@ -257,11 +289,10 @@ impl ClientActorInner {
                     return (0, 0);
                 };
 
-                let state_root_node = self.client.runtime_adapter.get_state_root_node(
-                    shard_id,
-                    block.hash(),
-                    &chunk.prev_state_root(),
-                );
+                let state_root_node = self
+                    .client
+                    .runtime_adapter
+                    .get_state_root_node(shard_id, block.hash(), &chunk.prev_state_root());
                 if let Ok(state_root_node) = state_root_node {
                     (
                         state_root_node.memory_usage,
@@ -278,7 +309,7 @@ impl ClientActorInner {
             .map(|shard_id| {
                 let key = borsh::to_vec(&StateHeaderKey(shard_id, *block.hash()));
                 match key {
-                    Ok(key) => {
+                    | Ok(key) => {
                         matches!(
                             self.client
                                 .chain
@@ -288,7 +319,7 @@ impl ClientActorInner {
                             Ok(Some(_))
                         )
                     }
-                    Err(_) => false,
+                    | Err(_) => false,
                 }
             })
             .collect();
@@ -335,8 +366,10 @@ impl ClientActorInner {
 
     fn get_next_epoch_view(&self) -> Result<EpochInfoView, Error> {
         let head = self.client.chain.head()?;
-        let epoch_start_height =
-            self.client.epoch_manager.get_epoch_start_height(&head.last_block_hash)?;
+        let epoch_start_height = self
+            .client
+            .epoch_manager
+            .get_epoch_start_height(&head.last_block_hash)?;
         let (validators, chunk_only_producers) =
             self.get_producers_for_epoch(&head.next_epoch_id, &head.last_block_hash)?;
 
@@ -362,32 +395,47 @@ impl ClientActorInner {
     }
 
     fn get_tracked_shards_view(&self) -> Result<TrackedShardsView, near_chain_primitives::Error> {
-        let epoch_id = self.client.chain.header_head()?.epoch_id;
-        let fetch_hash = self.client.chain.header_head()?.last_block_hash;
-        let me = self.client.validator_signer.get().map(|x| x.validator_id().clone());
-        let shard_ids = self.client.epoch_manager.shard_ids(&epoch_id).unwrap();
+        let epoch_id = self
+            .client
+            .chain
+            .header_head()?
+            .epoch_id;
+        let fetch_hash = self
+            .client
+            .chain
+            .header_head()?
+            .last_block_hash;
+        let me = self
+            .client
+            .validator_signer
+            .get()
+            .map(|x| x.validator_id().clone());
+        let shard_ids = self
+            .client
+            .epoch_manager
+            .shard_ids(&epoch_id)
+            .unwrap();
         let shards_tracked_this_epoch = shard_ids
             .iter()
             .map(|&shard_id| {
-                self.client.shard_tracker.care_about_shard(me.as_ref(), &fetch_hash, shard_id, true)
+                self.client
+                    .shard_tracker
+                    .care_about_shard(me.as_ref(), &fetch_hash, shard_id, true)
             })
             .collect();
         let shards_tracked_next_epoch = shard_ids
             .into_iter()
             .map(|shard_id| {
-                self.client.shard_tracker.will_care_about_shard(
-                    me.as_ref(),
-                    &fetch_hash,
-                    shard_id,
-                    true,
-                )
+                self.client
+                    .shard_tracker
+                    .will_care_about_shard(me.as_ref(), &fetch_hash, shard_id, true)
             })
             .collect();
         Ok(TrackedShardsView { shards_tracked_this_epoch, shards_tracked_next_epoch })
     }
 
     fn get_recent_epoch_info(
-        &mut self,
+        &mut self
     ) -> Result<Vec<EpochInfoView>, near_chain_primitives::Error> {
         // Next epoch id
         let mut epochs_info: Vec<EpochInfoView> = Vec::new();
@@ -420,7 +468,12 @@ impl ClientActorInner {
         let mut blocks: HashMap<CryptoHash, DebugBlockStatus> = HashMap::new();
         let mut missed_heights: Vec<MissedHeightInfo> = Vec::new();
         let mut last_epoch_id = head.epoch_id;
-        let initial_gas_price = self.client.chain.genesis_block().header().next_gas_price();
+        let initial_gas_price = self
+            .client
+            .chain
+            .genesis_block()
+            .header()
+            .next_gas_price();
 
         let mut height_to_fetch = starting_height.unwrap_or(header_head.height);
         let min_height_to_fetch =
@@ -448,7 +501,10 @@ impl ClientActorInner {
                 height_to_fetch -= 1;
                 block_hashes
             } else {
-                let block_hashes = block_hashes_to_force_fetch.iter().cloned().collect();
+                let block_hashes = block_hashes_to_force_fetch
+                    .iter()
+                    .cloned()
+                    .collect();
                 block_hashes_to_force_fetch.clear();
                 block_hashes
             };
@@ -459,18 +515,31 @@ impl ClientActorInner {
                 let block_header = if block_hash == CryptoHash::default() {
                     self.client.chain.genesis().clone()
                 } else {
-                    self.client.chain.get_block_header(&block_hash)?
+                    self.client
+                        .chain
+                        .get_block_header(&block_hash)?
                 };
                 let block = if block_hash == CryptoHash::default() {
-                    Some(self.client.chain.genesis_block().clone())
+                    Some(
+                        self.client
+                            .chain
+                            .genesis_block()
+                            .clone(),
+                    )
                 } else {
-                    self.client.chain.get_block(&block_hash).ok()
+                    self.client
+                        .chain
+                        .get_block(&block_hash)
+                        .ok()
                 };
-                let is_on_canonical_chain =
-                    match self.client.chain.get_block_by_height(block_header.height()) {
-                        Ok(block) => block.hash() == &block_hash,
-                        Err(_) => false,
-                    };
+                let is_on_canonical_chain = match self
+                    .client
+                    .chain
+                    .get_block_by_height(block_header.height())
+                {
+                    | Ok(block) => block.hash() == &block_hash,
+                    | Err(_) => false,
+                };
 
                 let block_producer = self
                     .client
@@ -485,11 +554,12 @@ impl ClientActorInner {
                     .get_protocol_config(block_header.epoch_id())?
                     .runtime_config
                     .congestion_control_config;
-                let block_congestion_info =
-                    block.as_ref().map(|block| block.block_congestion_info());
+                let block_congestion_info = block
+                    .as_ref()
+                    .map(|block| block.block_congestion_info());
 
                 let chunks = match &block {
-                    Some(block) => block
+                    | Some(block) => block
                         .chunks()
                         .iter_deprecated()
                         .map(|chunk| {
@@ -500,16 +570,20 @@ impl ClientActorInner {
                                 .copied();
 
                             let congestion_level =
-                                block_congestion_info.as_ref().and_then(|shards_info| {
-                                    shards_info.get(&chunk.shard_id()).map(|ext_info| {
-                                        CongestionControl::new(
-                                            congestion_control_config,
-                                            ext_info.congestion_info,
-                                            ext_info.missed_chunks_count,
-                                        )
-                                        .congestion_level()
-                                    })
-                                });
+                                block_congestion_info
+                                    .as_ref()
+                                    .and_then(|shards_info| {
+                                        shards_info
+                                            .get(&chunk.shard_id())
+                                            .map(|ext_info| {
+                                                CongestionControl::new(
+                                                    congestion_control_config,
+                                                    ext_info.congestion_info,
+                                                    ext_info.missed_chunks_count,
+                                                )
+                                                .congestion_level()
+                                            })
+                                    });
 
                             DebugChunkStatus {
                                 shard_id: chunk.shard_id().into(),
@@ -535,7 +609,7 @@ impl ClientActorInner {
                             }
                         })
                         .collect(),
-                    None => vec![],
+                    | None => vec![],
                 };
 
                 blocks.insert(
@@ -592,24 +666,36 @@ impl ClientActorInner {
 
             let estimated_epoch_end = max(
                 head.height,
-                self.client.epoch_manager.get_epoch_start_height(&head.last_block_hash)?
+                self.client
+                    .epoch_manager
+                    .get_epoch_start_height(&head.last_block_hash)?
                     + self.client.chain.epoch_length,
             );
-            let max_height = self.client.doomslug.get_largest_approval_height().clamp(
-                head.height,
-                min(head.height + DEBUG_MAX_PRODUCTION_BLOCKS_TO_SHOW, estimated_epoch_end),
-            );
+            let max_height = self
+                .client
+                .doomslug
+                .get_largest_approval_height()
+                .clamp(
+                    head.height,
+                    min(head.height + DEBUG_MAX_PRODUCTION_BLOCKS_TO_SHOW, estimated_epoch_end),
+                );
 
             #[allow(clippy::redundant_clone)]
             let mut epoch_id = head.epoch_id;
-            for height in
-                head.height.saturating_sub(DEBUG_PRODUCTION_OLD_BLOCKS_TO_SHOW)..=max_height
+            for height in head
+                .height
+                .saturating_sub(DEBUG_PRODUCTION_OLD_BLOCKS_TO_SHOW)
+                ..=max_height
             {
                 let mut has_block_or_chunks_to_produce = false;
                 let mut production = ProductionAtHeight::default();
 
                 // The block may be in the last epoch from head, we need to account for that.
-                if let Ok(header) = self.client.chain.get_block_header_by_height(height) {
+                if let Ok(header) = self
+                    .client
+                    .chain
+                    .get_block_header_by_height(height)
+                {
                     epoch_id = *header.epoch_id();
                 }
 
@@ -621,13 +707,22 @@ impl ClientActorInner {
                     .map(|f| f.to_string())
                     .unwrap_or_default();
 
-                let shard_ids = self.client.epoch_manager.shard_ids(&epoch_id)?;
+                let shard_ids = self
+                    .client
+                    .epoch_manager
+                    .shard_ids(&epoch_id)?;
 
                 if block_producer == validator_id {
                     // For each height - we want to collect information about received approvals.
-                    let mut block_production = self.client.block_production_info.get(height);
-                    block_production.block_included =
-                        self.client.chain.get_block_hash_by_height(height).is_ok();
+                    let mut block_production = self
+                        .client
+                        .block_production_info
+                        .get(height);
+                    block_production.block_included = self
+                        .client
+                        .chain
+                        .get_block_hash_by_height(height)
+                        .is_ok();
                     production.block_production = Some(block_production);
                     has_block_or_chunks_to_produce = true;
                 }
@@ -688,9 +783,16 @@ impl ClientActorInner {
                 })
                 .ok(),
             head_height: head.height,
-            shards: self.client.epoch_manager.shard_ids(&head.epoch_id).unwrap_or_default().len()
-                as NumShards,
-            approval_history: self.client.doomslug.get_approval_history(),
+            shards: self
+                .client
+                .epoch_manager
+                .shard_ids(&head.epoch_id)
+                .unwrap_or_default()
+                .len() as NumShards,
+            approval_history: self
+                .client
+                .doomslug
+                .get_approval_history(),
             production: productions,
             banned_chunk_producers: self
                 .client
@@ -713,22 +815,28 @@ impl ClientActorInner {
             return None;
         }
         // Get the epoch id.
-        let Ok(epoch_id) =
-            self.client.epoch_manager.get_epoch_id_from_prev_block(block.header().prev_hash())
+        let Ok(epoch_id) = self
+            .client
+            .epoch_manager
+            .get_epoch_id_from_prev_block(block.header().prev_hash())
         else {
             return None;
         };
         // Iterate all shards and compute the endorsed stake from the endorsement signatures.
-        for (chunk_header, signatures) in
-            block.chunks().iter_deprecated().zip(block.chunk_endorsements())
+        for (chunk_header, signatures) in block
+            .chunks()
+            .iter_deprecated()
+            .zip(block.chunk_endorsements())
         {
             // Validation checks.
             if chunk_header.height_included() != block.header().height() {
                 chunk_endorsements.insert(chunk_header.chunk_hash(), 0.0);
                 continue;
             }
-            let Ok(chunk_validator_assignments) =
-                self.client.epoch_manager.get_chunk_validator_assignments(
+            let Ok(chunk_validator_assignments) = self
+                .client
+                .epoch_manager
+                .get_chunk_validator_assignments(
                     &epoch_id,
                     chunk_header.shard_id(),
                     chunk_header.height_created(),
@@ -744,13 +852,16 @@ impl ClientActorInner {
             }
             // Compute total stake and endorsed stake.
             let mut endorsed_chunk_validators = HashMap::new();
-            for (account_id, signature) in ordered_chunk_validators.iter().zip(signatures) {
+            for (account_id, signature) in ordered_chunk_validators
+                .iter()
+                .zip(signatures)
+            {
                 let Some(signature) = signature else { continue };
-                let Ok((validator, _)) = self.client.epoch_manager.get_validator_by_account_id(
-                    &epoch_id,
-                    block.header().prev_hash(),
-                    account_id,
-                ) else {
+                let Ok((validator, _)) = self
+                    .client
+                    .epoch_manager
+                    .get_validator_by_account_id(&epoch_id, block.header().prev_hash(), account_id)
+                else {
                     continue;
                 };
                 if !ChunkEndorsement::validate_signature(
@@ -773,25 +884,44 @@ impl ClientActorInner {
     }
 }
 
-fn new_peer_info_view(chain: &Chain, connected_peer_info: &ConnectedPeerInfo) -> PeerInfoView {
+fn new_peer_info_view(
+    chain: &Chain,
+    connected_peer_info: &ConnectedPeerInfo,
+) -> PeerInfoView {
     let full_peer_info = &connected_peer_info.full_peer_info;
     let now = Instant::now();
     PeerInfoView {
         addr: match full_peer_info.peer_info.addr {
-            Some(socket_addr) => socket_addr.to_string(),
-            None => "N/A".to_string(),
+            | Some(socket_addr) => socket_addr.to_string(),
+            | None => "N/A".to_string(),
         },
-        account_id: full_peer_info.peer_info.account_id.clone(),
-        height: full_peer_info.chain_info.last_block.map(|x| x.height),
-        block_hash: full_peer_info.chain_info.last_block.map(|x| x.hash),
+        account_id: full_peer_info
+            .peer_info
+            .account_id
+            .clone(),
+        height: full_peer_info
+            .chain_info
+            .last_block
+            .map(|x| x.height),
+        block_hash: full_peer_info
+            .chain_info
+            .last_block
+            .map(|x| x.hash),
         is_highest_block_invalid: full_peer_info
             .chain_info
             .last_block
             .map(|x| chain.is_block_invalid(&x.hash))
             .unwrap_or_default(),
-        tracked_shards: full_peer_info.chain_info.tracked_shards.clone(),
+        tracked_shards: full_peer_info
+            .chain_info
+            .tracked_shards
+            .clone(),
         archival: full_peer_info.chain_info.archival,
-        peer_id: full_peer_info.peer_info.id.public_key().clone(),
+        peer_id: full_peer_info
+            .peer_info
+            .id
+            .public_key()
+            .clone(),
         received_bytes_per_sec: connected_peer_info.received_bytes_per_sec,
         sent_bytes_per_sec: connected_peer_info.sent_bytes_per_sec,
         last_time_peer_requested_millis: now
@@ -808,7 +938,10 @@ fn new_peer_info_view(chain: &Chain, connected_peer_info: &ConnectedPeerInfo) ->
     }
 }
 
-pub(crate) fn new_network_info_view(chain: &Chain, network_info: &NetworkInfo) -> NetworkInfoView {
+pub(crate) fn new_network_info_view(
+    chain: &Chain,
+    network_info: &NetworkInfo,
+) -> NetworkInfoView {
     NetworkInfoView {
         peer_max_count: network_info.peer_max_count,
         num_connected_peers: network_info.num_connected_peers,
@@ -823,10 +956,11 @@ pub(crate) fn new_network_info_view(chain: &Chain, network_info: &NetworkInfo) -
             .map(|it| KnownProducerView {
                 account_id: it.account_id.clone(),
                 peer_id: it.peer_id.public_key().clone(),
-                next_hops: it
-                    .next_hops
-                    .as_ref()
-                    .map(|it| it.iter().map(|peer_id| peer_id.public_key().clone()).collect()),
+                next_hops: it.next_hops.as_ref().map(|it| {
+                    it.iter()
+                        .map(|peer_id| peer_id.public_key().clone())
+                        .collect()
+                }),
             })
             .collect(),
         tier1_accounts_keys: network_info.tier1_accounts_keys.clone(),

@@ -50,7 +50,11 @@ impl ConcurrentArena {
         name: String,
         threads: Vec<ConcurrentArenaForThread>,
     ) -> STArena {
-        let mut chunks = vec![Vec::new(); self.next_chunk_pos.load(Ordering::Relaxed)];
+        let mut chunks = vec![
+            Vec::new();
+            self.next_chunk_pos
+                .load(Ordering::Relaxed)
+        ];
         let mut active_allocs_bytes = 0;
         let mut active_allocs_count = 0;
         for thread in threads {
@@ -95,37 +99,59 @@ impl ConcurrentArenaMemory {
         Self { chunks: Vec::new(), chunk_pos_global_to_local: Vec::new() }
     }
 
-    pub fn add_chunk(&mut self, pos: usize) {
+    pub fn add_chunk(
+        &mut self,
+        pos: usize,
+    ) {
         while self.chunk_pos_global_to_local.len() <= pos {
-            self.chunk_pos_global_to_local.push(usize::MAX);
+            self.chunk_pos_global_to_local
+                .push(usize::MAX);
         }
         self.chunk_pos_global_to_local[pos] = self.chunks.len();
-        self.chunks.push((pos, vec![0; CHUNK_SIZE]));
+        self.chunks
+            .push((pos, vec![0; CHUNK_SIZE]));
     }
 
-    pub fn chunk(&self, pos: usize) -> &[u8] {
+    pub fn chunk(
+        &self,
+        pos: usize,
+    ) -> &[u8] {
         let index = self.chunk_pos_global_to_local[pos];
         &self.chunks[index].1
     }
 
-    pub fn chunk_mut(&mut self, pos: usize) -> &mut [u8] {
+    pub fn chunk_mut(
+        &mut self,
+        pos: usize,
+    ) -> &mut [u8] {
         let index = self.chunk_pos_global_to_local[pos];
         &mut self.chunks[index].1
     }
 }
 
 impl ArenaMemory for ConcurrentArenaMemory {
-    fn raw_slice(&self, pos: ArenaPos, len: usize) -> &[u8] {
+    fn raw_slice(
+        &self,
+        pos: ArenaPos,
+        len: usize,
+    ) -> &[u8] {
         &self.chunk(pos.chunk())[pos.pos()..pos.pos() + len]
     }
 }
 
 impl ArenaMemoryMut for ConcurrentArenaMemory {
-    fn is_mutable(&self, _pos: ArenaPos) -> bool {
+    fn is_mutable(
+        &self,
+        _pos: ArenaPos,
+    ) -> bool {
         true
     }
 
-    fn raw_slice_mut(&mut self, pos: ArenaPos, len: usize) -> &mut [u8] {
+    fn raw_slice_mut(
+        &mut self,
+        pos: ArenaPos,
+        len: usize,
+    ) -> &mut [u8] {
         &mut self.chunk_mut(pos.chunk())[pos.pos()..pos.pos() + len]
     }
 }
@@ -162,7 +188,9 @@ impl ConcurrentArenaAllocator {
         let size_class = allocation_class(size);
         let allocation_size = allocation_size(size_class);
         if self.next_pos.is_invalid() || self.next_pos.pos() + allocation_size > CHUNK_SIZE {
-            let next_chunk_pos = self.next_chunk_pos.fetch_add(1, Ordering::Relaxed);
+            let next_chunk_pos = self
+                .next_chunk_pos
+                .fetch_add(1, Ordering::Relaxed);
             self.next_pos = ArenaPos { chunk: next_chunk_pos as u32, pos: 0 };
             arena.add_chunk(next_chunk_pos);
         }
@@ -198,8 +226,12 @@ impl ArenaMut for ConcurrentArenaForThread {
         &mut self.memory
     }
 
-    fn alloc(&mut self, size: usize) -> ArenaSliceMut<Self::Memory> {
-        self.allocator.allocate(&mut self.memory, size)
+    fn alloc(
+        &mut self,
+        size: usize,
+    ) -> ArenaSliceMut<Self::Memory> {
+        self.allocator
+            .allocate(&mut self.memory, size)
     }
 }
 
@@ -207,7 +239,7 @@ impl ArenaMut for ConcurrentArenaForThread {
 mod tests {
     use super::ConcurrentArena;
     use crate::trie::mem::arena::alloc::CHUNK_SIZE;
-    use crate::trie::mem::arena::metrics::MEMTRIE_ARENA_MEMORY_USAGE_BYTES;
+    use crate::trie::mem::arena::metrics::MEM_TRIE_ARENA_MEMORY_USAGE_BYTES;
     use crate::trie::mem::arena::{Arena, ArenaMemory, ArenaMut, ArenaWithDealloc};
 
     #[test]
@@ -221,9 +253,15 @@ mod tests {
         let mut alloc1 = thread1.alloc(17);
         let mut alloc2 = thread2.alloc(25);
         let mut alloc3 = thread3.alloc(40);
-        alloc1.raw_slice_mut().copy_from_slice(&[1; 17]);
-        alloc2.raw_slice_mut().copy_from_slice(&[2; 25]);
-        alloc3.raw_slice_mut().copy_from_slice(&[3; 40]);
+        alloc1
+            .raw_slice_mut()
+            .copy_from_slice(&[1; 17]);
+        alloc2
+            .raw_slice_mut()
+            .copy_from_slice(&[2; 25]);
+        alloc3
+            .raw_slice_mut()
+            .copy_from_slice(&[3; 40]);
         let ptr1 = alloc1.raw_pos();
         let ptr2 = alloc2.raw_pos();
         let ptr3 = alloc3.raw_pos();
@@ -234,12 +272,17 @@ mod tests {
         assert_eq!(starena.num_active_allocs(), 3);
         assert_eq!(starena.active_allocs_bytes(), 24 + 32 + 40);
         assert_eq!(
-            MEMTRIE_ARENA_MEMORY_USAGE_BYTES.get_metric_with_label_values(&[&name]).unwrap().get(),
+            MEM_TRIE_ARENA_MEMORY_USAGE_BYTES
+                .get_metric_with_label_values(&[&name])
+                .unwrap()
+                .get(),
             3 * CHUNK_SIZE as i64
         );
 
         let mut alloc4 = starena.alloc(17);
-        alloc4.raw_slice_mut().copy_from_slice(&[4; 17]);
+        alloc4
+            .raw_slice_mut()
+            .copy_from_slice(&[4; 17]);
         let ptr4 = alloc4.raw_pos();
 
         assert_eq!(starena.memory().raw_slice(ptr1, 17), &[1; 17]);
@@ -252,19 +295,27 @@ mod tests {
         starena.dealloc(ptr1, 17);
         let mut alloc5 = starena.alloc(23);
         assert_eq!(alloc5.raw_pos(), ptr1);
-        alloc5.raw_slice_mut().copy_from_slice(&[5; 23]);
+        alloc5
+            .raw_slice_mut()
+            .copy_from_slice(&[5; 23]);
         starena.dealloc(ptr2, 25);
         let mut alloc6 = starena.alloc(32);
         assert_eq!(alloc6.raw_pos(), ptr2);
-        alloc6.raw_slice_mut().copy_from_slice(&[6; 32]);
+        alloc6
+            .raw_slice_mut()
+            .copy_from_slice(&[6; 32]);
         starena.dealloc(ptr3, 40);
         let mut alloc7 = starena.alloc(37);
         assert_eq!(alloc7.raw_pos(), ptr3);
-        alloc7.raw_slice_mut().copy_from_slice(&[7; 37]);
+        alloc7
+            .raw_slice_mut()
+            .copy_from_slice(&[7; 37]);
         starena.dealloc(ptr4, 17);
         let mut alloc8 = starena.alloc(24);
         assert_eq!(alloc8.raw_pos(), ptr4);
-        alloc8.raw_slice_mut().copy_from_slice(&[8; 24]);
+        alloc8
+            .raw_slice_mut()
+            .copy_from_slice(&[8; 24]);
 
         assert_eq!(starena.memory().raw_slice(ptr1, 23), &[5; 23]);
         assert_eq!(starena.memory().raw_slice(ptr2, 32), &[6; 32]);

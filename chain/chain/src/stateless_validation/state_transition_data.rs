@@ -16,7 +16,10 @@ use crate::{Chain, ChainStore, ChainStoreAccess};
 type StateTransitionStartHeights = HashMap<ShardId, BlockHeight>;
 
 impl Chain {
-    pub(crate) fn garbage_collect_state_transition_data(&self, block: &Block) -> Result<(), Error> {
+    pub(crate) fn garbage_collect_state_transition_data(
+        &self,
+        block: &Block,
+    ) -> Result<(), Error> {
         let chain_store = self.chain_store();
         let final_block_hash = *block.header().last_final_block();
         if final_block_hash == CryptoHash::default() {
@@ -60,10 +63,15 @@ fn clear_before_last_final_block(
     );
     let mut store_update = chain_store.store().store_update();
     for &(shard_id, last_final_block_height) in last_final_block_chunk_created_heights.iter() {
-        let start_height = *start_heights.get(&shard_id).unwrap_or(&last_final_block_height);
+        let start_height = *start_heights
+            .get(&shard_id)
+            .unwrap_or(&last_final_block_height);
         let mut potentially_deleted_count = 0;
         for height in start_height..last_final_block_height {
-            for block_hash in chain_store.get_all_block_hashes_by_height(height)?.values().flatten()
+            for block_hash in chain_store
+                .get_all_block_hashes_by_height(height)?
+                .values()
+                .flatten()
             {
                 store_update
                     .delete(DBCol::StateTransitionData, &get_block_shard_id(block_hash, shard_id));
@@ -88,7 +96,10 @@ fn clear_before_last_final_block(
 /// Calculates min height across all existing StateTransitionData entries for each shard
 fn compute_start_heights(chain_store: &ChainStore) -> Result<StateTransitionStartHeights, Error> {
     let mut start_heights = HashMap::new();
-    for res in chain_store.store().iter(DBCol::StateTransitionData) {
+    for res in chain_store
+        .store()
+        .iter(DBCol::StateTransitionData)
+    {
         let (block_hash, shard_id) = get_block_shard_id_rev(&res?.0).map_err(|err| {
             Error::StorageError(StorageError::StorageInconsistentState(format!(
                 "Invalid StateTransitionData key: {err:?}"
@@ -135,7 +146,11 @@ mod tests {
         let block_at_3 = hash(&[3]);
         let final_height = 2;
         let store = create_test_store();
-        for (hash, height) in [(block_at_1, 1), (block_at_2, 2), (block_at_3, 3)] {
+        for (hash, height) in [
+            (block_at_1, 1),
+            (block_at_2, 2),
+            (block_at_3, 3),
+        ] {
             save_state_transition_data(&store, hash, height, shard_id);
         }
         clear_before_last_final_block(&create_chain_store(&store), &[(shard_id, final_height)])
@@ -143,7 +158,10 @@ mod tests {
         check_start_heights(&store, vec![(shard_id, final_height)]);
         check_existing_state_transition_data(
             &store,
-            vec![(block_at_2, shard_id), (block_at_3, shard_id)],
+            vec![
+                (block_at_2, shard_id),
+                (block_at_3, shard_id),
+            ],
         );
     }
     #[test]
@@ -163,17 +181,30 @@ mod tests {
     }
 
     #[track_caller]
-    fn check_start_heights(store: &Store, expected: Vec<(ShardId, BlockHeight)>) {
+    fn check_start_heights(
+        store: &Store,
+        expected: Vec<(ShardId, BlockHeight)>,
+    ) {
         let start_heights = store
             .get_ser::<StateTransitionStartHeights>(DBCol::Misc, STATE_TRANSITION_START_HEIGHTS)
             .unwrap()
             .unwrap();
-        assert_eq!(start_heights, expected.into_iter().collect::<HashMap<_, _>>());
+        assert_eq!(
+            start_heights,
+            expected
+                .into_iter()
+                .collect::<HashMap<_, _>>()
+        );
     }
 
     #[track_caller]
-    fn check_existing_state_transition_data(store: &Store, expected: Vec<(CryptoHash, ShardId)>) {
-        let mut remaining = expected.into_iter().collect::<HashSet<_>>();
+    fn check_existing_state_transition_data(
+        store: &Store,
+        expected: Vec<(CryptoHash, ShardId)>,
+    ) {
+        let mut remaining = expected
+            .into_iter()
+            .collect::<HashSet<_>>();
         for entry in store.iter(DBCol::StateTransitionData) {
             let key = get_block_shard_id_rev(&entry.unwrap().0).unwrap();
             assert!(remaining.remove(&key), "unexpected StateTransitionData entry at {key:?}");
@@ -197,7 +228,10 @@ mod tests {
             .get_ser(DBCol::BlockPerHeight, blocks_per_height_key.as_ref())
             .unwrap()
             .unwrap_or_else(|| HashMap::default());
-        blocks_per_height.entry(epoch_id).or_default().insert(block_hash);
+        blocks_per_height
+            .entry(epoch_id)
+            .or_default()
+            .insert(block_hash);
 
         let mut store_update = store.store_update();
         store_update
@@ -229,7 +263,10 @@ mod tests {
     // TODO(pugachag): currently there is no easy way to create BlockHeader
     // instance while only specifying a subset of fields. We need to create an
     // util for that, similar to TestBlockBuilder
-    fn create_block_header(hash: CryptoHash, height: BlockHeight) -> BlockHeader {
+    fn create_block_header(
+        hash: CryptoHash,
+        height: BlockHeight,
+    ) -> BlockHeader {
         BlockHeader::BlockHeaderV4(Arc::new(BlockHeaderV4 {
             inner_lite: BlockHeaderInnerLite { height, ..BlockHeaderInnerLite::default() },
             hash,

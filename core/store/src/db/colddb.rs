@@ -42,31 +42,49 @@ impl ColdDB {
 
 impl Database for ColdDB {
     /// Returns raw bytes for given `key` ignoring any reference count decoding if any.
-    fn get_raw_bytes(&self, col: DBCol, key: &[u8]) -> std::io::Result<Option<DBSlice<'_>>> {
+    fn get_raw_bytes(
+        &self,
+        col: DBCol,
+        key: &[u8],
+    ) -> std::io::Result<Option<DBSlice<'_>>> {
         Self::check_is_in_colddb(col)?;
         self.cold.get_raw_bytes(col, key)
     }
 
     /// Returns value for given `key` forcing a reference count decoding.
-    fn get_with_rc_stripped(&self, col: DBCol, key: &[u8]) -> std::io::Result<Option<DBSlice<'_>>> {
+    fn get_with_rc_stripped(
+        &self,
+        col: DBCol,
+        key: &[u8],
+    ) -> std::io::Result<Option<DBSlice<'_>>> {
         Self::check_is_in_colddb(col)?;
         self.cold.get_with_rc_stripped(col, key)
     }
 
     /// Iterates over all values in a column.
-    fn iter<'a>(&'a self, col: DBCol) -> DBIterator<'a> {
+    fn iter<'a>(
+        &'a self,
+        col: DBCol,
+    ) -> DBIterator<'a> {
         Self::log_assert_is_in_colddb(col);
         self.cold.iter(col)
     }
 
     /// Iterates over values in a given column whose key has given prefix.
-    fn iter_prefix<'a>(&'a self, col: DBCol, key_prefix: &'a [u8]) -> DBIterator<'a> {
+    fn iter_prefix<'a>(
+        &'a self,
+        col: DBCol,
+        key_prefix: &'a [u8],
+    ) -> DBIterator<'a> {
         Self::log_assert_is_in_colddb(col);
         self.cold.iter_prefix(col, key_prefix)
     }
 
     /// Iterate over items in given column bypassing reference count decoding if any.
-    fn iter_raw_bytes<'a>(&'a self, col: DBCol) -> DBIterator<'a> {
+    fn iter_raw_bytes<'a>(
+        &'a self,
+        col: DBCol,
+    ) -> DBIterator<'a> {
         Self::log_assert_is_in_colddb(col);
         self.cold.iter_raw_bytes(col)
     }
@@ -79,7 +97,8 @@ impl Database for ColdDB {
         upper_bound: Option<&[u8]>,
     ) -> DBIterator<'a> {
         Self::log_assert_is_in_colddb(col);
-        self.cold.iter_range(col, lower_bound, upper_bound)
+        self.cold
+            .iter_range(col, lower_bound, upper_bound)
     }
 
     /// Atomically applies operations in given transaction.
@@ -87,7 +106,10 @@ impl Database for ColdDB {
     /// If debug assertions are enabled, panics if there are any delete
     /// operations or operations decreasing reference count of a value.  If
     /// debug assertions are not enabled, such operations are filtered out.
-    fn write(&self, mut transaction: DBTransaction) -> std::io::Result<()> {
+    fn write(
+        &self,
+        mut transaction: DBTransaction,
+    ) -> std::io::Result<()> {
         let mut idx = 0;
         while idx < transaction.ops.len() {
             if adjust_op(&mut transaction.ops[idx]) {
@@ -116,7 +138,8 @@ impl Database for ColdDB {
         path: &std::path::Path,
         columns_to_keep: Option<&[DBCol]>,
     ) -> anyhow::Result<()> {
-        self.cold.create_checkpoint(path, columns_to_keep)
+        self.cold
+            .create_checkpoint(path, columns_to_keep)
     }
 }
 
@@ -131,18 +154,18 @@ fn adjust_op(op: &mut DBOp) -> bool {
     }
 
     match op {
-        DBOp::Set { .. } | DBOp::Insert { .. } => true,
-        DBOp::UpdateRefcount { col, key, value } => {
+        | DBOp::Set { .. } | DBOp::Insert { .. } => true,
+        | DBOp::UpdateRefcount { col, key, value } => {
             assert!(col.is_rc());
             // There is no point in keeping track of ref count in the cold store so
             // just always hardcode it to 1.
             let mut value = core::mem::take(value);
             match set_refcount(&mut value, 1) {
-                Ok(_) => {
+                | Ok(_) => {
                     *op = DBOp::Set { col: *col, key: core::mem::take(key), value };
                     return true;
                 }
-                Err(err) => {
+                | Err(err) => {
                     log_assert_fail!(
                         "Failed to set refcount when writing to cold store. Error: {err}"
                     );
@@ -150,18 +173,18 @@ fn adjust_op(op: &mut DBOp) -> bool {
                 }
             };
         }
-        DBOp::Delete { col, key } => match col {
-            DBCol::BlockMisc => true,
-            _ => {
+        | DBOp::Delete { col, key } => match col {
+            | DBCol::BlockMisc => true,
+            | _ => {
                 log_assert_fail!("Unexpected delete from {col} in cold store: {key:?}");
                 false
             }
         },
-        DBOp::DeleteAll { col } => {
+        | DBOp::DeleteAll { col } => {
             log_assert_fail!("Unexpected delete from {col} in cold store");
             false
         }
-        DBOp::DeleteRange { col, from, to } => {
+        | DBOp::DeleteRange { col, from, to } => {
             log_assert_fail!("Unexpected delete range from {col} in cold store: {from:?} {to:?}");
             false
         }
@@ -184,13 +207,19 @@ mod test {
         ColdDB::new(cold)
     }
 
-    fn set(col: DBCol, key: &[u8]) -> DBOp {
+    fn set(
+        col: DBCol,
+        key: &[u8],
+    ) -> DBOp {
         DBOp::Set { col, key: key.to_vec(), value: VALUE.to_vec() }
     }
 
-    fn set_with_rc(col: DBCol, key: &[u8]) -> DBOp {
+    fn set_with_rc(
+        col: DBCol,
+        key: &[u8],
+    ) -> DBOp {
         let value = [VALUE, ONE].concat();
-        DBOp::Set { col, key: key.to_vec(), value: value }
+        DBOp::Set { col, key: key.to_vec(), value }
     }
 
     /// Prettifies raw key for display.
@@ -211,23 +240,28 @@ mod test {
             crate::CryptoHash::from(chunk.try_into().unwrap()).to_string()
         }
         match key.len() {
-            8 => chunk(key),
-            16 => format!("`{} || {}`", chunk(&key[..8]), chunk(&key[8..])),
-            32 => hash(key),
-            40 => format!("`{} || {}`", chunk(&key[..8]), hash(&key[8..])),
-            _ => format!("{key:x?}"),
+            | 8 => chunk(key),
+            | 16 => format!("`{} || {}`", chunk(&key[..8]), chunk(&key[8..])),
+            | 32 => hash(key),
+            | 40 => format!("`{} || {}`", chunk(&key[..8]), hash(&key[8..])),
+            | _ => format!("{key:x?}"),
         }
     }
 
     /// Prettifies raw value for display.
-    fn pretty_value(value: Option<&[u8]>, refcount: bool) -> String {
+    fn pretty_value(
+        value: Option<&[u8]>,
+        refcount: bool,
+    ) -> String {
         match value {
-            None => "∅".to_string(),
-            Some(value) if refcount => {
+            | None => "∅".to_string(),
+            | Some(value) if refcount => {
                 let decoded = crate::db::refcount::decode_value_with_rc(value);
                 format!("{}; rc: {}", pretty_value(decoded.0, false), decoded.1)
             }
-            Some(value) => std::str::from_utf8(value).unwrap().to_string(),
+            | Some(value) => std::str::from_utf8(value)
+                .unwrap()
+                .to_string(),
         }
     }
 
@@ -240,7 +274,10 @@ mod test {
         // State -> rc
         // Block -> no rc
 
-        let ops = vec![set_with_rc(DBCol::State, &[SHARD, HASH].concat()), set(DBCol::Block, HASH)];
+        let ops = vec![
+            set_with_rc(DBCol::State, &[SHARD, HASH].concat()),
+            set(DBCol::Block, HASH),
+        ];
         db.write(DBTransaction { ops }).unwrap();
 
         // Fetch data
@@ -261,7 +298,9 @@ mod test {
                 result.push(format!("    [{name}] get_raw_bytes        → {value}"));
 
                 if col.is_rc() {
-                    let value = db.get_with_rc_stripped(col, &key).unwrap();
+                    let value = db
+                        .get_with_rc_stripped(col, &key)
+                        .unwrap();
                     let value = pretty_value(value.as_deref(), false);
                     result.push(format!("    [{name}] get_with_rc_stripped → {value}"));
                 }
@@ -300,7 +339,10 @@ mod test {
         // Block -> no rc
 
         // Populate data
-        let ops = vec![set_with_rc(DBCol::State, &[SHARD, HASH].concat()), set(DBCol::Block, HASH)];
+        let ops = vec![
+            set_with_rc(DBCol::State, &[SHARD, HASH].concat()),
+            set(DBCol::Block, HASH),
+        ];
         db.write(DBTransaction { ops }).unwrap();
 
         let mut result = Vec::<String>::new();
@@ -339,7 +381,8 @@ mod test {
 
         let op =
             DBOp::UpdateRefcount { col, key: key.to_vec(), value: [VALUE, HEIGHT_LE].concat() };
-        db.write(DBTransaction { ops: vec![op] }).unwrap();
+        db.write(DBTransaction { ops: vec![op] })
+            .unwrap();
 
         // Refcount is set to 1 in the underlying database.
         let got = db.cold.get_raw_bytes(col, key).unwrap();

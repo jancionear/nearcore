@@ -19,7 +19,11 @@ fn main() {
                 .help("Directory for config and data (default \"~/.near\")")
                 .action(clap::ArgAction::Set),
         )
-        .arg(Arg::new("chain-id").long("chain-id").action(clap::ArgAction::Set))
+        .arg(
+            Arg::new("chain-id")
+                .long("chain-id")
+                .action(clap::ArgAction::Set),
+        )
         .arg(
             Arg::new("tracked-shards")
                 .long("tracked-shards")
@@ -28,17 +32,23 @@ fn main() {
         )
         .get_matches();
 
-    let home_dir = matches.get_one::<PathBuf>("home").unwrap();
-    let chain_id = matches.get_one::<String>("chain-id").expect("Chain id is required");
+    let home_dir = matches
+        .get_one::<PathBuf>("home")
+        .unwrap();
+    let chain_id = matches
+        .get_one::<String>("chain-id")
+        .expect("Chain id is required");
     let tracked_shards: HashSet<ShardId> = match matches.get_one::<String>("tracked-shards") {
-        Some(s) => {
+        | Some(s) => {
             if s.is_empty() {
                 HashSet::default()
             } else {
-                s.split(',').map(|v| v.parse::<u64>().unwrap().into()).collect()
+                s.split(',')
+                    .map(|v| v.parse::<u64>().unwrap().into())
+                    .collect()
             }
         }
-        None => HashSet::default(),
+        | None => HashSet::default(),
     };
     csv_to_json_configs::csv_to_json_configs(
         home_dir,

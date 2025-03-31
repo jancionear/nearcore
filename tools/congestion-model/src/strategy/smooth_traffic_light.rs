@@ -76,16 +76,24 @@ impl crate::CongestionStrategy for SmoothTrafficLight {
     ) {
         self.shard_id = Some(id);
         self.all_shards = all_shards.to_vec();
-        self.other_shards = all_shards.iter().map(|s| *s).filter(|s| *s != id).collect();
+        self.other_shards = all_shards
+            .iter()
+            .map(|s| *s)
+            .filter(|s| *s != id)
+            .collect();
 
         for shard_id in &self.other_shards {
             let name = format!("outgoing_receipts_{}", shard_id);
             let queue = queue_factory.register_queue(id, &name);
-            self.outgoing_buffer.insert(*shard_id, queue);
+            self.outgoing_buffer
+                .insert(*shard_id, queue);
         }
     }
 
-    fn compute_chunk(&mut self, ctx: &mut ChunkExecutionContext) {
+    fn compute_chunk(
+        &mut self,
+        ctx: &mut ChunkExecutionContext,
+    ) {
         self.init_send_limit(ctx);
 
         self.process_outgoing_receipts(ctx);
@@ -100,7 +108,10 @@ impl crate::CongestionStrategy for SmoothTrafficLight {
 
 impl SmoothTrafficLight {
     // Step 1: Compute bandwidth limits to other shards based on the congestion information
-    fn init_send_limit(&mut self, ctx: &mut ChunkExecutionContext<'_>) {
+    fn init_send_limit(
+        &mut self,
+        ctx: &mut ChunkExecutionContext<'_>,
+    ) {
         self.outgoing_gas_allowance.clear();
 
         for shard_id in self.other_shards.clone() {
@@ -118,7 +129,8 @@ impl SmoothTrafficLight {
                 }
             };
 
-            self.outgoing_gas_allowance.insert(shard_id, send_limit);
+            self.outgoing_gas_allowance
+                .insert(shard_id, send_limit);
         }
     }
 
@@ -126,9 +138,15 @@ impl SmoothTrafficLight {
     //
     // Goes through buffered outgoing receipts and sends as many as possible up
     // to the send limit for each shard. Updates the send limit for every sent receipt.
-    fn process_outgoing_receipts(&mut self, ctx: &mut ChunkExecutionContext<'_>) {
+    fn process_outgoing_receipts(
+        &mut self,
+        ctx: &mut ChunkExecutionContext<'_>,
+    ) {
         for (other_shard_id, queue_id) in &self.outgoing_buffer {
-            let send_allowance = self.outgoing_gas_allowance.get_mut(other_shard_id).unwrap();
+            let send_allowance = self
+                .outgoing_gas_allowance
+                .get_mut(other_shard_id)
+                .unwrap();
 
             loop {
                 let Some(receipt) = ctx.queue(*queue_id).front() else {
@@ -139,7 +157,10 @@ impl SmoothTrafficLight {
                     break;
                 }
 
-                let receipt = ctx.queue(*queue_id).pop_front().unwrap();
+                let receipt = ctx
+                    .queue(*queue_id)
+                    .pop_front()
+                    .unwrap();
                 *send_allowance -= receipt.attached_gas;
 
                 ctx.forward_receipt(receipt);
@@ -153,7 +174,10 @@ impl SmoothTrafficLight {
     // * filter transactions to a shard based on the receiver's congestion level
     //
     // The outgoing receipts are processed as in `process_outgoing_receipts`.
-    fn process_new_transactions(&mut self, ctx: &mut ChunkExecutionContext<'_>) {
+    fn process_new_transactions(
+        &mut self,
+        ctx: &mut ChunkExecutionContext<'_>,
+    ) {
         let incoming_congestion = self.incoming_gas_congestion(ctx);
         let tx_allowance = mix(self.max_tx_gas, self.min_tx_gas, incoming_congestion);
 
@@ -175,7 +199,11 @@ impl SmoothTrafficLight {
 
     // Checks if the transaction receiver is in a congested shard. If so the
     // transaction should be rejected.
-    fn get_filter_stop(&mut self, ctx: &mut ChunkExecutionContext<'_>, tx: TransactionId) -> bool {
+    fn get_filter_stop(
+        &mut self,
+        ctx: &mut ChunkExecutionContext<'_>,
+        tx: TransactionId,
+    ) -> bool {
         let receiver = ctx.tx_receiver(tx);
 
         let CongestedShardsInfo { congestion_level, .. } = self.get_info(ctx, &receiver);
@@ -192,7 +220,10 @@ impl SmoothTrafficLight {
     // Always process as many receipts as allowed by the GAS_LIMIT.
     //
     // The outgoing receipts are processed as in `process_outgoing_receipts`.
-    fn process_incoming_receipts(&mut self, ctx: &mut ChunkExecutionContext<'_>) {
+    fn process_incoming_receipts(
+        &mut self,
+        ctx: &mut ChunkExecutionContext<'_>,
+    ) {
         while ctx.gas_burnt() < GAS_LIMIT {
             let Some(receipt) = ctx.incoming_receipts().pop_front() else {
                 break;
@@ -206,13 +237,17 @@ impl SmoothTrafficLight {
     }
 
     // Step 6: Compute own congestion information for the next block
-    fn update_block_info(&mut self, ctx: &mut ChunkExecutionContext<'_>) {
+    fn update_block_info(
+        &mut self,
+        ctx: &mut ChunkExecutionContext<'_>,
+    ) {
         let incoming_gas_congestion = self.incoming_gas_congestion(ctx);
         let outgoing_gas_congestion = self.outgoing_gas_congestion(ctx);
         let memory_congestion = self.memory_congestion(ctx);
 
-        let max_congestion =
-            incoming_gas_congestion.max(outgoing_gas_congestion).max(memory_congestion);
+        let max_congestion = incoming_gas_congestion
+            .max(outgoing_gas_congestion)
+            .max(memory_congestion);
         let red = max_congestion >= 1.0;
         let info = if red {
             CongestedShardsInfo {
@@ -236,7 +271,10 @@ impl SmoothTrafficLight {
         ctx.current_block_info().insert(info);
     }
 
-    fn round_robin_shard(&mut self, seed: usize) -> ShardId {
+    fn round_robin_shard(
+        &mut self,
+        seed: usize,
+    ) -> ShardId {
         let num_other_shards = self.all_shards.len() - 1;
         let mut index = (seed + *self.shard_id.unwrap()) % num_other_shards;
         if self.all_shards[index] == self.shard_id() {
@@ -245,7 +283,10 @@ impl SmoothTrafficLight {
         self.all_shards[index]
     }
 
-    fn memory_congestion(&self, ctx: &mut ChunkExecutionContext) -> f64 {
+    fn memory_congestion(
+        &self,
+        ctx: &mut ChunkExecutionContext,
+    ) -> f64 {
         let mut memory_consumption = ctx.incoming_receipts().size();
         for (_, queue_id) in &self.outgoing_buffer {
             memory_consumption += ctx.queue(*queue_id).size();
@@ -254,12 +295,18 @@ impl SmoothTrafficLight {
         f64::clamp(memory_consumption as f64 / self.memory_limit as f64, 0.0, 1.0)
     }
 
-    fn incoming_gas_congestion(&self, ctx: &mut ChunkExecutionContext) -> f64 {
+    fn incoming_gas_congestion(
+        &self,
+        ctx: &mut ChunkExecutionContext,
+    ) -> f64 {
         let gas_backlog = ctx.incoming_receipts().attached_gas() as f64;
         f64::clamp(gas_backlog / self.red_incoming_gas as f64, 0.0, 1.0)
     }
 
-    fn outgoing_gas_congestion(&self, ctx: &mut ChunkExecutionContext) -> f64 {
+    fn outgoing_gas_congestion(
+        &self,
+        ctx: &mut ChunkExecutionContext,
+    ) -> f64 {
         let mut gas_backlog = 0;
         for (_, queue_id) in &self.outgoing_buffer {
             gas_backlog += ctx.queue(*queue_id).attached_gas();
@@ -271,7 +318,11 @@ impl SmoothTrafficLight {
 
     // Forward or buffer a receipt.
     // Local receipts are always forwarded.
-    fn forward_or_buffer(&mut self, ctx: &mut ChunkExecutionContext<'_>, receipt: Receipt) {
+    fn forward_or_buffer(
+        &mut self,
+        ctx: &mut ChunkExecutionContext<'_>,
+        receipt: Receipt,
+    ) {
         let shard_id = receipt.receiver;
 
         // If we are the receiver just forward the receipt.
@@ -280,9 +331,13 @@ impl SmoothTrafficLight {
             return;
         }
 
-        let send_limit = self.outgoing_gas_allowance.get_mut(&shard_id).unwrap();
+        let send_limit = self
+            .outgoing_gas_allowance
+            .get_mut(&shard_id)
+            .unwrap();
         if receipt.attached_gas > *send_limit {
-            ctx.queue(self.outgoing_buffer[&shard_id]).push_back(receipt);
+            ctx.queue(self.outgoing_buffer[&shard_id])
+                .push_back(receipt);
             return;
         }
 
@@ -299,7 +354,9 @@ impl SmoothTrafficLight {
             // If there is no info assume there is no congestion.
             return CongestedShardsInfo::default();
         };
-        info.get::<CongestedShardsInfo>().unwrap().clone()
+        info.get::<CongestedShardsInfo>()
+            .unwrap()
+            .clone()
     }
 
     fn shard_id(&self) -> ShardId {
@@ -307,20 +364,30 @@ impl SmoothTrafficLight {
     }
 
     /// Define 100% congestion limit in gas.
-    pub fn with_gas_limits(mut self, incoming: GGas, outgoing: GGas) -> Self {
+    pub fn with_gas_limits(
+        mut self,
+        incoming: GGas,
+        outgoing: GGas,
+    ) -> Self {
         self.red_incoming_gas = incoming;
         self.red_outgoing_gas = outgoing;
         self
     }
 
     /// Define 100% congestion limit in bytes.
-    pub fn with_memory_limit(mut self, limit: bytesize::ByteSize) -> Self {
+    pub fn with_memory_limit(
+        mut self,
+        limit: bytesize::ByteSize,
+    ) -> Self {
         self.memory_limit = limit.as_u64();
         self
     }
 
     /// Define at what congestion level new transactions to a shard must be rejected.
-    pub fn with_tx_reject_threshold(mut self, threshold: f64) -> Self {
+    pub fn with_tx_reject_threshold(
+        mut self,
+        threshold: f64,
+    ) -> Self {
         self.reject_tx_congestion_limit = threshold;
         self
     }
@@ -328,27 +395,42 @@ impl SmoothTrafficLight {
     /// Set to false to use a less smooth strategy for slowing down, only
     /// looking at memory and outgoing congestion once it is at the threshold.
     /// This can give higher utilization but will lead to larger buffers.
-    pub fn with_smooth_slow_down(mut self, yes: bool) -> Self {
+    pub fn with_smooth_slow_down(
+        mut self,
+        yes: bool,
+    ) -> Self {
         self.smooth_slow_down = yes;
         self
     }
 
     /// Gas spent on new transactions.
-    pub fn with_tx_gas_limit_range(mut self, min: GGas, max: GGas) -> Self {
+    pub fn with_tx_gas_limit_range(
+        mut self,
+        min: GGas,
+        max: GGas,
+    ) -> Self {
         self.min_tx_gas = min;
         self.max_tx_gas = max;
         self
     }
 
     /// Gas allowance to sent to other shards.
-    pub fn with_send_gas_limit_range(mut self, min: GGas, max: GGas) -> Self {
+    pub fn with_send_gas_limit_range(
+        mut self,
+        min: GGas,
+        max: GGas,
+    ) -> Self {
         self.min_send_limit_amber = min;
         self.max_send_limit = max;
         self
     }
 }
 
-fn mix(x: u64, y: u64, a: f64) -> u64 {
+fn mix(
+    x: u64,
+    y: u64,
+    a: f64,
+) -> u64 {
     assert!(0.0 <= a);
     assert!(a <= 1.0);
     let x = x as f64;

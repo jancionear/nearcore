@@ -29,11 +29,13 @@ fn run_heavy_nodes(
         let view_client = clients.last().unwrap().1.clone();
 
         wait_or_timeout(100, 40000, || async {
-            let res = view_client.send(GetBlock::latest().with_span_context()).await;
+            let res = view_client
+                .send(GetBlock::latest().with_span_context())
+                .await;
             match &res {
-                Ok(Ok(b)) if b.header.height > num_blocks => return ControlFlow::Break(()),
-                Err(_) => return ControlFlow::Continue(()),
-                _ => {}
+                | Ok(Ok(b)) if b.header.height > num_blocks => return ControlFlow::Break(()),
+                | Err(_) => return ControlFlow::Continue(()),
+                | _ => {}
             };
             ControlFlow::Continue(())
         })

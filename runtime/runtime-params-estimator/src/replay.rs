@@ -40,12 +40,19 @@ pub(crate) enum ReplayMode {
 }
 
 impl ReplayCmd {
-    pub(crate) fn run(&self, out: &mut dyn Write) -> anyhow::Result<()> {
+    pub(crate) fn run(
+        &self,
+        out: &mut dyn Write,
+    ) -> anyhow::Result<()> {
         let file = File::open(&self.trace)?;
         self.run_on_input(io::BufReader::new(file), out)
     }
 
-    fn run_on_input(&self, input: impl io::BufRead, out: &mut dyn Write) -> anyhow::Result<()> {
+    fn run_on_input(
+        &self,
+        input: impl io::BufRead,
+        out: &mut dyn Write,
+    ) -> anyhow::Result<()> {
         let mut visitor = self.build_visitor();
         for line in input.lines() {
             let line = line?;
@@ -59,28 +66,39 @@ impl ReplayCmd {
 
     fn build_visitor(&self) -> Box<dyn Visitor> {
         match &self.mode {
-            ReplayMode::CacheStats => {
-                Box::new(FoldDbOps::new().with_cache_stats().account_filter(self.account.clone()))
-            }
-            ReplayMode::ChunkDbStats => {
+            | ReplayMode::CacheStats => Box::new(
+                FoldDbOps::new()
+                    .with_cache_stats()
+                    .account_filter(self.account.clone()),
+            ),
+            | ReplayMode::ChunkDbStats => {
                 if self.account.is_some() {
                     unimplemented!("account filter does not work with per-chunk statistics");
                 }
                 Box::new(FoldDbOps::new().chunks())
             }
-            ReplayMode::ChunkCacheStats => {
+            | ReplayMode::ChunkCacheStats => {
                 if self.account.is_some() {
                     unimplemented!("account filter does not work with per-chunk statistics");
                 }
-                Box::new(FoldDbOps::new().chunks().with_cache_stats())
+                Box::new(
+                    FoldDbOps::new()
+                        .chunks()
+                        .with_cache_stats(),
+                )
             }
-            ReplayMode::ReceiptDbStats => {
-                Box::new(FoldDbOps::new().receipts().account_filter(self.account.clone()))
-            }
-            ReplayMode::ReceiptCacheStats => Box::new(
-                FoldDbOps::new().receipts().with_cache_stats().account_filter(self.account.clone()),
+            | ReplayMode::ReceiptDbStats => Box::new(
+                FoldDbOps::new()
+                    .receipts()
+                    .account_filter(self.account.clone()),
             ),
-            ReplayMode::GasCharges => {
+            | ReplayMode::ReceiptCacheStats => Box::new(
+                FoldDbOps::new()
+                    .receipts()
+                    .with_cache_stats()
+                    .account_filter(self.account.clone()),
+            ),
+            | ReplayMode::GasCharges => {
                 if self.account.is_some() {
                     unimplemented!("account filter does not work with gas charges");
                 }
@@ -103,14 +121,25 @@ trait Visitor {
     /// intention is that the default implementation takes over the basic
     /// parsing and visitor implementations define their behaviour using the
     /// other trait methods.
-    fn eval_line(&mut self, out: &mut dyn Write, line: &str) -> anyhow::Result<()> {
-        if let Some(indent) = line.chars().position(|c| !c.is_whitespace()) {
+    fn eval_line(
+        &mut self,
+        out: &mut dyn Write,
+        line: &str,
+    ) -> anyhow::Result<()> {
+        if let Some(indent) = line
+            .chars()
+            .position(|c| !c.is_whitespace())
+        {
             let mut tokens = line.split_whitespace();
             if let Some(keyword) = tokens.next() {
                 match keyword {
-                    "GET" | "SET" | "UPDATE_RC" => {
-                        let col = tokens.next().context("missing column field in DB operation")?;
-                        let mut key_str = tokens.next().context("missing key in DB operation")?;
+                    | "GET" | "SET" | "UPDATE_RC" => {
+                        let col = tokens
+                            .next()
+                            .context("missing column field in DB operation")?;
+                        let mut key_str = tokens
+                            .next()
+                            .context("missing key in DB operation")?;
                         if key_str.starts_with('"') {
                             key_str = &key_str[1..key_str.len() - 1];
                         }
@@ -118,10 +147,13 @@ trait Visitor {
                             anyhow::anyhow!("failed to decode key {key_str} because {e}")
                         })?;
                         let dict = extract_key_values(tokens)?;
-                        let size: Option<u64> = dict.get("size").map(|s| s.parse()).transpose()?;
+                        let size: Option<u64> = dict
+                            .get("size")
+                            .map(|s| s.parse())
+                            .transpose()?;
                         self.eval_db_op(out, indent, keyword, size, &key, col)?;
                     }
-                    "storage_read" | "storage_write" | "storage_remove" | "storage_has_key" => {
+                    | "storage_read" | "storage_write" | "storage_remove" | "storage_has_key" => {
                         let op = tokens.next();
                         if op.is_none() {
                             return Ok(());
@@ -130,7 +162,7 @@ trait Visitor {
                         let dict = extract_key_values(tokens)?;
                         self.eval_storage_op(out, indent, keyword, &dict)?;
                     }
-                    other_label => {
+                    | other_label => {
                         let dict = extract_key_values(tokens)?;
                         self.eval_label(out, indent, other_label, &dict)?;
                     }
@@ -203,19 +235,23 @@ trait Visitor {
     /// This function is called at the end of a replayed trace. Visitor
     /// implementation usually choose to call this more often. For example, once
     /// for each receipt.
-    fn flush(&mut self, out: &mut dyn Write) -> anyhow::Result<()> {
+    fn flush(
+        &mut self,
+        out: &mut dyn Write,
+    ) -> anyhow::Result<()> {
         let _ = out;
         Ok(())
     }
 }
 
 fn extract_key_values<'a>(
-    mut tokens: SplitWhitespace<'a>,
+    mut tokens: SplitWhitespace<'a>
 ) -> anyhow::Result<BTreeMap<&'a str, &'a str>> {
     let mut dict = BTreeMap::new();
     while let Some(key_val) = tokens.next() {
-        let (key, value) =
-            key_val.split_once('=').context("key-value pair delimited by `=` expected")?;
+        let (key, value) = key_val
+            .split_once('=')
+            .context("key-value pair delimited by `=` expected")?;
         dict.insert(key, value);
     }
     Ok(dict)
@@ -305,12 +341,15 @@ GET State "'stateKey10'" size=500
     fn check_replay_mode(mode: ReplayMode) {
         for trace_name in INPUT_TRACES {
             let dir = env!("CARGO_MANIFEST_DIR");
-            let trace_path = std::path::Path::new(dir).join("res").join(trace_name);
+            let trace_path = std::path::Path::new(dir)
+                .join("res")
+                .join(trace_name);
             let cmd = ReplayCmd { trace: trace_path, mode, account: None };
             let mut buffer = Vec::new();
-            cmd.run(&mut buffer).unwrap_or_else(|e| {
-                panic!("command should not fail for input {trace_name}, failure was {e}")
-            });
+            cmd.run(&mut buffer)
+                .unwrap_or_else(|e| {
+                    panic!("command should not fail for input {trace_name}, failure was {e}")
+                });
             let output = String::from_utf8(buffer).unwrap_or_else(|e| {
                 panic!("invalid output for input {trace_name}, failure was {e}")
             });
@@ -340,7 +379,8 @@ GET State "'stateKey10'" size=500
         let trace = PathBuf::new();
         let cmd = ReplayCmd { trace, mode, account };
         let mut buffer = Vec::new();
-        cmd.run_on_input(SYNTHETIC_TRACE.as_bytes(), &mut buffer).expect("failed replaying");
+        cmd.run_on_input(SYNTHETIC_TRACE.as_bytes(), &mut buffer)
+            .expect("failed replaying");
         let output =
             String::from_utf8(buffer).unwrap_or_else(|e| panic!("invalid output, failure was {e}"));
         insta::assert_snapshot!(format!("account_filter_{mode:?}"), output);

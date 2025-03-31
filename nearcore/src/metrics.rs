@@ -2,7 +2,7 @@ use crate::NearConfig;
 use actix_rt::ArbiterHandle;
 use near_async::time::Duration;
 use near_chain::{Block, ChainStore, ChainStoreAccess};
-use near_epoch_manager::EpochManager;
+use near_epoch_manager::EpochManagerAdapter;
 use near_o11y::metrics::{
     exponential_buckets, try_create_histogram_vec, try_create_int_counter_vec,
     try_create_int_gauge, try_create_int_gauge_vec, HistogramVec, IntCounterVec, IntGauge,
@@ -87,13 +87,16 @@ pub(crate) static STATE_SYNC_DUMP_EPOCH_HEIGHT: LazyLock<IntGaugeVec> = LazyLock
     .unwrap()
 });
 
-fn log_trie_item(key: Vec<u8>, value: Vec<u8>) {
+fn log_trie_item(
+    key: Vec<u8>,
+    value: Vec<u8>,
+) {
     if !tracing::level_enabled!(tracing::Level::TRACE) {
         return;
     }
     let state_record = StateRecord::from_raw_key_value_impl(key, value);
     match state_record {
-        Ok(Some(StateRecord::PostponedReceipt(receipt))) => {
+        | Ok(Some(StateRecord::PostponedReceipt(receipt))) => {
             tracing::trace!(
                 target: "metrics",
                 "trie-stats - PostponedReceipt(predecessor_id: {:?}, receiver_id: {:?})",
@@ -101,21 +104,31 @@ fn log_trie_item(key: Vec<u8>, value: Vec<u8>) {
                 receipt.receiver_id(),
             );
         }
-        _ => {
+        | _ => {
             tracing::trace!(target: "metrics", "trie-stats - {state_record:?}" );
         }
     }
 }
 
-fn export_postponed_receipt_count(near_config: &NearConfig, store: &Store) -> anyhow::Result<()> {
+fn export_postponed_receipt_count(
+    near_config: &NearConfig,
+    store: &Store,
+    epoch_manager: &dyn EpochManagerAdapter,
+) -> anyhow::Result<()> {
     let chain_store = ChainStore::new(
         store.clone(),
-        near_config.genesis.config.genesis_height,
-        near_config.client_config.save_trie_changes,
-        near_config.genesis.config.transaction_validity_period,
+        near_config
+            .genesis
+            .config
+            .genesis_height,
+        near_config
+            .client_config
+            .save_trie_changes,
+        near_config
+            .genesis
+            .config
+            .transaction_validity_period,
     );
-    let epoch_manager =
-        EpochManager::new_from_genesis_config(store.clone(), &near_config.genesis.config)?;
 
     let head = chain_store.final_head()?;
     let block = chain_store.get_block(&head.last_block_hash)?;
@@ -125,7 +138,9 @@ fn export_postponed_receipt_count(near_config: &NearConfig, store: &Store) -> an
         let shard_id = chunk_header.shard_id();
         if chunk_header.height_included() != block.header().height() {
             tracing::trace!(target: "metrics", "trie-stats - chunk for shard {shard_id} is missing, skipping it.");
-            POSTPONED_RECEIPTS_COUNT.with_label_values(&[&shard_id.to_string()]).set(0);
+            POSTPONED_RECEIPTS_COUNT
+                .with_label_values(&[&shard_id.to_string()])
+                .set(0);
             continue;
         }
 
@@ -137,13 +152,15 @@ fn export_postponed_receipt_count(near_config: &NearConfig, store: &Store) -> an
             store,
         );
         let count = match count {
-            Ok(count) => count,
-            Err(err) => {
+            | Ok(count) => count,
+            | Err(err) => {
                 tracing::trace!(target: "metrics", "trie-stats - error when getting the postponed receipt count {err:?}");
                 0
             }
         };
-        POSTPONED_RECEIPTS_COUNT.with_label_values(&[&shard_id.to_string()]).set(count);
+        POSTPONED_RECEIPTS_COUNT
+            .with_label_values(&[&shard_id.to_string()])
+            .set(count);
     }
 
     Ok(())
@@ -172,8 +189,8 @@ fn get_postponed_receipt_count_for_trie(trie: Trie) -> Result<i64, anyhow::Error
     let mut count = 0;
     for item in iter {
         let (key, value) = match item {
-            Ok(item) => item,
-            Err(err) => {
+            | Ok(item) => item,
+            | Err(err) => {
                 tracing::trace!(target: "metrics", "trie-stats - error when reading item {err:?}");
                 continue;
             }
@@ -194,6 +211,7 @@ pub fn spawn_trie_metrics_loop(
     near_config: NearConfig,
     store: Store,
     period: Duration,
+    epoch_manager: Arc<dyn EpochManagerAdapter>,
 ) -> anyhow::Result<ArbiterHandle> {
     tracing::debug!(target:"metrics", "Spawning the trie metrics loop.");
     let arbiter = actix_rt::Arbiter::new();
@@ -208,7 +226,7 @@ pub fn spawn_trie_metrics_loop(
             interval.tick().await;
 
             let start_time = std::time::Instant::now();
-            let result = export_postponed_receipt_count(&near_config, &store);
+            let result = export_postponed_receipt_count(&near_config, &store, epoch_manager.as_ref());
             if let Err(err) = result {
                 tracing::error!(target: "metrics", "Error when exporting postponed receipts count {err}.");
             };
@@ -248,7 +266,12 @@ mod tests {
         assert_eq!(count, 0);
 
         // one postponed receipts
-        let items = vec![create_item(&[col::POSTPONED_RECEIPT, 1, 2, 3])];
+        let items = vec![create_item(&[
+            col::POSTPONED_RECEIPT,
+            1,
+            2,
+            3,
+        ])];
         let count = get_postponed_receipt_count_for_trie(create_trie(&items)).unwrap();
         assert_eq!(count, 1);
 

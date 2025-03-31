@@ -27,15 +27,17 @@ pub enum RpcProtocolConfigError {
 impl From<RpcProtocolConfigError> for crate::errors::RpcError {
     fn from(error: RpcProtocolConfigError) -> Self {
         let error_data = match &error {
-            RpcProtocolConfigError::UnknownBlock { error_message } => {
+            | RpcProtocolConfigError::UnknownBlock { error_message } => {
                 Some(Value::String(format!("Block Not Found: {}", error_message)))
             }
-            RpcProtocolConfigError::InternalError { .. } => Some(Value::String(error.to_string())),
+            | RpcProtocolConfigError::InternalError { .. } => {
+                Some(Value::String(error.to_string()))
+            }
         };
 
         let error_data_value = match serde_json::to_value(error) {
-            Ok(value) => value,
-            Err(err) => {
+            | Ok(value) => value,
+            | Err(err) => {
                 return Self::new_internal_error(
                     None,
                     format!("Failed to serialize RpcProtocolConfigError: {:?}", err),

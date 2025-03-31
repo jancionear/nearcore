@@ -50,7 +50,11 @@ impl RpcError {
     /// A generic constructor.
     ///
     /// Mostly for completeness, doesn't do anything but filling in the corresponding fields.
-    pub fn new(code: i64, message: String, data: Option<Value>) -> Self {
+    pub fn new(
+        code: i64,
+        message: String,
+        data: Option<Value>,
+    ) -> Self {
         RpcError { code, message, data, error_struct: None }
     }
 
@@ -58,8 +62,8 @@ impl RpcError {
     #[cfg(feature = "test_features")]
     pub fn invalid_params(data: impl serde::Serialize) -> Self {
         let value = match to_value(data) {
-            Ok(value) => value,
-            Err(err) => {
+            | Ok(value) => value,
+            | Err(err) => {
                 return Self::server_error(Some(format!(
                     "Failed to serialize invalid parameters error: {:?}",
                     err.to_string()
@@ -97,11 +101,14 @@ impl RpcError {
 
     /// Helper method to define extract INTERNAL_ERROR in separate RpcErrorKind
     /// Returns HANDLER_ERROR if the error is not internal one
-    pub fn new_internal_or_handler_error(error_data: Option<Value>, error_struct: Value) -> Self {
+    pub fn new_internal_or_handler_error(
+        error_data: Option<Value>,
+        error_struct: Value,
+    ) -> Self {
         if error_struct["name"] == "INTERNAL_ERROR" {
             let error_message = match error_struct["info"].get("error_message") {
-                Some(Value::String(error_message)) => error_message.as_str(),
-                _ => "InternalError happened during serializing InternalError",
+                | Some(Value::String(error_message)) => error_message.as_str(),
+                | _ => "InternalError happened during serializing InternalError",
             };
             Self::new_internal_error(error_data, error_message.to_string())
         } else {
@@ -109,7 +116,10 @@ impl RpcError {
         }
     }
 
-    pub fn new_internal_error(error_data: Option<Value>, info: String) -> Self {
+    pub fn new_internal_error(
+        error_data: Option<Value>,
+        info: String,
+    ) -> Self {
         RpcError {
             code: -32_000,
             message: "Server error".to_owned(),
@@ -121,7 +131,10 @@ impl RpcError {
         }
     }
 
-    fn new_handler_error(error_data: Option<Value>, error_struct: Value) -> Self {
+    fn new_handler_error(
+        error_data: Option<Value>,
+        error_struct: Value,
+    ) -> Self {
         RpcError {
             code: -32_000,
             message: "Server error".to_owned(),
@@ -144,7 +157,10 @@ impl RpcError {
 }
 
 impl fmt::Display for RpcError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
         write!(f, "{:?}", self)
     }
 }
@@ -162,11 +178,14 @@ impl From<std::convert::Infallible> for RpcError {
 }
 
 impl fmt::Display for ServerError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
         match self {
-            ServerError::TxExecutionError(e) => write!(f, "ServerError: {}", e),
-            ServerError::Timeout => write!(f, "ServerError: Timeout"),
-            ServerError::Closed => write!(f, "ServerError: Closed"),
+            | ServerError::TxExecutionError(e) => write!(f, "ServerError: {}", e),
+            | ServerError::Timeout => write!(f, "ServerError: Timeout"),
+            | ServerError::Closed => write!(f, "ServerError: Closed"),
         }
     }
 }
@@ -174,8 +193,8 @@ impl fmt::Display for ServerError {
 impl From<ServerError> for RpcError {
     fn from(e: ServerError) -> RpcError {
         let error_data = match to_value(&e) {
-            Ok(value) => value,
-            Err(_err) => {
+            | Ok(value) => value,
+            | Err(_err) => {
                 return RpcError::new_internal_error(
                     None,
                     "Failed to serialize ServerError".to_string(),
@@ -183,10 +202,10 @@ impl From<ServerError> for RpcError {
             }
         };
         match e {
-            ServerError::TxExecutionError(_) => {
+            | ServerError::TxExecutionError(_) => {
                 RpcError::new_handler_error(Some(error_data.clone()), error_data)
             }
-            _ => RpcError::new_internal_error(Some(error_data), e.to_string()),
+            | _ => RpcError::new_internal_error(Some(error_data), e.to_string()),
         }
     }
 }

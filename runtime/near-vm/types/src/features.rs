@@ -66,7 +66,10 @@ impl Features {
     /// This is `false` by default.
     ///
     /// [threads]: https://github.com/webassembly/threads
-    pub fn threads(&mut self, enable: bool) -> &mut Self {
+    pub fn threads(
+        &mut self,
+        enable: bool,
+    ) -> &mut Self {
         self.threads = enable;
         self
     }
@@ -84,7 +87,10 @@ impl Features {
     /// This is `true` by default.
     ///
     /// [proposal]: https://github.com/webassembly/reference-types
-    pub fn reference_types(&mut self, enable: bool) -> &mut Self {
+    pub fn reference_types(
+        &mut self,
+        enable: bool,
+    ) -> &mut Self {
         self.reference_types = enable;
         // The reference types proposal depends on the bulk memory proposal
         if enable {
@@ -107,7 +113,10 @@ impl Features {
     /// This is `false` by default.
     ///
     /// [proposal]: https://github.com/webassembly/simd
-    pub fn simd(&mut self, enable: bool) -> &mut Self {
+    pub fn simd(
+        &mut self,
+        enable: bool,
+    ) -> &mut Self {
         self.simd = enable;
         self
     }
@@ -124,7 +133,10 @@ impl Features {
     /// This is `true` by default.
     ///
     /// [proposal]: https://github.com/webassembly/bulk-memory-operations
-    pub fn bulk_memory(&mut self, enable: bool) -> &mut Self {
+    pub fn bulk_memory(
+        &mut self,
+        enable: bool,
+    ) -> &mut Self {
         self.bulk_memory = enable;
         // In case is false, we disable both threads and reference types
         // since they both depend on bulk memory
@@ -147,7 +159,10 @@ impl Features {
     /// This is `true` by default.
     ///
     /// [proposal]: https://github.com/webassembly/multi-value
-    pub fn multi_value(&mut self, enable: bool) -> &mut Self {
+    pub fn multi_value(
+        &mut self,
+        enable: bool,
+    ) -> &mut Self {
         self.multi_value = enable;
         self
     }
@@ -165,7 +180,10 @@ impl Features {
     /// This is `false` by default.
     ///
     /// [proposal]: https://github.com/webassembly/tail-call
-    pub fn tail_call(&mut self, enable: bool) -> &mut Self {
+    pub fn tail_call(
+        &mut self,
+        enable: bool,
+    ) -> &mut Self {
         self.tail_call = enable;
         self
     }
@@ -184,7 +202,10 @@ impl Features {
     /// This is `false` by default.
     ///
     /// [proposal]: https://github.com/WebAssembly/multi-memory
-    pub fn multi_memory(&mut self, enable: bool) -> &mut Self {
+    pub fn multi_memory(
+        &mut self,
+        enable: bool,
+    ) -> &mut Self {
         self.multi_memory = enable;
         self
     }
@@ -203,7 +224,10 @@ impl Features {
     /// This is `false` by default.
     ///
     /// [proposal]: https://github.com/WebAssembly/memory64
-    pub fn memory64(&mut self, enable: bool) -> &mut Self {
+    pub fn memory64(
+        &mut self,
+        enable: bool,
+    ) -> &mut Self {
         self.memory64 = enable;
         self
     }
@@ -243,7 +267,9 @@ mod test_features {
     #[test]
     fn enable_threads() {
         let mut features = Features::new();
-        features.bulk_memory(false).threads(true);
+        features
+            .bulk_memory(false)
+            .threads(true);
 
         assert!(features.threads);
     }
@@ -251,7 +277,9 @@ mod test_features {
     #[test]
     fn enable_reference_types() {
         let mut features = Features::new();
-        features.bulk_memory(false).reference_types(true);
+        features
+            .bulk_memory(false)
+            .reference_types(true);
         assert!(features.reference_types);
         assert!(features.bulk_memory);
     }
@@ -280,7 +308,10 @@ mod test_features {
     #[test]
     fn disable_bulk_memory() {
         let mut features = Features::new();
-        features.threads(true).reference_types(true).bulk_memory(false);
+        features
+            .threads(true)
+            .reference_types(true)
+            .bulk_memory(false);
         assert!(!features.bulk_memory);
         assert!(!features.reference_types);
     }

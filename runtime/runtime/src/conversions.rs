@@ -12,9 +12,9 @@ mod method_resolve_error {
     impl super::Convert<From> for near_primitives::errors::MethodResolveError {
         fn convert(outer_err: From) -> Self {
             match outer_err {
-                From::MethodEmptyName => Self::MethodEmptyName,
-                From::MethodNotFound => Self::MethodNotFound,
-                From::MethodInvalidSignature => Self::MethodInvalidSignature,
+                | From::MethodEmptyName => Self::MethodEmptyName,
+                | From::MethodNotFound => Self::MethodNotFound,
+                | From::MethodInvalidSignature => Self::MethodInvalidSignature,
             }
         }
     }
@@ -25,15 +25,15 @@ mod prepare_error {
     impl super::Convert<From> for near_primitives::errors::PrepareError {
         fn convert(outer_err: From) -> Self {
             match outer_err {
-                From::Serialization => Self::Serialization,
-                From::Deserialization => Self::Deserialization,
-                From::InternalMemoryDeclared => Self::InternalMemoryDeclared,
-                From::GasInstrumentation => Self::GasInstrumentation,
-                From::StackHeightInstrumentation => Self::StackHeightInstrumentation,
-                From::Instantiate => Self::Instantiate,
-                From::Memory => Self::Memory,
-                From::TooManyFunctions => Self::TooManyFunctions,
-                From::TooManyLocals => Self::TooManyLocals,
+                | From::Serialization => Self::Serialization,
+                | From::Deserialization => Self::Deserialization,
+                | From::InternalMemoryDeclared => Self::InternalMemoryDeclared,
+                | From::GasInstrumentation => Self::GasInstrumentation,
+                | From::StackHeightInstrumentation => Self::StackHeightInstrumentation,
+                | From::Instantiate => Self::Instantiate,
+                | From::Memory => Self::Memory,
+                | From::TooManyFunctions => Self::TooManyFunctions,
+                | From::TooManyLocals => Self::TooManyLocals,
             }
         }
     }
@@ -44,14 +44,16 @@ mod compilation_error {
     impl super::Convert<From> for near_primitives::errors::CompilationError {
         fn convert(outer_err: From) -> Self {
             match outer_err {
-                From::CodeDoesNotExist { account_id } => Self::CodeDoesNotExist {
-                    account_id: account_id.parse().expect("account_id in error must be valid"),
+                | From::CodeDoesNotExist { account_id } => Self::CodeDoesNotExist {
+                    account_id: account_id
+                        .parse()
+                        .expect("account_id in error must be valid"),
                 },
-                From::PrepareError(pe) => Self::PrepareError(super::Convert::convert(pe)),
-                From::WasmerCompileError { msg } => Self::WasmerCompileError { msg },
+                | From::PrepareError(pe) => Self::PrepareError(super::Convert::convert(pe)),
+                | From::WasmerCompileError { msg } => Self::WasmerCompileError { msg },
                 // Intentionally converting into "Wasmer" error here in order to avoid
                 // this particular detail being visible to the protocol unnecessarily.
-                From::WasmtimeCompileError { msg } => Self::WasmerCompileError { msg },
+                | From::WasmtimeCompileError { msg } => Self::WasmerCompileError { msg },
             }
         }
     }
@@ -63,14 +65,16 @@ mod function_call_error {
     impl super::Convert<From> for near_primitives::errors::FunctionCallError {
         fn convert(outer_err: From) -> Self {
             match outer_err {
-                From::CompilationError(e) => Self::CompilationError(super::Convert::convert(e)),
-                From::MethodResolveError(e) => Self::MethodResolveError(super::Convert::convert(e)),
+                | From::CompilationError(e) => Self::CompilationError(super::Convert::convert(e)),
+                | From::MethodResolveError(e) => {
+                    Self::MethodResolveError(super::Convert::convert(e))
+                }
                 // Note: We deliberately collapse all execution errors for
                 // serialization to make the DB representation less dependent
                 // on specific types in Rust code.
-                From::HostError(ref _e) => Self::ExecutionError(outer_err.to_string()),
-                From::LinkError { msg } => Self::ExecutionError(format!("Link Error: {}", msg)),
-                From::WasmTrap(ref _e) => Self::ExecutionError(outer_err.to_string()),
+                | From::HostError(ref _e) => Self::ExecutionError(outer_err.to_string()),
+                | From::LinkError { msg } => Self::ExecutionError(format!("Link Error: {}", msg)),
+                | From::WasmTrap(ref _e) => Self::ExecutionError(outer_err.to_string()),
             }
         }
     }

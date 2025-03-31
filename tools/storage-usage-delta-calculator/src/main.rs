@@ -12,7 +12,10 @@ use tracing::debug;
 /// to get it
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let env_filter = near_o11y::EnvFilterBuilder::from_env().verbose(Some("")).finish().unwrap();
+    let env_filter = near_o11y::EnvFilterBuilder::from_env()
+        .verbose(Some(""))
+        .finish()
+        .unwrap();
     let _subscriber = near_o11y::default_subscriber(env_filter, &Default::default()).global();
     debug!(target: "storage-calculator", "Start");
 

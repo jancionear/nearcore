@@ -1,5 +1,6 @@
 use std::cell::RefCell;
 use std::io;
+use std::num::NonZero;
 use std::sync::Arc;
 
 use super::event_type::{ReshardingEventType, ReshardingSplitShardParams};
@@ -17,10 +18,10 @@ use near_primitives::congestion_info::CongestionInfo;
 use near_primitives::hash::CryptoHash;
 use near_primitives::shard_layout::{get_block_shard_uid, ShardLayout};
 use near_primitives::types::chunk_extra::ChunkExtra;
-use near_store::adapter::trie_store::get_shard_uid_mapping;
+use near_store::adapter::trie_store::{get_shard_uid_mapping, TrieStoreUpdateAdapter};
 use near_store::adapter::{StoreAdapter, StoreUpdateAdapter};
 use near_store::flat::BlockInfo;
-use near_store::trie::mem::memtrie_update::TrackingMode;
+use near_store::trie::mem::mem_trie_update::TrackingMode;
 use near_store::trie::ops::resharding::RetainMode;
 use near_store::trie::outgoing_metadata::ReceiptGroupsQueue;
 use near_store::trie::TrieRecorder;
@@ -72,14 +73,25 @@ impl ReshardingManager {
         .entered();
 
         let prev_hash = block.header().prev_hash();
-        let shard_layout = self.epoch_manager.get_shard_layout(&block.header().epoch_id())?;
-        let next_epoch_id = self.epoch_manager.get_next_epoch_id_from_prev_block(prev_hash)?;
-        let next_shard_layout = self.epoch_manager.get_shard_layout(&next_epoch_id)?;
+        let shard_layout = self
+            .epoch_manager
+            .get_shard_layout(&block.header().epoch_id())?;
+        let next_epoch_id = self
+            .epoch_manager
+            .get_next_epoch_id_from_prev_block(prev_hash)?;
+        let next_shard_layout = self
+            .epoch_manager
+            .get_shard_layout(&next_epoch_id)?;
 
-        let next_block_has_new_shard_layout =
-            self.epoch_manager.is_next_block_epoch_start(block_hash)?
-                && shard_layout != next_shard_layout;
-        if !next_block_has_new_shard_layout {
+        let is_next_block_epoch_start = self
+            .epoch_manager
+            .is_next_block_epoch_start(block_hash)?;
+        if !is_next_block_epoch_start {
+            return Ok(());
+        }
+
+        let will_shard_layout_change = shard_layout != next_shard_layout;
+        if !will_shard_layout_change {
             tracing::debug!(target: "resharding", ?prev_hash, "prev block has the same shard layout, skipping");
             return Ok(());
         }
@@ -97,7 +109,7 @@ impl ReshardingManager {
         let resharding_event_type =
             ReshardingEventType::from_shard_layout(&next_shard_layout, block_info)?;
         match resharding_event_type {
-            Some(ReshardingEventType::SplitShard(split_shard_event)) => {
+            | Some(ReshardingEventType::SplitShard(split_shard_event)) => {
                 self.split_shard(
                     chain_store_update,
                     block,
@@ -107,7 +119,7 @@ impl ReshardingManager {
                     next_shard_layout,
                 )?;
             }
-            None => {
+            | None => {
                 tracing::warn!(target: "resharding", ?resharding_event_type, "unsupported resharding event type, skipping");
             }
         };
@@ -142,10 +154,11 @@ impl ReshardingManager {
         )?;
 
         // Trigger resharding of flat storage.
-        self.flat_storage_resharder.start_resharding(
-            ReshardingEventType::SplitShard(split_shard_event),
-            &next_shard_layout,
-        )?;
+        self.flat_storage_resharder
+            .start_resharding(
+                ReshardingEventType::SplitShard(split_shard_event),
+                &next_shard_layout,
+            )?;
 
         Ok(())
     }
@@ -166,6 +179,23 @@ impl ReshardingManager {
             store_update.set_shard_uid_mapping(child_shard_uid, parent_shard_uid_prefix);
         }
         store_update.commit()
+    }
+
+    /// TODO(resharding): Remove once proper solution for negative refcounts is implemented.
+    fn duplicate_nodes_at_split_boundary<'a>(
+        trie_store_update: &mut TrieStoreUpdateAdapter,
+        trie_nodes: impl Iterator<Item = (&'a CryptoHash, &'a Arc<[u8]>)>,
+        shard_uid_prefix: ShardUId,
+    ) {
+        let refcount_increment = NonZero::new(1).unwrap();
+        for (node_hash, node_value) in trie_nodes {
+            trie_store_update.increment_refcount_by(
+                shard_uid_prefix,
+                &node_hash,
+                &node_value,
+                refcount_increment,
+            );
+        }
     }
 
     /// Creates temporary memtries for new shards to be able to process them in the next epoch.
@@ -197,7 +227,7 @@ impl ReshardingManager {
             (split_shard_event.left_child_shard, RetainMode::Left),
             (split_shard_event.right_child_shard, RetainMode::Right),
         ] {
-            let Some(memtries) = tries.get_memtries(new_shard_uid) else {
+            let Some(mem_tries) = tries.get_mem_tries(new_shard_uid) else {
                 tracing::error!(
                     "Memtrie not loaded. Cannot process memtrie resharding storage
                      update for block {:?}, shard {:?}",
@@ -211,29 +241,44 @@ impl ReshardingManager {
                 target: "resharding", ?new_shard_uid, ?retain_mode,
                 "Creating child memtrie by retaining nodes in parent memtrie..."
             );
-            let mut memtries = memtries.write().unwrap();
+            let mut mem_tries = mem_tries.write().unwrap();
             let mut trie_recorder = TrieRecorder::new(None);
             let mode = TrackingMode::RefcountsAndAccesses(&mut trie_recorder);
-            let memtrie_update = memtries.update(*parent_chunk_extra.state_root(), mode)?;
+            let mem_trie_update = mem_tries.update(*parent_chunk_extra.state_root(), mode)?;
 
-            let trie_changes = memtrie_update.retain_split_shard(&boundary_account, retain_mode);
-            let memtrie_changes = trie_changes.memtrie_changes.as_ref().unwrap();
-            let new_state_root = memtries.apply_memtrie_changes(block_height, memtrie_changes);
-            drop(memtries);
+            let trie_changes = mem_trie_update.retain_split_shard(&boundary_account, retain_mode);
+            Self::duplicate_nodes_at_split_boundary(
+                &mut trie_store_update.trie_store_update(),
+                trie_recorder.recorded_iter(),
+                parent_shard_uid,
+            );
+            let memtrie_changes = trie_changes
+                .memtrie_changes
+                .as_ref()
+                .unwrap();
+            let new_state_root = mem_tries.apply_memtrie_changes(block_height, memtrie_changes);
+            drop(mem_tries);
 
             // Get the congestion info for the child.
             let parent_epoch_id = block.header().epoch_id();
-            let parent_shard_layout = self.epoch_manager.get_shard_layout(&parent_epoch_id)?;
+            let parent_shard_layout = self
+                .epoch_manager
+                .get_shard_layout(&parent_epoch_id)?;
             let parent_state_root = *parent_chunk_extra.state_root();
             let parent_trie = tries.get_trie_for_shard(parent_shard_uid, parent_state_root);
-            let parent_congestion_info =
-                parent_chunk_extra.congestion_info().expect("The congestion info must exist!");
+            let parent_congestion_info = parent_chunk_extra
+                .congestion_info()
+                .expect("The congestion info must exist!");
 
             let trie_recorder = RefCell::new(trie_recorder);
             let parent_trie = parent_trie.recording_reads_with_recorder(trie_recorder);
 
-            let child_epoch_id = self.epoch_manager.get_next_epoch_id(block.hash())?;
-            let child_shard_layout = self.epoch_manager.get_shard_layout(&child_epoch_id)?;
+            let child_epoch_id = self
+                .epoch_manager
+                .get_next_epoch_id(block.hash())?;
+            let child_shard_layout = self
+                .epoch_manager
+                .get_shard_layout(&child_epoch_id)?;
             let child_congestion_info = Self::get_child_congestion_info(
                 &parent_trie,
                 &parent_shard_layout,
@@ -244,9 +289,11 @@ impl ReshardingManager {
             )?;
 
             let trie_recorder = parent_trie.take_recorder().unwrap();
-            let partial_storage = trie_recorder.borrow_mut().recorded_storage();
+            let partial_storage = trie_recorder
+                .borrow_mut()
+                .recorded_storage();
             let partial_state_len = match &partial_storage.nodes {
-                PartialState::TrieValues(values) => values.len(),
+                | PartialState::TrieValues(values) => values.len(),
             };
 
             // TODO(resharding): set all fields of `ChunkExtra`. Consider stronger
@@ -254,8 +301,9 @@ impl ReshardingManager {
             // `FlatState` update is implemented.
             let mut child_chunk_extra = ChunkExtra::clone(&parent_chunk_extra);
             *child_chunk_extra.state_root_mut() = new_state_root;
-            *child_chunk_extra.congestion_info_mut().expect("The congestion info must exist!") =
-                child_congestion_info;
+            *child_chunk_extra
+                .congestion_info_mut()
+                .expect("The congestion info must exist!") = child_congestion_info;
 
             chain_store_update.save_chunk_extra(block_hash, &new_shard_uid, child_chunk_extra);
             chain_store_update.save_state_transition_data(
@@ -363,7 +411,9 @@ impl ReshardingManager {
         child_shard_uid: ShardUId,
         congestion_info: &mut CongestionInfo,
     ) -> Result<(), Error> {
-        let all_shards = child_shard_layout.shard_ids().collect_vec();
+        let all_shards = child_shard_layout
+            .shard_ids()
+            .collect_vec();
         let own_shard = child_shard_uid.shard_id();
         let own_shard_index = child_shard_layout
             .get_shard_index(own_shard)?

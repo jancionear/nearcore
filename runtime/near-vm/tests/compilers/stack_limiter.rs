@@ -7,7 +7,12 @@ use near_vm_vm::TrapCode;
 fn get_store() -> Store {
     let compiler = Singlepass::default();
     let pool = MemoryPool::new(6, 0x100000).expect("foo");
-    let store = Store::new(Universal::new(compiler).code_memory_pool(pool).engine().into());
+    let store = Store::new(
+        Universal::new(compiler)
+            .code_memory_pool(pool)
+            .engine()
+            .into(),
+    );
     store
 }
 
@@ -38,13 +43,15 @@ fn stack_limit_hit() {
         Instance::new_with_config(&module, InstanceConfig::with_stack_limit(100000), &imports! {});
     assert!(instance.is_ok());
     let instance = instance.unwrap();
-    let main_func = instance.lookup_function("main").expect("expected function main");
+    let main_func = instance
+        .lookup_function("main")
+        .expect("expected function main");
     match main_func.call(&[]) {
-        Err(err) => {
+        | Err(err) => {
             let trap = err.to_trap().unwrap();
             assert_eq!(trap, TrapCode::StackOverflow);
         }
-        _ => assert!(false),
+        | _ => assert!(false),
     }
 }
 
@@ -79,13 +86,15 @@ fn stack_limit_operand_stack() {
         Instance::new_with_config(&module, InstanceConfig::with_stack_limit(1000), &imports! {});
     assert!(instance.is_ok());
     let instance = instance.unwrap();
-    let main_func = instance.lookup_function("main").expect("expected function main");
+    let main_func = instance
+        .lookup_function("main")
+        .expect("expected function main");
     match main_func.call(&[]) {
-        Err(err) => {
+        | Err(err) => {
             let trap = err.to_trap().unwrap();
             assert_eq!(trap, TrapCode::StackOverflow);
         }
-        _ => assert!(false),
+        | _ => assert!(false),
     }
 }
 
@@ -125,7 +134,9 @@ fn stack_limit_ok() {
         Instance::new_with_config(&module, InstanceConfig::with_stack_limit(1000), &imports! {});
     assert!(instance.is_ok());
     let instance = instance.unwrap();
-    let main_func = instance.lookup_function("main").expect("expected function main");
+    let main_func = instance
+        .lookup_function("main")
+        .expect("expected function main");
     let e = main_func.call(&[]);
     assert!(e.is_ok(), "got stack limit result: {:?}", e);
 }
@@ -142,7 +153,9 @@ fn stack_limit_huge_limit() {
     );
     assert!(instance.is_ok());
     let instance = instance.unwrap();
-    let main_func = instance.lookup_function("main").expect("expected function main");
+    let main_func = instance
+        .lookup_function("main")
+        .expect("expected function main");
     main_func.call(&[]).unwrap();
 }
 
@@ -163,13 +176,15 @@ fn stack_limit_no_args() {
         Instance::new_with_config(&module, InstanceConfig::with_stack_limit(1000), &imports! {});
     assert!(instance.is_ok());
     let instance = instance.unwrap();
-    let main_func = instance.lookup_function("main").expect("expected function main");
+    let main_func = instance
+        .lookup_function("main")
+        .expect("expected function main");
     match main_func.call(&[]) {
-        Err(err) => {
+        | Err(err) => {
             let trap = err.to_trap().unwrap();
             assert_eq!(trap, TrapCode::StackOverflow);
         }
-        _ => assert!(false),
+        | _ => assert!(false),
     }
 }
 
@@ -205,7 +220,9 @@ fn deep_but_sane() {
         Instance::new_with_config(&module, InstanceConfig::with_stack_limit(1000000), &imports! {});
     assert!(instance.is_ok());
     let instance = instance.unwrap();
-    let main_func = instance.lookup_function("main").expect("expected function main");
+    let main_func = instance
+        .lookup_function("main")
+        .expect("expected function main");
 
     let e = main_func.call(&[]);
     assert!(e.is_ok(), "expected successful result was instead {:?}", e);

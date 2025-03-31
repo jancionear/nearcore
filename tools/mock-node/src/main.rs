@@ -85,7 +85,10 @@ struct Cli {
     mock_port: Option<u16>,
 }
 
-async fn target_height_reached(client: &JsonRpcClient, target_height: BlockHeight) -> bool {
+async fn target_height_reached(
+    client: &JsonRpcClient,
+    target_height: BlockHeight,
+) -> bool {
     let t = Instant::now();
     let status = client.status().await;
     let latency = t.elapsed();
@@ -96,8 +99,8 @@ async fn target_height_reached(client: &JsonRpcClient, target_height: BlockHeigh
         );
     }
     match status {
-        Ok(status) => status.sync_info.latest_block_height >= target_height,
-        Err(_) => false,
+        | Ok(status) => status.sync_info.latest_block_height >= target_height,
+        | Err(_) => false,
     }
 }
 
@@ -111,16 +114,23 @@ fn main() -> anyhow::Result<()> {
     near_config.client_config.min_num_peers = 1;
     let signer = InMemorySigner::from_random("mock_node".parse().unwrap(), KeyType::ED25519);
     near_config.network_config.node_key = signer.secret_key;
-    near_config.client_config.tracked_shards =
-        near_config.genesis.config.shard_layout.shard_ids().collect();
+    near_config.client_config.tracked_shards = near_config
+        .genesis
+        .config
+        .shard_layout
+        .shard_ids()
+        .collect();
     if near_config.rpc_config.is_none() {
         near_config.rpc_config = Some(near_jsonrpc::RpcConfig::default());
     }
     let tempdir;
     let client_home_dir = match &args.client_home_dir {
-        Some(it) => it.as_path(),
-        None => {
-            tempdir = tempfile::Builder::new().prefix("mock_node").tempdir().unwrap();
+        | Some(it) => it.as_path(),
+        | None => {
+            tempdir = tempfile::Builder::new()
+                .prefix("mock_node")
+                .tempdir()
+                .unwrap();
             tempdir.path()
         }
     };
@@ -137,8 +147,12 @@ fn main() -> anyhow::Result<()> {
         network_config.response_delay = Duration::from_millis(delay);
     }
 
-    let client_height = args.start_height.unwrap_or(args.client_height);
-    let network_height = args.start_height.or(args.network_height);
+    let client_height = args
+        .start_height
+        .unwrap_or(args.client_height);
+    let network_height = args
+        .start_height
+        .or(args.network_height);
     let addr = tcp::ListenerAddr::new(SocketAddr::new(
         "127.0.0.1".parse().unwrap(),
         args.mock_port.unwrap_or(24566),

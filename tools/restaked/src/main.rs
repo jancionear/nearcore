@@ -21,7 +21,10 @@ fn maybe_kicked_out(validator_info: &CurrentEpochValidatorInfo) -> bool {
 }
 
 fn main() {
-    let env_filter = near_o11y::EnvFilterBuilder::from_env().verbose(Some("")).finish().unwrap();
+    let env_filter = near_o11y::EnvFilterBuilder::from_env()
+        .verbose(Some(""))
+        .finish()
+        .unwrap();
     let _subscriber = near_o11y::default_subscriber(env_filter, &Default::default()).global();
 
     let matches = Command::new("Key-pairs generator")
@@ -59,15 +62,25 @@ fn main() {
         )
         .get_matches();
 
-    let home_dir = matches.get_one::<PathBuf>("home").unwrap();
+    let home_dir = matches
+        .get_one::<PathBuf>("home")
+        .unwrap();
     let wait_period = matches
         .get_one::<String>("wait-period")
-        .map(|s| s.parse().expect("Wait period must be a number"))
+        .map(|s| {
+            s.parse()
+                .expect("Wait period must be a number")
+        })
         .unwrap();
-    let rpc_url = matches.get_one::<String>("rpc-url").unwrap();
+    let rpc_url = matches
+        .get_one::<String>("rpc-url")
+        .unwrap();
     let stake_amount = matches
         .get_one::<String>("stake-amount")
-        .map(|s| s.parse().expect("Stake amount must be a number"))
+        .map(|s| {
+            s.parse()
+                .expect("Stake amount must be a number")
+        })
         .unwrap();
 
     let config = Config::from_file(&home_dir.join(CONFIG_FILENAME)).expect("can't load config");
@@ -96,7 +109,10 @@ fn main() {
         //  - don't already have a proposal
         //  - too many missing blocks in current validators
         //  - missing in next validators
-        if validators.current_proposals.iter().any(|proposal| proposal.account_id() == &account_id)
+        if validators
+            .current_proposals
+            .iter()
+            .any(|proposal| proposal.account_id() == &account_id)
         {
             continue;
         }

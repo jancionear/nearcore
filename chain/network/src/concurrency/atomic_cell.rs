@@ -10,7 +10,10 @@ impl<T: Clone> AtomicCell<T> {
     pub fn load(&self) -> T {
         self.0.lock().unwrap().clone()
     }
-    pub fn store(&self, v: T) {
+    pub fn store(
+        &self,
+        v: T,
+    ) {
         *self.0.lock().unwrap() = v;
     }
 }

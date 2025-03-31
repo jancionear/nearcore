@@ -82,8 +82,8 @@ pub fn run(
     let span = tracing::Span::current();
     let outcome = prepared.run(ext, context, fees_config);
     let outcome = match outcome {
-        Ok(o) => o,
-        e @ Err(_) => return e,
+        | Ok(o) => o,
+        | e @ Err(_) => return e,
     };
 
     span.record("burnt_gas", outcome.burnt_gas);
@@ -156,30 +156,36 @@ pub trait VMKindExt {
     ///
     /// This is not intended to be used by code other than internal tools like
     /// the estimator.
-    fn runtime(&self, config: std::sync::Arc<Config>) -> Option<Box<dyn VM>>;
+    fn runtime(
+        &self,
+        config: std::sync::Arc<Config>,
+    ) -> Option<Box<dyn VM>>;
 }
 
 impl VMKindExt for VMKind {
     fn is_available(&self) -> bool {
         match self {
-            Self::Wasmer0 => cfg!(all(feature = "wasmer0_vm", target_arch = "x86_64")),
-            Self::Wasmtime => cfg!(feature = "wasmtime_vm"),
-            Self::Wasmer2 => cfg!(all(feature = "wasmer2_vm", target_arch = "x86_64")),
-            Self::NearVm => cfg!(all(feature = "near_vm", target_arch = "x86_64")),
+            | Self::Wasmer0 => cfg!(all(feature = "wasmer0_vm", target_arch = "x86_64")),
+            | Self::Wasmtime => cfg!(feature = "wasmtime_vm"),
+            | Self::Wasmer2 => cfg!(all(feature = "wasmer2_vm", target_arch = "x86_64")),
+            | Self::NearVm => cfg!(all(feature = "near_vm", target_arch = "x86_64")),
         }
     }
-    fn runtime(&self, config: std::sync::Arc<Config>) -> Option<Box<dyn VM>> {
+    fn runtime(
+        &self,
+        config: std::sync::Arc<Config>,
+    ) -> Option<Box<dyn VM>> {
         match self {
             #[cfg(all(feature = "wasmer0_vm", target_arch = "x86_64"))]
-            Self::Wasmer0 => Some(Box::new(crate::wasmer_runner::Wasmer0VM::new(config))),
+            | Self::Wasmer0 => Some(Box::new(crate::wasmer_runner::Wasmer0VM::new(config))),
             #[cfg(feature = "wasmtime_vm")]
-            Self::Wasmtime => Some(Box::new(crate::wasmtime_runner::WasmtimeVM::new(config))),
+            | Self::Wasmtime => Some(Box::new(crate::wasmtime_runner::WasmtimeVM::new(config))),
             #[cfg(all(feature = "wasmer2_vm", target_arch = "x86_64"))]
-            Self::Wasmer2 => Some(Box::new(crate::wasmer2_runner::Wasmer2VM::new(config))),
+            | Self::Wasmer2 => Some(Box::new(crate::wasmer2_runner::Wasmer2VM::new(config))),
             #[cfg(all(feature = "near_vm", target_arch = "x86_64"))]
-            Self::NearVm => Some(Box::new(crate::near_vm_runner::NearVM::new(config))),
+            | Self::NearVm => Some(Box::new(crate::near_vm_runner::NearVM::new(config))),
             #[allow(unreachable_patterns)] // reachable when some of the VMs are disabled.
-            _ => {
+            | _ => {
                 let _ = config;
                 None
             }

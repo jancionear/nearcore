@@ -17,7 +17,7 @@ use crate::{RawTrieNode, RawTrieNodeWithSize, TrieChanges};
 
 use super::arena::{ArenaMemory, ArenaMut};
 use super::flexible_data::children::ChildrenView;
-use super::metrics::MEMTRIE_NUM_NODES_CREATED_FROM_UPDATES;
+use super::metrics::MEM_TRIE_NUM_NODES_CREATED_FROM_UPDATES;
 use super::node::{InputMemTrieNode, MemTrieNodeId, MemTrieNodeView};
 
 pub type OldOrUpdatedNodeId = GenericNodeOrIndex<MemTrieNodeId>;
@@ -36,19 +36,19 @@ impl MemTrieNodeWithSize {
     pub fn from_existing_node_view<'a, M: ArenaMemory>(view: MemTrieNodeView<'a, M>) -> Self {
         let memory_usage = view.memory_usage();
         let node = match view {
-            MemTrieNodeView::Leaf { extension, value } => MemTrieNode::Leaf {
+            | MemTrieNodeView::Leaf { extension, value } => MemTrieNode::Leaf {
                 extension: extension.to_vec().into_boxed_slice(),
                 value: value.to_flat_value(),
             },
-            MemTrieNodeView::Branch { children, .. } => MemTrieNode::Branch {
+            | MemTrieNodeView::Branch { children, .. } => MemTrieNode::Branch {
                 children: Box::new(Self::convert_children_to_updated(children)),
                 value: None,
             },
-            MemTrieNodeView::BranchWithValue { children, value, .. } => MemTrieNode::Branch {
+            | MemTrieNodeView::BranchWithValue { children, value, .. } => MemTrieNode::Branch {
                 children: Box::new(Self::convert_children_to_updated(children)),
                 value: Some(value.to_flat_value()),
             },
-            MemTrieNodeView::Extension { extension, child, .. } => MemTrieNode::Extension {
+            | MemTrieNodeView::Extension { extension, child, .. } => MemTrieNode::Extension {
                 extension: extension.to_vec().into_boxed_slice(),
                 child: child.id(),
             },
@@ -57,7 +57,7 @@ impl MemTrieNodeWithSize {
     }
 
     fn convert_children_to_updated<'a, M: ArenaMemory>(
-        view: ChildrenView<'a, M>,
+        view: ChildrenView<'a, M>
     ) -> [Option<MemTrieNodeId>; 16] {
         let mut children = [None; 16];
         for i in 0..16 {
@@ -111,10 +111,16 @@ impl<'a> TrieChangesTracker<'a> {
         }
     }
 
-    fn record<M: ArenaMemory>(&mut self, node: &MemTrieNodeView<'a, M>) {
+    fn record<M: ArenaMemory>(
+        &mut self,
+        node: &MemTrieNodeView<'a, M>,
+    ) {
         let node_hash = node.node_hash();
         let raw_node_serialized = borsh::to_vec(&node.to_raw_trie_node_with_size()).unwrap();
-        *self.refcount_deleted_hashes.entry(node_hash).or_default() += 1;
+        *self
+            .refcount_deleted_hashes
+            .entry(node_hash)
+            .or_default() += 1;
         if let Some(recorder) = self.recorder.as_mut() {
             recorder.record(&node_hash, raw_node_serialized.into());
         }
@@ -156,39 +162,61 @@ impl<'a, M: ArenaMemory> GenericTrieUpdate<'a, MemTrieNodeId, FlatStateValue>
         node: GenericNodeOrIndex<MemTrieNodeId>,
     ) -> Result<UpdatedNodeId, StorageError> {
         Ok(match node {
-            GenericNodeOrIndex::Old(node_id) => self.convert_existing_to_updated(Some(node_id)),
-            GenericNodeOrIndex::Updated(node_id) => node_id,
+            | GenericNodeOrIndex::Old(node_id) => self.convert_existing_to_updated(Some(node_id)),
+            | GenericNodeOrIndex::Updated(node_id) => node_id,
         })
     }
 
-    fn take_node(&mut self, index: UpdatedNodeId) -> UpdatedMemTrieNodeWithSize {
-        self.updated_nodes.get_mut(index).unwrap().take().expect("Node taken twice")
+    fn take_node(
+        &mut self,
+        index: UpdatedNodeId,
+    ) -> UpdatedMemTrieNodeWithSize {
+        self.updated_nodes
+            .get_mut(index)
+            .unwrap()
+            .take()
+            .expect("Node taken twice")
     }
 
-    fn place_node_at(&mut self, index: UpdatedNodeId, node: UpdatedMemTrieNodeWithSize) {
+    fn place_node_at(
+        &mut self,
+        index: UpdatedNodeId,
+        node: UpdatedMemTrieNodeWithSize,
+    ) {
         assert!(self.updated_nodes[index].is_none(), "Node placed twice");
         self.updated_nodes[index] = Some(node);
     }
 
-    fn get_node_ref(&self, node_id: UpdatedNodeId) -> &UpdatedMemTrieNodeWithSize {
-        self.updated_nodes[node_id].as_ref().unwrap()
+    fn get_node_ref(
+        &self,
+        node_id: UpdatedNodeId,
+    ) -> &UpdatedMemTrieNodeWithSize {
+        self.updated_nodes[node_id]
+            .as_ref()
+            .unwrap()
     }
 
-    fn place_node(&mut self, node: UpdatedMemTrieNodeWithSize) -> UpdatedNodeId {
+    fn place_node(
+        &mut self,
+        node: UpdatedMemTrieNodeWithSize,
+    ) -> UpdatedNodeId {
         let index = self.updated_nodes.len();
         self.updated_nodes.push(Some(node));
         index
     }
 
-    fn store_value(&mut self, value: GenericTrieValue) -> FlatStateValue {
+    fn store_value(
+        &mut self,
+        value: GenericTrieValue,
+    ) -> FlatStateValue {
         let (flat_value, full_value) = match value {
             // If value is provided only for memtrie, it is flat, so we can't
             // record nodes. Just return flat value back.
             // TODO: check consistency with trie recorder setup.
             // `GenericTrieValue::MemtrieOnly` must not be used if
             // `nodes_tracker` is set and vice versa.
-            GenericTrieValue::MemtrieOnly(flat_value) => return flat_value,
-            GenericTrieValue::MemtrieAndDisk(full_value) => {
+            | GenericTrieValue::MemtrieOnly(flat_value) => return flat_value,
+            | GenericTrieValue::MemtrieAndDisk(full_value) => {
                 (FlatStateValue::on_disk(full_value.as_slice()), full_value)
             }
         };
@@ -197,18 +225,27 @@ impl<'a, M: ArenaMemory> GenericTrieUpdate<'a, MemTrieNodeId, FlatStateValue>
         let Some(nodes_tracker) = self.nodes_tracker.as_mut() else {
             return flat_value;
         };
-        *nodes_tracker.refcount_inserted_values.entry(full_value).or_default() += 1;
+        *nodes_tracker
+            .refcount_inserted_values
+            .entry(full_value)
+            .or_default() += 1;
 
         flat_value
     }
 
-    fn delete_value(&mut self, value: FlatStateValue) -> Result<(), StorageError> {
+    fn delete_value(
+        &mut self,
+        value: FlatStateValue,
+    ) -> Result<(), StorageError> {
         let Some(nodes_tracker) = self.nodes_tracker.as_mut() else {
             return Ok(());
         };
 
         let hash = value.to_value_ref().hash;
-        *nodes_tracker.refcount_deleted_hashes.entry(hash).or_default() += 1;
+        *nodes_tracker
+            .refcount_deleted_hashes
+            .entry(hash)
+            .or_default() += 1;
         Ok(())
     }
 }
@@ -221,9 +258,9 @@ impl<'a, M: ArenaMemory> MemTrieUpdate<'a, M> {
         mode: TrackingMode<'a>,
     ) -> Self {
         let nodes_tracker = match mode {
-            TrackingMode::None => None,
-            TrackingMode::Refcounts => Some(TrieChangesTracker::with_recorder(None)),
-            TrackingMode::RefcountsAndAccesses(recorder) => {
+            | TrackingMode::None => None,
+            | TrackingMode::Refcounts => Some(TrieChangesTracker::with_recorder(None)),
+            | TrackingMode::RefcountsAndAccesses(recorder) => {
                 Some(TrieChangesTracker::with_recorder(Some(recorder)))
             }
         };
@@ -234,7 +271,10 @@ impl<'a, M: ArenaMemory> MemTrieUpdate<'a, M> {
     }
 
     /// Creates a new updated node, assigning it a new ID.
-    fn new_updated_node(&mut self, node: UpdatedMemTrieNodeWithSize) -> UpdatedNodeId {
+    fn new_updated_node(
+        &mut self,
+        node: UpdatedMemTrieNodeWithSize,
+    ) -> UpdatedNodeId {
         let index = self.updated_nodes.len();
         self.updated_nodes.push(Some(node));
         index
@@ -247,7 +287,10 @@ impl<'a, M: ArenaMemory> MemTrieUpdate<'a, M> {
     ///
     /// If the original node is None, it is a marker for the root of an empty
     /// trie.
-    fn convert_existing_to_updated(&mut self, node: Option<MemTrieNodeId>) -> UpdatedNodeId {
+    fn convert_existing_to_updated(
+        &mut self,
+        node: Option<MemTrieNodeId>,
+    ) -> UpdatedNodeId {
         let Some(node) = node else {
             return self.new_updated_node(UpdatedMemTrieNodeWithSize::empty());
         };
@@ -259,7 +302,11 @@ impl<'a, M: ArenaMemory> MemTrieUpdate<'a, M> {
     }
 
     /// Inserts the given key value pair into the trie.
-    pub fn insert(&mut self, key: &[u8], value: Vec<u8>) -> Result<(), StorageError> {
+    pub fn insert(
+        &mut self,
+        key: &[u8],
+        value: Vec<u8>,
+    ) -> Result<(), StorageError> {
         self.generic_insert(0, key, GenericTrieValue::MemtrieAndDisk(value))
     }
 
@@ -287,11 +334,11 @@ impl<'a, M: ArenaMemory> MemTrieUpdate<'a, M> {
     ) {
         let node = updated_nodes[node_id].as_ref().unwrap();
         match &node.node {
-            UpdatedMemTrieNode::Empty => {
+            | UpdatedMemTrieNode::Empty => {
                 assert_eq!(node_id, 0); // only root can be empty
                 return;
             }
-            UpdatedMemTrieNode::Branch { children, .. } => {
+            | UpdatedMemTrieNode::Branch { children, .. } => {
                 for child in children.iter() {
                     if let Some(OldOrUpdatedNodeId::Updated(child_node_id)) = child {
                         Self::post_order_traverse_updated_nodes(
@@ -302,7 +349,7 @@ impl<'a, M: ArenaMemory> MemTrieUpdate<'a, M> {
                     }
                 }
             }
-            UpdatedMemTrieNode::Extension { child, .. } => {
+            | UpdatedMemTrieNode::Extension { child, .. } => {
                 if let OldOrUpdatedNodeId::Updated(child_node_id) = child {
                     Self::post_order_traverse_updated_nodes(
                         *child_node_id,
@@ -311,7 +358,7 @@ impl<'a, M: ArenaMemory> MemTrieUpdate<'a, M> {
                     );
                 }
             }
-            _ => {}
+            | _ => {}
         }
         ordered_nodes.push(node_id);
     }
@@ -333,43 +380,55 @@ impl<'a, M: ArenaMemory> MemTrieUpdate<'a, M> {
         let get_hash =
             |node: OldOrUpdatedNodeId, result: &Vec<(CryptoHash, Vec<u8>)>| -> CryptoHash {
                 match node {
-                    OldOrUpdatedNodeId::Updated(node_id) => result[node_id].0,
+                    | OldOrUpdatedNodeId::Updated(node_id) => result[node_id].0,
                     // IMPORTANT: getting a node hash for a child doesn't
                     // record a new node read. In recorded storage, child node
                     // is referenced by its hash, and we don't need to need the
                     // whole node to verify parent hash.
                     // TODO(#12361): consider fixing it, perhaps by taking this
                     // hash from old version of the parent node.
-                    OldOrUpdatedNodeId::Old(node_id) => node_id.as_ptr(memory).view().node_hash(),
+                    | OldOrUpdatedNodeId::Old(node_id) => node_id
+                        .as_ptr(memory)
+                        .view()
+                        .node_hash(),
                 }
             };
 
         for node_id in ordered_nodes.iter() {
-            let node = updated_nodes[*node_id].as_ref().unwrap();
+            let node = updated_nodes[*node_id]
+                .as_ref()
+                .unwrap();
             let raw_node = match &node.node {
-                UpdatedMemTrieNode::Empty => unreachable!(),
-                UpdatedMemTrieNode::Branch { children, value } => {
+                | UpdatedMemTrieNode::Empty => unreachable!(),
+                | UpdatedMemTrieNode::Branch { children, value } => {
                     let mut child_hashes = vec![];
                     for child in children.iter() {
                         match child {
-                            Some(child) => {
+                            | Some(child) => {
                                 let child_hash = get_hash(*child, &result);
                                 child_hashes.push(Some(child_hash));
                             }
-                            None => {
+                            | None => {
                                 child_hashes.push(None);
                             }
                         }
                     }
-                    let children = Children(child_hashes.as_slice().try_into().unwrap());
-                    let value_ref = value.as_ref().map(|value| value.to_value_ref());
+                    let children = Children(
+                        child_hashes
+                            .as_slice()
+                            .try_into()
+                            .unwrap(),
+                    );
+                    let value_ref = value
+                        .as_ref()
+                        .map(|value| value.to_value_ref());
                     RawTrieNode::branch(children, value_ref)
                 }
-                UpdatedMemTrieNode::Extension { extension, child } => {
+                | UpdatedMemTrieNode::Extension { extension, child } => {
                     let child_hash = get_hash(*child, &result);
                     RawTrieNode::Extension(extension.to_vec(), child_hash)
                 }
-                UpdatedMemTrieNode::Leaf { extension, value } => {
+                | UpdatedMemTrieNode::Leaf { extension, value } => {
                     RawTrieNode::Leaf(extension.to_vec(), value.to_value_ref())
                 }
             };
@@ -392,8 +451,8 @@ impl<'a, M: ArenaMemory> MemTrieUpdate<'a, M> {
 
     /// Converts the changes to memtrie changes. Also returns the list of new nodes inserted,
     /// in hash and serialized form.
-    fn to_memtrie_changes_internal(self) -> (MemTrieChanges, Vec<(CryptoHash, Vec<u8>)>) {
-        MEMTRIE_NUM_NODES_CREATED_FROM_UPDATES
+    fn to_mem_trie_changes_internal(self) -> (MemTrieChanges, Vec<(CryptoHash, Vec<u8>)>) {
+        MEM_TRIE_NUM_NODES_CREATED_FROM_UPDATES
             .with_label_values(&[&self.shard_uid])
             .inc_by(self.updated_nodes.len() as u64);
         let mut ordered_nodes = Vec::new();
@@ -416,21 +475,27 @@ impl<'a, M: ArenaMemory> MemTrieUpdate<'a, M> {
     }
 
     /// Converts the updates to memtrie changes only.
-    pub fn to_memtrie_changes_only(self) -> MemTrieChanges {
-        let (memtrie_changes, _) = self.to_memtrie_changes_internal();
-        memtrie_changes
+    pub fn to_mem_trie_changes_only(self) -> MemTrieChanges {
+        let (mem_trie_changes, _) = self.to_mem_trie_changes_internal();
+        mem_trie_changes
     }
 
     /// Converts the updates to trie changes as well as memtrie changes.
     pub(crate) fn to_trie_changes(mut self) -> TrieChanges {
-        let old_root =
-            self.root.map(|root| root.as_ptr(self.memory).view().node_hash()).unwrap_or_default();
+        let old_root = self
+            .root
+            .map(|root| {
+                root.as_ptr(self.memory)
+                    .view()
+                    .node_hash()
+            })
+            .unwrap_or_default();
         let mut refcount_changes = self
             .nodes_tracker
             .take()
             .expect("Cannot to_trie_changes for memtrie changes only")
             .finalize();
-        let (memtrie_changes, hashes_and_serialized) = self.to_memtrie_changes_internal();
+        let (mem_trie_changes, hashes_and_serialized) = self.to_mem_trie_changes_internal();
 
         // We've accounted for the dereferenced nodes, as well as value addition/subtractions.
         // The only thing left is to increment refcount for all new nodes.
@@ -441,14 +506,14 @@ impl<'a, M: ArenaMemory> MemTrieUpdate<'a, M> {
 
         TrieChanges {
             old_root,
-            new_root: memtrie_changes
+            new_root: mem_trie_changes
                 .node_ids_with_hashes
                 .last()
                 .map(|(_, hash)| *hash)
                 .unwrap_or_default(),
             insertions,
             deletions,
-            memtrie_changes: Some(memtrie_changes),
+            memtrie_changes: Some(mem_trie_changes),
             children_memtrie_changes: Default::default(),
         }
     }
@@ -480,8 +545,8 @@ pub(super) fn construct_root_from_changes<A: ArenaMut>(
                               old_to_new_map: &HashMap<UpdatedNodeId, MemTrieNodeId>|
      -> MemTrieNodeId {
         match node_id {
-            OldOrUpdatedNodeId::Updated(node_id) => *old_to_new_map.get(&node_id).unwrap(),
-            OldOrUpdatedNodeId::Old(node_id) => node_id,
+            | OldOrUpdatedNodeId::Updated(node_id) => *old_to_new_map.get(&node_id).unwrap(),
+            | OldOrUpdatedNodeId::Old(node_id) => node_id,
         }
     };
 
@@ -489,10 +554,14 @@ pub(super) fn construct_root_from_changes<A: ArenaMut>(
     let updated_nodes = &changes.updated_nodes;
     let node_ids_with_hashes = &changes.node_ids_with_hashes;
     for (node_id, node_hash) in node_ids_with_hashes.iter() {
-        let node = updated_nodes.get(*node_id).unwrap().clone().unwrap();
+        let node = updated_nodes
+            .get(*node_id)
+            .unwrap()
+            .clone()
+            .unwrap();
         let node = match &node.node {
-            UpdatedMemTrieNode::Empty => unreachable!(),
-            UpdatedMemTrieNode::Branch { children, value } => {
+            | UpdatedMemTrieNode::Empty => unreachable!(),
+            | UpdatedMemTrieNode::Branch { children, value } => {
                 let mut new_children = [None; 16];
                 for i in 0..16 {
                     if let Some(child) = children[i] {
@@ -500,17 +569,17 @@ pub(super) fn construct_root_from_changes<A: ArenaMut>(
                     }
                 }
                 match value {
-                    Some(value) => {
+                    | Some(value) => {
                         InputMemTrieNode::BranchWithValue { children: new_children, value }
                     }
-                    None => InputMemTrieNode::Branch { children: new_children },
+                    | None => InputMemTrieNode::Branch { children: new_children },
                 }
             }
-            UpdatedMemTrieNode::Extension { extension, child } => InputMemTrieNode::Extension {
+            | UpdatedMemTrieNode::Extension { extension, child } => InputMemTrieNode::Extension {
                 extension,
                 child: map_to_new_node_id(*child, &updated_to_new_map),
             },
-            UpdatedMemTrieNode::Leaf { extension, value } => {
+            | UpdatedMemTrieNode::Leaf { extension, value } => {
                 InputMemTrieNode::Leaf { value, extension }
             }
         };
@@ -527,8 +596,8 @@ mod tests {
     use crate::test_utils::TestTriesBuilder;
     use crate::trie::mem::arena::hybrid::HybridArena;
     use crate::trie::mem::lookup::memtrie_lookup;
-    use crate::trie::mem::memtrie_update::GenericTrieUpdateInsertDelete;
-    use crate::trie::mem::memtries::MemTries;
+    use crate::trie::mem::mem_trie_update::GenericTrieUpdateInsertDelete;
+    use crate::trie::mem::mem_tries::MemTries;
     use crate::trie::MemTrieChanges;
     use crate::{KeyLookupMode, ShardTries, TrieChanges};
     use near_primitives::hash::CryptoHash;
@@ -561,9 +630,14 @@ mod tests {
             }
         }
 
-        fn make_all_changes(&mut self, changes: Vec<(Vec<u8>, Option<Vec<u8>>)>) -> TrieChanges {
-            let mut update =
-                self.mem.update(self.state_root, TrackingMode::Refcounts).unwrap_or_else(|_| {
+        fn make_all_changes(
+            &mut self,
+            changes: Vec<(Vec<u8>, Option<Vec<u8>>)>,
+        ) -> TrieChanges {
+            let mut update = self
+                .mem
+                .update(self.state_root, TrackingMode::Refcounts)
+                .unwrap_or_else(|_| {
                     panic!("Trying to update root {:?} but it's not in memtries", self.state_root)
                 });
             for (key, value) in changes {
@@ -580,25 +654,31 @@ mod tests {
             &mut self,
             changes: Vec<(Vec<u8>, Option<Vec<u8>>)>,
         ) -> MemTrieChanges {
-            let mut update =
-                self.mem.update(self.state_root, TrackingMode::None).unwrap_or_else(|_| {
+            let mut update = self
+                .mem
+                .update(self.state_root, TrackingMode::None)
+                .unwrap_or_else(|_| {
                     panic!("Trying to update root {:?} but it's not in memtries", self.state_root)
                 });
             for (key, value) in changes {
                 if let Some(value) = value {
-                    update.insert_memtrie_only(&key, FlatStateValue::on_disk(&value)).unwrap();
+                    update
+                        .insert_memtrie_only(&key, FlatStateValue::on_disk(&value))
+                        .unwrap();
                 } else {
                     update.generic_delete(0, &key).unwrap();
                 }
             }
-            update.to_memtrie_changes_only()
+            update.to_mem_trie_changes_only()
         }
 
         fn make_disk_changes_only(
             &mut self,
             changes: Vec<(Vec<u8>, Option<Vec<u8>>)>,
         ) -> TrieChanges {
-            let trie = self.disk.get_trie_for_shard(ShardUId::single_shard(), self.state_root);
+            let trie = self
+                .disk
+                .get_trie_for_shard(ShardUId::single_shard(), self.state_root);
             trie.update(changes).unwrap()
         }
 
@@ -611,15 +691,21 @@ mod tests {
             let disk_changes = self.make_disk_changes_only(changes.clone());
             let mut all_changes = self.make_all_changes(changes.clone());
 
-            let memtrie_changes_from_all_changes = all_changes.memtrie_changes.take().unwrap();
-            assert_eq!(memtrie_changes, memtrie_changes_from_all_changes);
+            let mem_trie_changes_from_all_changes = all_changes
+                .memtrie_changes
+                .take()
+                .unwrap();
+            assert_eq!(memtrie_changes, mem_trie_changes_from_all_changes);
             assert_eq!(disk_changes, all_changes);
 
             // Then apply the changes and check consistency of new state roots.
-            let new_state_root_from_mem = self.mem.apply_memtrie_changes(0, &memtrie_changes);
+            let new_state_root_from_mem = self
+                .mem
+                .apply_memtrie_changes(0, &memtrie_changes);
             let mut store_update = self.disk.store_update();
             let new_state_root_from_disk =
-                self.disk.apply_all(&disk_changes, ShardUId::single_shard(), &mut store_update);
+                self.disk
+                    .apply_all(&disk_changes, ShardUId::single_shard(), &mut store_update);
             assert_eq!(new_state_root_from_mem, new_state_root_from_disk);
             store_update.commit().unwrap();
             self.state_root = new_state_root_from_mem;
@@ -627,7 +713,8 @@ mod tests {
             // Update our truth.
             for (key, value) in changes {
                 if let Some(value) = value {
-                    self.truth.insert(key, Some(ValueRef::new(&value)));
+                    self.truth
+                        .insert(key, Some(ValueRef::new(&value)));
                 } else {
                     if self.check_deleted_keys {
                         self.truth.insert(key, None);
@@ -642,13 +729,20 @@ mod tests {
                 let memtrie_root = if self.state_root == StateRoot::default() {
                     None
                 } else {
-                    Some(self.mem.get_root(&self.state_root).unwrap())
+                    Some(
+                        self.mem
+                            .get_root(&self.state_root)
+                            .unwrap(),
+                    )
                 };
-                let disk_trie =
-                    self.disk.get_trie_for_shard(ShardUId::single_shard(), self.state_root);
+                let disk_trie = self
+                    .disk
+                    .get_trie_for_shard(ShardUId::single_shard(), self.state_root);
                 let memtrie_result =
                     memtrie_root.and_then(|memtrie_root| memtrie_lookup(memtrie_root, key, None));
-                let disk_result = disk_trie.get_optimized_ref(key, KeyLookupMode::Trie).unwrap();
+                let disk_result = disk_trie
+                    .get_optimized_ref(key, KeyLookupMode::Trie)
+                    .unwrap();
                 if let Some(value_ref) = value_ref {
                     let memtrie_value_ref = memtrie_result
                         .unwrap_or_else(|| {
@@ -894,7 +988,11 @@ mod tests {
         let mut tries = TestTries::new(false);
         for batch in 0..1000 {
             println!("Batch {}:", batch);
-            let mut existing_keys = tries.truth.iter().map(|(k, _)| k.clone()).collect::<Vec<_>>();
+            let mut existing_keys = tries
+                .truth
+                .iter()
+                .map(|(k, _)| k.clone())
+                .collect::<Vec<_>>();
             // The more keys we have, the less we insert, the more we delete.
             let num_insertions =
                 rand::thread_rng().gen_range(0..=(MAX_KEYS - existing_keys.len()) / SLOWDOWN);
@@ -962,17 +1060,21 @@ mod tests {
         changes: &str,
     ) -> CryptoHash {
         let changes = parse_changes(changes);
-        let mut update = memtrie.update(prev_state_root, TrackingMode::None).unwrap();
+        let mut update = memtrie
+            .update(prev_state_root, TrackingMode::None)
+            .unwrap();
 
         for (key, value) in changes {
             if let Some(value) = value {
-                update.insert_memtrie_only(&key, FlatStateValue::on_disk(&value)).unwrap();
+                update
+                    .insert_memtrie_only(&key, FlatStateValue::on_disk(&value))
+                    .unwrap();
             } else {
                 update.generic_delete(0, &key).unwrap();
             }
         }
 
-        let changes = update.to_memtrie_changes_only();
+        let changes = update.to_mem_trie_changes_only();
         memtrie.apply_memtrie_changes(block_height, &changes)
     }
 

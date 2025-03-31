@@ -46,7 +46,9 @@ pub(crate) fn time_measurement_least_squares(
 ) -> ((Ratio<u64>, Ratio<u64>), (Ratio<u64>, Ratio<u64>)) {
     let t = least_squares_method(
         xs,
-        &ys.iter().map(|ns| (ns * GAS_IN_NS).to_integer()).collect::<Vec<_>>(),
+        &ys.iter()
+            .map(|ns| (ns * GAS_IN_NS).to_integer())
+            .collect::<Vec<_>>(),
     );
     let (pos_t_base, neg_t_base) = split_pos_neg(t.0);
     let (pos_t_factor, neg_t_factor) = split_pos_neg(t.1);
@@ -65,12 +67,22 @@ pub(crate) fn qemu_measurement_least_squares(
 ) -> ((QemuMeasurement, QemuMeasurement), (QemuMeasurement, QemuMeasurement)) {
     let i = least_squares_method(
         xs,
-        &ys.iter().map(|q| q.instructions.to_integer()).collect::<Vec<_>>(),
+        &ys.iter()
+            .map(|q| q.instructions.to_integer())
+            .collect::<Vec<_>>(),
     );
-    let r =
-        least_squares_method(xs, &ys.iter().map(|q| q.io_r_bytes.to_integer()).collect::<Vec<_>>());
-    let w =
-        least_squares_method(xs, &ys.iter().map(|q| q.io_w_bytes.to_integer()).collect::<Vec<_>>());
+    let r = least_squares_method(
+        xs,
+        &ys.iter()
+            .map(|q| q.io_r_bytes.to_integer())
+            .collect::<Vec<_>>(),
+    );
+    let w = least_squares_method(
+        xs,
+        &ys.iter()
+            .map(|q| q.io_w_bytes.to_integer())
+            .collect::<Vec<_>>(),
+    );
 
     let (pos_i_base, neg_i_base) = split_pos_neg(i.0);
     let (pos_r_base, neg_r_base) = split_pos_neg(r.0);
@@ -106,8 +118,16 @@ pub(crate) fn qemu_measurement_least_squares(
 /// Transforms input C into two components, where A,B are non-negative and where A-B ~= input.
 /// This method intentionally rounds fractions to whole integers, rounding towards zero.
 fn split_pos_neg(num: Ratio<i128>) -> (Ratio<u64>, Ratio<u64>) {
-    let pos = num.to_integer().to_u64().unwrap_or_default().into();
-    let neg = (-num).to_integer().to_u64().unwrap_or_default().into();
+    let pos = num
+        .to_integer()
+        .to_u64()
+        .unwrap_or_default()
+        .into();
+    let neg = (-num)
+        .to_integer()
+        .to_u64()
+        .unwrap_or_default()
+        .into();
     (pos, neg)
 }
 
@@ -118,7 +138,11 @@ mod tests {
     use super::*;
 
     #[track_caller]
-    fn check_least_squares_method(xs: &[u64], ys: &[u64], expected: (f64, f64, &[f64])) {
+    fn check_least_squares_method(
+        xs: &[u64],
+        ys: &[u64],
+        expected: (f64, f64, &[f64]),
+    ) {
         let (a, b, r) = least_squares_method(&xs, &ys);
 
         assert_eq!(a.to_f64().unwrap(), expected.0);
@@ -155,11 +179,19 @@ mod tests {
     #[test]
     fn test_large_numbers() {
         let xs = [1, 1000000, 4000000];
-        let ys = [5663378466666, 5718530400000, 6235718400000];
+        let ys = [
+            5663378466666,
+            5718530400000,
+            6235718400000,
+        ];
 
         let a = 5622793876267.89;
         let b = 149849.09760264654;
-        let error = [-40584440549.0127, 54112573870.5361, -13528133321.5244];
+        let error = [
+            -40584440549.0127,
+            54112573870.5361,
+            -13528133321.5244,
+        ];
 
         check_least_squares_method(&xs, &ys, (a, b, &error));
     }

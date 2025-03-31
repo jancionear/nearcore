@@ -27,19 +27,33 @@ fn benchmark_large_chunk_production_time() {
     let n_txes = 20;
     let tx_size = mb / 2;
 
-    let genesis = Genesis::test(vec!["test0".parse().unwrap(), "test1".parse().unwrap()], 1);
-    let mut env = TestEnv::builder(&genesis.config).nightshade_runtimes(&genesis).build();
+    let genesis = Genesis::test(
+        vec![
+            "test0".parse().unwrap(),
+            "test1".parse().unwrap(),
+        ],
+        1,
+    );
+    let mut env = TestEnv::builder(&genesis.config)
+        .nightshade_runtimes(&genesis)
+        .build();
 
     let account_id = env.get_client_id(0);
     let signer = InMemorySigner::test_signer(&account_id);
-    let last_block_hash = env.clients[0].chain.head().unwrap().last_block_hash;
+    let last_block_hash = env.clients[0]
+        .chain
+        .head()
+        .unwrap()
+        .last_block_hash;
     for i in 0..n_txes {
         let tx = SignedTransaction::from_actions(
             i + 1,
             account_id.clone(),
             account_id.clone(),
             &signer,
-            vec![Action::DeployContract(DeployContractAction { code: vec![92; tx_size] })],
+            vec![Action::DeployContract(
+                DeployContractAction { code: vec![92; tx_size] },
+            )],
             last_block_hash,
             0,
         );

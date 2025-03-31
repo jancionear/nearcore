@@ -36,7 +36,10 @@ impl TransactionRegistry {
         TransactionBuilder::new(self.next_id(), shard_id, round)
     }
 
-    pub(crate) fn build_transaction(&mut self, builder: TransactionBuilder) -> TransactionId {
+    pub(crate) fn build_transaction(
+        &mut self,
+        builder: TransactionBuilder,
+    ) -> TransactionId {
         let id = builder.id;
         assert!(self.transactions[id.0].is_none(), "transaction should only be built once");
         self.transactions[id.0] = Some(builder.build());
@@ -50,22 +53,34 @@ impl TransactionRegistry {
     }
 
     pub(crate) fn all_transactions(&self) -> impl Iterator<Item = &Transaction> {
-        self.transactions.iter().filter_map(|id| id.as_ref())
+        self.transactions
+            .iter()
+            .filter_map(|id| id.as_ref())
     }
 }
 
 impl std::ops::Index<TransactionId> for TransactionRegistry {
     type Output = Transaction;
 
-    fn index(&self, index: TransactionId) -> &Self::Output {
+    fn index(
+        &self,
+        index: TransactionId,
+    ) -> &Self::Output {
         // the model should always finish creating transactions before it starts executing them
-        self.transactions[index.0].as_ref().expect("tried to access unfinished transaction")
+        self.transactions[index.0]
+            .as_ref()
+            .expect("tried to access unfinished transaction")
     }
 }
 
 impl std::ops::IndexMut<TransactionId> for TransactionRegistry {
-    fn index_mut(&mut self, index: TransactionId) -> &mut Self::Output {
+    fn index_mut(
+        &mut self,
+        index: TransactionId,
+    ) -> &mut Self::Output {
         // the model should always finish creating transactions before it starts executing them
-        self.transactions[index.0].as_mut().expect("tried to access unfinished transaction")
+        self.transactions[index.0]
+            .as_mut()
+            .expect("tried to access unfinished transaction")
     }
 }

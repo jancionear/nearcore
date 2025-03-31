@@ -10,7 +10,10 @@ pub struct MockChain {
 }
 
 impl MockChain {
-    pub fn get_block_info(&self, block_hash: &CryptoHash) -> BlockInfo {
+    pub fn get_block_info(
+        &self,
+        block_hash: &CryptoHash,
+    ) -> BlockInfo {
         *self.blocks.get(block_hash).unwrap()
     }
 
@@ -23,16 +26,21 @@ impl MockChain {
         heights: Vec<BlockHeight>,
         get_parent: fn(BlockHeight) -> Option<BlockHeight>,
     ) -> MockChain {
-        let height_to_hashes: HashMap<_, _> =
-            heights.iter().cloned().map(|height| (height, MockChain::block_hash(height))).collect();
+        let height_to_hashes: HashMap<_, _> = heights
+            .iter()
+            .cloned()
+            .map(|height| (height, MockChain::block_hash(height)))
+            .collect();
         let blocks = heights
             .iter()
             .cloned()
             .map(|height| {
                 let hash = *height_to_hashes.get(&height).unwrap();
                 let prev_hash = match get_parent(height) {
-                    None => CryptoHash::default(),
-                    Some(parent_height) => *height_to_hashes.get(&parent_height).unwrap(),
+                    | None => CryptoHash::default(),
+                    | Some(parent_height) => *height_to_hashes
+                        .get(&parent_height)
+                        .unwrap(),
                 };
                 (hash, BlockInfo { hash, height, prev_hash })
             })
@@ -48,13 +56,18 @@ impl MockChain {
     // Create a linear chain of length n where blocks with odd numbers are skipped:
     // 0 -> 2 -> 4 -> ...
     pub fn linear_chain_with_skips(n: usize) -> MockChain {
-        Self::build((0..n as BlockHeight).map(|i| i * 2).collect(), |i| {
-            if i == 0 {
-                None
-            } else {
-                Some(i - 2)
-            }
-        })
+        Self::build(
+            (0..n as BlockHeight)
+                .map(|i| i * 2)
+                .collect(),
+            |i| {
+                if i == 0 {
+                    None
+                } else {
+                    Some(i - 2)
+                }
+            },
+        )
     }
 
     // Create a chain with two forks, where blocks 1 and 2 have a parent block 0, and each next block H
@@ -74,18 +87,28 @@ impl MockChain {
         )
     }
 
-    pub fn get_block_hash(&self, height: BlockHeight) -> CryptoHash {
-        *self.height_to_hashes.get(&height).unwrap()
+    pub fn get_block_hash(
+        &self,
+        height: BlockHeight,
+    ) -> CryptoHash {
+        *self
+            .height_to_hashes
+            .get(&height)
+            .unwrap()
     }
 
-    pub fn get_block(&self, height: BlockHeight) -> BlockInfo {
+    pub fn get_block(
+        &self,
+        height: BlockHeight,
+    ) -> BlockInfo {
         self.blocks[&self.height_to_hashes[&height]]
     }
 
     /// create a new block on top the current chain head, return the new block hash
     pub fn create_block(&mut self) -> CryptoHash {
         let hash = MockChain::block_hash(self.head_height + 1);
-        self.height_to_hashes.insert(self.head_height + 1, hash);
+        self.height_to_hashes
+            .insert(self.head_height + 1, hash);
         self.blocks.insert(
             hash,
             BlockInfo {

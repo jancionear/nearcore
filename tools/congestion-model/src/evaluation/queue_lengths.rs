@@ -27,11 +27,19 @@ impl Model {
     pub fn queue_lengths(&self) -> HashMap<ShardId, ShardQueueLengths> {
         let mut out = HashMap::new();
         for shard in self.shard_ids.clone() {
-            let unprocessed_incoming_transactions =
-                self.queues.incoming_transactions(shard).len() as u64;
-            let incoming_receipts = self.queues.incoming_receipts(shard).stats();
-            let total_shard_receipts: QueueStats =
-                self.queues.shard_queues(shard).map(|q| q.stats()).sum();
+            let unprocessed_incoming_transactions = self
+                .queues
+                .incoming_transactions(shard)
+                .len() as u64;
+            let incoming_receipts = self
+                .queues
+                .incoming_receipts(shard)
+                .stats();
+            let total_shard_receipts: QueueStats = self
+                .queues
+                .shard_queues(shard)
+                .map(|q| q.stats())
+                .sum();
 
             let shard_stats = ShardQueueLengths {
                 unprocessed_incoming_transactions,
@@ -60,19 +68,29 @@ impl Queue {
 }
 
 impl ShardQueueLengths {
-    pub fn max_component_wise(&self, rhs: &Self) -> Self {
+    pub fn max_component_wise(
+        &self,
+        rhs: &Self,
+    ) -> Self {
         Self {
             unprocessed_incoming_transactions: self
                 .unprocessed_incoming_transactions
                 .max(rhs.unprocessed_incoming_transactions),
-            incoming_receipts: self.incoming_receipts.max_component_wise(rhs.incoming_receipts),
-            queued_receipts: self.queued_receipts.max_component_wise(rhs.queued_receipts),
+            incoming_receipts: self
+                .incoming_receipts
+                .max_component_wise(rhs.incoming_receipts),
+            queued_receipts: self
+                .queued_receipts
+                .max_component_wise(rhs.queued_receipts),
         }
     }
 }
 
 impl QueueStats {
-    pub fn max_component_wise(&self, rhs: Self) -> Self {
+    pub fn max_component_wise(
+        &self,
+        rhs: Self,
+    ) -> Self {
         Self {
             num: self.num.max(rhs.num),
             size: self.size.max(rhs.size),
@@ -84,7 +102,10 @@ impl QueueStats {
 impl std::ops::Add for QueueStats {
     type Output = Self;
 
-    fn add(self, rhs: Self) -> Self::Output {
+    fn add(
+        self,
+        rhs: Self,
+    ) -> Self::Output {
         Self { num: self.num + rhs.num, size: self.size + rhs.size, gas: self.gas + rhs.gas }
     }
 }
@@ -92,13 +113,17 @@ impl std::ops::Add for QueueStats {
 impl std::ops::Sub for QueueStats {
     type Output = Self;
 
-    fn sub(self, rhs: Self) -> Self::Output {
+    fn sub(
+        self,
+        rhs: Self,
+    ) -> Self::Output {
         Self { num: self.num - rhs.num, size: self.size - rhs.size, gas: self.gas - rhs.gas }
     }
 }
 
 impl Sum for QueueStats {
     fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
-        iter.reduce(std::ops::Add::add).unwrap_or_default()
+        iter.reduce(std::ops::Add::add)
+            .unwrap_or_default()
     }
 }

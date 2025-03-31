@@ -57,13 +57,13 @@ pub enum CallFunctionError {
 impl From<ViewAccountError> for ViewContractCodeError {
     fn from(view_account_error: ViewAccountError) -> Self {
         match view_account_error {
-            ViewAccountError::InvalidAccountId { requested_account_id } => {
+            | ViewAccountError::InvalidAccountId { requested_account_id } => {
                 Self::AccountDoesNotExist { requested_account_id }
             }
-            ViewAccountError::AccountDoesNotExist { requested_account_id } => {
+            | ViewAccountError::AccountDoesNotExist { requested_account_id } => {
                 Self::AccountDoesNotExist { requested_account_id }
             }
-            ViewAccountError::InternalError { error_message } => {
+            | ViewAccountError::InternalError { error_message } => {
                 Self::InternalError { error_message }
             }
         }

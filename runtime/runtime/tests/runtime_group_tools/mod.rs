@@ -59,12 +59,20 @@ impl StandaloneRuntime {
         let mut runtime_config = random_config();
         let wasm_config = Arc::make_mut(&mut runtime_config.wasm_config);
         // Bumping costs to avoid inflation overflows.
-        wasm_config.limit_config.max_total_prepaid_gas = 10u64.pow(15);
+        wasm_config
+            .limit_config
+            .max_total_prepaid_gas = 10u64.pow(15);
         let fees = Arc::make_mut(&mut runtime_config.fees);
-        fees.action_fees[ActionCosts::new_action_receipt].execution =
-            runtime_config.wasm_config.limit_config.max_total_prepaid_gas / 64;
-        fees.action_fees[ActionCosts::new_data_receipt_base].execution =
-            runtime_config.wasm_config.limit_config.max_total_prepaid_gas / 64;
+        fees.action_fees[ActionCosts::new_action_receipt].execution = runtime_config
+            .wasm_config
+            .limit_config
+            .max_total_prepaid_gas
+            / 64;
+        fees.action_fees[ActionCosts::new_data_receipt_base].execution = runtime_config
+            .wasm_config
+            .limit_config
+            .max_total_prepaid_gas
+            / 64;
 
         let runtime = Runtime::new();
         let genesis = Genesis::new(
@@ -83,7 +91,12 @@ impl StandaloneRuntime {
             account_ids.insert(state_record_to_account_id(record).clone());
         });
         let writers = std::sync::atomic::AtomicUsize::new(0);
-        let shard_uid = genesis.config.shard_layout.shard_uids().next().unwrap();
+        let shard_uid = genesis
+            .config
+            .shard_layout
+            .shard_uids()
+            .next()
+            .unwrap();
         let root = GenesisStateApplier::apply(
             &writers,
             tries.clone(),
@@ -147,7 +160,9 @@ impl StandaloneRuntime {
         // from there.
         let shard_id = self.apply_state.shard_id;
         let shard_uid = ShardUId::new(0, shard_id);
-        let trie = self.tries.get_trie_for_shard(shard_uid, self.root);
+        let trie = self
+            .tries
+            .get_trie_for_shard(shard_uid, self.root);
         let validity = vec![true; transactions.len()];
         let transactions = SignedValidPeriodTransactions::new(transactions, &validity);
         let apply_result = self
@@ -164,13 +179,17 @@ impl StandaloneRuntime {
             .unwrap();
 
         let mut store_update = self.tries.store_update();
-        self.root = self.tries.apply_all(&apply_result.trie_changes, shard_uid, &mut store_update);
+        self.root = self
+            .tries
+            .apply_all(&apply_result.trie_changes, shard_uid, &mut store_update);
         store_update.commit().unwrap();
         self.apply_state.block_height += 1;
 
         if let Some(bandwidth_requests) = apply_result.bandwidth_requests {
             self.apply_state.bandwidth_requests = BlockBandwidthRequests {
-                shards_bandwidth_requests: [(shard_id, bandwidth_requests)].into_iter().collect(),
+                shards_bandwidth_requests: [(shard_id, bandwidth_requests)]
+                    .into_iter()
+                    .collect(),
             }
         }
 
@@ -239,13 +258,21 @@ impl RuntimeGroup {
 
         for signer in signers {
             res.signers.push(signer.clone());
-            res.mailboxes.0.lock().unwrap().insert(signer.get_account_id(), Default::default());
+            res.mailboxes
+                .0
+                .lock()
+                .unwrap()
+                .insert(signer.get_account_id(), Default::default());
         }
         res.validators = validators;
         Arc::new(res)
     }
 
-    pub fn new(num_runtimes: u64, num_existing_accounts: u64, contract_code: &[u8]) -> Arc<Self> {
+    pub fn new(
+        num_runtimes: u64,
+        num_existing_accounts: u64,
+        contract_code: &[u8],
+    ) -> Arc<Self> {
         let account_ids = (0..num_runtimes)
             .map(|i| AccountId::try_from(format!("near_{}", i)).unwrap())
             .collect();
@@ -328,7 +355,10 @@ impl RuntimeGroup {
         handles
     }
 
-    fn start_runtime_in_thread<F>(group: Arc<Self>, runtime_factory: F) -> JoinHandle<()>
+    fn start_runtime_in_thread<F>(
+        group: Arc<Self>,
+        runtime_factory: F,
+    ) -> JoinHandle<()>
     where
         F: FnOnce() -> StandaloneRuntime + Send + 'static,
     {
@@ -339,13 +369,21 @@ impl RuntimeGroup {
 
                 let mut mailboxes = group.mailboxes.0.lock().unwrap();
                 loop {
-                    if !mailboxes.get(&account_id).unwrap().is_empty() {
+                    if !mailboxes
+                        .get(&account_id)
+                        .unwrap()
+                        .is_empty()
+                    {
                         break;
                     }
                     if mailboxes.values().all(|m| m.is_empty()) {
                         return;
                     }
-                    mailboxes = group.mailboxes.1.wait(mailboxes).unwrap();
+                    mailboxes = group
+                        .mailboxes
+                        .1
+                        .wait(mailboxes)
+                        .unwrap();
                 }
 
                 let mailbox = mailboxes.get_mut(&account_id).unwrap();
@@ -379,11 +417,18 @@ impl RuntimeGroup {
 
                 mailbox.incoming_receipts.clear();
                 mailbox.incoming_transactions.clear();
-                group.transaction_logs.lock().unwrap().extend(execution_outcomes);
+                group
+                    .transaction_logs
+                    .lock()
+                    .unwrap()
+                    .extend(execution_outcomes);
                 for outgoing_receipts in outgoing_receipts {
-                    let locked_other_mailbox =
-                        mailboxes.get_mut(outgoing_receipts.receiver_id()).unwrap();
-                    locked_other_mailbox.incoming_receipts.push(outgoing_receipts);
+                    let locked_other_mailbox = mailboxes
+                        .get_mut(outgoing_receipts.receiver_id())
+                        .unwrap();
+                    locked_other_mailbox
+                        .incoming_receipts
+                        .push(outgoing_receipts);
                 }
                 group.mailboxes.1.notify_all();
             }
@@ -391,7 +436,11 @@ impl RuntimeGroup {
     }
 
     /// Get receipt that was executed by the given runtime based on hash.
-    pub fn get_receipt(&self, executing_runtime: &str, hash: &CryptoHash) -> Receipt {
+    pub fn get_receipt(
+        &self,
+        executing_runtime: &str,
+        hash: &CryptoHash,
+    ) -> Receipt {
         self.executed_receipts
             .lock()
             .unwrap()
@@ -404,7 +453,10 @@ impl RuntimeGroup {
 
     /// Get transaction log produced by the execution of given transaction/receipt
     /// identified by `producer_hash`.
-    pub fn get_transaction_log(&self, producer_hash: &CryptoHash) -> ExecutionOutcomeWithId {
+    pub fn get_transaction_log(
+        &self,
+        producer_hash: &CryptoHash,
+    ) -> ExecutionOutcomeWithId {
         self.transaction_logs
             .lock()
             .unwrap()
@@ -413,10 +465,19 @@ impl RuntimeGroup {
             .expect("The execution log of the given receipt is missing")
     }
 
-    pub fn get_receipt_debug(&self, hash: &CryptoHash) -> (AccountId, Receipt) {
-        for (executed_runtime, tls) in self.executed_receipts.lock().unwrap().iter() {
+    pub fn get_receipt_debug(
+        &self,
+        hash: &CryptoHash,
+    ) -> (AccountId, Receipt) {
+        for (executed_runtime, tls) in self
+            .executed_receipts
+            .lock()
+            .unwrap()
+            .iter()
+        {
             if let Some(res) =
-                tls.iter().find_map(|r| if &r.get_hash() == hash { Some(r.clone()) } else { None })
+                tls.iter()
+                    .find_map(|r| if &r.get_hash() == hash { Some(r.clone()) } else { None })
             {
                 return (executed_runtime.clone(), res);
             }

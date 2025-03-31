@@ -31,10 +31,13 @@ pub enum TxExecutionError {
 impl std::error::Error for TxExecutionError {}
 
 impl Display for TxExecutionError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+    fn fmt(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+    ) -> Result<(), std::fmt::Error> {
         match self {
-            TxExecutionError::ActionError(e) => write!(f, "{}", e),
-            TxExecutionError::InvalidTxError(e) => write!(f, "{}", e),
+            | TxExecutionError::ActionError(e) => write!(f, "{}", e),
+            | TxExecutionError::InvalidTxError(e) => write!(f, "{}", e),
         }
     }
 }
@@ -70,7 +73,10 @@ pub enum RuntimeError {
 }
 
 impl std::fmt::Display for RuntimeError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+    fn fmt(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+    ) -> Result<(), std::fmt::Error> {
         f.write_str(&format!("{:?}", self))
     }
 }
@@ -103,10 +109,10 @@ pub enum MissingTrieValueContext {
 impl MissingTrieValueContext {
     pub fn metrics_label(&self) -> &str {
         match self {
-            Self::TrieIterator => "trie_iterator",
-            Self::TriePrefetchingStorage => "trie_prefetching_storage",
-            Self::TrieMemoryPartialStorage => "trie_memory_partial_storage",
-            Self::TrieStorage => "trie_storage",
+            | Self::TrieIterator => "trie_iterator",
+            | Self::TriePrefetchingStorage => "trie_prefetching_storage",
+            | Self::TrieMemoryPartialStorage => "trie_memory_partial_storage",
+            | Self::TrieStorage => "trie_storage",
         }
     }
 }
@@ -151,7 +157,10 @@ pub enum StorageError {
 }
 
 impl std::fmt::Display for StorageError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+    fn fmt(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+    ) -> Result<(), std::fmt::Error> {
         f.write_str(&format!("{:?}", self))
     }
 }
@@ -369,7 +378,10 @@ pub enum ReceiptValidationError {
 }
 
 impl Display for ReceiptValidationError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+    fn fmt(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+    ) -> Result<(), std::fmt::Error> {
         match self {
             ReceiptValidationError::InvalidPredecessorId { account_id } => {
                 write!(f, "The predecessor_id `{}` of a Receipt is not valid.", account_id)
@@ -408,7 +420,10 @@ impl Display for ReceiptValidationError {
 impl std::error::Error for ReceiptValidationError {}
 
 impl Display for ActionsValidationError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+    fn fmt(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+    ) -> Result<(), std::fmt::Error> {
         match self {
             ActionsValidationError::DeleteActionMustBeFinal => {
                 write!(f, "The delete action must be the last action in transaction")
@@ -602,68 +617,71 @@ impl From<ActionErrorKind> for ActionError {
 }
 
 impl Display for InvalidTxError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+    fn fmt(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+    ) -> Result<(), std::fmt::Error> {
         match self {
-            InvalidTxError::InvalidSignerId { signer_id } => {
+            | InvalidTxError::InvalidSignerId { signer_id } => {
                 write!(f, "Invalid signer account ID {:?} according to requirements", signer_id)
             }
-            InvalidTxError::SignerDoesNotExist { signer_id } => {
+            | InvalidTxError::SignerDoesNotExist { signer_id } => {
                 write!(f, "Signer {:?} does not exist", signer_id)
             }
-            InvalidTxError::InvalidAccessKeyError(access_key_error) => {
+            | InvalidTxError::InvalidAccessKeyError(access_key_error) => {
                 Display::fmt(&access_key_error, f)
             }
-            InvalidTxError::InvalidNonce { tx_nonce, ak_nonce } => write!(
+            | InvalidTxError::InvalidNonce { tx_nonce, ak_nonce } => write!(
                 f,
                 "Transaction nonce {} must be larger than nonce of the used access key {}",
                 tx_nonce, ak_nonce
             ),
-            InvalidTxError::InvalidReceiverId { receiver_id } => {
+            | InvalidTxError::InvalidReceiverId { receiver_id } => {
                 write!(f, "Invalid receiver account ID {:?} according to requirements", receiver_id)
             }
-            InvalidTxError::InvalidSignature => {
+            | InvalidTxError::InvalidSignature => {
                 write!(f, "Transaction is not signed with the given public key")
             }
-            InvalidTxError::NotEnoughBalance { signer_id, balance, cost } => write!(
+            | InvalidTxError::NotEnoughBalance { signer_id, balance, cost } => write!(
                 f,
                 "Sender {:?} does not have enough balance {} for operation costing {}",
                 signer_id, balance, cost
             ),
-            InvalidTxError::LackBalanceForState { signer_id, amount } => {
+            | InvalidTxError::LackBalanceForState { signer_id, amount } => {
                 write!(f, "Failed to execute, because the account {:?} wouldn't have enough balance to cover storage, required to have {} yoctoNEAR more", signer_id, amount)
             }
-            InvalidTxError::CostOverflow => {
+            | InvalidTxError::CostOverflow => {
                 write!(f, "Transaction gas or balance cost is too high")
             }
-            InvalidTxError::InvalidChain => {
+            | InvalidTxError::InvalidChain => {
                 write!(f, "Transaction parent block hash doesn't belong to the current chain")
             }
-            InvalidTxError::Expired => {
+            | InvalidTxError::Expired => {
                 write!(f, "Transaction has expired")
             }
-            InvalidTxError::ActionsValidation(error) => {
+            | InvalidTxError::ActionsValidation(error) => {
                 write!(f, "Transaction actions validation error: {}", error)
             }
-            InvalidTxError::NonceTooLarge { tx_nonce, upper_bound } => {
+            | InvalidTxError::NonceTooLarge { tx_nonce, upper_bound } => {
                 write!(
                     f,
                     "Transaction nonce {} must be smaller than the access key nonce upper bound {}",
                     tx_nonce, upper_bound
                 )
             }
-            InvalidTxError::TransactionSizeExceeded { size, limit } => {
+            | InvalidTxError::TransactionSizeExceeded { size, limit } => {
                 write!(f, "Size of serialized transaction {} exceeded the limit {}", size, limit)
             }
-            InvalidTxError::InvalidTransactionVersion => {
+            | InvalidTxError::InvalidTransactionVersion => {
                 write!(f, "Transaction version is invalid")
             }
-            InvalidTxError::StorageError(error) => {
+            | InvalidTxError::StorageError(error) => {
                 write!(f, "Storage error: {}", error)
             }
-            InvalidTxError::ShardCongested { shard_id, congestion_level } => {
+            | InvalidTxError::ShardCongested { shard_id, congestion_level } => {
                 write!(f, "Shard {shard_id} is currently at congestion level {congestion_level:.3} and rejects new transactions.")
             }
-            InvalidTxError::ShardStuck { shard_id, missed_chunks } => {
+            | InvalidTxError::ShardStuck { shard_id, missed_chunks } => {
                 write!(
                     f,
                     "Shard {shard_id} missed {missed_chunks} chunks and rejects new transactions."
@@ -680,27 +698,30 @@ impl From<InvalidAccessKeyError> for InvalidTxError {
 }
 
 impl Display for InvalidAccessKeyError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+    fn fmt(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+    ) -> Result<(), std::fmt::Error> {
         match self {
-            InvalidAccessKeyError::AccessKeyNotFound { account_id, public_key } => write!(
+            | InvalidAccessKeyError::AccessKeyNotFound { account_id, public_key } => write!(
                 f,
                 "Signer {:?} doesn't have access key with the given public_key {}",
                 account_id, public_key
             ),
-            InvalidAccessKeyError::ReceiverMismatch { tx_receiver, ak_receiver } => write!(
+            | InvalidAccessKeyError::ReceiverMismatch { tx_receiver, ak_receiver } => write!(
                 f,
                 "Transaction receiver_id {:?} doesn't match the access key receiver_id {:?}",
                 tx_receiver, ak_receiver
             ),
-            InvalidAccessKeyError::MethodNameMismatch { method_name } => write!(
+            | InvalidAccessKeyError::MethodNameMismatch { method_name } => write!(
                 f,
                 "Transaction method name {:?} isn't allowed by the access key",
                 method_name
             ),
-            InvalidAccessKeyError::RequiresFullAccess => {
+            | InvalidAccessKeyError::RequiresFullAccess => {
                 write!(f, "Invalid access key type. Full-access keys are required for transactions that have multiple or non-function-call actions")
             }
-            InvalidAccessKeyError::NotEnoughAllowance {
+            | InvalidAccessKeyError::NotEnoughAllowance {
                 account_id,
                 public_key,
                 allowance,
@@ -710,7 +731,7 @@ impl Display for InvalidAccessKeyError {
                 "Access Key {:?}:{} does not have enough balance {} for transaction costing {}",
                 account_id, public_key, allowance, cost
             ),
-            InvalidAccessKeyError::DepositWithFunctionCall => {
+            | InvalidAccessKeyError::DepositWithFunctionCall => {
                 write!(f, "Having a deposit with a function call action is not allowed with a function call access key.")
             }
         }
@@ -755,7 +776,10 @@ pub struct BalanceMismatchError {
 }
 
 impl Display for BalanceMismatchError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+    fn fmt(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+    ) -> Result<(), std::fmt::Error> {
         // Using saturating add to avoid overflow in display
         let initial_balance = self
             .incoming_validator_rewards
@@ -819,7 +843,10 @@ impl std::error::Error for BalanceMismatchError {}
 pub struct IntegerOverflowError;
 
 impl std::fmt::Display for IntegerOverflowError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+    fn fmt(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+    ) -> Result<(), std::fmt::Error> {
         f.write_str(&format!("{:?}", self))
     }
 }
@@ -863,13 +890,19 @@ impl From<EpochError> for RuntimeError {
 }
 
 impl Display for ActionError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+    fn fmt(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+    ) -> Result<(), std::fmt::Error> {
         write!(f, "Action #{}: {}", self.index.unwrap_or_default(), self.kind)
     }
 }
 
 impl Display for ActionErrorKind {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+    fn fmt(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+    ) -> Result<(), std::fmt::Error> {
         match self {
             ActionErrorKind::AccountAlreadyExists { account_id } => {
                 write!(f, "Can't create a new account {:?}, because it already exists", account_id)
@@ -971,29 +1004,32 @@ pub enum EpochError {
 impl std::error::Error for EpochError {}
 
 impl Display for EpochError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+    ) -> std::fmt::Result {
         match self {
-            EpochError::ThresholdError { stake_sum, num_seats } => write!(
+            | EpochError::ThresholdError { stake_sum, num_seats } => write!(
                 f,
                 "Total stake {} must be higher than the number of seats {}",
                 stake_sum, num_seats
             ),
-            EpochError::EpochOutOfBounds(epoch_id) => {
+            | EpochError::EpochOutOfBounds(epoch_id) => {
                 write!(f, "Epoch {:?} is out of bounds", epoch_id)
             }
-            EpochError::MissingBlock(hash) => write!(f, "Missing block {}", hash),
-            EpochError::IOErr(err) => write!(f, "IO: {}", err),
-            EpochError::NotAValidator(account_id, epoch_id) => {
+            | EpochError::MissingBlock(hash) => write!(f, "Missing block {}", hash),
+            | EpochError::IOErr(err) => write!(f, "IO: {}", err),
+            | EpochError::NotAValidator(account_id, epoch_id) => {
                 write!(f, "{} is not a validator in epoch {:?}", account_id, epoch_id)
             }
-            EpochError::ShardingError(err) => write!(f, "Sharding Error: {}", err),
-            EpochError::NotEnoughValidators { num_shards, num_validators } => {
+            | EpochError::ShardingError(err) => write!(f, "Sharding Error: {}", err),
+            | EpochError::NotEnoughValidators { num_shards, num_validators } => {
                 write!(f, "There were not enough validator proposals to fill all shards. num_proposals: {}, num_shards: {}", num_validators, num_shards)
             }
-            EpochError::ChunkValidatorSelectionError(err) => {
+            | EpochError::ChunkValidatorSelectionError(err) => {
                 write!(f, "Error selecting validators for a chunk: {}", err)
             }
-            EpochError::ChunkProducerSelectionError(err) => {
+            | EpochError::ChunkProducerSelectionError(err) => {
                 write!(f, "Error selecting chunk producer: {}", err)
             }
         }
@@ -1001,25 +1037,30 @@ impl Display for EpochError {
 }
 
 impl Debug for EpochError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+    ) -> std::fmt::Result {
         match self {
-            EpochError::ThresholdError { stake_sum, num_seats } => {
+            | EpochError::ThresholdError { stake_sum, num_seats } => {
                 write!(f, "ThresholdError({}, {})", stake_sum, num_seats)
             }
-            EpochError::EpochOutOfBounds(epoch_id) => write!(f, "EpochOutOfBounds({:?})", epoch_id),
-            EpochError::MissingBlock(hash) => write!(f, "MissingBlock({})", hash),
-            EpochError::IOErr(err) => write!(f, "IOErr({})", err),
-            EpochError::NotAValidator(account_id, epoch_id) => {
+            | EpochError::EpochOutOfBounds(epoch_id) => {
+                write!(f, "EpochOutOfBounds({:?})", epoch_id)
+            }
+            | EpochError::MissingBlock(hash) => write!(f, "MissingBlock({})", hash),
+            | EpochError::IOErr(err) => write!(f, "IOErr({})", err),
+            | EpochError::NotAValidator(account_id, epoch_id) => {
                 write!(f, "NotAValidator({}, {:?})", account_id, epoch_id)
             }
-            EpochError::ShardingError(err) => write!(f, "ShardingError({})", err),
-            EpochError::NotEnoughValidators { num_shards, num_validators } => {
+            | EpochError::ShardingError(err) => write!(f, "ShardingError({})", err),
+            | EpochError::NotEnoughValidators { num_shards, num_validators } => {
                 write!(f, "NotEnoughValidators({}, {})", num_validators, num_shards)
             }
-            EpochError::ChunkValidatorSelectionError(err) => {
+            | EpochError::ChunkValidatorSelectionError(err) => {
                 write!(f, "ChunkValidatorSelectionError({})", err)
             }
-            EpochError::ChunkProducerSelectionError(err) => {
+            | EpochError::ChunkProducerSelectionError(err) => {
                 write!(f, "ChunkProducerSelectionError({})", err)
             }
         }
@@ -1283,7 +1324,10 @@ pub enum ChunkAccessError {
 }
 
 impl std::fmt::Display for ChunkAccessError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+    fn fmt(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+    ) -> Result<(), std::fmt::Error> {
         f.write_str(&format!("{:?}", self))
     }
 }

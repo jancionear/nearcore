@@ -31,7 +31,10 @@ pub mod state_patch {
             Self { records: core::mem::take(&mut self.records) }
         }
 
-        pub fn merge(&mut self, other: SandboxStatePatch) {
+        pub fn merge(
+            &mut self,
+            other: SandboxStatePatch,
+        ) {
             self.records.extend(other.records);
         }
     }
@@ -65,7 +68,11 @@ pub mod state_patch {
             Self
         }
         #[inline(always)]
-        pub fn merge(&self, _other: SandboxStatePatch) {}
+        pub fn merge(
+            &self,
+            _other: SandboxStatePatch,
+        ) {
+        }
     }
 
     impl IntoIterator for SandboxStatePatch {

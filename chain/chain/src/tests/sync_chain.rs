@@ -9,7 +9,9 @@ fn chain_sync_headers() {
     init_test_logger();
     let (mut chain, _, _, bls_signer) = setup(Clock::real());
     assert_eq!(chain.header_head().unwrap().height, 0);
-    let mut blocks = vec![chain.get_block(&chain.genesis().hash().clone()).unwrap()];
+    let mut blocks = vec![chain
+        .get_block(&chain.genesis().hash().clone())
+        .unwrap()];
     let mut block_merkle_tree = PartialMerkleTree::default();
     for i in 0..4 {
         blocks.push(
@@ -22,7 +24,10 @@ fn chain_sync_headers() {
     let mut challenges = vec![];
     chain
         .sync_block_headers(
-            blocks.drain(1..).map(|block| block.header().clone()).collect(),
+            blocks
+                .drain(1..)
+                .map(|block| block.header().clone())
+                .collect(),
             &mut challenges,
         )
         .unwrap();

@@ -25,8 +25,8 @@ impl<'a> DBSlice<'a> {
     /// Returns slice view of the data.
     pub fn as_slice(&self) -> &[u8] {
         match self.0 {
-            Inner::Vec(ref bytes) => bytes.as_slice(),
-            Inner::Rocks(ref rocks) => rocks.as_slice(),
+            | Inner::Vec(ref bytes) => bytes.as_slice(),
+            | Inner::Rocks(ref rocks) => rocks.as_slice(),
         }
     }
 
@@ -52,10 +52,12 @@ impl<'a> DBSlice<'a> {
     /// decoding the refcount.
     pub(super) fn strip_refcount(self) -> Option<Self> {
         match self.0 {
-            Inner::Vec(bytes) => {
+            | Inner::Vec(bytes) => {
                 refcount::strip_refcount(bytes).map(|bytes| Self(Inner::Vec(bytes)))
             }
-            Inner::Rocks(rocks) => rocks.strip_refcount().map(|rocks| Self(Inner::Rocks(rocks))),
+            | Inner::Rocks(rocks) => rocks
+                .strip_refcount()
+                .map(|rocks| Self(Inner::Rocks(rocks))),
         }
     }
 }
@@ -119,26 +121,35 @@ impl<'a> From<DBSlice<'a>> for Vec<u8> {
     /// This may need to allocate and copy data.
     fn from(slice: DBSlice<'a>) -> Self {
         match slice.0 {
-            Inner::Vec(bytes) => bytes,
-            Inner::Rocks(rocks) => rocks.as_slice().to_vec(),
+            | Inner::Vec(bytes) => bytes,
+            | Inner::Rocks(rocks) => rocks.as_slice().to_vec(),
         }
     }
 }
 
 impl<'a> std::fmt::Debug for DBSlice<'a> {
-    fn fmt(&self, fmtr: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(
+        &self,
+        fmtr: &mut std::fmt::Formatter<'_>,
+    ) -> std::fmt::Result {
         std::fmt::Debug::fmt(self.as_slice(), fmtr)
     }
 }
 
 impl<'a> std::cmp::PartialEq<DBSlice<'a>> for DBSlice<'a> {
-    fn eq(&self, other: &DBSlice<'a>) -> bool {
+    fn eq(
+        &self,
+        other: &DBSlice<'a>,
+    ) -> bool {
         self.as_slice() == other.as_slice()
     }
 }
 
 impl<'a> std::cmp::PartialEq<[u8]> for DBSlice<'a> {
-    fn eq(&self, other: &[u8]) -> bool {
+    fn eq(
+        &self,
+        other: &[u8],
+    ) -> bool {
         self.as_slice() == other
     }
 }

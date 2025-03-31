@@ -80,7 +80,10 @@ struct Cli {
     subcmd: CliSubcmd,
 }
 
-fn read_block_checkpoint(store: &Store, block_hash: &CryptoHash) -> BlockCheckpoint {
+fn read_block_checkpoint(
+    store: &Store,
+    block_hash: &CryptoHash,
+) -> BlockCheckpoint {
     let block: Block = store
         .get_ser(DBCol::Block, block_hash.as_ref())
         .unwrap_or_else(|_| panic!("DB error Block {:?}", block_hash))
@@ -99,7 +102,10 @@ fn read_block_checkpoint(store: &Store, block_hash: &CryptoHash) -> BlockCheckpo
     BlockCheckpoint { header: block.header().clone(), info, merkle_tree }
 }
 
-fn write_block_checkpoint(store_update: &mut StoreUpdate, block_checkpoint: &BlockCheckpoint) {
+fn write_block_checkpoint(
+    store_update: &mut StoreUpdate,
+    block_checkpoint: &BlockCheckpoint,
+) {
     let hash = block_checkpoint.header.hash();
     store_update
         .set_ser(DBCol::BlockHeader, hash.as_ref(), &block_checkpoint.header)
@@ -121,7 +127,10 @@ fn write_block_checkpoint(store_update: &mut StoreUpdate, block_checkpoint: &Blo
         .unwrap();
 }
 
-fn write_epoch_checkpoint(store_update: &mut StoreUpdate, epoch_checkpoint: &EpochCheckpoint) {
+fn write_epoch_checkpoint(
+    store_update: &mut StoreUpdate,
+    epoch_checkpoint: &EpochCheckpoint,
+) {
     store_update
         .set_ser(DBCol::EpochInfo, epoch_checkpoint.id.as_ref(), &epoch_checkpoint.info)
         .expect("Failed to write epoch info");
@@ -154,7 +163,12 @@ fn create_snapshot(create_cmd: CreateCmd) {
 
     assert!(epochs.len() > 4, "Number of epochs must be greater than 4.");
 
-    epochs.sort_by(|a, b| a.info.epoch_height().partial_cmp(&b.info.epoch_height()).unwrap());
+    epochs.sort_by(|a, b| {
+        a.info
+            .epoch_height()
+            .partial_cmp(&b.info.epoch_height())
+            .unwrap()
+    });
     // Take last two epochs
     let next_epoch = epochs.pop().unwrap();
     let current_epoch = epochs.pop().unwrap();
@@ -255,7 +269,9 @@ fn load_snapshot(load_cmd: LoadCmd) {
         &chain_genesis,
         DoomslugThresholdMode::TwoThirds,
         ChainConfig {
-            save_trie_changes: near_config.client_config.save_trie_changes,
+            save_trie_changes: near_config
+                .client_config
+                .save_trie_changes,
             background_migration_threads: 1,
             resharding_config: MutableConfigValue::new(
                 ReshardingConfig::default(),
@@ -290,14 +306,16 @@ fn load_snapshot(load_cmd: LoadCmd) {
     // If not - we'll have to compute one and put it in the checkpoint.
     let aggregator =
         EpochInfoAggregator::new(snapshot.prev_epoch.id, *snapshot.final_block.header.hash());
-    store_update.set_ser(DBCol::EpochInfo, AGGREGATOR_KEY, &aggregator).unwrap();
+    store_update
+        .set_ser(DBCol::EpochInfo, AGGREGATOR_KEY, &aggregator)
+        .unwrap();
     store_update.commit().unwrap();
 }
 
 fn main() {
     let args: Cli = clap::Parser::parse();
     match args.subcmd {
-        CliSubcmd::Create(create_cmd) => create_snapshot(create_cmd),
-        CliSubcmd::Load(load_cmd) => load_snapshot(load_cmd),
+        | CliSubcmd::Create(create_cmd) => create_snapshot(create_cmd),
+        | CliSubcmd::Load(load_cmd) => load_snapshot(load_cmd),
     }
 }

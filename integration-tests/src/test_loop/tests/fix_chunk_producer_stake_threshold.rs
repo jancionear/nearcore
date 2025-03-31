@@ -20,9 +20,13 @@ fn slow_test_fix_cp_stake_threshold() {
 
     let protocol_version = ProtocolFeature::FixChunkProducerStakingThreshold.protocol_version() - 1;
     let epoch_length = 10;
-    let accounts =
-        (0..6).map(|i| format!("test{}", i).parse().unwrap()).collect::<Vec<AccountId>>();
-    let clients = accounts.iter().cloned().collect::<Vec<_>>();
+    let accounts = (0..6)
+        .map(|i| format!("test{}", i).parse().unwrap())
+        .collect::<Vec<AccountId>>();
+    let clients = accounts
+        .iter()
+        .cloned()
+        .collect::<Vec<_>>();
     let num_shards = 6;
     let shard_layout = ShardLayout::multi_shard(num_shards, 1);
     let validators = vec![
@@ -76,20 +80,36 @@ fn slow_test_fix_cp_stake_threshold() {
     // premise checks
     let epoch_id = client
         .epoch_manager
-        .get_epoch_id_from_prev_block(&client.chain.head().unwrap().last_block_hash)
+        .get_epoch_id_from_prev_block(
+            &client
+                .chain
+                .head()
+                .unwrap()
+                .last_block_hash,
+        )
         .unwrap();
-    let protocol_version = client.epoch_manager.get_epoch_protocol_version(&epoch_id).unwrap();
+    let protocol_version = client
+        .epoch_manager
+        .get_epoch_protocol_version(&epoch_id)
+        .unwrap();
     let validators = get_epoch_all_validators(client);
     assert!(
         protocol_version < ProtocolFeature::FixChunkProducerStakingThreshold.protocol_version()
     );
     assert_eq!(
-        epoch_config_store.get_config(protocol_version).shard_layout.num_shards(),
+        epoch_config_store
+            .get_config(protocol_version)
+            .shard_layout
+            .num_shards(),
         num_shards
     );
     assert_eq!(
         validators,
-        vec![String::from("test0"), String::from("test1"), String::from("test3")]
+        vec![
+            String::from("test0"),
+            String::from("test1"),
+            String::from("test3")
+        ]
     );
 
     test_loop.run_until(
@@ -105,10 +125,18 @@ fn slow_test_fix_cp_stake_threshold() {
 
             let epoch_id = client
                 .epoch_manager
-                .get_epoch_id_from_prev_block(&client.chain.head().unwrap().last_block_hash)
+                .get_epoch_id_from_prev_block(
+                    &client
+                        .chain
+                        .head()
+                        .unwrap()
+                        .last_block_hash,
+                )
                 .unwrap();
-            let protocol_version =
-                client.epoch_manager.get_epoch_protocol_version(&epoch_id).unwrap();
+            let protocol_version = client
+                .epoch_manager
+                .get_epoch_protocol_version(&epoch_id)
+                .unwrap();
             // exits when protocol version catches up with the fix
             protocol_version >= ProtocolFeature::FixChunkProducerStakingThreshold.protocol_version()
         },
@@ -130,7 +158,13 @@ fn slow_test_fix_cp_stake_threshold() {
             // no longer divided by num_shards (6), so test3's proposal won't be approved
             let validators = get_epoch_all_validators(client);
             if validators.len() == 2 {
-                assert_eq!(validators, vec![String::from("test0"), String::from("test1")]);
+                assert_eq!(
+                    validators,
+                    vec![
+                        String::from("test0"),
+                        String::from("test1")
+                    ]
+                );
                 true
             } else {
                 false

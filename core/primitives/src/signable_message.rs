@@ -91,12 +91,18 @@ pub enum CreateDiscriminantError {
 }
 
 impl<'a, T: BorshSerialize> SignableMessage<'a, T> {
-    pub fn new(msg: &'a T, ty: SignableMessageType) -> Self {
+    pub fn new(
+        msg: &'a T,
+        ty: SignableMessageType,
+    ) -> Self {
         let discriminant = ty.into();
         Self { discriminant, msg }
     }
 
-    pub fn sign(&self, signer: &Signer) -> Signature {
+    pub fn sign(
+        &self,
+        signer: &Signer,
+    ) -> Signature {
         let bytes = borsh::to_vec(&self).expect("Failed to deserialize");
         let hash = hash(&bytes);
         signer.sign(hash.as_bytes())
@@ -198,8 +204,8 @@ impl TryFrom<MessageDiscriminant> for SignableMessageType {
             Err(Self::Error::TransactionFound)
         } else if let Some(nep) = discriminant.on_chain_nep() {
             match nep {
-                NEP_366_META_TRANSACTIONS => Ok(Self::DelegateAction),
-                _ => Err(Self::Error::UnknownOnChainNep(nep)),
+                | NEP_366_META_TRANSACTIONS => Ok(Self::DelegateAction),
+                | _ => Err(Self::Error::UnknownOnChainNep(nep)),
             }
         } else if let Some(nep) = discriminant.off_chain_nep() {
             Err(Self::Error::UnknownOffChainNep(nep))
@@ -213,7 +219,7 @@ impl From<SignableMessageType> for MessageDiscriminant {
     fn from(ty: SignableMessageType) -> Self {
         // unwrapping here is ok, we know the constant NEP numbers used are in range
         match ty {
-            SignableMessageType::DelegateAction => {
+            | SignableMessageType::DelegateAction => {
                 MessageDiscriminant::new_on_chain(NEP_366_META_TRANSACTIONS).unwrap()
             }
         }

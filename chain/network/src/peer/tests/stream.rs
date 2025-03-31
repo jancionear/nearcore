@@ -24,21 +24,36 @@ struct SendFrame(stream::Frame);
 
 impl actix::Handler<SendFrame> for Actor {
     type Result = ();
-    fn handle(&mut self, SendFrame(frame): SendFrame, _ctx: &mut Self::Context) {
+    fn handle(
+        &mut self,
+        SendFrame(frame): SendFrame,
+        _ctx: &mut Self::Context,
+    ) {
         self.stream.send(frame);
     }
 }
 
 impl actix::Handler<stream::Frame> for Actor {
     type Result = ();
-    fn handle(&mut self, frame: stream::Frame, _ctx: &mut Self::Context) {
-        self.queue_send.send(frame).ok().unwrap();
+    fn handle(
+        &mut self,
+        frame: stream::Frame,
+        _ctx: &mut Self::Context,
+    ) {
+        self.queue_send
+            .send(frame)
+            .ok()
+            .unwrap();
     }
 }
 
 impl actix::Handler<stream::Error> for Actor {
     type Result = ();
-    fn handle(&mut self, _err: stream::Error, ctx: &mut Self::Context) {
+    fn handle(
+        &mut self,
+        _err: stream::Error,
+        ctx: &mut Self::Context,
+    ) {
         ctx.stop();
     }
 }
@@ -82,7 +97,11 @@ async fn send_recv() {
             })
             .collect();
         for msg in &msgs {
-            a1.system.addr.send(SendFrame(msg.clone())).await.unwrap();
+            a1.system
+                .addr
+                .send(SendFrame(msg.clone()))
+                .await
+                .unwrap();
         }
         for want in &msgs {
             let got = a2.queue_recv.recv().await.unwrap();

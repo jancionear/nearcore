@@ -116,7 +116,10 @@ fn create_benchmark_receipts() -> Vec<Receipt> {
     ]
 }
 
-fn create_chunk_header(height: u64, shard_id: ShardId) -> ShardChunkHeader {
+fn create_chunk_header(
+    height: u64,
+    shard_id: ShardId,
+) -> ShardChunkHeader {
     let congestion_info = ProtocolFeature::CongestionControl
         .enabled(PROTOCOL_VERSION)
         .then_some(CongestionInfo::default());
@@ -163,7 +166,11 @@ fn create_action_receipt(
     })
 }
 
-fn create_data_receipt(account_id: &AccountId, data_id: CryptoHash, data_size: usize) -> Receipt {
+fn create_data_receipt(
+    account_id: &AccountId,
+    data_id: CryptoHash,
+    data_size: usize,
+) -> Receipt {
     Receipt::V0(ReceiptV0 {
         predecessor_id: account_id.clone(),
         receiver_id: account_id.clone(),
@@ -235,8 +242,12 @@ fn encoded_chunk_to_partial_encoded_chunk(
         .into_iter()
         .enumerate()
         .map(move |(proof_shard_index, proof)| {
-            let proof_shard_id = shard_layout.get_shard_id(proof_shard_index).unwrap();
-            let receipts = receipts_by_shard.remove(&proof_shard_id).unwrap_or_else(Vec::new);
+            let proof_shard_id = shard_layout
+                .get_shard_id(proof_shard_index)
+                .unwrap();
+            let receipts = receipts_by_shard
+                .remove(&proof_shard_id)
+                .unwrap_or_else(Vec::new);
             let shard_proof =
                 ShardProof { from_shard_id: shard_id, to_shard_id: proof_shard_id, proof };
             ReceiptProof(receipts, shard_proof)
@@ -280,7 +291,9 @@ where
 {
     let memory_range = 200_000_000;
     let num_chunks = memory_range / borsh::object_length(&chunk).unwrap();
-    let chunks: Vec<_> = std::iter::repeat(chunk).take(num_chunks).collect();
+    let chunks: Vec<_> = std::iter::repeat(chunk)
+        .take(num_chunks)
+        .collect();
     chunks
 }
 

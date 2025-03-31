@@ -15,7 +15,10 @@ pub struct BlockInfo {
 }
 
 impl BlockInfo {
-    pub fn genesis(hash: CryptoHash, height: BlockHeight) -> Self {
+    pub fn genesis(
+        hash: CryptoHash,
+        height: BlockHeight,
+    ) -> Self {
         Self { hash, height, prev_hash: CryptoHash::default() }
     }
 }
@@ -41,13 +44,13 @@ pub enum FlatStorageError {
 impl From<FlatStorageError> for StorageError {
     fn from(err: FlatStorageError) -> Self {
         match err {
-            FlatStorageError::BlockNotSupported((head_hash, block_hash)) => {
+            | FlatStorageError::BlockNotSupported((head_hash, block_hash)) => {
                 StorageError::FlatStorageBlockNotSupported(format!(
                     "FlatStorage with head {:?} does not support this block {:?}",
                     head_hash, block_hash
                 ))
             }
-            FlatStorageError::StorageInternalError(_) => StorageError::StorageInternalError,
+            | FlatStorageError::StorageInternalError(_) => StorageError::StorageInternalError,
         }
     }
 }
@@ -76,20 +79,20 @@ impl Into<i64> for &FlatStorageStatus {
     /// Cast inside enum does not work because it is not field less.
     fn into(self) -> i64 {
         match self {
-            FlatStorageStatus::Disabled => 0,
-            FlatStorageStatus::Empty => 1,
-            FlatStorageStatus::Ready(_) => 2,
+            | FlatStorageStatus::Disabled => 0,
+            | FlatStorageStatus::Empty => 1,
+            | FlatStorageStatus::Ready(_) => 2,
             // 10..20 is reserved for creation statuses
-            FlatStorageStatus::Creation(creation_status) => match creation_status {
-                FlatStorageCreationStatus::SavingDeltas => 10,
-                FlatStorageCreationStatus::FetchingState(_) => 11,
-                FlatStorageCreationStatus::CatchingUp(_) => 12,
+            | FlatStorageStatus::Creation(creation_status) => match creation_status {
+                | FlatStorageCreationStatus::SavingDeltas => 10,
+                | FlatStorageCreationStatus::FetchingState(_) => 11,
+                | FlatStorageCreationStatus::CatchingUp(_) => 12,
             },
             // 20..30 is reserved for resharding statuses.
-            FlatStorageStatus::Resharding(resharding_status) => match resharding_status {
-                FlatStorageReshardingStatus::SplittingParent(_) => 20,
-                FlatStorageReshardingStatus::CreatingChild => 21,
-                FlatStorageReshardingStatus::CatchingUp(_) => 22,
+            | FlatStorageStatus::Resharding(resharding_status) => match resharding_status {
+                | FlatStorageReshardingStatus::SplittingParent(_) => 20,
+                | FlatStorageReshardingStatus::CreatingChild => 21,
+                | FlatStorageReshardingStatus::CatchingUp(_) => 22,
             },
         }
     }

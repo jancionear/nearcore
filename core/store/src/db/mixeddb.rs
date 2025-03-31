@@ -44,50 +44,74 @@ impl MixedDB {
     /// Return the first DB in the order of data lookup
     fn first_db(&self) -> &Arc<dyn Database> {
         match self.read_order {
-            ReadOrder::ReadDBFirst => &self.read_db,
-            ReadOrder::WriteDBFirst => &self.write_db,
+            | ReadOrder::ReadDBFirst => &self.read_db,
+            | ReadOrder::WriteDBFirst => &self.write_db,
         }
     }
 
     /// Return the second DB in the order of data lookup
     fn second_db(&self) -> &Arc<dyn Database> {
         match self.read_order {
-            ReadOrder::ReadDBFirst => &self.write_db,
-            ReadOrder::WriteDBFirst => &self.read_db,
+            | ReadOrder::ReadDBFirst => &self.write_db,
+            | ReadOrder::WriteDBFirst => &self.read_db,
         }
     }
 
     /// This function is imported from SplitDB, but we may want to refactor them later.
-    fn merge_iter<'a>(a: DBIterator<'a>, b: DBIterator<'a>) -> DBIterator<'a> {
+    fn merge_iter<'a>(
+        a: DBIterator<'a>,
+        b: DBIterator<'a>,
+    ) -> DBIterator<'a> {
         crate::db::SplitDB::merge_iter(a, b)
     }
 }
 
 impl Database for MixedDB {
-    fn get_raw_bytes(&self, col: DBCol, key: &[u8]) -> io::Result<Option<DBSlice<'_>>> {
+    fn get_raw_bytes(
+        &self,
+        col: DBCol,
+        key: &[u8],
+    ) -> io::Result<Option<DBSlice<'_>>> {
         if let Ok(Some(first_result)) = self.first_db().get_raw_bytes(col, key) {
             return Ok(Some(first_result));
         }
         self.second_db().get_raw_bytes(col, key)
     }
 
-    fn get_with_rc_stripped(&self, col: DBCol, key: &[u8]) -> io::Result<Option<DBSlice<'_>>> {
+    fn get_with_rc_stripped(
+        &self,
+        col: DBCol,
+        key: &[u8],
+    ) -> io::Result<Option<DBSlice<'_>>> {
         assert!(col.is_rc());
 
-        if let Ok(Some(first_result)) = self.first_db().get_with_rc_stripped(col, key) {
+        if let Ok(Some(first_result)) = self
+            .first_db()
+            .get_with_rc_stripped(col, key)
+        {
             return Ok(Some(first_result));
         }
-        self.second_db().get_with_rc_stripped(col, key)
+        self.second_db()
+            .get_with_rc_stripped(col, key)
     }
 
-    fn iter<'a>(&'a self, col: DBCol) -> DBIterator<'a> {
+    fn iter<'a>(
+        &'a self,
+        col: DBCol,
+    ) -> DBIterator<'a> {
         Self::merge_iter(self.read_db.iter(col), self.write_db.iter(col))
     }
 
-    fn iter_prefix<'a>(&'a self, col: DBCol, key_prefix: &'a [u8]) -> DBIterator<'a> {
+    fn iter_prefix<'a>(
+        &'a self,
+        col: DBCol,
+        key_prefix: &'a [u8],
+    ) -> DBIterator<'a> {
         return Self::merge_iter(
-            self.first_db().iter_prefix(col, key_prefix),
-            self.second_db().iter_prefix(col, key_prefix),
+            self.first_db()
+                .iter_prefix(col, key_prefix),
+            self.second_db()
+                .iter_prefix(col, key_prefix),
         );
     }
 
@@ -98,19 +122,27 @@ impl Database for MixedDB {
         upper_bound: Option<&[u8]>,
     ) -> DBIterator<'a> {
         return Self::merge_iter(
-            self.first_db().iter_range(col, lower_bound, upper_bound),
-            self.second_db().iter_range(col, lower_bound, upper_bound),
+            self.first_db()
+                .iter_range(col, lower_bound, upper_bound),
+            self.second_db()
+                .iter_range(col, lower_bound, upper_bound),
         );
     }
 
-    fn iter_raw_bytes<'a>(&'a self, col: DBCol) -> DBIterator<'a> {
+    fn iter_raw_bytes<'a>(
+        &'a self,
+        col: DBCol,
+    ) -> DBIterator<'a> {
         return Self::merge_iter(
             self.first_db().iter_raw_bytes(col),
             self.second_db().iter_raw_bytes(col),
         );
     }
 
-    fn write(&self, batch: DBTransaction) -> io::Result<()> {
+    fn write(
+        &self,
+        batch: DBTransaction,
+    ) -> io::Result<()> {
         self.write_db.write(batch)
     }
 
@@ -136,6 +168,7 @@ impl Database for MixedDB {
         path: &std::path::Path,
         columns_to_keep: Option<&[DBCol]>,
     ) -> anyhow::Result<()> {
-        self.write_db.create_checkpoint(path, columns_to_keep)
+        self.write_db
+            .create_checkpoint(path, columns_to_keep)
     }
 }

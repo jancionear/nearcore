@@ -13,7 +13,10 @@ pub struct CountingWrite<W: Write> {
 }
 
 impl<W: Write> CountingWrite<W> {
-    pub fn new_with_limit(inner: W, hard_limit: bytesize::ByteSize) -> Self {
+    pub fn new_with_limit(
+        inner: W,
+        hard_limit: bytesize::ByteSize,
+    ) -> Self {
         Self { inner, total_written: 0, hard_limit: hard_limit.as_u64() }
     }
 
@@ -31,15 +34,24 @@ impl<W: Write> CountingWrite<W> {
 }
 
 impl<W: Write> Write for CountingWrite<W> {
-    fn write(&mut self, buffer: &[u8]) -> io::Result<usize> {
-        if self.total_written.saturating_add(buffer.len() as u64) > self.hard_limit {
+    fn write(
+        &mut self,
+        buffer: &[u8],
+    ) -> io::Result<usize> {
+        if self
+            .total_written
+            .saturating_add(buffer.len() as u64)
+            > self.hard_limit
+        {
             return Err(io::Error::new(
                 io::ErrorKind::WriteZero,
                 format!("Exceeded the limit of {} bytes", self.hard_limit),
             ));
         }
         let last_written = self.inner.write(buffer)?;
-        self.total_written = self.total_written.saturating_add(last_written as u64);
+        self.total_written = self
+            .total_written
+            .saturating_add(last_written as u64);
         Ok(last_written)
     }
 
@@ -61,7 +73,10 @@ pub struct CountingRead<R: Read> {
 }
 
 impl<R: Read> CountingRead<R> {
-    pub fn new_with_limit(inner: R, hard_limit: bytesize::ByteSize) -> Self {
+    pub fn new_with_limit(
+        inner: R,
+        hard_limit: bytesize::ByteSize,
+    ) -> Self {
         Self { inner, total_read: 0, hard_limit: hard_limit.as_u64() }
     }
 
@@ -79,9 +94,14 @@ impl<R: Read> CountingRead<R> {
 }
 
 impl<R: Read> Read for CountingRead<R> {
-    fn read(&mut self, buffer: &mut [u8]) -> io::Result<usize> {
+    fn read(
+        &mut self,
+        buffer: &mut [u8],
+    ) -> io::Result<usize> {
         let last_read = self.inner.read(buffer)?;
-        self.total_read = self.total_read.saturating_add(last_read as u64);
+        self.total_read = self
+            .total_read
+            .saturating_add(last_read as u64);
         if self.total_read > self.hard_limit {
             return Err(io::Error::new(
                 io::ErrorKind::WriteZero,

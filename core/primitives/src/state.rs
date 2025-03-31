@@ -34,13 +34,19 @@ impl ValueRef {
 }
 
 impl std::cmp::PartialEq<[u8]> for ValueRef {
-    fn eq(&self, rhs: &[u8]) -> bool {
+    fn eq(
+        &self,
+        rhs: &[u8],
+    ) -> bool {
         self.len() == rhs.len() && self.hash == CryptoHash::hash_bytes(rhs)
     }
 }
 
 impl std::fmt::Debug for ValueRef {
-    fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(
+        &self,
+        fmt: &mut std::fmt::Formatter<'_>,
+    ) -> std::fmt::Result {
         write!(fmt, "({}, {})", self.length, self.hash)
     }
 }
@@ -91,22 +97,22 @@ impl FlatStateValue {
 
     pub fn to_value_ref(&self) -> ValueRef {
         match self {
-            Self::Ref(value_ref) => *value_ref,
-            Self::Inlined(value) => ValueRef::new(value),
+            | Self::Ref(value_ref) => *value_ref,
+            | Self::Inlined(value) => ValueRef::new(value),
         }
     }
 
     pub fn value_len(&self) -> usize {
         match self {
-            Self::Ref(value_ref) => value_ref.len(),
-            Self::Inlined(value) => value.len(),
+            | Self::Ref(value_ref) => value_ref.len(),
+            | Self::Inlined(value) => value.len(),
         }
     }
 
     pub fn size(&self) -> usize {
         match self {
-            Self::Ref(_) => size_of::<Self>(),
-            Self::Inlined(value) => size_of::<Self>() + value.capacity(),
+            | Self::Ref(_) => size_of::<Self>(),
+            | Self::Inlined(value) => size_of::<Self>() + value.capacity(),
         }
     }
 }

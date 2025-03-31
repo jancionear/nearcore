@@ -10,16 +10,26 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 impl Graph {
-    async fn simple_update(self: &Arc<Self>, clock: &time::Clock, edges: Vec<Edge>) {
+    async fn simple_update(
+        self: &Arc<Self>,
+        clock: &time::Clock,
+        edges: Vec<Edge>,
+    ) {
         assert_eq!(vec![true], self.update(clock, vec![edges]).await.1);
     }
 
-    async fn check(&self, want_mem: &[Edge]) {
+    async fn check(
+        &self,
+        want_mem: &[Edge],
+    ) {
         let got_mem = self.load();
         let got_mem: HashMap<_, _> = got_mem.edges.iter().collect();
         let mut want_mem_map = HashMap::new();
         for e in want_mem {
-            if want_mem_map.insert(e.key(), e).is_some() {
+            if want_mem_map
+                .insert(e.key(), e)
+                .is_some()
+            {
                 panic!("want_mem: multiple entries for {:?}", e.key());
             }
         }
@@ -68,23 +78,27 @@ async fn one_edge() {
 
     tracing::info!(target:"test", "Add an active edge. Update RT with pruning.");
     // NOOP, since p1 is reachable.
-    g.simple_update(&clock.clock(), vec![e1.clone()]).await;
+    g.simple_update(&clock.clock(), vec![e1.clone()])
+        .await;
     g.check(&[e1.clone()]).await;
 
     tracing::info!(target:"test", "Override with an inactive edge.");
-    g.simple_update(&clock.clock(), vec![e1v2.clone()]).await;
+    g.simple_update(&clock.clock(), vec![e1v2.clone()])
+        .await;
     g.check(&[e1v2.clone()]).await;
 
     tracing::info!(target:"test", "After 2s, simple_update RT with pruning unreachable for 3s.");
     // NOOP, since p1 is unreachable for 2s.
     clock.advance(2 * SEC);
-    g.simple_update(&clock.clock(), vec![]).await;
+    g.simple_update(&clock.clock(), vec![])
+        .await;
     g.check(&[e1v2.clone()]).await;
 
     tracing::info!(target:"test", "Update RT with pruning unreachable for 1s.");
     // p1 should be moved to DB.
     clock.advance(2 * SEC);
-    g.simple_update(&clock.clock(), vec![]).await;
+    g.simple_update(&clock.clock(), vec![])
+        .await;
     g.check(&[]).await;
 }
 
@@ -121,41 +135,51 @@ async fn expired_edges() {
     let fresh_e2 = data::make_edge(&node_key, &p2, to_active_nonce(now));
 
     tracing::info!(target:"test", "Add an active edge.");
-    g.simple_update(&clock.clock(), vec![e1.clone(), old_e2.clone()]).await;
-    g.check(&[e1.clone(), old_e2.clone()]).await;
+    g.simple_update(&clock.clock(), vec![e1.clone(), old_e2.clone()])
+        .await;
+    g.check(&[e1.clone(), old_e2.clone()])
+        .await;
     tracing::info!(target:"test", "Update RT with pruning.");
     // e1 should stay - as it is fresh, but old_e2 should be removed.
     clock.advance(40 * SEC);
-    g.simple_update(&clock.clock(), vec![]).await;
+    g.simple_update(&clock.clock(), vec![])
+        .await;
     g.check(&[e1.clone()]).await;
 
     tracing::info!(target:"test", "Adding 'still old' edge to e2 should fail.");
     // (as it is older than the last prune_edges_older_than)
-    g.simple_update(&clock.clock(), vec![still_old_e2.clone()]).await;
+    g.simple_update(&clock.clock(), vec![still_old_e2.clone()])
+        .await;
     g.check(&[e1.clone()]).await;
 
     tracing::info!(target:"test", "But adding the fresh edge should work.");
-    g.simple_update(&clock.clock(), vec![fresh_e2.clone()]).await;
-    g.check(&[e1.clone(), fresh_e2.clone()]).await;
+    g.simple_update(&clock.clock(), vec![fresh_e2.clone()])
+        .await;
+    g.check(&[e1.clone(), fresh_e2.clone()])
+        .await;
 
     tracing::info!(target:"test", "Advance so that the edge is 'too old' and should be removed.");
     clock.advance(100 * SEC);
-    g.simple_update(&clock.clock(), vec![]).await;
+    g.simple_update(&clock.clock(), vec![])
+        .await;
     g.check(&[]).await;
 
     tracing::info!(target:"test", "Let's create a removal edge.");
     let e1v2 = data::make_edge(&node_key, &p1, to_active_nonce(clock.now_utc()))
         .remove_edge(peer_id(&p1), &p1);
-    g.simple_update(&clock.clock(), vec![e1v2.clone()]).await;
+    g.simple_update(&clock.clock(), vec![e1v2.clone()])
+        .await;
     g.check(&[e1v2.clone()]).await;
 
     // Advance time a bit. The edge should stay.
     clock.advance(20 * SEC);
-    g.simple_update(&clock.clock(), vec![]).await;
+    g.simple_update(&clock.clock(), vec![])
+        .await;
     g.check(&[e1v2.clone()]).await;
 
     // Advance time a lot. The edge should be pruned.
     clock.advance(100 * SEC);
-    g.simple_update(&clock.clock(), vec![]).await;
+    g.simple_update(&clock.clock(), vec![])
+        .await;
     g.check(&[]).await;
 }

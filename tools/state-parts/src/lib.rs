@@ -31,7 +31,7 @@ fn handle_message(
     received_at: near_time::Instant,
 ) -> anyhow::Result<()> {
     match &msg {
-        Message::Direct(DirectMessage::VersionedStateResponse(response)) => {
+        | Message::Direct(DirectMessage::VersionedStateResponse(response)) => {
             let shard_id = response.shard_id();
             let sync_hash = response.sync_hash();
             let state_response = response.clone().take_state_response();
@@ -39,20 +39,25 @@ fn handle_message(
             let part_id = state_response.part_id();
             let now = Instant::now();
             let duration = if let Some(part_id) = part_id {
-                let duration = app_info.requests_sent.get(&part_id).map(|sent| {
-                    (now.signed_duration_since(*sent) - now.signed_duration_since(received_at))
-                        .as_seconds_f64()
-                });
+                let duration = app_info
+                    .requests_sent
+                    .get(&part_id)
+                    .map(|sent| {
+                        (now.signed_duration_since(*sent) - now.signed_duration_since(received_at))
+                            .as_seconds_f64()
+                    });
                 app_info.requests_sent.remove(&part_id);
                 duration
             } else {
                 None
             };
             let part_hash = if let Some(part) = state_response.part() {
-                Sha256::digest(&part.1).iter().fold(String::new(), |mut v, byte| {
-                    write!(&mut v, "{:02x}", byte).unwrap();
-                    v
-                })
+                Sha256::digest(&part.1)
+                    .iter()
+                    .fold(String::new(), |mut v, byte| {
+                        write!(&mut v, "{:02x}", byte).unwrap();
+                        v
+                    })
             } else {
                 "No part".to_string()
             };
@@ -67,7 +72,7 @@ fn handle_message(
                 "Received VersionedStateResponse",
             );
         }
-        _ => {}
+        | _ => {}
     };
     Ok(())
 }

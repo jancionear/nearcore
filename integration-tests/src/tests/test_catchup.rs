@@ -20,8 +20,10 @@ fn ultra_slow_test_catchup() {
     ) {
         let nodes = create_nodes(num_nodes, test_prefix);
 
-        let mut nodes: Vec<Arc<RwLock<dyn Node>>> =
-            nodes.into_iter().map(|cfg| <dyn Node>::new_sharable(cfg)).collect();
+        let mut nodes: Vec<Arc<RwLock<dyn Node>>> = nodes
+            .into_iter()
+            .map(|cfg| <dyn Node>::new_sharable(cfg))
+            .collect();
 
         let late_node = nodes.pop().unwrap();
         // Start all but one.
@@ -32,7 +34,12 @@ fn ultra_slow_test_catchup() {
         // Wait for the blocks to be produced.
         wait(
             || {
-                if let Some(ind) = nodes[0].read().unwrap().user().get_best_height() {
+                if let Some(ind) = nodes[0]
+                    .read()
+                    .unwrap()
+                    .user()
+                    .get_best_height()
+                {
                     ind > (num_blocks_to_wait as u64)
                 } else {
                     false
@@ -48,8 +55,18 @@ fn ultra_slow_test_catchup() {
         // Wait for it to have the same block height as other nodes.
         wait(
             || {
-                if let ind @ Some(_) = nodes[0].read().unwrap().user().get_best_height() {
-                    late_node.read().unwrap().user().get_best_height() == ind
+                if let ind @ Some(_) = nodes[0]
+                    .read()
+                    .unwrap()
+                    .user()
+                    .get_best_height()
+                {
+                    late_node
+                        .read()
+                        .unwrap()
+                        .user()
+                        .get_best_height()
+                        == ind
                 } else {
                     false
                 }

@@ -27,11 +27,20 @@ use std::sync::Arc;
 /// Creates an in-memory node storage.
 ///
 /// In tests you’ll often want to use [`create_test_store`] instead.
-pub fn create_test_node_storage(version: DbVersion, hot_kind: DbKind) -> NodeStorage {
+pub fn create_test_node_storage(
+    version: DbVersion,
+    hot_kind: DbKind,
+) -> NodeStorage {
     let storage = NodeStorage::new(TestDB::new());
 
-    storage.get_hot_store().set_db_version(version).unwrap();
-    storage.get_hot_store().set_db_kind(hot_kind).unwrap();
+    storage
+        .get_hot_store()
+        .set_db_version(version)
+        .unwrap();
+    storage
+        .get_hot_store()
+        .set_db_kind(hot_kind)
+        .unwrap();
 
     storage
 }
@@ -55,10 +64,24 @@ pub fn create_test_node_storage_with_cold(
     let cold = TestDB::new();
     let storage = NodeStorage::new_with_cold(hot.clone(), cold.clone());
 
-    storage.get_hot_store().set_db_version(version).unwrap();
-    storage.get_hot_store().set_db_kind(hot_kind).unwrap();
-    storage.get_cold_store().unwrap().set_db_version(version).unwrap();
-    storage.get_cold_store().unwrap().set_db_kind(DbKind::Cold).unwrap();
+    storage
+        .get_hot_store()
+        .set_db_version(version)
+        .unwrap();
+    storage
+        .get_hot_store()
+        .set_db_kind(hot_kind)
+        .unwrap();
+    storage
+        .get_cold_store()
+        .unwrap()
+        .set_db_version(version)
+        .unwrap();
+    storage
+        .get_cold_store()
+        .unwrap()
+        .set_db_kind(DbKind::Cold)
+        .unwrap();
 
     (storage, hot, cold)
 }
@@ -92,22 +115,34 @@ impl TestTriesBuilder {
         }
     }
 
-    pub fn with_store(mut self, store: Store) -> Self {
+    pub fn with_store(
+        mut self,
+        store: Store,
+    ) -> Self {
         self.store = Some(store);
         self
     }
 
-    pub fn with_shard_layout(mut self, shard_layout: ShardLayout) -> Self {
+    pub fn with_shard_layout(
+        mut self,
+        shard_layout: ShardLayout,
+    ) -> Self {
         self.shard_layout = shard_layout;
         self
     }
 
-    pub fn with_flat_storage(mut self, enable: bool) -> Self {
+    pub fn with_flat_storage(
+        mut self,
+        enable: bool,
+    ) -> Self {
         self.enable_flat_storage = enable;
         self
     }
 
-    pub fn with_in_memory_tries(mut self, enable: bool) -> Self {
+    pub fn with_in_memory_tries(
+        mut self,
+        enable: bool,
+    ) -> Self {
         self.enable_in_memory_tries = enable;
         self
     }
@@ -122,13 +157,18 @@ impl TestTriesBuilder {
         if self.enable_in_memory_tries && !self.enable_flat_storage {
             panic!("In-memory tries require flat storage");
         }
-        let store = self.store.unwrap_or_else(create_test_store);
-        let shard_uids = self.shard_layout.shard_uids().collect_vec();
+        let store = self
+            .store
+            .unwrap_or_else(create_test_store);
+        let shard_uids = self
+            .shard_layout
+            .shard_uids()
+            .collect_vec();
         let flat_storage_manager = FlatStorageManager::new(store.flat_store());
         let tries = ShardTries::new(
             store.trie_store(),
             TrieConfig {
-                load_memtries_for_tracked_shards: self.enable_in_memory_tries,
+                load_mem_tries_for_tracked_shards: self.enable_in_memory_tries,
                 ..Default::default()
             },
             &shard_uids,
@@ -139,16 +179,20 @@ impl TestTriesBuilder {
             let mut store_update = tries.store_update();
             for &shard_uid in &shard_uids {
                 let flat_head = BlockInfo::genesis(CryptoHash::default(), 0);
-                store_update.flat_store_update().set_flat_storage_status(
-                    shard_uid,
-                    FlatStorageStatus::Ready(FlatStorageReadyStatus { flat_head }),
-                );
+                store_update
+                    .flat_store_update()
+                    .set_flat_storage_status(
+                        shard_uid,
+                        FlatStorageStatus::Ready(FlatStorageReadyStatus { flat_head }),
+                    );
             }
             store_update.commit().unwrap();
 
             let flat_storage_manager = tries.get_flat_storage_manager();
             for &shard_uid in &shard_uids {
-                flat_storage_manager.create_flat_storage_for_shard(shard_uid).unwrap();
+                flat_storage_manager
+                    .create_flat_storage_for_shard(shard_uid)
+                    .unwrap();
             }
         }
         if self.enable_in_memory_tries {
@@ -179,7 +223,9 @@ impl TestTriesBuilder {
             }
             update_for_chunk_extra.commit().unwrap();
 
-            tries.load_memtries_for_enabled_shards(&shard_uids, &[].into(), false).unwrap();
+            tries
+                .load_mem_tries_for_enabled_shards(&shard_uids, &[].into(), false)
+                .unwrap();
         }
         tries
     }
@@ -192,7 +238,9 @@ pub fn test_populate_trie(
     changes: Vec<(Vec<u8>, Option<Vec<u8>>)>,
 ) -> CryptoHash {
     let trie = tries.get_trie_for_shard(shard_uid, *root);
-    let trie_changes = trie.update(changes.iter().cloned()).unwrap();
+    let trie_changes = trie
+        .update(changes.iter().cloned())
+        .unwrap();
     let mut store_update = tries.store_update();
     tries.apply_memtrie_changes(&trie_changes, shard_uid, 1); // TODO: don't hardcode block height
     let root = tries.apply_all(&trie_changes, shard_uid, &mut store_update);
@@ -212,7 +260,10 @@ pub fn test_populate_flat_storage(
     prev_block_hash: &CryptoHash,
     changes: &Vec<(Vec<u8>, Option<Vec<u8>>)>,
 ) {
-    let mut store_update = tries.store().flat_store().store_update();
+    let mut store_update = tries
+        .store()
+        .flat_store()
+        .store_update();
     store_update.set_flat_storage_status(
         shard_uid,
         crate::flat::FlatStorageStatus::Ready(FlatStorageReadyStatus {
@@ -223,28 +274,40 @@ pub fn test_populate_flat_storage(
         store_update.set(
             shard_uid,
             key.clone(),
-            value.as_ref().map(|value| FlatStateValue::on_disk(value)),
+            value
+                .as_ref()
+                .map(|value| FlatStateValue::on_disk(value)),
         );
     }
     store_update.commit().unwrap();
 }
 
 /// Insert values to non-reference-counted columns in the store.
-pub fn test_populate_store(store: &Store, data: impl Iterator<Item = (DBCol, Vec<u8>, Vec<u8>)>) {
+pub fn test_populate_store(
+    store: &Store,
+    data: impl Iterator<Item = (DBCol, Vec<u8>, Vec<u8>)>,
+) {
     let mut update = store.store_update();
     for (column, key, value) in data {
         update.insert(column, key, value);
     }
-    update.commit().expect("db commit failed");
+    update
+        .commit()
+        .expect("db commit failed");
 }
 
 /// Insert values to reference-counted columns in the store.
-pub fn test_populate_store_rc(store: &Store, data: &[(DBCol, Vec<u8>, Vec<u8>)]) {
+pub fn test_populate_store_rc(
+    store: &Store,
+    data: &[(DBCol, Vec<u8>, Vec<u8>)],
+) {
     let mut update = store.store_update();
     for (column, key, value) in data {
         update.increment_refcount(*column, key, value);
     }
-    update.commit().expect("db commit failed");
+    update
+        .commit()
+        .expect("db commit failed");
 }
 
 fn gen_alphabet() -> Vec<u8> {
@@ -259,12 +322,19 @@ fn gen_accounts_from_alphabet(
     alphabet: &[u8],
 ) -> Vec<AccountId> {
     let size = rng.gen_range(min_size..=max_size);
-    std::iter::repeat_with(|| gen_account_from_alphabet(rng, alphabet)).take(size).collect()
+    std::iter::repeat_with(|| gen_account_from_alphabet(rng, alphabet))
+        .take(size)
+        .collect()
 }
 
-pub fn gen_account_from_alphabet(rng: &mut impl Rng, alphabet: &[u8]) -> AccountId {
+pub fn gen_account_from_alphabet(
+    rng: &mut impl Rng,
+    alphabet: &[u8],
+) -> AccountId {
     let str_length = rng.gen_range(4..8);
-    let s: Vec<u8> = (0..str_length).map(|_| *alphabet.choose(rng).unwrap()).collect();
+    let s: Vec<u8> = (0..str_length)
+        .map(|_| *alphabet.choose(rng).unwrap())
+        .collect();
     from_utf8(&s).unwrap().parse().unwrap()
 }
 
@@ -273,7 +343,11 @@ pub fn gen_account(rng: &mut impl Rng) -> AccountId {
     gen_account_from_alphabet(rng, &alphabet)
 }
 
-pub fn gen_unique_accounts(rng: &mut impl Rng, min_size: usize, max_size: usize) -> Vec<AccountId> {
+pub fn gen_unique_accounts(
+    rng: &mut impl Rng,
+    min_size: usize,
+    max_size: usize,
+) -> Vec<AccountId> {
     let alphabet = gen_alphabet();
     let mut accounts = gen_accounts_from_alphabet(rng, min_size, max_size, &alphabet);
     accounts.sort();
@@ -284,14 +358,23 @@ pub fn gen_unique_accounts(rng: &mut impl Rng, min_size: usize, max_size: usize)
 
 // returns one account for each shard
 pub fn gen_shard_accounts() -> Vec<AccountId> {
-    vec!["aaa", "aurora", "aurora-0", "kkuuue2akv_1630967379.near", "tge-lockup.sweat"]
-        .into_iter()
-        .map(AccountId::from_str)
-        .map(Result::unwrap)
-        .collect()
+    vec![
+        "aaa",
+        "aurora",
+        "aurora-0",
+        "kkuuue2akv_1630967379.near",
+        "tge-lockup.sweat",
+    ]
+    .into_iter()
+    .map(AccountId::from_str)
+    .map(Result::unwrap)
+    .collect()
 }
 
-pub fn gen_receipts(rng: &mut impl Rng, max_size: usize) -> Vec<Receipt> {
+pub fn gen_receipts(
+    rng: &mut impl Rng,
+    max_size: usize,
+) -> Vec<Receipt> {
     let alphabet = gen_alphabet();
     let accounts = gen_accounts_from_alphabet(rng, 1, max_size, &alphabet);
     accounts
@@ -311,7 +394,10 @@ pub fn gen_receipts(rng: &mut impl Rng, max_size: usize) -> Vec<Receipt> {
         .collect()
 }
 
-pub fn gen_timeouts(rng: &mut impl Rng, max_size: usize) -> Vec<PromiseYieldTimeout> {
+pub fn gen_timeouts(
+    rng: &mut impl Rng,
+    max_size: usize,
+) -> Vec<PromiseYieldTimeout> {
     let alphabet = gen_alphabet();
     let accounts = gen_accounts_from_alphabet(rng, 1, max_size, &alphabet);
     accounts
@@ -339,7 +425,9 @@ fn gen_changes_helper(
     let size = rng.gen_range(0..max_size) + 1;
     for _ in 0..size {
         let key_length = rng.gen_range(1..max_length);
-        let key: Vec<u8> = (0..key_length).map(|_| *alphabet.choose(rng).unwrap()).collect();
+        let key: Vec<u8> = (0..key_length)
+            .map(|_| *alphabet.choose(rng).unwrap())
+            .collect();
 
         let delete = rng.gen_range(0.0..1.0) < delete_probability;
         if delete {
@@ -350,8 +438,9 @@ fn gen_changes_helper(
             result.push((key.clone(), None));
         } else {
             let value_length = rng.gen_range(1..max_length);
-            let value: Vec<u8> =
-                (0..value_length).map(|_| *alphabet.choose(rng).unwrap()).collect();
+            let value: Vec<u8> = (0..value_length)
+                .map(|_| *alphabet.choose(rng).unwrap())
+                .collect();
             result.push((key.clone(), Some(value.clone())));
             state.insert(key, value);
         }
@@ -359,13 +448,19 @@ fn gen_changes_helper(
     result
 }
 
-pub fn gen_changes(rng: &mut impl Rng, max_size: usize) -> Vec<(Vec<u8>, Option<Vec<u8>>)> {
+pub fn gen_changes(
+    rng: &mut impl Rng,
+    max_size: usize,
+) -> Vec<(Vec<u8>, Option<Vec<u8>>)> {
     let alphabet = gen_alphabet();
     let max_length = rng.gen_range(2..8);
     gen_changes_helper(rng, &alphabet, max_size, max_length)
 }
 
-pub fn gen_larger_changes(rng: &mut impl Rng, max_size: usize) -> Vec<(Vec<u8>, Option<Vec<u8>>)> {
+pub fn gen_larger_changes(
+    rng: &mut impl Rng,
+    max_size: usize,
+) -> Vec<(Vec<u8>, Option<Vec<u8>>)> {
     let alphabet = gen_alphabet();
     let max_length = rng.gen_range(10..20);
     gen_changes_helper(rng, &alphabet, max_size, max_length)
@@ -380,7 +475,10 @@ pub fn simplify_changes(changes: &[(Vec<u8>, Option<Vec<u8>>)]) -> Vec<(Vec<u8>,
             state.remove(key);
         }
     }
-    let mut result: Vec<_> = state.into_iter().map(|(k, v)| (k, Some(v))).collect();
+    let mut result: Vec<_> = state
+        .into_iter()
+        .map(|(k, v)| (k, Some(v)))
+        .collect();
     result.sort();
     result
 }
@@ -396,7 +494,9 @@ pub fn get_all_delayed_receipts(
     let mut receipts = vec![];
     while delayed_receipt_indices.first_index < delayed_receipt_indices.next_available_index {
         let key = TrieKey::DelayedReceipt { index: delayed_receipt_indices.first_index };
-        let receipt = get(state_update, &key).unwrap().unwrap();
+        let receipt = get(state_update, &key)
+            .unwrap()
+            .unwrap();
         delayed_receipt_indices.first_index += 1;
         receipts.push(receipt);
     }
@@ -414,7 +514,9 @@ pub fn get_all_promise_yield_timeouts(
     let mut timeouts = vec![];
     while promise_yield_indices.first_index < promise_yield_indices.next_available_index {
         let key = TrieKey::PromiseYieldTimeout { index: promise_yield_indices.first_index };
-        let timeout = get(state_update, &key).unwrap().unwrap();
+        let timeout = get(state_update, &key)
+            .unwrap()
+            .unwrap();
         promise_yield_indices.first_index += 1;
         timeouts.push(timeout);
     }

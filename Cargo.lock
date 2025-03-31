@@ -850,16 +850,17 @@ dependencies = [
 
 [[package]]
 name = "bindgen"
-version = "0.69.5"
+version = "0.65.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "271383c67ccabffb7381723dea0672a673f292304fcb45c01cc648c7a8d58088"
+checksum = "cfdf7b466f9a4903edc73f95d6d2bcd5baf8ae620638762244d3f60143643cc5"
 dependencies = [
- "bitflags 2.4.1",
+ "bitflags 1.3.2",
  "cexpr",
  "clang-sys",
- "itertools 0.12.1",
  "lazy_static",
  "lazycell",
+ "peeking_take_while",
+ "prettyplease",
  "proc-macro2",
  "quote",
  "regex",
@@ -1282,7 +1283,7 @@ checksum = "613afe47fcd5fac7ccf1db93babcb082c5994d996f20b8b159f2ad1658eb5724"
 
 [[package]]
 name = "chainsync-loadtest"
-version = "0.0.0"
+version = "2.5.1"
 dependencies = [
  "actix",
  "anyhow",
@@ -1450,7 +1451,7 @@ dependencies = [
 
 [[package]]
 name = "cold-store-tool"
-version = "0.0.0"
+version = "2.5.1"
 dependencies = [
  "anyhow",
  "borsh",
@@ -1483,7 +1484,7 @@ dependencies = [
 
 [[package]]
 name = "congestion-model"
-version = "0.0.0"
+version = "2.5.1"
 dependencies = [
  "bytesize",
  "chrono",
@@ -2366,7 +2367,7 @@ dependencies = [
 
 [[package]]
 name = "estimator-warehouse"
-version = "0.0.0"
+version = "2.5.1"
 dependencies = [
  "anyhow",
  "chrono",
@@ -2752,7 +2753,7 @@ dependencies = [
 
 [[package]]
 name = "genesis-csv-to-json"
-version = "0.0.0"
+version = "2.5.1"
 dependencies = [
  "chrono",
  "clap",
@@ -2769,7 +2770,7 @@ dependencies = [
 
 [[package]]
 name = "genesis-populate"
-version = "0.0.0"
+version = "2.5.1"
 dependencies = [
  "borsh",
  "clap",
@@ -3326,7 +3327,7 @@ dependencies = [
 
 [[package]]
 name = "indexer-example"
-version = "0.0.0"
+version = "2.5.1"
 dependencies = [
  "actix",
  "anyhow",
@@ -3403,7 +3404,7 @@ dependencies = [
 
 [[package]]
 name = "integration-tests"
-version = "0.0.0"
+version = "2.5.1"
 dependencies = [
  "actix",
  "actix-rt",
@@ -3568,7 +3569,7 @@ checksum = "67c21572b4949434e4fc1e1978b99c5f77064153c59d998bf13ecd96fb5ecba7"
 
 [[package]]
 name = "keypair-generator"
-version = "0.0.0"
+version = "2.5.1"
 dependencies = [
  "clap",
  "near-crypto",
@@ -3637,9 +3638,9 @@ checksum = "4ec2a862134d2a7d32d7983ddcdd1c4923530833c9f2ea1a44fc5fa473989058"
 
 [[package]]
 name = "librocksdb-sys"
-version = "0.16.0+8.10.0"
+version = "0.11.0+8.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ce3d60bc059831dc1c83903fb45c103f75db65c5a7bf22272764d9cc683e348c"
+checksum = "d3386f101bcb4bd252d8e9d2fb41ec3b0862a15a62b478c355b2982efa469e3e"
 dependencies = [
  "bindgen",
  "bzip2-sys",
@@ -4005,7 +4006,7 @@ dependencies = [
 
 [[package]]
 name = "mock-node"
-version = "0.0.0"
+version = "2.5.1"
 dependencies = [
  "actix",
  "actix-rt",
@@ -4095,7 +4096,7 @@ dependencies = [
 
 [[package]]
 name = "near-actix-test-utils"
-version = "0.0.0"
+version = "2.5.1"
 dependencies = [
  "actix-rt",
  "near-store",
@@ -4103,7 +4104,7 @@ dependencies = [
 
 [[package]]
 name = "near-amend-genesis"
-version = "0.0.0"
+version = "2.5.1"
 dependencies = [
  "anyhow",
  "borsh",
@@ -4122,7 +4123,7 @@ dependencies = [
 
 [[package]]
 name = "near-async"
-version = "0.0.0"
+version = "2.5.1"
 dependencies = [
  "actix",
  "derive_more 1.0.0",
@@ -4142,7 +4143,7 @@ dependencies = [
 
 [[package]]
 name = "near-async-derive"
-version = "0.0.0"
+version = "2.5.1"
 dependencies = [
  "pretty_assertions",
  "proc-macro2",
@@ -4152,7 +4153,7 @@ dependencies = [
 
 [[package]]
 name = "near-cache"
-version = "0.0.0"
+version = "2.5.1"
 dependencies = [
  "bencher",
  "lru 0.12.3",
@@ -4161,7 +4162,7 @@ dependencies = [
 
 [[package]]
 name = "near-chain"
-version = "0.0.0"
+version = "2.5.1"
 dependencies = [
  "actix",
  "anyhow",
@@ -4215,7 +4216,7 @@ dependencies = [
 
 [[package]]
 name = "near-chain-configs"
-version = "0.0.0"
+version = "2.5.1"
 dependencies = [
  "anyhow",
  "bytesize",
@@ -4238,7 +4239,7 @@ dependencies = [
 
 [[package]]
 name = "near-chain-primitives"
-version = "0.0.0"
+version = "2.5.1"
 dependencies = [
  "near-crypto",
  "near-primitives",
@@ -4250,7 +4251,7 @@ dependencies = [
 
 [[package]]
 name = "near-chunks"
-version = "0.0.0"
+version = "2.5.1"
 dependencies = [
  "actix",
  "assert_matches",
@@ -4282,7 +4283,7 @@ dependencies = [
 
 [[package]]
 name = "near-chunks-primitives"
-version = "0.0.0"
+version = "2.5.1"
 dependencies = [
  "near-chain-primitives",
  "near-primitives",
@@ -4290,7 +4291,7 @@ dependencies = [
 
 [[package]]
 name = "near-client"
-version = "0.0.0"
+version = "2.5.1"
 dependencies = [
  "actix",
  "actix-rt",
@@ -4351,7 +4352,7 @@ dependencies = [
 
 [[package]]
 name = "near-client-primitives"
-version = "0.0.0"
+version = "2.5.1"
 dependencies = [
  "actix",
  "chrono",
@@ -4371,7 +4372,7 @@ dependencies = [
 
 [[package]]
 name = "near-config-utils"
-version = "0.0.0"
+version = "2.5.1"
 dependencies = [
  "anyhow",
  "json_comments",
@@ -4381,7 +4382,7 @@ dependencies = [
 
 [[package]]
 name = "near-crypto"
-version = "0.0.0"
+version = "2.5.1"
 dependencies = [
  "blake2",
  "bolero",
@@ -4409,7 +4410,7 @@ dependencies = [
 
 [[package]]
 name = "near-database-tool"
-version = "0.0.0"
+version = "2.5.1"
 dependencies = [
  "anyhow",
  "borsh",
@@ -4435,7 +4436,7 @@ dependencies = [
 
 [[package]]
 name = "near-dyn-configs"
-version = "0.0.0"
+version = "2.5.1"
 dependencies = [
  "anyhow",
  "near-chain-configs",
@@ -4453,7 +4454,7 @@ dependencies = [
 
 [[package]]
 name = "near-epoch-manager"
-version = "0.0.0"
+version = "2.5.1"
 dependencies = [
  "borsh",
  "chrono",
@@ -4479,7 +4480,7 @@ dependencies = [
 
 [[package]]
 name = "near-flat-storage"
-version = "0.0.0"
+version = "2.5.1"
 dependencies = [
  "anyhow",
  "borsh",
@@ -4498,14 +4499,14 @@ dependencies = [
 
 [[package]]
 name = "near-fmt"
-version = "0.0.0"
+version = "2.5.1"
 dependencies = [
  "near-primitives-core",
 ]
 
 [[package]]
 name = "near-fork-network"
-version = "0.0.0"
+version = "2.5.1"
 dependencies = [
  "actix",
  "anyhow",
@@ -4531,7 +4532,7 @@ dependencies = [
 
 [[package]]
 name = "near-indexer"
-version = "0.0.0"
+version = "2.5.1"
 dependencies = [
  "actix",
  "anyhow",
@@ -4558,7 +4559,7 @@ dependencies = [
 
 [[package]]
 name = "near-indexer-primitives"
-version = "0.0.0"
+version = "2.5.1"
 dependencies = [
  "near-primitives",
  "serde",
@@ -4567,7 +4568,7 @@ dependencies = [
 
 [[package]]
 name = "near-jsonrpc"
-version = "0.0.0"
+version = "2.5.1"
 dependencies = [
  "actix",
  "actix-cors",
@@ -4597,7 +4598,7 @@ dependencies = [
 
 [[package]]
 name = "near-jsonrpc-adversarial-primitives"
-version = "0.0.0"
+version = "2.5.1"
 dependencies = [
  "near-primitives",
  "serde",
@@ -4605,7 +4606,7 @@ dependencies = [
 
 [[package]]
 name = "near-jsonrpc-client"
-version = "0.0.0"
+version = "2.5.1"
 dependencies = [
  "actix-http",
  "awc",
@@ -4618,7 +4619,7 @@ dependencies = [
 
 [[package]]
 name = "near-jsonrpc-fuzz"
-version = "0.0.0"
+version = "2.5.1"
 dependencies = [
  "actix",
  "arbitrary",
@@ -4636,7 +4637,7 @@ dependencies = [
 
 [[package]]
 name = "near-jsonrpc-primitives"
-version = "0.0.0"
+version = "2.5.1"
 dependencies = [
  "arbitrary",
  "near-chain-configs",
@@ -4652,7 +4653,7 @@ dependencies = [
 
 [[package]]
 name = "near-jsonrpc-tests"
-version = "0.0.0"
+version = "2.5.1"
 dependencies = [
  "actix",
  "awc",
@@ -4676,7 +4677,7 @@ dependencies = [
 
 [[package]]
 name = "near-mainnet-res"
-version = "0.0.0"
+version = "2.5.1"
 dependencies = [
  "near-account-id",
  "near-chain-configs",
@@ -4686,7 +4687,7 @@ dependencies = [
 
 [[package]]
 name = "near-mirror"
-version = "0.0.0"
+version = "2.5.1"
 dependencies = [
  "actix",
  "actix-rt",
@@ -4731,7 +4732,7 @@ dependencies = [
 
 [[package]]
 name = "near-network"
-version = "0.0.0"
+version = "2.5.1"
 dependencies = [
  "actix",
  "anyhow",
@@ -4792,7 +4793,7 @@ dependencies = [
 
 [[package]]
 name = "near-o11y"
-version = "0.0.0"
+version = "2.5.1"
 dependencies = [
  "actix",
  "base64 0.21.0",
@@ -4821,7 +4822,7 @@ dependencies = [
 
 [[package]]
 name = "near-parameters"
-version = "0.0.0"
+version = "2.5.1"
 dependencies = [
  "assert_matches",
  "borsh",
@@ -4841,7 +4842,7 @@ dependencies = [
 
 [[package]]
 name = "near-performance-metrics"
-version = "0.0.0"
+version = "2.5.1"
 dependencies = [
  "actix",
  "bitflags 1.3.2",
@@ -4856,7 +4857,7 @@ dependencies = [
 
 [[package]]
 name = "near-performance-metrics-macros"
-version = "0.0.0"
+version = "2.5.1"
 dependencies = [
  "quote",
  "syn 2.0.87",
@@ -4864,7 +4865,7 @@ dependencies = [
 
 [[package]]
 name = "near-ping"
-version = "0.0.0"
+version = "2.5.1"
 dependencies = [
  "actix-web",
  "anyhow",
@@ -4882,7 +4883,7 @@ dependencies = [
 
 [[package]]
 name = "near-pool"
-version = "0.0.0"
+version = "2.5.1"
 dependencies = [
  "borsh",
  "near-crypto",
@@ -4893,7 +4894,7 @@ dependencies = [
 
 [[package]]
 name = "near-primitives"
-version = "0.0.0"
+version = "2.5.1"
 dependencies = [
  "arbitrary",
  "assert_matches",
@@ -4942,7 +4943,7 @@ dependencies = [
 
 [[package]]
 name = "near-primitives-core"
-version = "0.0.0"
+version = "2.5.1"
 dependencies = [
  "arbitrary",
  "base64 0.21.0",
@@ -4964,7 +4965,7 @@ dependencies = [
 
 [[package]]
 name = "near-replay-archive-tool"
-version = "0.0.0"
+version = "2.5.1"
 dependencies = [
  "anyhow",
  "borsh",
@@ -4987,7 +4988,7 @@ dependencies = [
 
 [[package]]
 name = "near-rosetta-rpc"
-version = "0.0.0"
+version = "2.5.1"
 dependencies = [
  "actix",
  "actix-cors",
@@ -5020,14 +5021,14 @@ dependencies = [
 
 [[package]]
 name = "near-schema-checker-core"
-version = "0.0.0"
+version = "2.5.1"
 dependencies = [
  "inventory",
 ]
 
 [[package]]
 name = "near-schema-checker-lib"
-version = "0.0.0"
+version = "2.5.1"
 dependencies = [
  "inventory",
  "near-schema-checker-core",
@@ -5036,7 +5037,7 @@ dependencies = [
 
 [[package]]
 name = "near-schema-checker-macro"
-version = "0.0.0"
+version = "2.5.1"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -5045,11 +5046,11 @@ dependencies = [
 
 [[package]]
 name = "near-stable-hasher"
-version = "0.0.0"
+version = "2.5.1"
 
 [[package]]
 name = "near-state-parts"
-version = "0.0.0"
+version = "2.5.1"
 dependencies = [
  "anyhow",
  "chrono",
@@ -5068,7 +5069,7 @@ dependencies = [
 
 [[package]]
 name = "near-state-parts-dump-check"
-version = "0.0.0"
+version = "2.5.1"
 dependencies = [
  "actix",
  "actix-web",
@@ -5084,17 +5085,18 @@ dependencies = [
  "near-store",
  "nearcore",
  "reqwest",
+ "serde_json",
  "tokio",
  "tracing",
 ]
 
 [[package]]
 name = "near-stdx"
-version = "0.0.0"
+version = "2.5.1"
 
 [[package]]
 name = "near-store"
-version = "0.0.0"
+version = "2.5.1"
 dependencies = [
  "actix",
  "actix-rt",
@@ -5145,7 +5147,7 @@ dependencies = [
 
 [[package]]
 name = "near-telemetry"
-version = "0.0.0"
+version = "2.5.1"
 dependencies = [
  "actix",
  "awc",
@@ -5163,7 +5165,7 @@ dependencies = [
 
 [[package]]
 name = "near-test-contracts"
-version = "0.0.0"
+version = "2.5.1"
 dependencies = [
  "arbitrary",
  "rand",
@@ -5175,7 +5177,7 @@ dependencies = [
 
 [[package]]
 name = "near-time"
-version = "0.0.0"
+version = "2.5.1"
 dependencies = [
  "serde",
  "serde_json",
@@ -5185,7 +5187,7 @@ dependencies = [
 
 [[package]]
 name = "near-undo-block"
-version = "0.0.0"
+version = "2.5.1"
 dependencies = [
  "anyhow",
  "chrono",
@@ -5201,7 +5203,7 @@ dependencies = [
 
 [[package]]
 name = "near-vm-compiler"
-version = "0.0.0"
+version = "2.5.1"
 dependencies = [
  "enumset",
  "finite-wasm",
@@ -5217,7 +5219,7 @@ dependencies = [
 
 [[package]]
 name = "near-vm-compiler-singlepass"
-version = "0.0.0"
+version = "2.5.1"
 dependencies = [
  "dynasm 2.0.0",
  "dynasmrt 2.0.0",
@@ -5238,7 +5240,7 @@ dependencies = [
 
 [[package]]
 name = "near-vm-compiler-test-derive"
-version = "0.0.0"
+version = "2.5.1"
 dependencies = [
  "pretty_assertions",
  "proc-macro2",
@@ -5249,7 +5251,7 @@ dependencies = [
 
 [[package]]
 name = "near-vm-engine"
-version = "0.0.0"
+version = "2.5.1"
 dependencies = [
  "backtrace",
  "cfg-if 1.0.0",
@@ -5270,7 +5272,7 @@ dependencies = [
 
 [[package]]
 name = "near-vm-runner"
-version = "0.0.0"
+version = "2.5.1"
 dependencies = [
  "anyhow",
  "arbitrary",
@@ -5344,7 +5346,7 @@ dependencies = [
 
 [[package]]
 name = "near-vm-runner-fuzz"
-version = "0.0.0"
+version = "2.5.1"
 dependencies = [
  "arbitrary",
  "libfuzzer-sys",
@@ -5358,7 +5360,7 @@ dependencies = [
 
 [[package]]
 name = "near-vm-test-api"
-version = "0.0.0"
+version = "2.5.1"
 dependencies = [
  "anyhow",
  "cfg-if 1.0.0",
@@ -5386,14 +5388,14 @@ dependencies = [
 
 [[package]]
 name = "near-vm-test-generator"
-version = "0.0.0"
+version = "2.5.1"
 dependencies = [
  "anyhow",
 ]
 
 [[package]]
 name = "near-vm-types"
-version = "0.0.0"
+version = "2.5.1"
 dependencies = [
  "bolero",
  "indexmap 2.7.0",
@@ -5404,7 +5406,7 @@ dependencies = [
 
 [[package]]
 name = "near-vm-vm"
-version = "0.0.0"
+version = "2.5.1"
 dependencies = [
  "backtrace",
  "cc",
@@ -5424,7 +5426,7 @@ dependencies = [
 
 [[package]]
 name = "near-vm-wast"
-version = "0.0.0"
+version = "2.5.1"
 dependencies = [
  "anyhow",
  "near-vm-test-api",
@@ -5434,7 +5436,7 @@ dependencies = [
 
 [[package]]
 name = "near-wallet-contract"
-version = "0.0.0"
+version = "2.5.1"
 dependencies = [
  "anyhow",
  "near-primitives-core",
@@ -5443,7 +5445,7 @@ dependencies = [
 
 [[package]]
 name = "nearcore"
-version = "0.0.0"
+version = "2.5.1"
 dependencies = [
  "actix",
  "actix-rt",
@@ -5512,7 +5514,7 @@ dependencies = [
 
 [[package]]
 name = "neard"
-version = "0.0.0"
+version = "2.5.1"
 dependencies = [
  "actix",
  "anyhow",
@@ -5583,7 +5585,7 @@ dependencies = [
 
 [[package]]
 name = "node-runtime"
-version = "0.0.0"
+version = "2.5.1"
 dependencies = [
  "assert_matches",
  "borsh",
@@ -6171,6 +6173,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0c520e05135d6e763148b6426a837e239041653ba7becd2e538c076c738025fc"
 
 [[package]]
+name = "peeking_take_while"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "19b17cddbe7ec3f8bc800887bab5e717348c95ea2ca0b1bf0837fb964dc67099"
+
+[[package]]
 name = "pem"
 version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6319,6 +6327,16 @@ checksum = "af7cee1a6c8a5b9208b3cb1061f10c0cb689087b3d8ce85fb9d2dd7a29b6ba66"
 dependencies = [
  "diff",
  "yansi",
+]
+
+[[package]]
+name = "prettyplease"
+version = "0.2.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1ceca8aaf45b5c46ec7ed39fff75f57290368c1846d33d24a122ca81416ab058"
+dependencies = [
+ "proc-macro2",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -6529,7 +6547,7 @@ dependencies = [
 
 [[package]]
 name = "protocol-schema-check"
-version = "0.0.0"
+version = "2.5.1"
 dependencies = [
  "inventory",
  "near-chain",
@@ -6900,7 +6918,7 @@ dependencies = [
 
 [[package]]
 name = "restaked"
-version = "0.0.0"
+version = "2.5.1"
 dependencies = [
  "clap",
  "integration-tests",
@@ -7029,9 +7047,9 @@ dependencies = [
 
 [[package]]
 name = "rocksdb"
-version = "0.22.0"
+version = "0.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6bd13e55d6d7b8cd0ea569161127567cd587676c99f4472f779a0279aa60a7a7"
+checksum = "bb6f170a4041d50a0ce04b0d2e14916d6ca863ea2e422689a5b694395d299ffe"
 dependencies = [
  "libc",
  "librocksdb-sys",
@@ -7039,7 +7057,7 @@ dependencies = [
 
 [[package]]
 name = "runtime-params-estimator"
-version = "0.0.0"
+version = "2.5.1"
 dependencies = [
  "anyhow",
  "borsh",
@@ -7080,7 +7098,7 @@ dependencies = [
 
 [[package]]
 name = "runtime-tester"
-version = "0.0.0"
+version = "2.5.1"
 dependencies = [
  "bolero",
  "cpu-time",
@@ -7107,7 +7125,7 @@ dependencies = [
 
 [[package]]
 name = "runtime-tester-fuzz"
-version = "0.0.0"
+version = "2.5.1"
 dependencies = [
  "libfuzzer-sys",
  "runtime-tester",
@@ -7719,7 +7737,7 @@ dependencies = [
 
 [[package]]
 name = "speedy_sync"
-version = "0.0.0"
+version = "2.5.1"
 dependencies = [
  "borsh",
  "clap",
@@ -7762,7 +7780,7 @@ checksum = "a8f112729512f8e442d81f95a8a7ddf2b7c6b8a1a6f509a95864142b30cab2d3"
 
 [[package]]
 name = "state-viewer"
-version = "0.0.0"
+version = "2.5.1"
 dependencies = [
  "actix",
  "anyhow",
@@ -7814,7 +7832,7 @@ checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 
 [[package]]
 name = "storage-usage-delta-calculator"
-version = "0.0.0"
+version = "2.5.1"
 dependencies = [
  "anyhow",
  "near-chain-configs",
@@ -7829,7 +7847,7 @@ dependencies = [
 
 [[package]]
 name = "store-validator"
-version = "0.0.0"
+version = "2.5.1"
 dependencies = [
  "clap",
  "near-chain",
@@ -8015,7 +8033,7 @@ dependencies = [
 
 [[package]]
 name = "testlib"
-version = "0.0.0"
+version = "2.5.1"
 dependencies = [
  "bytesize",
  "near-chain",
@@ -8031,7 +8049,7 @@ dependencies = [
 
 [[package]]
 name = "themis"
-version = "0.0.0"
+version = "2.5.1"
 dependencies = [
  "anyhow",
  "cargo_metadata",

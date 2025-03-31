@@ -43,8 +43,10 @@ fn ultra_slow_test_get_validator_info_rpc() {
                 let rpc_addrs_copy = rpc_addrs.clone();
                 let view_client = clients[0].1.clone();
                 spawn_interruptible(async move {
-                    let block_view =
-                        view_client.send(GetBlock::latest().with_span_context()).await.unwrap();
+                    let block_view = view_client
+                        .send(GetBlock::latest().with_span_context())
+                        .await
+                        .unwrap();
                     if let Err(err) = block_view {
                         println!("Failed to get the latest block: {:?}", err);
                         return;
@@ -59,7 +61,10 @@ fn ultra_slow_test_get_validator_info_rpc() {
                         assert!(invalid_res.is_err());
                         let res = client.validators(None).await.unwrap();
                         assert_eq!(res.current_validators.len(), 1);
-                        assert!(res.current_validators.iter().any(|r| r.account_id == "near.0"));
+                        assert!(res
+                            .current_validators
+                            .iter()
+                            .any(|r| r.account_id == "near.0"));
                         System::current().stop();
                     }
                 });
@@ -73,10 +78,12 @@ fn ultra_slow_test_get_validator_info_rpc() {
 
 fn outcome_view_to_hashes(outcome: &ExecutionOutcomeView) -> Vec<CryptoHash> {
     let status = match &outcome.status {
-        ExecutionStatusView::Unknown => PartialExecutionStatus::Unknown,
-        ExecutionStatusView::SuccessValue(s) => PartialExecutionStatus::SuccessValue(s.clone()),
-        ExecutionStatusView::Failure(_) => PartialExecutionStatus::Failure,
-        ExecutionStatusView::SuccessReceiptId(id) => PartialExecutionStatus::SuccessReceiptId(*id),
+        | ExecutionStatusView::Unknown => PartialExecutionStatus::Unknown,
+        | ExecutionStatusView::SuccessValue(s) => PartialExecutionStatus::SuccessValue(s.clone()),
+        | ExecutionStatusView::Failure(_) => PartialExecutionStatus::Failure,
+        | ExecutionStatusView::SuccessReceiptId(id) => {
+            PartialExecutionStatus::SuccessReceiptId(*id)
+        }
     };
     let mut result = vec![CryptoHash::hash_borsh((
         outcome.receipt_ids.clone(),
@@ -132,71 +139,90 @@ fn test_get_execution_outcome(is_tx_successful: bool) {
                 let client = new_client(&format!("http://{}", rpc_addrs[0]));
                 let bytes = borsh::to_vec(&transaction).unwrap();
                 let view_client1 = view_client.clone();
-                spawn_interruptible(client.broadcast_tx_commit(to_base64(&bytes)).then(
-                    move |res| {
-                        let final_transaction_outcome = match res {
-                            Ok(outcome) => outcome.final_execution_outcome.unwrap().into_outcome(),
-                            Err(_) => return future::ready(()),
-                        };
-                        spawn_interruptible(sleep(Duration::from_secs(1)).then(move |_| {
-                            let mut futures = vec![];
-                            for id in vec![TransactionOrReceiptId::Transaction {
-                                transaction_hash: final_transaction_outcome.transaction_outcome.id,
-                                sender_id: "near.0".parse().unwrap(),
-                            }]
-                            .into_iter()
-                            .chain(
-                                final_transaction_outcome.receipts_outcome.into_iter().map(|r| {
-                                    TransactionOrReceiptId::Receipt {
-                                        receipt_id: r.id,
-                                        receiver_id: "near.1".parse().unwrap(),
-                                    }
-                                }),
-                            ) {
-                                let view_client2 = view_client1.clone();
-                                let fut = view_client1
-                                    .send(GetExecutionOutcome { id }.with_span_context());
-                                let fut = fut.then(move |res| {
-                                    let execution_outcome_response = res.unwrap().unwrap();
-                                    view_client2
-                                        .send(
-                                            GetBlock(BlockReference::BlockId(BlockId::Hash(
-                                                execution_outcome_response.outcome_proof.block_hash,
-                                            )))
-                                            .with_span_context(),
-                                        )
-                                        .then(move |res| {
-                                            let res = res.unwrap().unwrap();
-                                            let mut outcome_with_id_to_hash =
-                                                vec![execution_outcome_response.outcome_proof.id];
-                                            outcome_with_id_to_hash.extend(outcome_view_to_hashes(
-                                                &execution_outcome_response.outcome_proof.outcome,
-                                            ));
-                                            let chunk_outcome_root =
-                                                compute_root_from_path_and_item(
-                                                    &execution_outcome_response.outcome_proof.proof,
-                                                    &outcome_with_id_to_hash,
+                spawn_interruptible(
+                    client
+                        .broadcast_tx_commit(to_base64(&bytes))
+                        .then(move |res| {
+                            let final_transaction_outcome = match res {
+                                | Ok(outcome) => outcome
+                                    .final_execution_outcome
+                                    .unwrap()
+                                    .into_outcome(),
+                                | Err(_) => return future::ready(()),
+                            };
+                            spawn_interruptible(sleep(Duration::from_secs(1)).then(move |_| {
+                                let mut futures = vec![];
+                                for id in vec![TransactionOrReceiptId::Transaction {
+                                    transaction_hash: final_transaction_outcome
+                                        .transaction_outcome
+                                        .id,
+                                    sender_id: "near.0".parse().unwrap(),
+                                }]
+                                .into_iter()
+                                .chain(
+                                    final_transaction_outcome
+                                        .receipts_outcome
+                                        .into_iter()
+                                        .map(|r| TransactionOrReceiptId::Receipt {
+                                            receipt_id: r.id,
+                                            receiver_id: "near.1".parse().unwrap(),
+                                        }),
+                                ) {
+                                    let view_client2 = view_client1.clone();
+                                    let fut = view_client1
+                                        .send(GetExecutionOutcome { id }.with_span_context());
+                                    let fut = fut.then(move |res| {
+                                        let execution_outcome_response = res.unwrap().unwrap();
+                                        view_client2
+                                            .send(
+                                                GetBlock(BlockReference::BlockId(BlockId::Hash(
+                                                    execution_outcome_response
+                                                        .outcome_proof
+                                                        .block_hash,
+                                                )))
+                                                .with_span_context(),
+                                            )
+                                            .then(move |res| {
+                                                let res = res.unwrap().unwrap();
+                                                let mut outcome_with_id_to_hash = vec![
+                                                    execution_outcome_response
+                                                        .outcome_proof
+                                                        .id,
+                                                ];
+                                                outcome_with_id_to_hash.extend(
+                                                    outcome_view_to_hashes(
+                                                        &execution_outcome_response
+                                                            .outcome_proof
+                                                            .outcome,
+                                                    ),
                                                 );
-                                            assert!(verify_path(
-                                                res.header.outcome_root,
-                                                &execution_outcome_response.outcome_root_proof,
-                                                &chunk_outcome_root
-                                            ));
-                                            future::ready(())
-                                        })
-                                });
-                                futures.push(fut);
-                            }
-                            spawn_interruptible(join_all(futures).then(|_| {
-                                System::current().stop();
+                                                let chunk_outcome_root =
+                                                    compute_root_from_path_and_item(
+                                                        &execution_outcome_response
+                                                            .outcome_proof
+                                                            .proof,
+                                                        &outcome_with_id_to_hash,
+                                                    );
+                                                assert!(verify_path(
+                                                    res.header.outcome_root,
+                                                    &execution_outcome_response.outcome_root_proof,
+                                                    &chunk_outcome_root
+                                                ));
+                                                future::ready(())
+                                            })
+                                    });
+                                    futures.push(fut);
+                                }
+                                spawn_interruptible(join_all(futures).then(|_| {
+                                    System::current().stop();
+                                    future::ready(())
+                                }));
                                 future::ready(())
                             }));
-                            future::ready(())
-                        }));
 
-                        future::ready(())
-                    },
-                ));
+                            future::ready(())
+                        }),
+                );
             }),
             100,
             40000,
@@ -244,12 +270,19 @@ fn ultra_slow_test_protocol_config_rpc() {
         let latest_runtime_config =
             runtime_config_store.get_config(near_primitives::version::PROTOCOL_VERSION);
         assert_ne!(
-            config_response.config_view.runtime_config.storage_amount_per_byte,
+            config_response
+                .config_view
+                .runtime_config
+                .storage_amount_per_byte,
             initial_runtime_config.storage_amount_per_byte()
         );
         // compare JSON view
         assert_eq!(
-            serde_json::json!(config_response.config_view.runtime_config),
+            serde_json::json!(
+                config_response
+                    .config_view
+                    .runtime_config
+            ),
             serde_json::json!(RuntimeConfigView::from(latest_runtime_config.as_ref().clone()))
         );
         System::current().stop();
@@ -374,7 +407,9 @@ fn ultra_slow_test_tx_not_enough_balance_must_return_error() {
 
         spawn_interruptible(async move {
             loop {
-                let res = view_client.send(GetBlock::latest().with_span_context()).await;
+                let res = view_client
+                    .send(GetBlock::latest().with_span_context())
+                    .await;
                 if let Ok(Ok(block)) = res {
                     if block.header.height > 10 {
                         break;
@@ -436,14 +471,19 @@ fn ultra_slow_test_check_unknown_tx_must_return_error() {
 
         spawn_interruptible(async move {
             loop {
-                let res = view_client.send(GetBlock::latest().with_span_context()).await;
+                let res = view_client
+                    .send(GetBlock::latest().with_span_context())
+                    .await;
                 if let Ok(Ok(block)) = res {
                     if block.header.height > 10 {
                         let _ = client
                             .EXPERIMENTAL_tx_status(RpcTransactionStatusRequest {
                                 transaction_info: TransactionInfo::TransactionId {
                                     tx_hash,
-                                    sender_account_id: transaction.transaction.signer_id().clone(),
+                                    sender_account_id: transaction
+                                        .transaction
+                                        .signer_id()
+                                        .clone(),
                                 },
                                 wait_until: TxExecutionStatus::None,
                             })
@@ -541,7 +581,9 @@ fn ultra_slow_test_validators_by_epoch_id_current_epoch_not_fails() {
 
         spawn_interruptible(async move {
             let final_block = loop {
-                let res = view_client.send(GetBlock::latest().with_span_context()).await;
+                let res = view_client
+                    .send(GetBlock::latest().with_span_context())
+                    .await;
                 if let Ok(Ok(block)) = res {
                     if block.header.height > 1 {
                         break block;
@@ -561,11 +603,11 @@ fn ultra_slow_test_validators_by_epoch_id_current_epoch_not_fails() {
                 .await;
 
             match res {
-                Ok(Ok(validators)) => {
+                | Ok(Ok(validators)) => {
                     assert_eq!(validators.current_validators.len(), 1);
                     System::current().stop();
                 }
-                err => panic!("Validators list by EpochId must succeed: {:?}", err),
+                | err => panic!("Validators list by EpochId must succeed: {:?}", err),
             }
         });
     });

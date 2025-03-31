@@ -20,7 +20,10 @@ pub trait MerkleProofAccess {
         block_hash: &CryptoHash,
     ) -> Result<Arc<PartialMerkleTree>, Error>;
 
-    fn get_block_hash_from_ordinal(&self, block_ordinal: NumBlocks) -> Result<CryptoHash, Error>;
+    fn get_block_hash_from_ordinal(
+        &self,
+        block_ordinal: NumBlocks,
+    ) -> Result<CryptoHash, Error>;
 
     /// Get merkle proof for block with hash `block_hash` in the merkle tree of `head_block_hash`.
     ///
@@ -31,8 +34,12 @@ pub trait MerkleProofAccess {
         block_hash: &CryptoHash,
         head_block_hash: &CryptoHash,
     ) -> Result<MerklePath, Error> {
-        let leaf_index = self.get_block_merkle_tree(block_hash)?.size();
-        let tree_size = self.get_block_merkle_tree(head_block_hash)?.size();
+        let leaf_index = self
+            .get_block_merkle_tree(block_hash)?
+            .size();
+        let tree_size = self
+            .get_block_merkle_tree(head_block_hash)?
+            .size();
         if leaf_index >= tree_size {
             if block_hash == head_block_hash {
                 // special case if the block to prove is the same as head
@@ -128,17 +135,21 @@ impl MerkleProofAccess for Store {
             DBCol::BlockMerkleTree,
             &borsh::to_vec(&block_hash).unwrap(),
         )? {
-            Some(block_merkle_tree) => Ok(Arc::new(block_merkle_tree)),
-            None => {
+            | Some(block_merkle_tree) => Ok(Arc::new(block_merkle_tree)),
+            | None => {
                 Err(Error::Other(format!("Could not find merkle proof for block {}", block_hash)))
             }
         }
     }
 
-    fn get_block_hash_from_ordinal(&self, block_ordinal: NumBlocks) -> Result<CryptoHash, Error> {
-        self.get_ser::<CryptoHash>(DBCol::BlockOrdinal, &index_to_bytes(block_ordinal))?.ok_or_else(
-            || Error::Other(format!("Could not find block hash from ordinal {}", block_ordinal)),
-        )
+    fn get_block_hash_from_ordinal(
+        &self,
+        block_ordinal: NumBlocks,
+    ) -> Result<CryptoHash, Error> {
+        self.get_ser::<CryptoHash>(DBCol::BlockOrdinal, &index_to_bytes(block_ordinal))?
+            .ok_or_else(|| {
+                Error::Other(format!("Could not find block hash from ordinal {}", block_ordinal))
+            })
     }
 }
 
@@ -167,8 +178,15 @@ mod tests {
             &self,
             block_hash: &CryptoHash,
         ) -> Result<Arc<PartialMerkleTree>, near_chain_primitives::Error> {
-            let tree = self.block_merkle_trees.get(block_hash).unwrap().clone();
-            if !self.allowed_access_range.contains(&tree.size()) {
+            let tree = self
+                .block_merkle_trees
+                .get(block_hash)
+                .unwrap()
+                .clone();
+            if !self
+                .allowed_access_range
+                .contains(&tree.size())
+            {
                 panic!("Block partial merkle tree for ordinal {} is not available", tree.size());
             }
             Ok(tree.into())
@@ -178,7 +196,10 @@ mod tests {
             &self,
             block_ordinal: NumBlocks,
         ) -> Result<CryptoHash, near_chain_primitives::Error> {
-            if !self.allowed_access_range.contains(&block_ordinal) {
+            if !self
+                .allowed_access_range
+                .contains(&block_ordinal)
+            {
                 panic!("Block hash for ordinal {} is not available", block_ordinal);
             }
             Ok(self.block_hashes[block_ordinal as usize])
@@ -200,19 +221,29 @@ mod tests {
         fn append_block(&mut self) {
             let hash = hash(&self.tree_size.to_be_bytes());
             self.block_hashes.push(hash);
-            self.block_merkle_roots.push(self.last_partial_merkle_tree.root());
-            self.block_merkle_trees.insert(hash, self.last_partial_merkle_tree.clone());
-            self.last_partial_merkle_tree.insert(hash);
+            self.block_merkle_roots
+                .push(self.last_partial_merkle_tree.root());
+            self.block_merkle_trees
+                .insert(hash, self.last_partial_merkle_tree.clone());
+            self.last_partial_merkle_tree
+                .insert(hash);
             self.tree_size += 1;
         }
 
-        fn append_n_blocks(&mut self, n: u64) {
+        fn append_n_blocks(
+            &mut self,
+            n: u64,
+        ) {
             for _ in 0..n {
                 self.append_block();
             }
         }
 
-        fn make_proof(&mut self, index: u64, against: u64) -> MerklePath {
+        fn make_proof(
+            &mut self,
+            index: u64,
+            against: u64,
+        ) -> MerklePath {
             self.allowed_access_range = index..=against;
             self.compute_past_block_proof_in_merkle_tree_of_later_block(
                 &self.block_hashes[index as usize],
@@ -221,7 +252,12 @@ mod tests {
             .unwrap()
         }
 
-        fn verify_proof(&self, index: u64, against: u64, proof: &MerklePath) {
+        fn verify_proof(
+            &self,
+            index: u64,
+            against: u64,
+            proof: &MerklePath,
+        ) {
             // cspell:words provee
             let provee = self.block_hashes[index as usize];
             let root = self.block_merkle_roots[against as usize];

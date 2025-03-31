@@ -114,7 +114,9 @@ pub(crate) fn rocks_db_inserts_cost(config: &Config) -> GasCost {
     }
 
     drop(db);
-    tmp_dir.close().expect("Could not clean up temp DB");
+    tmp_dir
+        .close()
+        .expect("Could not clean up temp DB");
 
     if db_config.input_data_path.is_none() {
         backup_input_data(&data);
@@ -139,7 +141,9 @@ pub(crate) fn rocks_db_read_cost(config: &Config) -> GasCost {
     let op_count = if config.accurate { db_config.op_count } else { 1 };
 
     let mut prng: XorShiftRng = rand::SeedableRng::seed_from_u64(SETUP_PRANDOM_SEED);
-    let mut keys: Vec<usize> = iter::repeat_with(|| prng.gen()).take(setup_insertions).collect();
+    let mut keys: Vec<usize> = iter::repeat_with(|| prng.gen())
+        .take(setup_insertions)
+        .collect();
     if db_config.sequential_keys {
         keys.sort();
     } else {
@@ -162,7 +166,9 @@ pub(crate) fn rocks_db_read_cost(config: &Config) -> GasCost {
     }
 
     drop(db);
-    tmp_dir.close().expect("Could not clean up temp DB");
+    tmp_dir
+        .close()
+        .expect("Could not clean up temp DB");
 
     if db_config.input_data_path.is_none() {
         backup_input_data(&data);
@@ -226,7 +232,10 @@ fn prandom_inserts(
     }
 }
 
-fn input_data(db_config: &RocksDBTestConfig, data_size: usize) -> Vec<u8> {
+fn input_data(
+    db_config: &RocksDBTestConfig,
+    data_size: usize,
+) -> Vec<u8> {
     if let Some(path) = &db_config.input_data_path {
         let data = std::fs::read(path).unwrap();
         assert_eq!(data.len(), data_size, "Provided input file has wrong size");
@@ -246,7 +255,9 @@ fn backup_input_data(data: &[u8]) {
         .create(true)
         .open("names-to-stats.txt")
         .unwrap();
-    let stats_num = std::io::BufReader::new(&stats_file).lines().count();
+    let stats_num = std::io::BufReader::new(&stats_file)
+        .lines()
+        .count();
     let data_dump_path = format!("data_dump_{:<04}.bin", stats_num);
 
     std::fs::write(&data_dump_path, data).unwrap();
@@ -306,8 +317,10 @@ fn new_test_db(
 
 fn print_levels_info(db: &DB) {
     for n in 0..3 {
-        let int =
-            db.property_int_value(&format!("rocksdb.num-files-at-level{}", n)).unwrap().unwrap();
+        let int = db
+            .property_int_value(&format!("rocksdb.num-files-at-level{}", n))
+            .unwrap()
+            .unwrap();
         println!("{} files at level {}", int, n);
     }
 }

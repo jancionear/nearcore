@@ -15,7 +15,10 @@ impl Default for Hash256 {
 }
 
 impl Update for Hash256 {
-    fn update(&mut self, data: &[u8]) {
+    fn update(
+        &mut self,
+        data: &[u8],
+    ) {
         self.0.update(data);
     }
 }
@@ -25,8 +28,13 @@ impl OutputSizeUser for Hash256 {
 }
 
 impl FixedOutput for Hash256 {
-    fn finalize_into(self, out: &mut GenericArray<u8, Self::OutputSize>) {
-        self.0.finalize_variable(out).expect("hash output size is correct")
+    fn finalize_into(
+        self,
+        out: &mut GenericArray<u8, Self::OutputSize>,
+    ) {
+        self.0
+            .finalize_variable(out)
+            .expect("hash output size is correct")
     }
 }
 
@@ -38,26 +46,38 @@ impl Reset for Hash256 {
 
 mod hashable_trait {
     pub trait Hashable {
-        fn hash_into<D: super::Update>(self, digest: D) -> D;
+        fn hash_into<D: super::Update>(
+            self,
+            digest: D,
+        ) -> D;
     }
 }
 
 use hashable_trait::*;
 
 impl<T: AsRef<[u8]> + ?Sized> Hashable for &T {
-    fn hash_into<D: Update>(self, digest: D) -> D {
+    fn hash_into<D: Update>(
+        self,
+        digest: D,
+    ) -> D {
         digest.chain(self.as_ref())
     }
 }
 
 impl Hashable for Point {
-    fn hash_into<D: Update>(self, digest: D) -> D {
+    fn hash_into<D: Update>(
+        self,
+        digest: D,
+    ) -> D {
         digest.chain(self.pack())
     }
 }
 
 impl Hashable for Scalar {
-    fn hash_into<D: Update>(self, digest: D) -> D {
+    fn hash_into<D: Update>(
+        self,
+        digest: D,
+    ) -> D {
         digest.chain(self.pack())
     }
 }
@@ -66,7 +86,10 @@ pub fn _hash_new<D: Default>() -> D {
     D::default()
 }
 
-pub fn _hash_chain<D: Update, T: Hashable>(digest: D, data: T) -> D {
+pub fn _hash_chain<D: Update, T: Hashable>(
+    digest: D,
+    data: T,
+) -> D {
     data.hash_into(digest)
 }
 

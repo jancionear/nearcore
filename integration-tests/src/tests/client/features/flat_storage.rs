@@ -22,7 +22,13 @@ fn test_flat_storage_upgrade() {
     // the release branch where the protocol upgrade date is set.
     std::env::set_var("NEAR_TESTS_PROTOCOL_UPGRADE_OVERRIDE", "now");
 
-    let mut genesis = Genesis::test(vec!["test0".parse().unwrap(), "test1".parse().unwrap()], 1);
+    let mut genesis = Genesis::test(
+        vec![
+            "test0".parse().unwrap(),
+            "test1".parse().unwrap(),
+        ],
+        1,
+    );
     let epoch_length = 12;
     let new_protocol_version = ProtocolFeature::FlatStorageReads.protocol_version();
     let old_protocol_version = new_protocol_version - 1;
@@ -64,12 +70,14 @@ fn test_flat_storage_upgrade() {
 
     // Write key-value pair to state.
     {
-        let write_value_action = vec![Action::FunctionCall(Box::new(FunctionCallAction {
-            args: encode(&[1u64, 10u64]),
-            method_name: "write_key_value".to_string(),
-            gas,
-            deposit: 0,
-        }))];
+        let write_value_action = vec![Action::FunctionCall(Box::new(
+            FunctionCallAction {
+                args: encode(&[1u64, 10u64]),
+                method_name: "write_key_value".to_string(),
+                gas,
+                deposit: 0,
+            },
+        ))];
         let tip = env.clients[0].chain.head().unwrap();
         let signed_transaction = Transaction::V0(TransactionV0 {
             nonce: 10,
@@ -87,17 +95,23 @@ fn test_flat_storage_upgrade() {
             env.produce_block(0, tip.height + i + 1);
         }
 
-        env.clients[0].chain.get_final_transaction_result(&tx_hash).unwrap().assert_success();
+        env.clients[0]
+            .chain
+            .get_final_transaction_result(&tx_hash)
+            .unwrap()
+            .assert_success();
     }
 
     let touching_trie_node_costs: Vec<_> = (0..2)
         .map(|i| {
-            let read_value_action = vec![Action::FunctionCall(Box::new(FunctionCallAction {
-                args: encode(&[1u64]),
-                method_name: "read_value".to_string(),
-                gas,
-                deposit: 0,
-            }))];
+            let read_value_action = vec![Action::FunctionCall(Box::new(
+                FunctionCallAction {
+                    args: encode(&[1u64]),
+                    method_name: "read_value".to_string(),
+                    gas,
+                    deposit: 0,
+                },
+            ))];
             let tip = env.clients[0].chain.head().unwrap();
             let signed_transaction = Transaction::V0(TransactionV0 {
                 nonce: 20 + i,
@@ -118,8 +132,10 @@ fn test_flat_storage_upgrade() {
                 env.upgrade_protocol_to_latest_version();
             }
 
-            let final_transaction_result =
-                env.clients[0].chain.get_final_transaction_result(&tx_hash).unwrap();
+            let final_transaction_result = env.clients[0]
+                .chain
+                .get_final_transaction_result(&tx_hash)
+                .unwrap();
             final_transaction_result.assert_success();
             let receipt_id = final_transaction_result.receipts_outcome[0].id;
             let metadata = env.clients[0]

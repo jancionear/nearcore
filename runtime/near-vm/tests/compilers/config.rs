@@ -21,15 +21,24 @@ pub struct Config {
 }
 
 impl Config {
-    pub fn new(engine: Engine, compiler: Compiler) -> Self {
+    pub fn new(
+        engine: Engine,
+        compiler: Compiler,
+    ) -> Self {
         Self { compiler, engine, features: None, canonicalize_nans: false }
     }
 
-    pub fn set_features(&mut self, features: Features) {
+    pub fn set_features(
+        &mut self,
+        features: Features,
+    ) {
         self.features = Some(features);
     }
 
-    pub fn set_nan_canonicalization(&mut self, canonicalize_nans: bool) {
+    pub fn set_nan_canonicalization(
+        &mut self,
+        canonicalize_nans: bool,
+    ) {
         self.canonicalize_nans = canonicalize_nans;
     }
 
@@ -44,7 +53,10 @@ impl Config {
         Store::new(engine.into())
     }
 
-    pub fn engine(&self, compiler_config: Box<dyn CompilerConfig>) -> UniversalEngine {
+    pub fn engine(
+        &self,
+        compiler_config: Box<dyn CompilerConfig>,
+    ) -> UniversalEngine {
         let mut engine = near_vm_engine::universal::Universal::new(compiler_config)
             .code_memory_pool(near_vm_engine::universal::MemoryPool::new(4, 16 * 4096).unwrap());
         if let Some(ref features) = self.features {
@@ -57,9 +69,12 @@ impl Config {
         near_vm_engine::universal::Universal::headless().engine()
     }
 
-    pub fn compiler_config(&self, canonicalize_nans: bool) -> Box<dyn CompilerConfig> {
+    pub fn compiler_config(
+        &self,
+        canonicalize_nans: bool,
+    ) -> Box<dyn CompilerConfig> {
         match &self.compiler {
-            Compiler::Singlepass => {
+            | Compiler::Singlepass => {
                 let mut compiler = near_vm_compiler_singlepass::Singlepass::new();
                 compiler.canonicalize_nans(canonicalize_nans);
                 compiler.enable_verifier();

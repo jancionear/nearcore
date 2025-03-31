@@ -74,11 +74,13 @@ impl TryFrom<&ParameterValue> for u128 {
 
     fn try_from(value: &ParameterValue) -> Result<Self, Self::Error> {
         match value {
-            ParameterValue::U64(v) => Ok(u128::from(*v)),
-            ParameterValue::String(s) => s.parse().map_err(|err| {
+            | ParameterValue::U64(v) => Ok(u128::from(*v)),
+            | ParameterValue::String(s) => s.parse().map_err(|err| {
                 ValueConversionError::ParseInt(err, std::any::type_name::<u128>(), value.clone())
             }),
-            _ => Err(ValueConversionError::ParseType(std::any::type_name::<u128>(), value.clone())),
+            | _ => {
+                Err(ValueConversionError::ParseType(std::any::type_name::<u128>(), value.clone()))
+            }
         }
     }
 }
@@ -88,13 +90,13 @@ impl TryFrom<&ParameterValue> for bool {
 
     fn try_from(value: &ParameterValue) -> Result<Self, Self::Error> {
         match value {
-            ParameterValue::Flag(b) => Ok(*b),
-            ParameterValue::String(s) => match &**s {
-                "true" => Ok(true),
-                "false" => Ok(false),
-                _ => Err(ValueConversionError::ParseType("bool", value.clone())),
+            | ParameterValue::Flag(b) => Ok(*b),
+            | ParameterValue::String(s) => match &**s {
+                | "true" => Ok(true),
+                | "false" => Ok(false),
+                | _ => Err(ValueConversionError::ParseType("bool", value.clone())),
             },
-            _ => Err(ValueConversionError::ParseType("bool", value.clone())),
+            | _ => Err(ValueConversionError::ParseType("bool", value.clone())),
         }
     }
 }
@@ -104,10 +106,10 @@ impl TryFrom<&ParameterValue> for Rational32 {
 
     fn try_from(value: &ParameterValue) -> Result<Self, Self::Error> {
         match value {
-            &ParameterValue::Rational { numerator, denominator } => {
+            | &ParameterValue::Rational { numerator, denominator } => {
                 Ok(Rational32::new(numerator, denominator))
             }
-            _ => Err(ValueConversionError::ParseType(
+            | _ => Err(ValueConversionError::ParseType(
                 std::any::type_name::<Rational32>(),
                 value.clone(),
             )),
@@ -120,12 +122,12 @@ impl TryFrom<&ParameterValue> for ParameterCost {
 
     fn try_from(value: &ParameterValue) -> Result<Self, Self::Error> {
         match value {
-            ParameterValue::ParameterCost { gas, compute } => {
+            | ParameterValue::ParameterCost { gas, compute } => {
                 Ok(ParameterCost { gas: *gas, compute: *compute })
             }
             // If not specified, compute costs default to gas costs.
-            &ParameterValue::U64(v) => Ok(ParameterCost { gas: v, compute: v }),
-            _ => Err(ValueConversionError::ParseType(
+            | &ParameterValue::U64(v) => Ok(ParameterCost { gas: v, compute: v }),
+            | _ => Err(ValueConversionError::ParseType(
                 std::any::type_name::<ParameterCost>(),
                 value.clone(),
             )),
@@ -138,10 +140,12 @@ impl TryFrom<&ParameterValue> for Fee {
 
     fn try_from(value: &ParameterValue) -> Result<Self, Self::Error> {
         match value {
-            &ParameterValue::Fee { send_sir, send_not_sir, execution } => {
+            | &ParameterValue::Fee { send_sir, send_not_sir, execution } => {
                 Ok(Fee { send_sir, send_not_sir, execution })
             }
-            _ => Err(ValueConversionError::ParseType(std::any::type_name::<Fee>(), value.clone())),
+            | _ => {
+                Err(ValueConversionError::ParseType(std::any::type_name::<Fee>(), value.clone()))
+            }
         }
     }
 }
@@ -151,8 +155,8 @@ impl<'a> TryFrom<&'a ParameterValue> for &'a str {
 
     fn try_from(value: &'a ParameterValue) -> Result<Self, Self::Error> {
         match value {
-            ParameterValue::String(v) => Ok(v),
-            _ => {
+            | ParameterValue::String(v) => Ok(v),
+            | _ => {
                 Err(ValueConversionError::ParseType(std::any::type_name::<String>(), value.clone()))
             }
         }
@@ -164,7 +168,9 @@ impl TryFrom<&ParameterValue> for AccountId {
 
     fn try_from(value: &ParameterValue) -> Result<Self, Self::Error> {
         let value: &str = value.try_into()?;
-        value.parse().map_err(|err| ValueConversionError::ParseAccountId(err, value.to_string()))
+        value
+            .parse()
+            .map_err(|err| ValueConversionError::ParseAccountId(err, value.to_string()))
     }
 }
 
@@ -173,11 +179,11 @@ impl TryFrom<&ParameterValue> for VMKind {
 
     fn try_from(value: &ParameterValue) -> Result<Self, Self::Error> {
         match value {
-            ParameterValue::String(v) => v
+            | ParameterValue::String(v) => v
                 .parse()
                 .map(|v: VMKind| v.replace_with_wasmtime_if_unsupported())
                 .map_err(|e| ValueConversionError::ParseVmKind(e, value.to_string())),
-            _ => {
+            | _ => {
                 Err(ValueConversionError::ParseType(std::any::type_name::<VMKind>(), value.clone()))
             }
         }
@@ -196,16 +202,19 @@ fn format_number(mut n: u64) -> String {
 }
 
 impl core::fmt::Display for ParameterValue {
-    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut core::fmt::Formatter,
+    ) -> core::fmt::Result {
         match self {
-            ParameterValue::U64(v) => write!(f, "{:>20}", format_number(*v)),
-            ParameterValue::Rational { numerator, denominator } => {
+            | ParameterValue::U64(v) => write!(f, "{:>20}", format_number(*v)),
+            | ParameterValue::Rational { numerator, denominator } => {
                 write!(f, "{numerator} / {denominator}")
             }
-            ParameterValue::ParameterCost { gas, compute } => {
+            | ParameterValue::ParameterCost { gas, compute } => {
                 write!(f, "{:>20}, compute: {:>20}", format_number(*gas), format_number(*compute))
             }
-            ParameterValue::Fee { send_sir, send_not_sir, execution } => {
+            | ParameterValue::Fee { send_sir, send_not_sir, execution } => {
                 write!(
                     f,
                     r#"
@@ -217,8 +226,8 @@ impl core::fmt::Display for ParameterValue {
                     format_number(*execution)
                 )
             }
-            ParameterValue::String(v) => write!(f, "{v}"),
-            ParameterValue::Flag(b) => write!(f, "{b:?}"),
+            | ParameterValue::String(v) => write!(f, "{v}"),
+            | ParameterValue::Flag(b) => write!(f, "{b:?}"),
         }
     }
 }
@@ -230,7 +239,10 @@ pub(crate) struct ParameterTable {
 /// Formats `ParameterTable` in human-readable format which is a subject to change and is not
 /// intended to be parsed back.
 impl core::fmt::Display for ParameterTable {
-    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut core::fmt::Formatter,
+    ) -> core::fmt::Result {
         for (key, value) in &self.parameters {
             write!(f, "{key:40}{value}\n")?
         }
@@ -319,8 +331,8 @@ impl TryFrom<&ParameterTable> for RuntimeConfig {
                     .map_err(InvalidConfigError::InvalidYaml)?,
                 fix_contract_loading_cost: params.get(Parameter::FixContractLoadingCost)?,
                 storage_get_mode: match params.get(Parameter::FlatStorageReads)? {
-                    true => StorageGetMode::FlatStorage,
-                    false => StorageGetMode::Trie,
+                    | true => StorageGetMode::FlatStorage,
+                    | false => StorageGetMode::Trie,
                 },
                 implicit_account_creation: params.get(Parameter::ImplicitAccountCreation)?,
                 math_extension: params.get(Parameter::MathExtension)?,
@@ -356,7 +368,7 @@ impl TryFrom<&ParameterTable> for RuntimeConfig {
 }
 
 fn get_congestion_control_config(
-    params: &ParameterTable,
+    params: &ParameterTable
 ) -> Result<CongestionControlConfig, <RuntimeConfig as TryFrom<&ParameterTable>>::Error> {
     let congestion_control_config = CongestionControlConfig {
         max_congestion_incoming_gas: params.get(Parameter::MaxCongestionIncomingGas)?,
@@ -412,7 +424,10 @@ impl ParameterTable {
         Ok(())
     }
 
-    fn yaml_map(&self, params: impl Iterator<Item = &'static Parameter>) -> serde_yaml::Value {
+    fn yaml_map(
+        &self,
+        params: impl Iterator<Item = &'static Parameter>,
+    ) -> serde_yaml::Value {
         // All parameter values can be serialized as YAML, so we don't ever expect this to fail.
         serde_yaml::to_value(
             params
@@ -423,17 +438,30 @@ impl ParameterTable {
     }
 
     /// Read and parse a typed parameter from the `ParameterTable`.
-    fn get<'a, T>(&'a self, key: Parameter) -> Result<T, InvalidConfigError>
+    fn get<'a, T>(
+        &'a self,
+        key: Parameter,
+    ) -> Result<T, InvalidConfigError>
     where
         T: TryFrom<&'a ParameterValue, Error = ValueConversionError>,
     {
-        let value = self.parameters.get(&key).ok_or(InvalidConfigError::MissingParameter(key))?;
-        value.try_into().map_err(|err| InvalidConfigError::ValueConversionError(err, key))
+        let value = self
+            .parameters
+            .get(&key)
+            .ok_or(InvalidConfigError::MissingParameter(key))?;
+        value
+            .try_into()
+            .map_err(|err| InvalidConfigError::ValueConversionError(err, key))
     }
 
     /// Access action fee by `ActionCosts`.
-    fn get_fee(&self, cost: ActionCosts) -> Result<Fee, InvalidConfigError> {
-        let key: Parameter = format!("{}", FeeParameter::from(cost)).parse().unwrap();
+    fn get_fee(
+        &self,
+        cost: ActionCosts,
+    ) -> Result<Fee, InvalidConfigError> {
+        let key: Parameter = format!("{}", FeeParameter::from(cost))
+            .parse()
+            .unwrap();
         self.get(key)
     }
 }
@@ -479,11 +507,11 @@ fn parse_parameter_value(value: &serde_yaml::Value) -> Result<ParameterValue, In
 
 /// Recursively canonicalizes values inside of the YAML structure.
 fn canonicalize_yaml_value(
-    value: &serde_yaml::Value,
+    value: &serde_yaml::Value
 ) -> Result<serde_yaml::Value, InvalidConfigError> {
     Ok(match value {
-        serde_yaml::Value::String(s) => canonicalize_yaml_string(s)?,
-        serde_yaml::Value::Mapping(m) => serde_yaml::Value::Mapping(
+        | serde_yaml::Value::String(s) => canonicalize_yaml_string(s)?,
+        | serde_yaml::Value::Mapping(m) => serde_yaml::Value::Mapping(
             m.iter()
                 .map(|(key, value)| {
                     let canonical_value = canonicalize_yaml_value(value)?;
@@ -491,7 +519,7 @@ fn canonicalize_yaml_value(
                 })
                 .collect::<Result<_, _>>()?,
         ),
-        _ => value.clone(),
+        | _ => value.clone(),
     })
 }
 
@@ -506,7 +534,10 @@ fn canonicalize_yaml_string(value: &str) -> Result<serde_yaml::Value, InvalidCon
     if value.is_empty() {
         return Ok(serde_yaml::Value::Null);
     }
-    if value.bytes().all(|c| c.is_ascii_digit() || c == '_' as u8) {
+    if value
+        .bytes()
+        .all(|c| c.is_ascii_digit() || c == '_' as u8)
+    {
         let mut raw_number = value.to_owned();
         raw_number.retain(char::is_numeric);
         // We do not have "arbitrary_precision" serde feature enabled, thus we
@@ -545,33 +576,42 @@ mod tests {
             params.apply_diff(diff).unwrap();
         }
 
-        let expected_map = BTreeMap::from_iter(expected.into_iter().map(|(param, value)| {
-            (param, {
-                assert!(!value.is_empty(), "omit the parameter in the test instead");
-                parse_parameter_value(
-                    &serde_yaml::from_str(value).expect("Test data has invalid YAML"),
-                )
-                .unwrap()
-            })
-        }));
+        let expected_map = BTreeMap::from_iter(
+            expected
+                .into_iter()
+                .map(|(param, value)| {
+                    (param, {
+                        assert!(!value.is_empty(), "omit the parameter in the test instead");
+                        parse_parameter_value(
+                            &serde_yaml::from_str(value).expect("Test data has invalid YAML"),
+                        )
+                        .unwrap()
+                    })
+                }),
+        );
 
         assert_eq!(params.parameters, expected_map);
     }
 
     #[track_caller]
-    fn check_invalid_parameter_table(base_config: &str, diffs: &[&str]) -> InvalidConfigError {
+    fn check_invalid_parameter_table(
+        base_config: &str,
+        diffs: &[&str],
+    ) -> InvalidConfigError {
         let params = base_config.parse();
 
         let result = params.and_then(|params: ParameterTable| {
-            diffs.iter().try_fold(params, |mut params, diff| {
-                params.apply_diff(diff.parse()?)?;
-                Ok(params)
-            })
+            diffs
+                .iter()
+                .try_fold(params, |mut params, diff| {
+                    params.apply_diff(diff.parse()?)?;
+                    Ok(params)
+                })
         });
 
         match result {
-            Ok(_) => panic!("Input should have parser error"),
-            Err(err) => err,
+            | Ok(_) => panic!("Input should have parser error"),
+            | Err(err) => err,
         }
     }
 

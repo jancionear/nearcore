@@ -22,10 +22,15 @@ pub enum StateWitnessCmd {
 }
 
 impl StateWitnessCmd {
-    pub(crate) fn run(&self, home_dir: &Path, near_config: NearConfig, store: Store) {
+    pub(crate) fn run(
+        &self,
+        home_dir: &Path,
+        near_config: NearConfig,
+        store: Store,
+    ) {
         match self {
-            StateWitnessCmd::Dump(cmd) => cmd.run(near_config, store),
-            StateWitnessCmd::Validate(cmd) => cmd.run(home_dir, near_config, store),
+            | StateWitnessCmd::Dump(cmd) => cmd.run(near_config, store),
+            | StateWitnessCmd::Validate(cmd) => cmd.run(home_dir, near_config, store),
         }
     }
 }
@@ -55,16 +60,27 @@ enum DumpWitnessesMode {
 }
 
 impl DumpWitnessesCmd {
-    pub(crate) fn run(&self, near_config: NearConfig, store: Store) {
+    pub(crate) fn run(
+        &self,
+        near_config: NearConfig,
+        store: Store,
+    ) {
         let chain_store = Rc::new(ChainStore::new(
             store,
-            near_config.genesis.config.genesis_height,
+            near_config
+                .genesis
+                .config
+                .genesis_height,
             false,
-            near_config.genesis.config.transaction_validity_period,
+            near_config
+                .genesis
+                .config
+                .transaction_validity_period,
         ));
 
-        let witnesses =
-            chain_store.get_latest_witnesses(self.height, self.shard_id, self.epoch_id).unwrap();
+        let witnesses = chain_store
+            .get_latest_witnesses(self.height, self.shard_id, self.epoch_id)
+            .unwrap();
         println!("Found {} witnesses:", witnesses.len());
         if let DumpWitnessesMode::Binary { ref output_dir } = self.mode {
             if !output_dir.exists() {
@@ -81,11 +97,11 @@ impl DumpWitnessesCmd {
                 witness.epoch_id
             );
             match self.mode {
-                DumpWitnessesMode::Pretty => {
+                | DumpWitnessesMode::Pretty => {
                     println!("{:#?}", witness);
                     println!("");
                 }
-                DumpWitnessesMode::Binary { ref output_dir } => {
+                | DumpWitnessesMode::Binary { ref output_dir } => {
                     let file_name = format!(
                         "witness_{}_{}_{}_{}.bin",
                         witness.chunk_header.height_created(),
@@ -110,7 +126,12 @@ pub struct ValidateWitnessCmd {
 }
 
 impl ValidateWitnessCmd {
-    pub(crate) fn run(&self, home_dir: &Path, near_config: NearConfig, store: Store) {
+    pub(crate) fn run(
+        &self,
+        home_dir: &Path,
+        near_config: NearConfig,
+        store: Store,
+    ) {
         let encoded_witness: Vec<u8> =
             std::fs::read(&self.input_file).expect("Failed to read file");
         let witness: ChunkStateWitness = borsh::BorshDeserialize::try_from_slice(&encoded_witness)

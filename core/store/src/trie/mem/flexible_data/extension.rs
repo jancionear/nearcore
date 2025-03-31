@@ -30,10 +30,15 @@ impl FlexibleDataHeader for EncodedExtensionHeader {
         extension: &[u8],
         target: &mut ArenaSliceMut<M>,
     ) {
-        target.raw_slice_mut().copy_from_slice(&extension);
+        target
+            .raw_slice_mut()
+            .copy_from_slice(&extension);
     }
 
-    fn decode_flexible_data<'a, M: ArenaMemory>(&self, source: &ArenaSlice<'a, M>) -> &'a [u8] {
+    fn decode_flexible_data<'a, M: ArenaMemory>(
+        &self,
+        source: &ArenaSlice<'a, M>,
+    ) -> &'a [u8] {
         source.raw_slice()
     }
 }

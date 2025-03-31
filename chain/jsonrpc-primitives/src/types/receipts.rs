@@ -27,8 +27,8 @@ pub enum RpcReceiptError {
 impl From<RpcReceiptError> for crate::errors::RpcError {
     fn from(error: RpcReceiptError) -> Self {
         let error_data = match serde_json::to_value(error) {
-            Ok(value) => value,
-            Err(err) => {
+            | Ok(value) => value,
+            | Err(err) => {
                 return Self::new_internal_error(
                     None,
                     format!("Failed to serialize RpcReceiptError: {:?}", err),

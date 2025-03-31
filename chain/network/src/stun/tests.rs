@@ -8,7 +8,9 @@ async fn test_query() {
     init_test_logger();
     let clock = time::FakeClock::default();
     let server = stun::testonly::Server::new().await;
-    let ip = stun::query(&clock.clock(), &server.addr()).await.unwrap();
+    let ip = stun::query(&clock.clock(), &server.addr())
+        .await
+        .unwrap();
     assert_eq!(std::net::Ipv6Addr::LOCALHOST, ip);
     server.close().await;
 }

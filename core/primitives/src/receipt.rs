@@ -163,22 +163,22 @@ pub enum ReceiptOrStateStoredReceipt<'a> {
 impl ReceiptOrStateStoredReceipt<'_> {
     pub fn into_receipt(self) -> Receipt {
         match self {
-            ReceiptOrStateStoredReceipt::Receipt(receipt) => receipt.into_owned(),
-            ReceiptOrStateStoredReceipt::StateStoredReceipt(receipt) => receipt.into_receipt(),
+            | ReceiptOrStateStoredReceipt::Receipt(receipt) => receipt.into_owned(),
+            | ReceiptOrStateStoredReceipt::StateStoredReceipt(receipt) => receipt.into_receipt(),
         }
     }
 
     pub fn get_receipt(&self) -> &Receipt {
         match self {
-            ReceiptOrStateStoredReceipt::Receipt(receipt) => receipt,
-            ReceiptOrStateStoredReceipt::StateStoredReceipt(receipt) => receipt.get_receipt(),
+            | ReceiptOrStateStoredReceipt::Receipt(receipt) => receipt,
+            | ReceiptOrStateStoredReceipt::StateStoredReceipt(receipt) => receipt.get_receipt(),
         }
     }
 
     pub fn should_update_outgoing_metadatas(&self) -> bool {
         match self {
-            ReceiptOrStateStoredReceipt::Receipt(_) => false,
-            ReceiptOrStateStoredReceipt::StateStoredReceipt(state_stored_receipt) => {
+            | ReceiptOrStateStoredReceipt::Receipt(_) => false,
+            | ReceiptOrStateStoredReceipt::StateStoredReceipt(state_stored_receipt) => {
                 state_stored_receipt.should_update_outgoing_metadatas()
             }
         }
@@ -216,38 +216,41 @@ impl<'a> StateStoredReceipt<'a> {
 
     pub fn into_receipt(self) -> Receipt {
         match self {
-            StateStoredReceipt::V0(v0) => v0.receipt.into_owned(),
-            StateStoredReceipt::V1(v1) => v1.receipt.into_owned(),
+            | StateStoredReceipt::V0(v0) => v0.receipt.into_owned(),
+            | StateStoredReceipt::V1(v1) => v1.receipt.into_owned(),
         }
     }
 
     pub fn get_receipt(&self) -> &Receipt {
         match self {
-            StateStoredReceipt::V0(v0) => &v0.receipt,
-            StateStoredReceipt::V1(v1) => &v1.receipt,
+            | StateStoredReceipt::V0(v0) => &v0.receipt,
+            | StateStoredReceipt::V1(v1) => &v1.receipt,
         }
     }
 
     pub fn metadata(&self) -> &StateStoredReceiptMetadata {
         match self {
-            StateStoredReceipt::V0(v0) => &v0.metadata,
-            StateStoredReceipt::V1(v1) => &v1.metadata,
+            | StateStoredReceipt::V0(v0) => &v0.metadata,
+            | StateStoredReceipt::V1(v1) => &v1.metadata,
         }
     }
 
     pub fn should_update_outgoing_metadatas(&self) -> bool {
         match self {
-            StateStoredReceipt::V0(_) => false,
-            StateStoredReceipt::V1(_) => true,
+            | StateStoredReceipt::V0(_) => false,
+            | StateStoredReceipt::V1(_) => true,
         }
     }
 }
 
 impl BorshSerialize for Receipt {
-    fn serialize<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
+    fn serialize<W: io::Write>(
+        &self,
+        writer: &mut W,
+    ) -> io::Result<()> {
         match self {
-            Receipt::V0(receipt) => receipt.serialize(writer),
-            Receipt::V1(receipt) => {
+            | Receipt::V0(receipt) => receipt.serialize(writer),
+            | Receipt::V1(receipt) => {
                 BorshSerialize::serialize(&1_u8, writer)?;
                 receipt.serialize(writer)
             }
@@ -283,7 +286,10 @@ impl BorshDeserialize for Receipt {
 }
 
 impl BorshSerialize for StateStoredReceipt<'_> {
-    fn serialize<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
+    fn serialize<W: io::Write>(
+        &self,
+        writer: &mut W,
+    ) -> io::Result<()> {
         // The serialization format for StateStored receipt is as follows:
         // Byte 1: STATE_STORED_RECEIPT_TAG
         // Byte 2: STATE_STORED_RECEIPT_TAG
@@ -293,11 +299,11 @@ impl BorshSerialize for StateStoredReceipt<'_> {
         BorshSerialize::serialize(&STATE_STORED_RECEIPT_TAG, writer)?;
         BorshSerialize::serialize(&STATE_STORED_RECEIPT_TAG, writer)?;
         match self {
-            StateStoredReceipt::V0(v0) => {
+            | StateStoredReceipt::V0(v0) => {
                 BorshSerialize::serialize(&0_u8, writer)?;
                 BorshSerialize::serialize(&v0, writer)?;
             }
-            StateStoredReceipt::V1(v1) => {
+            | StateStoredReceipt::V1(v1) => {
                 BorshSerialize::serialize(&1_u8, writer)?;
                 BorshSerialize::serialize(&v1, writer)?;
             }
@@ -319,15 +325,15 @@ impl BorshDeserialize for StateStoredReceipt<'_> {
         }
 
         match u3 {
-            0 => {
+            | 0 => {
                 let v0 = StateStoredReceiptV0::deserialize_reader(reader)?;
                 Ok(StateStoredReceipt::V0(v0))
             }
-            1 => {
+            | 1 => {
                 let v1 = StateStoredReceiptV1::deserialize_reader(reader)?;
                 Ok(StateStoredReceipt::V1(v1))
             }
-            v => {
+            | v => {
                 let error = format!("Invalid version found when deserializing StateStoredReceipt. Found: {}. Expected: 0", v);
                 let error = Error::new(ErrorKind::Other, error);
                 Err(io::Error::new(ErrorKind::InvalidData, error))
@@ -337,16 +343,19 @@ impl BorshDeserialize for StateStoredReceipt<'_> {
 }
 
 impl BorshSerialize for ReceiptOrStateStoredReceipt<'_> {
-    fn serialize<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
+    fn serialize<W: io::Write>(
+        &self,
+        writer: &mut W,
+    ) -> io::Result<()> {
         // This is custom serialization in order to provide backwards
         // compatibility for migration from Receipt to StateStoredReceipt.
 
         // Please see the comment in deserialize_reader for more details.
         match self {
-            ReceiptOrStateStoredReceipt::Receipt(receipt) => {
+            | ReceiptOrStateStoredReceipt::Receipt(receipt) => {
                 BorshSerialize::serialize(receipt, writer)
             }
-            ReceiptOrStateStoredReceipt::StateStoredReceipt(receipt) => {
+            | ReceiptOrStateStoredReceipt::StateStoredReceipt(receipt) => {
                 BorshSerialize::serialize(receipt, writer)
             }
         }
@@ -394,8 +403,8 @@ pub enum ReceiptPriority {
 impl ReceiptPriority {
     pub fn value(&self) -> u64 {
         match self {
-            ReceiptPriority::Priority(value) => *value,
-            ReceiptPriority::NoPriority => 0,
+            | ReceiptPriority::Priority(value) => *value,
+            | ReceiptPriority::NoPriority => 0,
         }
     }
 }
@@ -403,8 +412,8 @@ impl ReceiptPriority {
 impl Borrow<CryptoHash> for Receipt {
     fn borrow(&self) -> &CryptoHash {
         match self {
-            Receipt::V0(receipt) => &receipt.receipt_id,
-            Receipt::V1(receipt) => &receipt.receipt_id,
+            | Receipt::V0(receipt) => &receipt.receipt_id,
+            | Receipt::V1(receipt) => &receipt.receipt_id,
         }
     }
 }
@@ -412,71 +421,80 @@ impl Borrow<CryptoHash> for Receipt {
 impl Receipt {
     pub fn receiver_id(&self) -> &AccountId {
         match self {
-            Receipt::V0(receipt) => &receipt.receiver_id,
-            Receipt::V1(receipt) => &receipt.receiver_id,
+            | Receipt::V0(receipt) => &receipt.receiver_id,
+            | Receipt::V1(receipt) => &receipt.receiver_id,
         }
     }
 
-    pub fn set_receiver_id(&mut self, receiver_id: AccountId) {
+    pub fn set_receiver_id(
+        &mut self,
+        receiver_id: AccountId,
+    ) {
         match self {
-            Receipt::V0(receipt) => receipt.receiver_id = receiver_id,
-            Receipt::V1(receipt) => receipt.receiver_id = receiver_id,
+            | Receipt::V0(receipt) => receipt.receiver_id = receiver_id,
+            | Receipt::V1(receipt) => receipt.receiver_id = receiver_id,
         }
     }
 
     pub fn predecessor_id(&self) -> &AccountId {
         match self {
-            Receipt::V0(receipt) => &receipt.predecessor_id,
-            Receipt::V1(receipt) => &receipt.predecessor_id,
+            | Receipt::V0(receipt) => &receipt.predecessor_id,
+            | Receipt::V1(receipt) => &receipt.predecessor_id,
         }
     }
 
-    pub fn set_predecessor_id(&mut self, predecessor_id: AccountId) {
+    pub fn set_predecessor_id(
+        &mut self,
+        predecessor_id: AccountId,
+    ) {
         match self {
-            Receipt::V0(receipt) => receipt.predecessor_id = predecessor_id,
-            Receipt::V1(receipt) => receipt.predecessor_id = predecessor_id,
+            | Receipt::V0(receipt) => receipt.predecessor_id = predecessor_id,
+            | Receipt::V1(receipt) => receipt.predecessor_id = predecessor_id,
         }
     }
 
     pub fn receipt(&self) -> &ReceiptEnum {
         match self {
-            Receipt::V0(receipt) => &receipt.receipt,
-            Receipt::V1(receipt) => &receipt.receipt,
+            | Receipt::V0(receipt) => &receipt.receipt,
+            | Receipt::V1(receipt) => &receipt.receipt,
         }
     }
 
     pub fn receipt_mut(&mut self) -> &mut ReceiptEnum {
         match self {
-            Receipt::V0(receipt) => &mut receipt.receipt,
-            Receipt::V1(receipt) => &mut receipt.receipt,
+            | Receipt::V0(receipt) => &mut receipt.receipt,
+            | Receipt::V1(receipt) => &mut receipt.receipt,
         }
     }
 
     pub fn take_receipt(self) -> ReceiptEnum {
         match self {
-            Receipt::V0(receipt) => receipt.receipt,
-            Receipt::V1(receipt) => receipt.receipt,
+            | Receipt::V0(receipt) => receipt.receipt,
+            | Receipt::V1(receipt) => receipt.receipt,
         }
     }
 
     pub fn receipt_id(&self) -> &CryptoHash {
         match self {
-            Receipt::V0(receipt) => &receipt.receipt_id,
-            Receipt::V1(receipt) => &receipt.receipt_id,
+            | Receipt::V0(receipt) => &receipt.receipt_id,
+            | Receipt::V1(receipt) => &receipt.receipt_id,
         }
     }
 
-    pub fn set_receipt_id(&mut self, receipt_id: CryptoHash) {
+    pub fn set_receipt_id(
+        &mut self,
+        receipt_id: CryptoHash,
+    ) {
         match self {
-            Receipt::V0(receipt) => receipt.receipt_id = receipt_id,
-            Receipt::V1(receipt) => receipt.receipt_id = receipt_id,
+            | Receipt::V0(receipt) => receipt.receipt_id = receipt_id,
+            | Receipt::V1(receipt) => receipt.receipt_id = receipt_id,
         }
     }
 
     pub fn priority(&self) -> ReceiptPriority {
         match self {
-            Receipt::V0(_) => ReceiptPriority::NoPriority,
-            Receipt::V1(receipt) => ReceiptPriority::Priority(receipt.priority),
+            | Receipt::V0(_) => ReceiptPriority::NoPriority,
+            | Receipt::V1(receipt) => ReceiptPriority::Priority(receipt.priority),
         }
     }
 
@@ -494,7 +512,7 @@ impl Receipt {
         priority: ReceiptPriority,
     ) -> Self {
         match priority {
-            ReceiptPriority::Priority(priority) => Receipt::V1(ReceiptV1 {
+            | ReceiptPriority::Priority(priority) => Receipt::V1(ReceiptV1 {
                 predecessor_id: "system".parse().unwrap(),
                 receiver_id: receiver_id.clone(),
                 receipt_id: CryptoHash::default(),
@@ -505,11 +523,13 @@ impl Receipt {
                     gas_price: 0,
                     output_data_receivers: vec![],
                     input_data_ids: vec![],
-                    actions: vec![Action::Transfer(TransferAction { deposit: refund })],
+                    actions: vec![Action::Transfer(TransferAction {
+                        deposit: refund,
+                    })],
                 }),
                 priority,
             }),
-            ReceiptPriority::NoPriority => Receipt::V0(ReceiptV0 {
+            | ReceiptPriority::NoPriority => Receipt::V0(ReceiptV0 {
                 predecessor_id: "system".parse().unwrap(),
                 receiver_id: receiver_id.clone(),
                 receipt_id: CryptoHash::default(),
@@ -520,7 +540,9 @@ impl Receipt {
                     gas_price: 0,
                     output_data_receivers: vec![],
                     input_data_ids: vec![],
-                    actions: vec![Action::Transfer(TransferAction { deposit: refund })],
+                    actions: vec![Action::Transfer(TransferAction {
+                        deposit: refund,
+                    })],
                 }),
             }),
         }
@@ -540,7 +562,7 @@ impl Receipt {
         priority: ReceiptPriority,
     ) -> Self {
         match priority {
-            ReceiptPriority::Priority(priority) => Receipt::V1(ReceiptV1 {
+            | ReceiptPriority::Priority(priority) => Receipt::V1(ReceiptV1 {
                 predecessor_id: "system".parse().unwrap(),
                 receiver_id: receiver_id.clone(),
                 receipt_id: CryptoHash::default(),
@@ -551,11 +573,13 @@ impl Receipt {
                     gas_price: 0,
                     output_data_receivers: vec![],
                     input_data_ids: vec![],
-                    actions: vec![Action::Transfer(TransferAction { deposit: refund })],
+                    actions: vec![Action::Transfer(TransferAction {
+                        deposit: refund,
+                    })],
                 }),
                 priority,
             }),
-            ReceiptPriority::NoPriority => Receipt::V0(ReceiptV0 {
+            | ReceiptPriority::NoPriority => Receipt::V0(ReceiptV0 {
                 predecessor_id: "system".parse().unwrap(),
                 receiver_id: receiver_id.clone(),
                 receipt_id: CryptoHash::default(),
@@ -566,7 +590,9 @@ impl Receipt {
                     gas_price: 0,
                     output_data_receivers: vec![],
                     input_data_ids: vec![],
-                    actions: vec![Action::Transfer(TransferAction { deposit: refund })],
+                    actions: vec![Action::Transfer(TransferAction {
+                        deposit: refund,
+                    })],
                 }),
             }),
         }
@@ -645,7 +671,10 @@ pub struct DataReceipt {
 }
 
 impl fmt::Debug for DataReceipt {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
         f.debug_struct("DataReceipt")
             .field("data_id", &self.data_id)
             .field("data", &format_args!("{}", AbbrBytes(self.data.as_deref())))
@@ -663,7 +692,10 @@ pub struct ReceivedData {
 }
 
 impl fmt::Debug for ReceivedData {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
         f.debug_struct("ReceivedData")
             .field("data", &format_args!("{}", AbbrBytes(self.data.as_deref())))
             .finish()
@@ -772,7 +804,9 @@ mod tests {
                 gas_price: 0,
                 output_data_receivers: vec![],
                 input_data_ids: vec![],
-                actions: vec![Action::Transfer(TransferAction { deposit: 0 })],
+                actions: vec![Action::Transfer(TransferAction {
+                    deposit: 0,
+                })],
             }),
         });
         receipt_v0
@@ -789,7 +823,9 @@ mod tests {
                 gas_price: 0,
                 output_data_receivers: vec![],
                 input_data_ids: vec![],
-                actions: vec![Action::Transfer(TransferAction { deposit: 0 })],
+                actions: vec![Action::Transfer(TransferAction {
+                    deposit: 0,
+                })],
             }),
             priority: 1,
         });

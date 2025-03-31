@@ -66,11 +66,15 @@ pub(crate) struct ExecutionResult {
 }
 
 impl Transaction {
-    pub(crate) fn start(&mut self, round: Round) -> ExecutionResult {
+    pub(crate) fn start(
+        &mut self,
+        round: Round,
+    ) -> ExecutionResult {
         let receipt = self
             .activate_receipt(self.initial_receipt, round)
             .expect("should not start the same transaction twice");
-        self.pending_receipts.insert(self.initial_receipt);
+        self.pending_receipts
+            .insert(self.initial_receipt);
         ExecutionResult { gas_burnt: self.tx_conversion_cost, new_receipts: vec![receipt] }
     }
 
@@ -91,16 +95,24 @@ impl Transaction {
         let gas_burnt = receipt.execution_gas;
         receipt.executed_at = Some(round);
 
-        self.pending_receipts.remove(&receipt.id);
-        self.executed_receipts.insert(receipt.id, receipt);
+        self.pending_receipts
+            .remove(&receipt.id);
+        self.executed_receipts
+            .insert(receipt.id, receipt);
 
         ExecutionResult { gas_burnt, new_receipts }
     }
 
-    pub(crate) fn drop_receipt(&mut self, mut receipt: Receipt, round: Round) {
-        self.pending_receipts.remove(&receipt.id);
+    pub(crate) fn drop_receipt(
+        &mut self,
+        mut receipt: Receipt,
+        round: Round,
+    ) {
+        self.pending_receipts
+            .remove(&receipt.id);
         receipt.dropped_at = Some(round);
-        self.dropped_receipts.insert(receipt.id, receipt);
+        self.dropped_receipts
+            .insert(receipt.id, receipt);
     }
 
     pub(crate) fn activate_receipt(
@@ -108,7 +120,9 @@ impl Transaction {
         receipt_id: ReceiptId,
         round: Round,
     ) -> Option<Receipt> {
-        let mut receipt = self.future_receipts.remove(&receipt_id)?;
+        let mut receipt = self
+            .future_receipts
+            .remove(&receipt_id)?;
         receipt.created_at = Some(round);
         self.pending_receipts.insert(receipt.id);
         Some(receipt)

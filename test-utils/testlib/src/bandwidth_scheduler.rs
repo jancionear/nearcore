@@ -14,13 +14,18 @@ const MAX_RECEIPT_SIZE: u64 = 4 * 1024 * 1024;
 /// some are medium sized, and a few are large.
 /// See `RandomReceiptSizeGenerator` for the exact implementation.
 pub fn get_random_receipt_size_for_test(rng: &mut ChaCha20Rng) -> u64 {
-    RandomReceiptSizeGenerator.generate_receipt_size(rng).as_u64()
+    RandomReceiptSizeGenerator
+        .generate_receipt_size(rng)
+        .as_u64()
 }
 
 /// Objects with this trait are responsible for generating receipt sizes that are used in testing.
 /// Each implementation generates different distribution of sizes.
 pub trait ReceiptSizeGenerator: std::fmt::Debug {
-    fn generate_receipt_size(&mut self, rng: &mut ChaCha20Rng) -> ByteSize;
+    fn generate_receipt_size(
+        &mut self,
+        rng: &mut ChaCha20Rng,
+    ) -> ByteSize;
 }
 
 /// Generates small receipt sizes (< 4kB)
@@ -28,7 +33,10 @@ pub trait ReceiptSizeGenerator: std::fmt::Debug {
 pub struct SmallReceiptSizeGenerator;
 
 impl ReceiptSizeGenerator for SmallReceiptSizeGenerator {
-    fn generate_receipt_size(&mut self, rng: &mut ChaCha20Rng) -> ByteSize {
+    fn generate_receipt_size(
+        &mut self,
+        rng: &mut ChaCha20Rng,
+    ) -> ByteSize {
         ByteSize::b(rng.gen_range(200..4_000))
     }
 }
@@ -38,7 +46,10 @@ impl ReceiptSizeGenerator for SmallReceiptSizeGenerator {
 pub struct MediumReceiptSizeGenerator;
 
 impl ReceiptSizeGenerator for MediumReceiptSizeGenerator {
-    fn generate_receipt_size(&mut self, rng: &mut ChaCha20Rng) -> ByteSize {
+    fn generate_receipt_size(
+        &mut self,
+        rng: &mut ChaCha20Rng,
+    ) -> ByteSize {
         ByteSize::b(rng.gen_range(4_000..300_000))
     }
 }
@@ -48,7 +59,10 @@ impl ReceiptSizeGenerator for MediumReceiptSizeGenerator {
 pub struct LargeReceiptSizeGenerator;
 
 impl ReceiptSizeGenerator for LargeReceiptSizeGenerator {
-    fn generate_receipt_size(&mut self, rng: &mut ChaCha20Rng) -> ByteSize {
+    fn generate_receipt_size(
+        &mut self,
+        rng: &mut ChaCha20Rng,
+    ) -> ByteSize {
         ByteSize::b(rng.gen_range(300_000..=MAX_RECEIPT_SIZE))
     }
 }
@@ -58,7 +72,10 @@ impl ReceiptSizeGenerator for LargeReceiptSizeGenerator {
 pub struct MaxReceiptSizeGenerator;
 
 impl ReceiptSizeGenerator for MaxReceiptSizeGenerator {
-    fn generate_receipt_size(&mut self, _rng: &mut ChaCha20Rng) -> ByteSize {
+    fn generate_receipt_size(
+        &mut self,
+        _rng: &mut ChaCha20Rng,
+    ) -> ByteSize {
         ByteSize::b(MAX_RECEIPT_SIZE)
     }
 }
@@ -74,14 +91,20 @@ impl ReceiptSizeGenerator for MaxReceiptSizeGenerator {
 pub struct RandomReceiptSizeGenerator;
 
 impl ReceiptSizeGenerator for RandomReceiptSizeGenerator {
-    fn generate_receipt_size(&mut self, rng: &mut ChaCha20Rng) -> ByteSize {
+    fn generate_receipt_size(
+        &mut self,
+        rng: &mut ChaCha20Rng,
+    ) -> ByteSize {
         let weighted_sizes = [
             (SmallReceiptSizeGenerator.generate_receipt_size(rng), 70), // 70% of receipts are small
             (MediumReceiptSizeGenerator.generate_receipt_size(rng), 20), // 20% of receipts are medium
             (LargeReceiptSizeGenerator.generate_receipt_size(rng), 8),   // 8% of receipts are large
             (MaxReceiptSizeGenerator.generate_receipt_size(rng), 2), // 2% of receipts are max size
         ];
-        weighted_sizes.choose_weighted(rng, |item| item.1).unwrap().0
+        weighted_sizes
+            .choose_weighted(rng, |item| item.1)
+            .unwrap()
+            .0
     }
 }
 
@@ -131,7 +154,10 @@ impl TestScenarioBuilder {
     }
 
     /// Set number of shards in the test scenario
-    pub fn num_shards(mut self, num_shards: u64) -> Self {
+    pub fn num_shards(
+        mut self,
+        num_shards: u64,
+    ) -> Self {
         self.scenario.num_shards = num_shards;
         self
     }
@@ -143,7 +169,11 @@ impl TestScenarioBuilder {
         receiver: ShardIndex,
         generator: impl ReceiptSizeGenerator + 'static,
     ) -> Self {
-        let links_vec = self.scenario.link_generators.entry(sender).or_insert_with(Vec::new);
+        let links_vec = self
+            .scenario
+            .link_generators
+            .entry(sender)
+            .or_insert_with(Vec::new);
         assert!(
             links_vec
                 .iter()
@@ -166,19 +196,26 @@ impl TestScenarioBuilder {
         link_generator_factory: impl Fn() -> Box<dyn ReceiptSizeGenerator> + 'static,
     ) -> Self {
         assert!(
-            self.default_link_generator_factory.is_none(),
+            self.default_link_generator_factory
+                .is_none(),
             "default link generator is already set!"
         );
         self.default_link_generator_factory = Some(Box::new(link_generator_factory));
         self
     }
 
-    pub fn missing_chunk_probability(mut self, probability: f64) -> Self {
+    pub fn missing_chunk_probability(
+        mut self,
+        probability: f64,
+    ) -> Self {
         self.scenario.missing_chunk_probability = probability;
         self
     }
 
-    pub fn missing_block_probability(mut self, probability: f64) -> Self {
+    pub fn missing_block_probability(
+        mut self,
+        probability: f64,
+    ) -> Self {
         self.scenario.missing_block_probability = probability;
         self
     }
@@ -196,7 +233,10 @@ impl TestScenarioBuilder {
                     .entry(sender_idx as ShardIndex)
                     .or_insert_with(Vec::new);
                 for receiver_idx in (0..self.scenario.num_shards).map(|i| i as ShardIndex) {
-                    if links_vec.iter().position(|(idx, _generator)| *idx == receiver_idx).is_none()
+                    if links_vec
+                        .iter()
+                        .position(|(idx, _generator)| *idx == receiver_idx)
+                        .is_none()
                     {
                         links_vec.push((receiver_idx, link_generator_factory()));
                     }
@@ -244,7 +284,10 @@ pub struct TestBandwidthStats {
 }
 
 impl TestBandwidthStats {
-    pub fn summarize(&self, active_links: &BTreeSet<(ShardIndex, ShardIndex)>) -> TestSummary {
+    pub fn summarize(
+        &self,
+        active_links: &BTreeSet<(ShardIndex, ShardIndex)>,
+    ) -> TestSummary {
         // When set to true, the function will print information about every chunk
         let print_chunks = true;
 
@@ -274,13 +317,15 @@ impl TestBandwidthStats {
                         "    {} -> {} total: {:?}",
                         shard_idx, receiver_shard_idx, outgoing_buffer_size
                     );
-                    if let Some(first_five) =
-                        chunk_stat.first_five_buffered_sizes.get(receiver_shard_idx)
+                    if let Some(first_five) = chunk_stat
+                        .first_five_buffered_sizes
+                        .get(receiver_shard_idx)
                     {
                         print!(", First five: {:?}", first_five);
                     }
-                    if let Some(first_five_big) =
-                        chunk_stat.first_five_big_buffered_sizes.get(receiver_shard_idx)
+                    if let Some(first_five_big) = chunk_stat
+                        .first_five_big_buffered_sizes
+                        .get(receiver_shard_idx)
                     {
                         print!(", First big five: {:?}", first_five_big);
                     }
@@ -289,10 +334,12 @@ impl TestBandwidthStats {
                 println!("");
                 println!("  Sent receipts:");
             }
-            *total_incoming.entry(*shard_idx).or_default() +=
-                chunk_stat.total_incoming_receipts_size;
-            *total_outgoing.entry(*shard_idx).or_default() +=
-                chunk_stat.total_outgoing_receipts_size;
+            *total_incoming
+                .entry(*shard_idx)
+                .or_default() += chunk_stat.total_incoming_receipts_size;
+            *total_outgoing
+                .entry(*shard_idx)
+                .or_default() += chunk_stat.total_outgoing_receipts_size;
             max_incoming = std::cmp::max(max_incoming, chunk_stat.total_incoming_receipts_size);
             max_outgoing = std::cmp::max(max_outgoing, chunk_stat.total_outgoing_receipts_size);
             for (receiver_shard_idx, sent) in &chunk_stat.size_of_outgoing_receipts_to_shard {
@@ -302,8 +349,9 @@ impl TestBandwidthStats {
                 if !active_links.contains(&(*shard_idx, *receiver_shard_idx)) {
                     continue;
                 }
-                *link_sent.entry((*shard_idx, *receiver_shard_idx)).or_insert(ByteSize::b(0)) +=
-                    *sent;
+                *link_sent
+                    .entry((*shard_idx, *receiver_shard_idx))
+                    .or_insert(ByteSize::b(0)) += *sent;
             }
             if print_chunks {
                 println!("");
@@ -360,7 +408,11 @@ impl TestBandwidthStats {
         let link_imbalance_ratio =
             max_sent_on_link.as_u64() as f64 / min_sent_on_link.as_u64() as f64;
 
-        let max_budget = vec![self.scheduler_params.max_shard_bandwidth; 1000];
+        let max_budget = vec![
+            self.scheduler_params
+                .max_shard_bandwidth;
+            1000
+        ];
         let estimated_link_throughputs =
             estimate_link_throughputs(active_links, &max_budget, &max_budget);
 
@@ -373,7 +425,9 @@ impl TestBandwidthStats {
 
         let mut worst_link_estimation_ratio = 999999999999999.0;
         for (link, avg_sent) in &avg_sent_on_link {
-            let estimation = estimated_link_throughputs.get(link).unwrap();
+            let estimation = estimated_link_throughputs
+                .get(link)
+                .unwrap();
             let cur_ratio = if *estimation == ByteSize::b(0) {
                 avg_sent.as_u64() as f64
             } else {
@@ -398,7 +452,10 @@ impl TestBandwidthStats {
             estimated_link_throughputs,
             link_imbalance_ratio,
             worst_link_estimation_ratio,
-            max_shard_bandwidth: ByteSize::b(self.scheduler_params.max_shard_bandwidth),
+            max_shard_bandwidth: ByteSize::b(
+                self.scheduler_params
+                    .max_shard_bandwidth,
+            ),
         }
     }
 }
@@ -447,7 +504,10 @@ pub struct TestSummary {
 }
 
 impl std::fmt::Display for TestSummary {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+    ) -> std::fmt::Result {
         writeln!(f, "TestSummary {{")?;
         writeln!(f, "  avg_throughput {:?}", self.avg_throughput)?;
         writeln!(f, "  estimated_throughput {:?}", self.estimated_throughput)?;
@@ -498,7 +558,6 @@ impl std::fmt::Display for TestSummary {
     }
 }
 
-/// cspell:ignore Flukerson
 /// Estimate maximum throughput of each link when the active links are sending receipts at full
 /// speed.
 /// In a simple situation like [0 -> 0], maximum link throughput is equal to `max_shard_bandwidth`.
@@ -516,7 +575,11 @@ pub fn estimate_link_throughputs(
     if active_links.is_empty() {
         return BTreeMap::new();
     }
-    let max_index = active_links.iter().map(|(a, b)| std::cmp::max(*a, *b)).max().unwrap();
+    let max_index = active_links
+        .iter()
+        .map(|(a, b)| std::cmp::max(*a, *b))
+        .max()
+        .unwrap();
     let num_shards = max_index + 1;
 
     let min_nonzero_budget = sender_budgets

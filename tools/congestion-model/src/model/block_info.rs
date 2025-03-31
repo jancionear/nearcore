@@ -9,10 +9,16 @@ pub struct BlockInfo {
 
 impl BlockInfo {
     pub fn get<T: Any>(&self) -> Option<&T> {
-        self.data.get(&TypeId::of::<T>()).and_then(|boxed| boxed.downcast_ref())
+        self.data
+            .get(&TypeId::of::<T>())
+            .and_then(|boxed| boxed.downcast_ref())
     }
 
-    pub fn insert<T: Any>(&mut self, obj: T) {
-        self.data.insert(TypeId::of::<T>(), Box::new(obj));
+    pub fn insert<T: Any>(
+        &mut self,
+        obj: T,
+    ) {
+        self.data
+            .insert(TypeId::of::<T>(), Box::new(obj));
     }
 }
