@@ -651,7 +651,6 @@ impl Runtime {
             | _ => unreachable!("given receipt should be an action receipt"),
         };
         let account_id = receipt.receiver_id();
-        self.prefetch_account_data(state_update, account_id);
         // Collecting input data and removing it from the state
         let promise_results = action_receipt
             .input_data_ids
