@@ -35,6 +35,7 @@ use near_store::{PartialStorage, Trie};
 use std::collections::HashMap;
 use std::num::NonZeroUsize;
 use std::sync::{Arc, Mutex};
+use std::thread::ThreadId;
 use std::time::Instant;
 
 #[allow(clippy::large_enum_variant)]
@@ -513,7 +514,94 @@ fn validate_receipt_proof(
     Ok(())
 }
 
+#[derive(Debug)]
+struct ActiveValidation {
+    // Allow unused - field only used for printing information
+    #[allow(unused)]
+    shard_id: ShardId,
+    #[allow(unused)]
+    height_created: u64,
+    thread_id: ThreadId,
+    id: ValidationId,
+}
+
+type ValidationId = u64;
+
+struct ActiveValidations {
+    validations: Vec<ActiveValidation>,
+    next_validation_id: ValidationId,
+}
+
+impl ActiveValidations {
+    pub const fn new() -> ActiveValidations {
+        Self { validations: Vec::new(), next_validation_id: 0 }
+    }
+
+    pub fn start_validation(&mut self, height_created: u64, shard_id: ShardId) -> ValidationId {
+        let id = self.next_validation_id;
+        self.next_validation_id += 1;
+
+        let thread_id = std::thread::current().id();
+        let new_validation = ActiveValidation { shard_id, height_created, thread_id, id };
+        tracing::debug!(target: "client", "Starting new witness validation with id: {} - {:?}", id, new_validation);
+        tracing::debug!(target: "client", "Number of active validations: {}", self.validations.len());
+        let mut overlapping = 0;
+        for val in &self.validations {
+            if val.thread_id == thread_id {
+                overlapping += 1;
+            }
+        }
+        if overlapping > 0 {
+            tracing::warn!(
+                target = "client",
+                message = "Overlapping validations detected",
+                thread_id = ?thread_id,
+                overlapping,
+                backtrace = %std::backtrace::Backtrace::force_capture()
+            );
+        }
+        self.validations.push(new_validation);
+        id
+    }
+
+    pub fn end_validation(&mut self, id: ValidationId) {
+        let val = self
+            .validations
+            .iter()
+            .position(|v| v.id == id)
+            .expect("There should be a started validation with this id");
+        tracing::debug!(target: "client", "Ending witness validation with id: {} - {:?}", id, self.validations[val]);
+        self.validations.remove(val);
+    }
+}
+
+static ACTIVE_VALIDATIONS: Mutex<ActiveValidations> = Mutex::new(ActiveValidations::new());
+
+// Don't inline, should always be visible in backtraces
+#[inline(never)]
 pub fn validate_chunk_state_witness(
+    state_witness: ChunkStateWitness,
+    pre_validation_output: PreValidationOutput,
+    epoch_manager: &dyn EpochManagerAdapter,
+    runtime_adapter: &dyn RuntimeAdapter,
+    main_state_transition_cache: &MainStateTransitionCache,
+) -> Result<(), Error> {
+    let shard_id = state_witness.chunk_header.shard_id();
+    let height_created = state_witness.chunk_header.height_created();
+    let validation_id =
+        { ACTIVE_VALIDATIONS.lock().unwrap().start_validation(height_created, shard_id) };
+    let res = validate_chunk_state_witness_internal(
+        state_witness,
+        pre_validation_output,
+        epoch_manager,
+        runtime_adapter,
+        main_state_transition_cache,
+    );
+    ACTIVE_VALIDATIONS.lock().unwrap().end_validation(validation_id);
+    res
+}
+
+fn validate_chunk_state_witness_internal(
     state_witness: ChunkStateWitness,
     pre_validation_output: PreValidationOutput,
     epoch_manager: &dyn EpochManagerAdapter,
