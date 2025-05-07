@@ -992,8 +992,10 @@ impl PeerActor {
         conn: &connection::Connection,
         msg: PeerMessage,
     ) {
-        let span =
-            tracing::debug_span!(target: "client", "receive_message", variant = msg.msg_variant());
+        let span = tracing::debug_span!(target: "client",
+            "receive_message",
+            variant = msg.msg_variant(),
+            os_thread_id = ?std::thread::current().id());
         match &msg {
             PeerMessage::Routed(rtd) => {
                 span.record("num_hops", rtd.num_hops);

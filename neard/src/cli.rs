@@ -538,6 +538,7 @@ impl RunCmd {
             tokio::runtime::Builder::new_multi_thread()
                 .worker_threads(512)
                 .thread_stack_size(16 * 1024 * 1024)
+                .enable_all()
                 .build()
                 .unwrap()
         });
