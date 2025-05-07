@@ -534,7 +534,13 @@ impl RunCmd {
         let (tx_crash, mut rx_crash) = broadcast::channel::<()>(16);
         let (tx_config_update, rx_config_update) =
             broadcast::channel::<Result<UpdatableConfigs, Arc<UpdatableConfigLoaderError>>>(16);
-        let sys = actix::System::new();
+        let sys = actix::System::with_tokio_rt(|| {
+            tokio::runtime::Builder::new_multi_thread()
+                .worker_threads(512)
+                .thread_stack_size(16 * 1024 * 1024)
+                .build()
+                .unwrap()
+        });
 
         sys.block_on(async move {
             // Initialize the subscriber that takes care of both logging and tracing.
