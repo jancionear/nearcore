@@ -265,7 +265,8 @@ async fn send_endorsement(
     cinfo: &ChunkEndorsementInfo,
 ) -> Result<(), std::io::Error> {
     writer.write_u32_le(msg.len() as u32).await?;
-    writer.write_all(&msg[..]).await
+    writer.write_all(&msg[..]).await?;
+    writer.flush().await
 }
 
 fn contains_subslice<T: PartialEq>(data: &[T], needle: &[T]) -> bool {
