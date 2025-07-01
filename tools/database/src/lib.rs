@@ -11,6 +11,7 @@ mod corrupt;
 mod drop_column;
 mod make_snapshot;
 mod memtrie;
+mod ordinal;
 mod reset_version;
 mod resharding_v2;
 mod rollback_to_25;
