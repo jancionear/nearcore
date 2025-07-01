@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::rc::Rc;
+use std::sync::Arc;
 use std::time::Duration;
 
 use clap::Parser;
@@ -9,6 +10,7 @@ use near_chain_configs::GenesisValidationMode;
 
 use near_primitives::hash::CryptoHash;
 use near_primitives::merkle::PartialMerkleTree;
+use near_primitives::types::BlockHeight;
 use near_store::{DBCol, Store};
 use nearcore::config::load_config;
 
@@ -30,15 +32,8 @@ pub(crate) struct OrdinalCommand {
 
     #[arg(long)]
     scan_for_corrupt: bool,
-
-    #[arg(long)]
-    scan_from_height: Option<u64>,
-
-    #[arg(long)]
-    scan_to_height: Option<u64>,
-
-    #[arg(long, default_value_t = 1000)]
-    scan_concurrency: usize,
+    // #[arg(long, default_value_t = 1000)]
+    // scan_concurrency: usize,
 }
 
 impl OrdinalCommand {
@@ -116,13 +111,38 @@ impl OrdinalCommand {
             let read_ordinal_to_block_hash_thread =
                 std::thread::spawn(move || read_ordinal_to_block_hash(&store1, expected_count));
             let read_height_to_block_hash =
-                std::thread::spawn(move || read_ordinal_to_block_hash(&store2, expected_count));
+                std::thread::spawn(move || read_height_to_block_hash(&store2, expected_count));
             let read_block_hash_to_ordinal =
-                std::thread::spawn(move || read_ordinal_to_block_hash(&store3, expected_count));
+                std::thread::spawn(move || read_block_hash_to_ordinal(&store3, expected_count));
 
-            let ordinal_to_block_hash = read_ordinal_to_block_hash_thread.join().unwrap();
-            let height_to_block_hash = read_height_to_block_hash.join().unwrap();
-            let block_hash_to_ordinal = read_block_hash_to_ordinal.join().unwrap();
+            let ordinal_to_block_hash = Arc::new(read_ordinal_to_block_hash_thread.join().unwrap());
+            let height_to_block_hash = Arc::new(read_height_to_block_hash.join().unwrap());
+            let block_hash_to_ordinal = Arc::new(read_block_hash_to_ordinal.join().unwrap());
+
+            let genesis_height = chain_store.genesis_height();
+            let tip_height = chain_store.head().unwrap().height;
+            let mut scan_timer = WorkTimer::new(
+                "Scan for corrupt blocks",
+                (tip_height - genesis_height + 1) as usize,
+            );
+
+            let mut total_corrupt = 0;
+            for height in genesis_height..=tip_height {
+                if check_is_height_corrupt(
+                    height,
+                    &ordinal_to_block_hash,
+                    &height_to_block_hash,
+                    &block_hash_to_ordinal,
+                ) {
+                    total_corrupt += 1;
+                    println!(
+                        "Corrupt block found at height {} (total corrupt: {})",
+                        height, total_corrupt
+                    );
+                }
+                scan_timer.update_total((height - genesis_height + 1) as usize);
+            }
+            println!("Scan finished, total corrupt blocks: {}", total_corrupt);
         }
 
         Ok(())
@@ -130,7 +150,7 @@ impl OrdinalCommand {
 }
 
 fn read_ordinal_to_block_hash(store: &Store, expected_count: usize) -> HashMap<u64, CryptoHash> {
-    let mut read_timer = ReadTimer::new("Read DBCol::BlockOrdinal", expected_count);
+    let mut read_timer = WorkTimer::new("Read DBCol::BlockOrdinal", expected_count);
 
     let mut ordinal_to_block_hash = HashMap::with_capacity(expected_count);
     let mut iter = store.iter_ser::<CryptoHash>(DBCol::BlockOrdinal);
@@ -146,7 +166,7 @@ fn read_ordinal_to_block_hash(store: &Store, expected_count: usize) -> HashMap<u
 }
 
 fn read_height_to_block_hash(store: &Store, expected_count: usize) -> HashMap<u64, CryptoHash> {
-    let mut read_timer = ReadTimer::new("Read DBCol::BlockHeight", expected_count);
+    let mut read_timer = WorkTimer::new("Read DBCol::BlockHeight", expected_count);
 
     let mut height_to_block_hash = HashMap::with_capacity(expected_count);
     let mut iter = store.iter_ser::<CryptoHash>(DBCol::BlockHeight);
@@ -161,7 +181,7 @@ fn read_height_to_block_hash(store: &Store, expected_count: usize) -> HashMap<u6
 }
 
 fn read_block_hash_to_ordinal(store: &Store, expected_count: usize) -> HashMap<CryptoHash, u64> {
-    let mut read_timer = ReadTimer::new("Read DBCol::BlockMerkleTree", expected_count);
+    let mut read_timer = WorkTimer::new("Read DBCol::BlockMerkleTree", expected_count);
 
     let mut block_hash_to_ordinal = HashMap::with_capacity(expected_count);
     let mut iter = store.iter_ser::<PartialMerkleTree>(DBCol::BlockMerkleTree);
@@ -176,7 +196,23 @@ fn read_block_hash_to_ordinal(store: &Store, expected_count: usize) -> HashMap<C
     block_hash_to_ordinal
 }
 
-struct ReadTimer {
+fn check_is_height_corrupt(
+    height: BlockHeight,
+    ordinal_to_block_hash: &HashMap<u64, CryptoHash>,
+    height_to_block_hash: &HashMap<u64, CryptoHash>,
+    block_hash_to_ordinal: &HashMap<CryptoHash, u64>,
+) -> bool {
+    if let Some(block_hash) = height_to_block_hash.get(&height) {
+        if let Some(ordinal) = block_hash_to_ordinal.get(block_hash) {
+            if let Some(expected_block_hash) = ordinal_to_block_hash.get(ordinal) {
+                return expected_block_hash != block_hash;
+            }
+        }
+    }
+    false
+}
+
+struct WorkTimer {
     name: String,
     start: std::time::Instant,
     last_report_time: std::time::Instant,
@@ -184,7 +220,7 @@ struct ReadTimer {
     expected_total: usize,
 }
 
-impl ReadTimer {
+impl WorkTimer {
     fn new(name: &str, expected_total: usize) -> Self {
         println!("Starting read timer \"{}\"", name);
         Self {
@@ -200,7 +236,7 @@ impl ReadTimer {
         self.total = total;
         if self.last_report_time.elapsed() > Duration::from_secs(5) {
             println!(
-                "{}: {}/{} ({:.2}%) in {:?}, ETA: {:?}",
+                "{}: {}/{} ({:.2}%) in {:?}, ETA: {:.2?}s",
                 self.name,
                 self.total,
                 self.expected_total,
