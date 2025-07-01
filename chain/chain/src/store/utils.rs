@@ -4,7 +4,6 @@ use itertools::Itertools;
 use near_chain_primitives::Error;
 use near_epoch_manager::EpochManagerAdapter;
 use near_primitives::block::BlockHeader;
-use near_primitives::block_header;
 use near_primitives::errors::InvalidTxError;
 use near_primitives::hash::CryptoHash;
 use near_primitives::shard_layout::ShardLayout;
@@ -255,12 +254,14 @@ pub fn retrieve_headers(
     // The same method is used in `get_locator` which creates the headers request and chain store when saving block ordinals.
     let block_ordinal = chain_store.get_block_merkle_tree(&header.hash())?.size();
 
-    if header.height() < 50_000_000 {
-        return Ok(retrieve_headers_with_ordinal_corruption_protection(
+    // chain_id == near_primitives::chains::MAINNET
+    if (0..50_000_000).contains(&header.height()) {
+        return retrieve_headers_with_ordinal_corruption_protection(
             chain_store,
             header.height(),
             block_ordinal,
-        ));
+            max_headers_returned,
+        );
     }
 
     let mut headers = vec![];
@@ -290,34 +291,31 @@ pub fn retrieve_headers_with_ordinal_corruption_protection(
     chain_store: &ChainStoreAdapter,
     block_height: BlockHeight,
     block_ordinal: NumBlocks,
-) -> Vec<BlockHeader> {
-    let mut cur_height = block_height + 1;
+    max_headers_returned: u64,
+) -> Result<Vec<BlockHeader>, Error> {
     let mut next_ordinal = block_ordinal;
+    let mut next_ordinal_height = block_height;
+    let mut cur_height = block_height;
     let mut headers = vec![];
-
-    loop {
-        // Find block with the next ordinal. If it doesn't exist it means we don't have any more headers and we can break.
-        next_ordinal += 1;
-        let next_ordinal_header = match chain_store
-            .get_block_hash_from_ordinal(next_ordinal)
-            .and_then(|block_hash| chain_store.get_block_header(&block_hash))
-        {
-            Ok(h) => h,
-            Err(_) => break,
-        };
-
-        // Increase heights until we reach the height of the next ordinal.
-        while cur_height <= next_ordinal_header.height() && headers.len() < 512 {
-            if let Ok(header) = chain_store.get_block_header_by_height(cur_height) {
-                headers.push(header);
-            }
-            cur_height += 1;
+    while (headers.len() as u64) < max_headers_returned {
+        if cur_height >= next_ordinal_height {
+            // Find block with the next ordinal. If it doesn't exist it means we don't have any more headers and we can break.
+            next_ordinal += 1;
+            let next_ordinal_header = match chain_store
+                .get_block_hash_from_ordinal(next_ordinal)
+                .and_then(|block_hash| chain_store.get_block_header(&block_hash))
+            {
+                Ok(h) => h,
+                Err(_) => break,
+            };
+            next_ordinal_height = next_ordinal_header.height();
         }
 
-        if headers.len() >= 512 {
-            break;
+        if let Ok(header) = chain_store.get_block_header_by_height(cur_height) {
+            headers.push(header);
         }
+        cur_height += 1;
     }
 
-    headers
+    Ok(headers)
 }
