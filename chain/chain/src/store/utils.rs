@@ -243,7 +243,10 @@ pub fn retrieve_headers(
 ) -> Result<Vec<BlockHeader>, Error> {
     let header = match find_common_header(chain_store, &hashes) {
         Some(header) => header,
-        None => return Ok(vec![]),
+        None => {
+            tracing::debug!(target: "retrieve_headers", "No common header found in the provided hashes: {:?}", hashes);
+            return Ok(vec![]);
+        }
     };
 
     // Block ordinals stored in db are off by one so adding 0 will return the next block after `header`.
@@ -259,5 +262,8 @@ pub fn retrieve_headers(
             Err(_) => break, // This is either the last block that we know of, or we don't have these block headers because of epoch sync.
         }
     }
+
+    tracing::debug!(target: "retrieve_headers", header_hash = ?header.hash(), header_ordinal = ?header.block_ordinal(), header_height = ?header.height(), max_headers_returned, "Retrieved headers: {:?}", headers);
+
     Ok(headers)
 }
