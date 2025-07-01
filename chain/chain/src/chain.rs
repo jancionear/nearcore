@@ -1804,6 +1804,7 @@ impl Chain {
         };
 
         if all_known {
+            tracing::debug!(target: "sync", "All headers are known");
             return Ok(());
         }
 
@@ -1811,13 +1812,19 @@ impl Chain {
         for header in headers.iter() {
             match check_header_known(self, header)? {
                 Ok(_) => {}
-                Err(_) => continue,
+                Err(_) => {
+                    tracing::debug!(target: "sync", "Header is known, skipping: {:?}", header.hash());
+                    continue;
+                }
             }
 
-            self.validate_header(header, &Provenance::SYNC, challenges)?;
+            if let Err(err) = self.validate_header(header, &Provenance::SYNC, challenges) {
+                tracing::error!("Failed to validate header {:?}: {}", header.hash(), err);
+                return Err(err);
+            }
             let mut chain_store_update = self.chain_store.store_update();
             chain_store_update.save_block_header(header.clone())?;
-
+            tracing::debug!(target: "sync", "Saved header {:?}", header.hash(),);
             // Add validator proposals for given header.
             let last_finalized_height =
                 chain_store_update.get_block_height(header.last_final_block())?;
