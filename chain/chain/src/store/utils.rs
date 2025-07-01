@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use itertools::Itertools;
 use near_chain_primitives::Error;
 use near_epoch_manager::EpochManagerAdapter;
 use near_primitives::block::BlockHeader;
@@ -243,7 +244,10 @@ pub fn retrieve_headers(
 ) -> Result<Vec<BlockHeader>, Error> {
     let header = match find_common_header(chain_store, &hashes) {
         Some(header) => header,
-        None => return Ok(vec![]),
+        None => {
+            tracing::debug!(target: "retrieve_headers", "No common header found in the provided hashes: {:?}", hashes);
+            return Ok(vec![]);
+        }
     };
 
     // Use `get_block_merkle_tree` to get the block ordinal for this header.
@@ -261,5 +265,15 @@ pub fn retrieve_headers(
             Err(_) => break, // This is either the last block that we know of, or we don't have these block headers because of epoch sync.
         }
     }
+
+    tracing::debug!(target: "retrieve_headers",
+        header_hash = ?header.hash(),
+        header_ordinal = ?header.block_ordinal(),
+        header_height = ?header.height(),
+        max_headers_returned,
+        header_hashes = ?headers.iter().map(|h| h.hash()).take(10).collect_vec(),
+        header_hashes_len = headers.len(),
+        "Retrieved headers");
+
     Ok(headers)
 }
