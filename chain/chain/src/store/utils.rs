@@ -255,7 +255,7 @@ pub fn retrieve_headers(
     // The same method is used in `get_locator` which creates the headers request and chain store when saving block ordinals.
     let block_ordinal = chain_store.get_block_merkle_tree(&header.hash())?.size();
 
-    if header.height() < 40_000_000 {
+    if header.height() < 50_000_000 {
         return Ok(retrieve_headers_with_ordinal_corruption_protection(
             chain_store,
             header.height(),
