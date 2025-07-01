@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::rc::Rc;
-use std::sync::Arc;
+use std::sync::{Arc, mpsc};
 use std::time::Duration;
 
 use clap::Parser;
@@ -11,6 +11,7 @@ use near_chain_configs::GenesisValidationMode;
 use near_primitives::hash::CryptoHash;
 use near_primitives::merkle::PartialMerkleTree;
 use near_primitives::types::BlockHeight;
+use near_store::trie::update;
 use near_store::{DBCol, Store};
 use nearcore::config::load_config;
 
@@ -32,8 +33,9 @@ pub(crate) struct OrdinalCommand {
 
     #[arg(long)]
     scan_for_corrupt: bool,
-    // #[arg(long, default_value_t = 1000)]
-    // scan_concurrency: usize,
+
+    #[arg(long, default_value_t = 1000)]
+    scan_concurrency: usize,
 }
 
 impl OrdinalCommand {
@@ -126,23 +128,52 @@ impl OrdinalCommand {
                 (tip_height - genesis_height + 1) as usize,
             );
 
-            let mut total_corrupt = 0;
-            for height in genesis_height..=tip_height {
-                if check_is_height_corrupt(
-                    height,
-                    &ordinal_to_block_hash,
-                    &height_to_block_hash,
-                    &block_hash_to_ordinal,
-                ) {
-                    total_corrupt += 1;
-                    println!(
-                        "Corrupt block found at height {} (total corrupt: {})",
-                        height, total_corrupt
+            let (updates_sender, updates_receiver) = mpsc::channel();
+
+            let mut scan_threads = Vec::new();
+            for thread_id in 0..self.scan_concurrency {
+                let ordinal_to_block_hash_clone = Arc::clone(&ordinal_to_block_hash);
+                let height_to_block_hash_clone = Arc::clone(&height_to_block_hash);
+                let block_hash_to_ordinal_clone = Arc::clone(&block_hash_to_ordinal);
+
+                let updates_sender = updates_sender.clone();
+                let concurrency = self.scan_concurrency;
+                let scan_thread = std::thread::spawn(move || {
+                    scan_thread(
+                        ordinal_to_block_hash_clone,
+                        height_to_block_hash_clone,
+                        block_hash_to_ordinal_clone,
+                        genesis_height,
+                        tip_height,
+                        thread_id,
+                        concurrency,
+                        updates_sender,
                     );
-                }
-                scan_timer.update_total((height - genesis_height + 1) as usize);
+                });
+                scan_threads.push(scan_thread);
             }
+            std::mem::drop(updates_sender);
+
+            let mut total_scanned = 0;
+            let mut total_corrupt = 0;
+            while let Ok(update) = updates_receiver.recv() {
+                match update {
+                    Update::Scanned(scanned) => {
+                        total_scanned += scanned;
+                        scan_timer.update_total(total_scanned);
+                    }
+                    Update::FoundCorrupt(height) => {
+                        total_corrupt += 1;
+                        println!("Corrupt block found at height {}", height);
+                    }
+                }
+            }
+
             println!("Scan finished, total corrupt blocks: {}", total_corrupt);
+
+            for thread in scan_threads {
+                thread.join().unwrap();
+            }
         }
 
         Ok(())
@@ -194,6 +225,40 @@ fn read_block_hash_to_ordinal(store: &Store, expected_count: usize) -> HashMap<C
 
     read_timer.finish();
     block_hash_to_ordinal
+}
+
+fn scan_thread(
+    ordinal_to_block_hash: Arc<HashMap<u64, CryptoHash>>,
+    height_to_block_hash: Arc<HashMap<u64, CryptoHash>>,
+    block_hash_to_ordinal: Arc<HashMap<CryptoHash, u64>>,
+    genesis_height: BlockHeight,
+    tip_height: BlockHeight,
+    thread_id: usize,
+    concurrency: usize,
+    updates_sender: mpsc::Sender<Update>,
+) {
+    let mut scanned = 0;
+
+    for height in ((genesis_height + thread_id as u64)..=tip_height).step_by(concurrency) {
+        if check_is_height_corrupt(
+            height,
+            &ordinal_to_block_hash,
+            &height_to_block_hash,
+            &block_hash_to_ordinal,
+        ) {
+            updates_sender.send(Update::FoundCorrupt(height)).unwrap();
+        }
+        scanned += 1;
+        if scanned == 10000 {
+            updates_sender.send(Update::Scanned(scanned)).unwrap();
+            scanned = 0;
+        }
+    }
+}
+
+enum Update {
+    Scanned(usize),
+    FoundCorrupt(BlockHeight),
 }
 
 fn check_is_height_corrupt(
