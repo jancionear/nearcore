@@ -13,7 +13,7 @@ use std::cmp::min;
 use tracing::{debug, warn};
 
 /// Maximum number of block headers send over the network.
-pub const MAX_BLOCK_HEADERS: u64 = 512;
+pub const MAX_BLOCK_HEADERS: u64 = 10_000;
 
 /// Maximum number of block header hashes to send as part of a locator.
 pub const MAX_BLOCK_HEADER_HASHES: usize = 20;
