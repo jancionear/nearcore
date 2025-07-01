@@ -9,6 +9,7 @@ use crate::corrupt::CorruptStateSnapshotCommand;
 use crate::drop_column::DropColumnCommand;
 use crate::make_snapshot::MakeSnapshotCommand;
 use crate::memtrie::LoadMemTrieCommand;
+use crate::ordinal::OrdinalCommand;
 use crate::reset_version::ResetVersionCommand;
 use crate::resharding_v2::ReshardingV2Command;
 use crate::rollback_to_25::RollbackTo25Command;
@@ -77,6 +78,8 @@ enum SubCommand {
     /// Rollback the database from format used by neard 2.6 to the format used by neard 2.5.
     /// Removes ChunkApplyStats column and sets DB version to 43.
     RollbackTo25(RollbackTo25Command),
+
+    Ordinal(OrdinalCommand),
 }
 
 impl DatabaseCommand {
@@ -109,6 +112,7 @@ impl DatabaseCommand {
                 cmd.run(near_config, home)
             }
             SubCommand::RollbackTo25(cmd) => cmd.run(home, genesis_validation),
+            SubCommand::Ordinal(cmd) => cmd.run(home, genesis_validation),
         }
     }
 }

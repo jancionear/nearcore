@@ -338,6 +338,13 @@ impl ChainStoreAdapter {
         )
     }
 
+    pub fn delete_ordinal(&self, block_ordinal: NumBlocks) -> Result<(), Error> {
+        let mut su = self.store_update();
+        su.store_update.delete(DBCol::BlockOrdinal, &index_to_bytes(block_ordinal));
+        su.commit().unwrap();
+        Ok(())
+    }
+
     pub fn get_block_merkle_tree_from_ordinal(
         &self,
         block_ordinal: NumBlocks,
