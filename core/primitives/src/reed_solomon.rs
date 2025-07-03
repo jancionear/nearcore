@@ -10,7 +10,7 @@ use std::sync::Arc;
 /// This should help with making the code a bit more understandable.
 pub type ReedSolomonPart = Option<Box<[u8]>>;
 
-pub const REED_SOLOMON_MAX_PARTS: usize = reed_solomon_erasure::galois_8::Field::ORDER;
+pub const REED_SOLOMON_MAX_PARTS: usize = 2;
 
 // Encode function takes a serializable object and returns a tuple of parts and length of encoded data
 pub fn reed_solomon_encode<T: BorshSerialize>(
