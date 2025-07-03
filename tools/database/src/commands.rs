@@ -8,6 +8,7 @@ use crate::compact::RunCompactionCommand;
 use crate::drop_column::DropColumnCommand;
 use crate::make_snapshot::MakeSnapshotCommand;
 use crate::memtrie::{LoadMemTrieCommand, SplitShardTrieCommand};
+use crate::ordinal_inconsistency::OrdinalInconsistencyCommand;
 use crate::rollback_to_26::RollbackTo26Command;
 use crate::run_migrations::RunMigrationsCommand;
 use crate::set_version::SetVersionCommand;
@@ -73,6 +74,9 @@ enum SubCommand {
     /// Rollback the database from format used by neard 2.7 to the format used by neard 2.6.
     /// Sets DB version to 44.
     RollbackTo26(RollbackTo26Command),
+    /// TODO
+    #[clap(subcommand)]
+    OrdinalInconsistency(OrdinalInconsistencyCommand),
 }
 
 impl DatabaseCommand {
@@ -101,6 +105,7 @@ impl DatabaseCommand {
             SubCommand::AnalyzeContractSizes(cmd) => cmd.run(home, genesis_validation),
             SubCommand::SetVersion(cmd) => cmd.run(home, genesis_validation),
             SubCommand::RollbackTo26(cmd) => cmd.run(home, genesis_validation),
+            SubCommand::OrdinalInconsistency(cmd) => cmd.run(home, genesis_validation),
         }
     }
 }
