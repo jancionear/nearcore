@@ -1,5 +1,7 @@
 use std::time::Duration;
 
+use near_o11y::tracing;
+
 pub struct WorkTimer {
     name: String,
     start: std::time::Instant,
@@ -11,7 +13,7 @@ pub struct WorkTimer {
 impl WorkTimer {
     pub fn new(name: impl ToString, expected_total: usize) -> Self {
         let name = name.to_string();
-        println!("\"{}\": Started", name);
+        tracing::info!("\"{}\": Started", name);
         Self {
             name,
             start: std::time::Instant::now(),
@@ -24,7 +26,7 @@ impl WorkTimer {
     pub fn add_processed(&mut self, processed: usize) {
         self.total += processed;
         if self.last_report_time.elapsed() > Duration::from_secs(5) {
-            println!(
+            tracing::info!(
                 "{}: {}/{} ({:.2}%) in {:?}, ETA: {:.2?}s",
                 self.name,
                 self.total,
@@ -39,7 +41,7 @@ impl WorkTimer {
     }
 
     pub fn finish(&self) {
-        println!(
+        tracing::info!(
             "{}: Finished - processed {} in {:?}",
             self.name,
             self.total,

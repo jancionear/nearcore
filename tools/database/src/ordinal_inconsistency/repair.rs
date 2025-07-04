@@ -1,3 +1,5 @@
+use near_chain::Error;
+use near_o11y::tracing;
 use near_primitives::utils::index_to_bytes;
 use near_store::{DBCol, Store};
 
@@ -6,13 +8,13 @@ use super::OrdinalInconsistency;
 pub fn repair_ordinal_inconsistencies(
     store: &Store,
     inconsistencies: &[OrdinalInconsistency],
-) -> anyhow::Result<()> {
+) -> Result<(), Error> {
     let mut write_timer =
         super::timer::WorkTimer::new("Repair ordinal inconsistencies", inconsistencies.len());
 
     let write_batch_size = 512;
     for inconsistency_batch in inconsistencies.chunks(write_batch_size) {
-        println!(
+        tracing::info!(
             "Repairing {} inconsistencies between heights {} - {}",
             inconsistency_batch.len(),
             inconsistency_batch.first().unwrap().block_height,
@@ -21,13 +23,11 @@ pub fn repair_ordinal_inconsistencies(
 
         let mut db_update = store.store_update();
         for inconsistency in inconsistency_batch {
-            db_update
-                .set_ser(
-                    DBCol::BlockOrdinal,
-                    &index_to_bytes(inconsistency.block_ordinal),
-                    &inconsistency.correct_block_hash,
-                )
-                .unwrap();
+            db_update.set_ser(
+                DBCol::BlockOrdinal,
+                &index_to_bytes(inconsistency.block_ordinal),
+                &inconsistency.correct_block_hash,
+            )?;
         }
         db_update.commit()?;
 
@@ -35,6 +35,8 @@ pub fn repair_ordinal_inconsistencies(
     }
 
     write_timer.finish();
+
+    tracing::info!("Successfully repaired {} ordinal inconsistencies", inconsistencies.len());
 
     Ok(())
 }
