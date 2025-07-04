@@ -11,7 +11,7 @@ pub struct WorkTimer {
 impl WorkTimer {
     pub fn new(name: impl ToString, expected_total: usize) -> Self {
         let name = name.to_string();
-        println!("Starting read timer \"{}\"", name);
+        println!("\"{}\": Started", name);
         Self {
             name,
             start: std::time::Instant::now(),
@@ -21,8 +21,8 @@ impl WorkTimer {
         }
     }
 
-    pub fn update_total(&mut self, total: usize) {
-        self.total = total;
+    pub fn add_processed(&mut self, processed: usize) {
+        self.total += processed;
         if self.last_report_time.elapsed() > Duration::from_secs(5) {
             println!(
                 "{}: {}/{} ({:.2}%) in {:?}, ETA: {:.2?}s",
@@ -31,7 +31,7 @@ impl WorkTimer {
                 self.expected_total,
                 (self.total as f64 / self.expected_total as f64) * 100.0,
                 self.start.elapsed(),
-                (self.expected_total - self.total) as f64 / self.total as f64
+                self.expected_total.saturating_sub(self.total) as f64 / self.total as f64
                     * self.start.elapsed().as_secs_f64()
             );
             self.last_report_time = std::time::Instant::now();
@@ -40,7 +40,7 @@ impl WorkTimer {
 
     pub fn finish(&self) {
         println!(
-            "{}: Finished reading {} entries in {:?}",
+            "{}: Finished - processed {} in {:?}",
             self.name,
             self.total,
             self.start.elapsed()

@@ -27,7 +27,6 @@ pub fn find_ordinal_inconsistencies(
     std::mem::drop(update_sender);
 
     let mut found_inconsistencies = Vec::new();
-    let mut processed_counter = 0;
     let mut timer = WorkTimer::new("Scan for inconsistencies", db_data.height_to_block_hash.len());
 
     while let Ok(update) = update_receiver.recv() {
@@ -36,8 +35,7 @@ pub fn find_ordinal_inconsistencies(
                 found_inconsistencies.push(inconsistency);
             }
             FindInconsistenciesUpdate::Processed(count) => {
-                processed_counter += count;
-                timer.update_total(processed_counter);
+                timer.add_processed(count);
             }
         }
     }
@@ -60,7 +58,7 @@ pub fn find_ordinal_inconsistencies(
     std::mem::drop(ordinal_to_block_hash);
 
     // Convert HashIndex to CryptoHash
-    let mut timer = WorkTimer::new("Convert HashIndex to CryptoHash", found_inconsistencies.len());
+    let mut timer = WorkTimer::new("Convert HashIndex to CryptoHash", hash_to_index.len());
     let mut need_hash_for_index: HashSet<HashIndex> =
         HashSet::with_capacity(found_inconsistencies.len() * 2);
     for inconsistency in &found_inconsistencies {
@@ -70,11 +68,11 @@ pub fn find_ordinal_inconsistencies(
 
     let mut index_to_hash: HashMap<HashIndex, CryptoHash> =
         HashMap::with_capacity(need_hash_for_index.len());
-    for (i, (hash, index)) in hash_to_index.iter().enumerate() {
+    for (hash, index) in hash_to_index {
         if need_hash_for_index.contains(&index) {
-            index_to_hash.insert(*index, *hash);
+            index_to_hash.insert(index, hash);
         }
-        timer.update_total(i);
+        timer.add_processed(1);
     }
 
     let mut result = Vec::with_capacity(found_inconsistencies.len());
@@ -97,7 +95,16 @@ pub fn find_ordinal_inconsistencies(
     }
     result.sort_by_key(|i| i.block_height);
 
-    println!("Found {} inconsistencies", result.len());
+    if !result.is_empty() {
+        println!(
+            "Found {} inconsistencies (min height: {}, max height: {})",
+            result.len(),
+            result.first().unwrap().block_height,
+            result.last().unwrap().block_height
+        );
+    } else {
+        println!("Found 0 inconsistencies");
+    }
     for inconsistency in &result {
         println!(
             "Height: {}, Ordinal: {}, Correct Hash: {}, Actual Hash: {}",

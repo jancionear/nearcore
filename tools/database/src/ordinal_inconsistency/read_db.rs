@@ -148,7 +148,6 @@ fn read_db_column<KeyType: BorshDeserialize, ValueType: BorshDeserialize>(
     send_batch: impl Fn(Vec<(KeyType, ValueType)>),
 ) -> Result<(), Error> {
     let mut read_timer = WorkTimer::new(format!("read_db_column({})", column), expected_count);
-    let mut total_read = 0;
 
     let mut cur_batch = Vec::with_capacity(DbReadUpdate::batch_size());
     let mut iter = store.iter_ser::<ValueType>(column);
@@ -162,8 +161,7 @@ fn read_db_column<KeyType: BorshDeserialize, ValueType: BorshDeserialize>(
             cur_batch = Vec::with_capacity(DbReadUpdate::batch_size());
         }
 
-        total_read += 1;
-        read_timer.update_total(total_read);
+        read_timer.add_processed(1);
     }
     if !cur_batch.is_empty() {
         send_batch(cur_batch);
