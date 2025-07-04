@@ -62,8 +62,8 @@ pub fn find_ordinal_inconsistencies(
     let mut need_hash_for_index: HashSet<HashIndex> =
         HashSet::with_capacity(found_inconsistencies.len() * 2);
     for inconsistency in &found_inconsistencies {
-        need_hash_for_index.insert(inconsistency.correct_block_hash);
-        need_hash_for_index.insert(inconsistency.actual_block_hash);
+        need_hash_for_index.insert(inconsistency.correct_block_hash_index);
+        need_hash_for_index.insert(inconsistency.actual_block_hash_index);
     }
 
     let mut index_to_hash: HashMap<HashIndex, CryptoHash> =
@@ -77,14 +77,10 @@ pub fn find_ordinal_inconsistencies(
 
     let mut result = Vec::with_capacity(found_inconsistencies.len());
     for inconsistency in found_inconsistencies {
-        let correct_block_hash = index_to_hash
-            .get(&inconsistency.correct_block_hash)
-            .cloned()
-            .unwrap_or_else(|| CryptoHash::default());
-        let actual_block_hash = index_to_hash
-            .get(&inconsistency.actual_block_hash)
-            .cloned()
-            .unwrap_or_else(|| CryptoHash::default());
+        let correct_block_hash =
+            index_to_hash.get(&inconsistency.correct_block_hash_index).cloned().unwrap();
+        let actual_block_hash =
+            index_to_hash.get(&inconsistency.actual_block_hash_index).cloned().unwrap();
 
         result.push(OrdinalInconsistency {
             block_height: inconsistency.block_height.into(),
@@ -126,8 +122,8 @@ enum FindInconsistenciesUpdate {
 struct FoundInconsistency {
     block_height: u32,
     block_ordinal: u32,
-    correct_block_hash: HashIndex,
-    actual_block_hash: HashIndex,
+    correct_block_hash_index: HashIndex,
+    actual_block_hash_index: HashIndex,
 }
 
 fn find_inconsistencies_thread(
@@ -151,8 +147,8 @@ fn find_inconsistencies_thread(
                         .send(FindInconsistenciesUpdate::Inconsistency(FoundInconsistency {
                             block_height: (height).into(),
                             block_ordinal: (*block_ordinal).into(),
-                            correct_block_hash: block_hash,
-                            actual_block_hash: *hash_at_ordinal,
+                            correct_block_hash_index: block_hash,
+                            actual_block_hash_index: *hash_at_ordinal,
                         }))
                         .unwrap();
                 }

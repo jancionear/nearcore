@@ -57,25 +57,29 @@ pub fn read_db_data(chain_store: &ChainStore) -> Result<ReadDbData, Error> {
     let mut ordinal_to_hash: HashMap<u32, HashIndex> = HashMap::with_capacity(expected_count);
     let mut hash_to_ordinal: HashMap<HashIndex, u32> = HashMap::with_capacity(expected_count);
 
+    let mut get_hash_index = |hash: CryptoHash| -> HashIndex {
+        let next_index = HashIndex(hash_to_index.len().try_into().unwrap());
+        *hash_to_index.entry(hash).or_insert(next_index)
+    };
+
     while let Ok(db_update) = db_update_receiver.recv() {
-        let next_hash_index = HashIndex(hash_to_index.len().try_into().unwrap());
         match db_update {
             DbReadUpdate::HeightToBlockHash(entries) => {
                 for (height, block_hash) in entries {
-                    let hash_index = hash_to_index.entry(block_hash).or_insert(next_hash_index);
-                    height_to_hash.push((height.try_into().unwrap(), *hash_index));
+                    let hash_index = get_hash_index(block_hash);
+                    height_to_hash.push((height.try_into().unwrap(), hash_index));
                 }
             }
             DbReadUpdate::BlockHashToOrdinal(entries) => {
                 for (block_hash, ordinal) in entries {
-                    let hash_index = hash_to_index.entry(block_hash).or_insert(next_hash_index);
-                    hash_to_ordinal.insert(*hash_index, ordinal.try_into().unwrap());
+                    let hash_index = get_hash_index(block_hash);
+                    hash_to_ordinal.insert(hash_index, ordinal.try_into().unwrap());
                 }
             }
             DbReadUpdate::OrdinalToBlockHash(entries) => {
                 for (ordinal, block_hash) in entries {
-                    let hash_index = hash_to_index.entry(block_hash).or_insert(next_hash_index);
-                    ordinal_to_hash.insert(ordinal.try_into().unwrap(), *hash_index);
+                    let hash_index = get_hash_index(block_hash);
+                    ordinal_to_hash.insert(ordinal.try_into().unwrap(), hash_index);
                 }
             }
         }
