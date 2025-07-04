@@ -1,5 +1,4 @@
 use near_chain::Error;
-use near_o11y::tracing;
 use near_primitives::utils::index_to_bytes;
 use near_store::{DBCol, Store};
 
@@ -14,7 +13,7 @@ pub fn repair_ordinal_inconsistencies(
 
     let write_batch_size = 512;
     for inconsistency_batch in inconsistencies.chunks(write_batch_size) {
-        tracing::info!(
+        println!(
             "Repairing {} inconsistencies between heights {} - {}",
             inconsistency_batch.len(),
             inconsistency_batch.first().unwrap().block_height,
@@ -36,7 +35,7 @@ pub fn repair_ordinal_inconsistencies(
 
     write_timer.finish();
 
-    tracing::info!("Successfully repaired {} ordinal inconsistencies", inconsistencies.len());
+    println!("Successfully repaired {} ordinal inconsistencies", inconsistencies.len());
 
     Ok(())
 }

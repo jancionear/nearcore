@@ -59,8 +59,8 @@ impl OrdinalInconsistencyCommand {
             OrdinalInconsistencyCommand::FindAndRepair(scan_and_fix_cmd) => {
                 let inconsistencies = find_ordinal_inconsistencies(&chain_store).unwrap();
                 if !scan_and_fix_cmd.noconfirm {
-                    if !get_user_confirmation(&format!("Contiune with repair?")) {
-                        println!("Aborting...");
+                    if !get_user_confirmation(&format!("Continue with repair?")) {
+                        println!("Cancelling...");
                         return Ok(());
                     }
                 }

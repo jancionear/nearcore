@@ -2,7 +2,6 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use near_chain::{ChainStore, Error};
-use near_o11y::tracing;
 use near_primitives::hash::CryptoHash;
 
 use crate::ordinal_inconsistency::timer::WorkTimer;
@@ -93,17 +92,17 @@ pub fn find_ordinal_inconsistencies(
     result.sort_by_key(|i| i.block_height);
 
     if !result.is_empty() {
-        tracing::info!(
+        println!(
             "Found {} inconsistencies (min height: {}, max height: {})",
             result.len(),
             result.first().unwrap().block_height,
             result.last().unwrap().block_height
         );
     } else {
-        tracing::info!("Found 0 inconsistencies");
+        println!("Found 0 inconsistencies");
     }
     for inconsistency in &result {
-        tracing::info!(
+        println!(
             "Height: {}, Ordinal: {}, Correct Hash: {}, Actual Hash: {}",
             inconsistency.block_height,
             inconsistency.block_ordinal,
