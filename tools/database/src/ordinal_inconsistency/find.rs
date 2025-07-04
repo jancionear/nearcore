@@ -97,6 +97,17 @@ pub fn find_ordinal_inconsistencies(
     }
     result.sort_by_key(|i| i.block_height);
 
+    println!("Found {} inconsistencies", result.len());
+    for inconsistency in &result {
+        println!(
+            "Height: {}, Ordinal: {}, Correct Hash: {}, Actual Hash: {}",
+            inconsistency.block_height,
+            inconsistency.block_ordinal,
+            inconsistency.correct_block_hash,
+            inconsistency.actual_block_hash
+        );
+    }
+
     Ok(result)
 }
 
