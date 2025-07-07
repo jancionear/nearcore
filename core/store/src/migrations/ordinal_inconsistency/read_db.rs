@@ -71,24 +71,24 @@ pub fn read_db_data(store: &Store) -> Result<ReadDbData, Error> {
     while let Ok(db_update) = db_update_receiver.recv() {
         match db_update {
             DbReadUpdate::HeightToBlockHash(entries) => {
+                read_height_to_block_hash_timer.add_processed(entries.len());
                 for (height, block_hash) in entries {
                     let hash_index = get_hash_index(block_hash);
                     height_to_hash.push((height.try_into().unwrap(), hash_index));
-                    read_height_to_block_hash_timer.add_processed(1);
                 }
             }
             DbReadUpdate::BlockHashToOrdinal(entries) => {
+                read_block_hash_to_ordinal_timer.add_processed(entries.len());
                 for (block_hash, ordinal) in entries {
                     let hash_index = get_hash_index(block_hash);
                     hash_to_ordinal.insert(hash_index, ordinal.try_into().unwrap());
-                    read_block_hash_to_ordinal_timer.add_processed(1);
                 }
             }
             DbReadUpdate::OrdinalToBlockHash(entries) => {
+                read_ordinal_to_block_hash_timer.add_processed(entries.len());
                 for (ordinal, block_hash) in entries {
                     let hash_index = get_hash_index(block_hash);
                     ordinal_to_hash.insert(ordinal.try_into().unwrap(), hash_index);
-                    read_ordinal_to_block_hash_timer.add_processed(1);
                 }
             }
             DbReadUpdate::FinishedReadingHeightToBlockHash => {
@@ -126,7 +126,7 @@ enum DbReadUpdate {
 
 impl DbReadUpdate {
     fn batch_size() -> usize {
-        4066
+        4096
     }
 }
 
