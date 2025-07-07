@@ -19,7 +19,7 @@ pub fn find_ordinal_inconsistencies(
 
     let num_threads = 128;
     let (update_sender, update_receiver) =
-        std::sync::mpsc::sync_channel::<FindInconsistenciesUpdate>(1024);
+        std::sync::mpsc::sync_channel::<FindInconsistenciesUpdate>(8096);
     let mut threads = Vec::with_capacity(num_threads);
     for thread_id in 0..num_threads {
         let db_data = db_data.clone();

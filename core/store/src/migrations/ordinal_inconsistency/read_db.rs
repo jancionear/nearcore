@@ -29,7 +29,8 @@ pub fn read_db_data(store: &Store) -> Result<ReadDbData, Error> {
     let last_block_ordinal = chain_store.get_block_merkle_tree(&tip.last_block_hash)?.size();
     let estimated_block_count: usize = (last_block_ordinal + 1).try_into().unwrap();
 
-    let (db_update_sender, db_update_receiver) = std::sync::mpsc::sync_channel::<DbReadUpdate>(512);
+    let (db_update_sender, db_update_receiver) =
+        std::sync::mpsc::sync_channel::<DbReadUpdate>(4096);
     let store = chain_store.store();
 
     let mut read_height_to_block_hash_timer =
@@ -73,22 +74,22 @@ pub fn read_db_data(store: &Store) -> Result<ReadDbData, Error> {
                 for (height, block_hash) in entries {
                     let hash_index = get_hash_index(block_hash);
                     height_to_hash.push((height.try_into().unwrap(), hash_index));
+                    read_height_to_block_hash_timer.add_processed(1);
                 }
-                read_height_to_block_hash_timer.add_processed(1);
             }
             DbReadUpdate::BlockHashToOrdinal(entries) => {
                 for (block_hash, ordinal) in entries {
                     let hash_index = get_hash_index(block_hash);
                     hash_to_ordinal.insert(hash_index, ordinal.try_into().unwrap());
+                    read_block_hash_to_ordinal_timer.add_processed(1);
                 }
-                read_block_hash_to_ordinal_timer.add_processed(1);
             }
             DbReadUpdate::OrdinalToBlockHash(entries) => {
                 for (ordinal, block_hash) in entries {
                     let hash_index = get_hash_index(block_hash);
                     ordinal_to_hash.insert(ordinal.try_into().unwrap(), hash_index);
+                    read_ordinal_to_block_hash_timer.add_processed(1);
                 }
-                read_ordinal_to_block_hash_timer.add_processed(1);
             }
             DbReadUpdate::FinishedReadingHeightToBlockHash => {
                 read_height_to_block_hash_timer.finish();
@@ -125,7 +126,7 @@ enum DbReadUpdate {
 
 impl DbReadUpdate {
     fn batch_size() -> usize {
-        512
+        4066
     }
 }
 
