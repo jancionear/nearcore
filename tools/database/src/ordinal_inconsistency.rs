@@ -16,10 +16,16 @@ pub(crate) enum OrdinalInconsistencyCommand {
 }
 
 #[derive(clap::Args)]
-pub(crate) struct FindCommand {}
+pub(crate) struct FindCommand {
+    #[clap(long, default_value_t = 100)]
+    pub print_max_inconsistencies: usize,
+}
 
 #[derive(clap::Args)]
 pub(crate) struct FindAndRepairCommand {
+    #[clap(long, default_value_t = 100)]
+    pub print_max_inconsistencies: usize,
+
     #[clap(long)]
     pub noconfirm: bool,
 }
@@ -40,11 +46,15 @@ impl OrdinalInconsistencyCommand {
         let store = node_storage.get_hot_store();
 
         match self {
-            OrdinalInconsistencyCommand::Find(_) => {
-                find_ordinal_inconsistencies(&store).unwrap();
+            OrdinalInconsistencyCommand::Find(find_cmd) => {
+                find_ordinal_inconsistencies(&store, find_cmd.print_max_inconsistencies).unwrap();
             }
             OrdinalInconsistencyCommand::FindAndRepair(scan_and_fix_cmd) => {
-                let inconsistencies = find_ordinal_inconsistencies(&store).unwrap();
+                let inconsistencies = find_ordinal_inconsistencies(
+                    &store,
+                    scan_and_fix_cmd.print_max_inconsistencies,
+                )
+                .unwrap();
                 if inconsistencies.is_empty() {
                     return Ok(());
                 }

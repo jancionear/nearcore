@@ -11,7 +11,7 @@ pub struct WorkTimer {
 impl WorkTimer {
     pub fn new(name: impl ToString, expected_total: usize) -> Self {
         let name = name.to_string();
-        println!("\"{}\": Started", name);
+        tracing::info!(target: "db", "\"{}\": Started", name);
         Self {
             name,
             start: std::time::Instant::now(),
@@ -24,7 +24,8 @@ impl WorkTimer {
     pub fn add_processed(&mut self, processed: usize) {
         self.total += processed;
         if self.last_report_time.elapsed() > Duration::from_secs(5) {
-            println!(
+            tracing::info!(
+                target: "db",
                 "{}: {}/{} ({:.2}%) in {:.2?}s, ETA: {:.2?}s",
                 self.name,
                 self.total,
@@ -39,7 +40,8 @@ impl WorkTimer {
     }
 
     pub fn finish(&self) {
-        println!(
+        tracing::info!(
+            target: "db",
             "{}: Finished - processed {} in {:?}",
             self.name,
             self.total,

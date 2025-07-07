@@ -13,7 +13,8 @@ pub fn repair_ordinal_inconsistencies(
 
     let write_batch_size = 512;
     for inconsistency_batch in inconsistencies.chunks(write_batch_size) {
-        println!(
+        tracing::info!(
+            target: "db",
             "Repairing {} inconsistencies between heights {} - {}",
             inconsistency_batch.len(),
             inconsistency_batch.first().unwrap().block_height,
@@ -35,7 +36,7 @@ pub fn repair_ordinal_inconsistencies(
 
     write_timer.finish();
 
-    println!("Successfully repaired {} ordinal inconsistencies", inconsistencies.len());
+    tracing::info!(target: "db", "Successfully repaired {} ordinal inconsistencies", inconsistencies.len());
 
     Ok(())
 }

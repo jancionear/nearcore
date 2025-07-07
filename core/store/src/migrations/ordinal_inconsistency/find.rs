@@ -11,7 +11,10 @@ use super::timer::WorkTimer;
 use super::OrdinalInconsistency;
 use super::read_db::{HashIndex, ReadDbData};
 
-pub fn find_ordinal_inconsistencies(store: &Store) -> Result<Vec<OrdinalInconsistency>, Error> {
+pub fn find_ordinal_inconsistencies(
+    store: &Store,
+    print_max_inconsistencies: usize,
+) -> Result<Vec<OrdinalInconsistency>, Error> {
     let db_data = Arc::new(super::read_db::read_db_data(store)?);
 
     let num_threads = 128;
@@ -47,7 +50,7 @@ pub fn find_ordinal_inconsistencies(store: &Store) -> Result<Vec<OrdinalInconsis
     }
 
     if found_inconsistencies.is_empty() {
-        println!("Found 0 inconsistencies");
+        tracing::info!(target: "db", "Found 0 ordinal inconsistencies");
         return Ok(Vec::new());
     }
 
@@ -97,17 +100,37 @@ pub fn find_ordinal_inconsistencies(store: &Store) -> Result<Vec<OrdinalInconsis
     }
     result.sort_by_key(|i| i.block_height);
 
-    println!("Inconsistencies found:");
-    for inconsistency in &result {
-        println!(
+    tracing::info!(target: "db", "Inconsistencies found:");
+    let print_inconsistency = |inconsistency: &OrdinalInconsistency| {
+        tracing::info!(
+            target: "db",
             "Height: {}, Ordinal: {}, Correct Hash: {}, Actual Hash: {}",
             inconsistency.block_height,
             inconsistency.block_ordinal,
             inconsistency.correct_block_hash,
             inconsistency.actual_block_hash
         );
+    };
+
+    if print_max_inconsistencies >= result.len() {
+        for inconsistency in result.iter().take(print_max_inconsistencies) {
+            print_inconsistency(inconsistency);
+        }
+    } else {
+        let print_first_num = print_max_inconsistencies / 2;
+        let print_last_num = print_max_inconsistencies - print_first_num;
+
+        for inconsistency in result.iter().take(print_first_num) {
+            print_inconsistency(inconsistency);
+        }
+        tracing::info!(target: "db", "[...] - Not printing {} inconsistencies to avoid spamming the logs", result.len() - print_max_inconsistencies);
+        for inconsistency in result.iter().rev().skip(result.len() - print_last_num) {
+            print_inconsistency(inconsistency);
+        }
     }
-    println!(
+
+    tracing::info!(
+        target: "db",
         "Found {} inconsistencies (min height: {}, max height: {})",
         result.len(),
         result.first().unwrap().block_height,

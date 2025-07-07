@@ -540,7 +540,7 @@ pub fn migrate_45_to_46(store: &Store) -> anyhow::Result<()> {
         return Ok(());
     }
 
-    let inconsistencies = ordinal_inconsistency::find_ordinal_inconsistencies(store)?;
+    let inconsistencies = ordinal_inconsistency::find_ordinal_inconsistencies(store, 64)?;
     ordinal_inconsistency::repair_ordinal_inconsistencies(store, &inconsistencies)?;
 
     Ok(())
