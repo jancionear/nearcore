@@ -1,12 +1,13 @@
 use std::collections::HashMap;
 
+use crate::adapter::StoreAdapter;
+use crate::adapter::chain_store::ChainStoreAdapter;
+use crate::{DBCol, Store};
 use borsh::BorshDeserialize;
-use near_chain::{ChainStore, Error};
+use near_chain_primitives::Error;
 use near_primitives::hash::CryptoHash;
 use near_primitives::merkle::PartialMerkleTree;
 use near_primitives::types::BlockHeight;
-use near_store::adapter::StoreAdapter;
-use near_store::{DBCol, Store};
 
 use super::timer::WorkTimer;
 
@@ -21,7 +22,9 @@ pub struct ReadDbData {
     pub ordinal_to_block_hash: HashMap<u32, HashIndex>,
 }
 
-pub fn read_db_data(chain_store: &ChainStore) -> Result<ReadDbData, Error> {
+pub fn read_db_data(store: &Store) -> Result<ReadDbData, Error> {
+    let chain_store = ChainStoreAdapter::new(store.clone());
+
     let tip = chain_store.head()?;
     let last_block_ordinal = chain_store.get_block_merkle_tree(&tip.last_block_hash)?.size();
     let expected_count: usize = (last_block_ordinal + 1).try_into().unwrap();

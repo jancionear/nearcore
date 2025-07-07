@@ -1,26 +1,12 @@
-mod find;
-mod read_db;
-mod repair;
-mod timer;
-
 use std::path::PathBuf;
 
-pub use find::find_ordinal_inconsistencies;
-use near_chain::ChainStore;
 use near_chain_configs::GenesisValidationMode;
-use near_primitives::hash::CryptoHash;
-use near_primitives::types::{BlockHeight, NumBlocks};
 use near_store::DBCol;
-pub use repair::repair_ordinal_inconsistencies;
+use near_store::migrations::ordinal_inconsistency::{
+    find_ordinal_inconsistencies, repair_ordinal_inconsistencies,
+};
 
 use crate::utils::get_user_confirmation;
-
-pub struct OrdinalInconsistency {
-    pub block_height: BlockHeight,
-    pub block_ordinal: NumBlocks,
-    pub correct_block_hash: CryptoHash,
-    pub actual_block_hash: CryptoHash,
-}
 
 #[derive(clap::Parser)]
 #[clap(subcommand_required = true, arg_required_else_help = true)]
@@ -52,18 +38,13 @@ impl OrdinalInconsistencyCommand {
         assert_eq!(DBCol::BlockOrdinal.is_cold(), false);
         assert_eq!(DBCol::BlockMerkleTree.is_cold(), false);
         let store = node_storage.get_hot_store();
-        let chain_store = ChainStore::new(
-            store.clone(),
-            false,
-            near_config.genesis.config.transaction_validity_period,
-        );
 
         match self {
             OrdinalInconsistencyCommand::Find(_) => {
-                find_ordinal_inconsistencies(&chain_store).unwrap();
+                find_ordinal_inconsistencies(&store).unwrap();
             }
             OrdinalInconsistencyCommand::FindAndRepair(scan_and_fix_cmd) => {
-                let inconsistencies = find_ordinal_inconsistencies(&chain_store).unwrap();
+                let inconsistencies = find_ordinal_inconsistencies(&store).unwrap();
                 if inconsistencies.is_empty() {
                     return Ok(());
                 }

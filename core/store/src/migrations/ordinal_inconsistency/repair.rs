@@ -1,6 +1,6 @@
-use near_chain::Error;
+use crate::{DBCol, Store};
+use near_chain_primitives::Error;
 use near_primitives::utils::index_to_bytes;
-use near_store::{DBCol, Store};
 
 use super::OrdinalInconsistency;
 

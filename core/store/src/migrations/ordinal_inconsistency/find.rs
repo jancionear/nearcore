@@ -1,18 +1,18 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
-use near_chain::{ChainStore, Error};
+use near_chain_primitives::Error;
 use near_primitives::hash::CryptoHash;
 
-use crate::ordinal_inconsistency::timer::WorkTimer;
+use crate::Store;
+
+use super::timer::WorkTimer;
 
 use super::OrdinalInconsistency;
 use super::read_db::{HashIndex, ReadDbData};
 
-pub fn find_ordinal_inconsistencies(
-    chain_store: &ChainStore,
-) -> Result<Vec<OrdinalInconsistency>, Error> {
-    let db_data = Arc::new(super::read_db::read_db_data(chain_store)?);
+pub fn find_ordinal_inconsistencies(store: &Store) -> Result<Vec<OrdinalInconsistency>, Error> {
+    let db_data = Arc::new(super::read_db::read_db_data(store)?);
 
     let num_threads = 128;
     let (update_sender, update_receiver) =
