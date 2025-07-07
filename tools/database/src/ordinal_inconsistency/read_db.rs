@@ -26,8 +26,7 @@ pub fn read_db_data(chain_store: &ChainStore) -> Result<ReadDbData, Error> {
     let last_block_ordinal = chain_store.get_block_merkle_tree(&tip.last_block_hash)?.size();
     let expected_count: usize = (last_block_ordinal + 1).try_into().unwrap();
 
-    // TODO - use bounded channel here
-    let (db_update_sender, db_update_receiver) = std::sync::mpsc::channel::<DbReadUpdate>();
+    let (db_update_sender, db_update_receiver) = std::sync::mpsc::sync_channel::<DbReadUpdate>(512);
     let store = chain_store.store();
 
     let read_height_to_block_hash_thread = {
@@ -112,7 +111,7 @@ impl DbReadUpdate {
 
 fn read_height_to_block_hash(
     store: &Store,
-    db_update_sender: &std::sync::mpsc::Sender<DbReadUpdate>,
+    db_update_sender: &std::sync::mpsc::SyncSender<DbReadUpdate>,
     expected_count: usize,
 ) -> Result<(), Error> {
     read_db_column(store, DBCol::BlockHeight, expected_count, |entries: Vec<(u64, CryptoHash)>| {
@@ -122,7 +121,7 @@ fn read_height_to_block_hash(
 
 fn read_block_hash_to_ordinal(
     store: &Store,
-    db_update_sender: &std::sync::mpsc::Sender<DbReadUpdate>,
+    db_update_sender: &std::sync::mpsc::SyncSender<DbReadUpdate>,
     expected_count: usize,
 ) -> Result<(), Error> {
     read_db_column(
@@ -138,7 +137,7 @@ fn read_block_hash_to_ordinal(
 
 fn read_ordinal_to_block_hash(
     store: &Store,
-    db_update_sender: &std::sync::mpsc::Sender<DbReadUpdate>,
+    db_update_sender: &std::sync::mpsc::SyncSender<DbReadUpdate>,
     expected_count: usize,
 ) -> Result<(), Error> {
     read_db_column(store, DBCol::BlockOrdinal, expected_count, |entries: Vec<(u64, CryptoHash)>| {

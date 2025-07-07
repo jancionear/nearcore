@@ -10,6 +10,7 @@ use near_chain::ChainStore;
 use near_chain_configs::GenesisValidationMode;
 use near_primitives::hash::CryptoHash;
 use near_primitives::types::{BlockHeight, NumBlocks};
+use near_store::DBCol;
 pub use repair::repair_ordinal_inconsistencies;
 
 use crate::utils::get_user_confirmation;
@@ -45,7 +46,12 @@ impl OrdinalInconsistencyCommand {
     ) -> anyhow::Result<()> {
         let mut near_config = nearcore::config::load_config(home, genesis_validation)?;
         let node_storage = nearcore::open_storage(home, &mut near_config)?;
-        let store = node_storage.get_split_store().unwrap_or_else(|| node_storage.get_hot_store());
+
+        // Hot store is enough, cold store doesn't contain the affected columns.
+        assert_eq!(DBCol::BlockHeight.is_cold(), false);
+        assert_eq!(DBCol::BlockOrdinal.is_cold(), false);
+        assert_eq!(DBCol::BlockMerkleTree.is_cold(), false);
+        let store = node_storage.get_hot_store();
         let chain_store = ChainStore::new(
             store.clone(),
             false,

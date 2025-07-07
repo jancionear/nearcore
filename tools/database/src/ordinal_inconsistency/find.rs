@@ -15,7 +15,8 @@ pub fn find_ordinal_inconsistencies(
     let db_data = Arc::new(super::read_db::read_db_data(chain_store)?);
 
     let num_threads = 128;
-    let (update_sender, update_receiver) = std::sync::mpsc::channel::<FindInconsistenciesUpdate>();
+    let (update_sender, update_receiver) =
+        std::sync::mpsc::sync_channel::<FindInconsistenciesUpdate>(1024);
     let mut threads = Vec::with_capacity(num_threads);
     for thread_id in 0..num_threads {
         let db_data = db_data.clone();
@@ -130,7 +131,7 @@ struct FoundInconsistency {
 
 fn find_inconsistencies_thread(
     db_data: &super::read_db::ReadDbData,
-    update_sender: &std::sync::mpsc::Sender<FindInconsistenciesUpdate>,
+    update_sender: &std::sync::mpsc::SyncSender<FindInconsistenciesUpdate>,
     thread_id: usize,
     num_threads: usize,
 ) {
