@@ -158,12 +158,7 @@ pub fn validate_chunk_endorsements_in_header(
     epoch_manager: &dyn EpochManagerAdapter,
     header: &BlockHeader,
 ) -> Result<(), Error> {
-    let Some(chunk_endorsements) = header.chunk_endorsements() else {
-        return Err(Error::InvalidChunkEndorsementBitmap(format!(
-            "Expected chunk endorsements bitmap but found None at height {}",
-            header.height()
-        )));
-    };
+    let Some(chunk_endorsements) = header.chunk_endorsements() else { return Ok(()) };
     let epoch_id = epoch_manager.get_epoch_id_from_prev_block(header.prev_hash())?;
     let shard_layout = epoch_manager.get_shard_layout(&epoch_id)?;
     let shard_ids = epoch_manager.get_shard_layout(&epoch_id)?.shard_ids().collect_vec();
