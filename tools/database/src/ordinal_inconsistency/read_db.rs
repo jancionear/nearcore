@@ -26,6 +26,7 @@ pub fn read_db_data(chain_store: &ChainStore) -> Result<ReadDbData, Error> {
     let last_block_ordinal = chain_store.get_block_merkle_tree(&tip.last_block_hash)?.size();
     let expected_count: usize = (last_block_ordinal + 1).try_into().unwrap();
 
+    // TODO - use bounded channel here
     let (db_update_sender, db_update_receiver) = std::sync::mpsc::channel::<DbReadUpdate>();
     let store = chain_store.store();
 

@@ -25,7 +25,7 @@ impl WorkTimer {
         self.total += processed;
         if self.last_report_time.elapsed() > Duration::from_secs(5) {
             println!(
-                "{}: {}/{} ({:.2}%) in {:?}, ETA: {:.2?}s",
+                "{}: {}/{} ({:.2}%) in {:.2?}s, ETA: {:.2?}s",
                 self.name,
                 self.total,
                 self.expected_total,

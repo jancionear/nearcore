@@ -45,6 +45,11 @@ pub fn find_ordinal_inconsistencies(
         thread.join().unwrap();
     }
 
+    if found_inconsistencies.is_empty() {
+        println!("Found 0 inconsistencies");
+        return Ok(Vec::new());
+    }
+
     let db_data: ReadDbData =
         Arc::<ReadDbData>::try_unwrap(db_data).expect(" Should have exactly one owner");
     let ReadDbData {
@@ -91,16 +96,7 @@ pub fn find_ordinal_inconsistencies(
     }
     result.sort_by_key(|i| i.block_height);
 
-    if !result.is_empty() {
-        println!(
-            "Found {} inconsistencies (min height: {}, max height: {})",
-            result.len(),
-            result.first().unwrap().block_height,
-            result.last().unwrap().block_height
-        );
-    } else {
-        println!("Found 0 inconsistencies");
-    }
+    println!("Inconsistencies found:");
     for inconsistency in &result {
         println!(
             "Height: {}, Ordinal: {}, Correct Hash: {}, Actual Hash: {}",
@@ -110,6 +106,12 @@ pub fn find_ordinal_inconsistencies(
             inconsistency.actual_block_hash
         );
     }
+    println!(
+        "Found {} inconsistencies (min height: {}, max height: {})",
+        result.len(),
+        result.first().unwrap().block_height,
+        result.last().unwrap().block_height
+    );
 
     Ok(result)
 }
