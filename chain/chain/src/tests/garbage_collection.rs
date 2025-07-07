@@ -65,7 +65,8 @@ fn do_fork(
                 );
             }
             let next_bp_hash =
-                Chain::compute_bp_hash(chain.epoch_manager.as_ref(), next_epoch_id).unwrap();
+                Chain::compute_bp_hash(chain.epoch_manager.as_ref(), next_epoch_id, epoch_id)
+                    .unwrap();
             TestBlockBuilder::new(Clock::real(), &prev_block, signer.clone())
                 .epoch_id(epoch_id)
                 .next_epoch_id(next_epoch_id)

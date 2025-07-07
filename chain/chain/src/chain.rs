@@ -86,7 +86,7 @@ use near_primitives::types::{
     Balance, BlockHeight, BlockHeightDelta, EpochId, NumBlocks, ShardId, ShardIndex,
 };
 use near_primitives::utils::MaybeValidated;
-use near_primitives::version::PROTOCOL_VERSION;
+use near_primitives::version::{PROTOCOL_VERSION, ProtocolFeature};
 use near_primitives::views::{
     BlockStatusView, DroppedReason, ExecutionOutcomeWithIdView, ExecutionStatusView,
     FinalExecutionOutcomeView, FinalExecutionOutcomeWithReceiptView, FinalExecutionStatus,
@@ -611,11 +611,14 @@ impl Chain {
     pub fn compute_bp_hash(
         epoch_manager: &dyn EpochManagerAdapter,
         epoch_id: EpochId,
+        prev_epoch_id: EpochId,
     ) -> Result<CryptoHash, Error> {
         let validator_stakes = epoch_manager.get_epoch_block_producers_ordered(&epoch_id)?;
+        let protocol_version = epoch_manager.get_epoch_protocol_version(&prev_epoch_id)?;
+        #[allow(deprecated)]
         let bp_hash = compute_bp_hash_from_validator_stakes(
             &validator_stakes,
-            true, // We always use use_versioned_bp_hash_format after BlockHeaderV3 feature
+            ProtocolFeature::_DeprecatedBlockHeaderV3.enabled(protocol_version),
         );
         Ok(bp_hash)
     }
@@ -869,7 +872,11 @@ impl Chain {
             }
         } else {
             if header.next_bp_hash()
-                != &Chain::compute_bp_hash(self.epoch_manager.as_ref(), *header.next_epoch_id())?
+                != &Chain::compute_bp_hash(
+                    self.epoch_manager.as_ref(),
+                    *header.next_epoch_id(),
+                    *header.epoch_id(),
+                )?
             {
                 return Err(Error::InvalidNextBPHash);
             }
