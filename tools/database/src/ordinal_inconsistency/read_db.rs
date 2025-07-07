@@ -44,7 +44,6 @@ pub fn read_db_data(chain_store: &ChainStore) -> Result<ReadDbData, Error> {
         })
     };
     let read_ordinal_to_block_hash_thread = {
-        let store = store.clone();
         let db_update_sender = db_update_sender.clone();
         std::thread::spawn(move || {
             read_ordinal_to_block_hash(&store, &db_update_sender, expected_count)
