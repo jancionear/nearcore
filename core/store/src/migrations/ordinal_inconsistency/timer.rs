@@ -26,7 +26,7 @@ impl WorkTimer {
         if self.last_report_time.elapsed() > Duration::from_secs(5) {
             tracing::info!(
                 target: "db",
-                "{}: {}/{} ({:.2}%) in {:.2?}s, ETA: {:.2?}s",
+                "{}: {}/{} ({:.2}%) in {:.2?}, ETA: {:.2?}s",
                 self.name,
                 self.total,
                 self.expected_total,
@@ -42,7 +42,7 @@ impl WorkTimer {
     pub fn finish(&self) {
         tracing::info!(
             target: "db",
-            "{}: Finished - processed {} in {:?}",
+            "{}: Finished - processed {} in {:.2?}",
             self.name,
             self.total,
             self.start.elapsed()

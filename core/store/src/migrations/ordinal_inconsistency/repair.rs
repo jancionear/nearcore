@@ -11,16 +11,8 @@ pub fn repair_ordinal_inconsistencies(
     let mut write_timer =
         super::timer::WorkTimer::new("Repair ordinal inconsistencies", inconsistencies.len());
 
-    let write_batch_size = 512;
+    let write_batch_size = 1024;
     for inconsistency_batch in inconsistencies.chunks(write_batch_size) {
-        tracing::info!(
-            target: "db",
-            "Repairing {} inconsistencies between heights {} - {}",
-            inconsistency_batch.len(),
-            inconsistency_batch.first().unwrap().block_height,
-            inconsistency_batch.last().unwrap().block_height
-        );
-
         let mut db_update = store.store_update();
         for inconsistency in inconsistency_batch {
             db_update.set_ser(
