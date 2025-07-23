@@ -787,6 +787,7 @@ impl RuntimeAdapter for NightshadeRuntime {
             .with_label_values(&[&apply_reason.to_string(), &shard_id.to_string()])
             .start_timer();
 
+        let mut should_record = true;
         let mut trie = match storage_config.source {
             StorageDataSource::Db => self.get_trie_for_shard(
                 shard_id,
@@ -807,11 +808,14 @@ impl RuntimeAdapter for NightshadeRuntime {
                 trie.set_use_trie_accounting_cache(false);
                 trie
             }
-            StorageDataSource::Recorded(storage) => Trie::from_recorded_storage(
-                storage,
-                storage_config.state_root,
-                storage_config.use_flat_storage,
-            ),
+            StorageDataSource::Recorded(storage) => {
+                should_record = false;
+                Trie::from_recorded_storage(
+                    storage,
+                    storage_config.state_root,
+                    storage_config.use_flat_storage,
+                )
+            }
         };
 
         // StateWitnessSizeLimit: We need to start recording reads if the stateless validation is
@@ -821,7 +825,9 @@ impl RuntimeAdapter for NightshadeRuntime {
         let protocol_version = self.epoch_manager.get_epoch_protocol_version(&epoch_id)?;
         let config = self.runtime_config_store.get_config(protocol_version);
         let proof_limit = config.witness_config.main_storage_proof_size_soft_limit;
-        trie = trie.recording_reads_with_proof_size_limit(proof_limit);
+        if should_record {
+            trie = trie.recording_reads_with_proof_size_limit(proof_limit);
+        }
 
         match self.process_state_update(
             trie,
