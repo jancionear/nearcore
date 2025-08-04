@@ -1531,7 +1531,7 @@ impl Trie {
                 self.retrieve_value(&value_ref.hash, operation_options)
             }
             OptimizedValueRef::AvailableValue(ValueAccessToken { value }) => {
-                let value_hash = hash(value);
+                let value_hash = HASH_CACHE.hash(value);
                 let arc_value: Arc<[u8]> = value.clone().into();
                 if operation_options.trie_access_tracker.track_mem_lookup(&value_hash).is_none() {
                     operation_options
