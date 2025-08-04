@@ -2,7 +2,8 @@ use super::{MemTrieNodePtr, MemTrieNodeView};
 use crate::trie::TRIE_COSTS;
 use crate::trie::mem::arena::ArenaMemory;
 use crate::{RawTrieNode, RawTrieNodeWithSize};
-use near_primitives::hash::{hash, CryptoHash};
+use near_primitives::hash::{CryptoHash};
+use near_primitives::hash_cache::HASH_CACHE;
 
 impl<'a, M: ArenaMemory> MemTrieNodeView<'a, M> {
     /// Returns the node's hash. Requires that the hash is already computed.
@@ -10,7 +11,7 @@ impl<'a, M: ArenaMemory> MemTrieNodeView<'a, M> {
         match self {
             Self::Leaf { .. } => {
                 let node = self.clone().to_raw_trie_node_with_size();
-                hash(&borsh::to_vec(&node).unwrap())
+                HASH_CACHE.hash(&borsh::to_vec(&node).unwrap())
             }
             Self::Extension { hash, .. }
             | Self::Branch { hash, .. }
