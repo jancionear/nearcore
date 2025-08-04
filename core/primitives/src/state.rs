@@ -1,8 +1,10 @@
 use borsh::{BorshDeserialize, BorshSerialize};
 use std::fmt::{Debug, Formatter};
 
-use near_primitives_core::hash::{hash, CryptoHash};
+use near_primitives_core::hash::CryptoHash;
 use near_schema_checker_lib::ProtocolSchema;
+
+use crate::hash_cache::HASH_CACHE;
 
 /// Serialized TrieNodeWithSize or state value.
 pub type TrieValue = std::sync::Arc<[u8]>;
@@ -56,7 +58,7 @@ impl ValueRef {
     /// Resulting array stores 4 bytes of length and then 32 bytes of hash.
     /// TODO (#7327): consider passing hash here to avoid double computation
     pub fn new(value: &[u8]) -> Self {
-        Self { length: value.len() as u32, hash: hash(value) }
+        Self { length: value.len() as u32, hash: HASH_CACHE.hash(value) }
     }
 
     /// Decode value reference from the raw byte array.
