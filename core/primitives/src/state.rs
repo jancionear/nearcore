@@ -76,7 +76,7 @@ impl ValueRef {
 
 impl std::cmp::PartialEq<[u8]> for ValueRef {
     fn eq(&self, rhs: &[u8]) -> bool {
-        self.len() == rhs.len() && self.hash == CryptoHash::hash_bytes(rhs)
+        self.len() == rhs.len() && self.hash == HASH_CACHE.hash(rhs)
     }
 }
 
