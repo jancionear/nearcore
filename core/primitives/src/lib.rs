@@ -51,6 +51,7 @@ pub mod utils;
 pub mod validator_mandates;
 pub mod validator_signer;
 pub mod version;
+pub mod hash_cache;
 pub mod views;
 
 pub use near_primitives_core::chains;

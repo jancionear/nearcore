@@ -15,6 +15,7 @@ use near_chain_configs::Genesis;
 use near_epoch_manager::shard_assignment::{shard_id_to_index, shard_id_to_uid};
 use near_epoch_manager::{EpochManagerAdapter, EpochManagerHandle};
 use near_primitives::apply::ApplyChunkReason;
+use near_primitives::hash_cache::HASH_CACHE;
 use near_primitives::receipt::{DelayedReceiptIndices, Receipt};
 use near_primitives::sharding::ShardChunkHeader;
 use near_primitives::stateless_validation::stored_chunk_state_transition_data::{
@@ -818,6 +819,8 @@ fn benchmark_chunk_application(
             "process_block",
             height)
         .entered();
+
+        HASH_CACHE.clear();
 
         let chunk_application_start_time = Instant::now();
         let apply_result = apply_chunk_from_input(cur_input, &*runtime_adapter);

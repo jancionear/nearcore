@@ -2,7 +2,7 @@ use super::{MemTrieNodePtr, MemTrieNodeView};
 use crate::trie::TRIE_COSTS;
 use crate::trie::mem::arena::ArenaMemory;
 use crate::{RawTrieNode, RawTrieNodeWithSize};
-use near_primitives::hash::{CryptoHash, hash};
+use near_primitives::hash::{hash, CryptoHash};
 
 impl<'a, M: ArenaMemory> MemTrieNodeView<'a, M> {
     /// Returns the node's hash. Requires that the hash is already computed.
