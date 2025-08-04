@@ -20,6 +20,7 @@ use itertools::Itertools;
 use mem::memtrie_update::{TrackingMode, UpdatedMemTrieNodeWithSize};
 use mem::memtries::MemTries;
 use near_primitives::hash::{CryptoHash, hash};
+use near_primitives::hash_cache::HASH_CACHE;
 pub use near_primitives::shard_layout::ShardUId;
 use near_primitives::state::PartialState;
 use near_primitives::state::{FlatStateValue, ValueRef};
@@ -562,7 +563,7 @@ impl OptimizedValueRef {
     pub fn value_hash(&self) -> CryptoHash {
         match self {
             OptimizedValueRef::Ref(value_ref) => value_ref.hash,
-            OptimizedValueRef::AvailableValue(ValueAccessToken { value }) => hash(value.as_slice()),
+            OptimizedValueRef::AvailableValue(ValueAccessToken { value }) => HASH_CACHE.hash(value.as_slice()),
         }
     }
 
