@@ -15,6 +15,7 @@ use near_chain_configs::Genesis;
 use near_epoch_manager::shard_assignment::{shard_id_to_index, shard_id_to_uid};
 use near_epoch_manager::{EpochManagerAdapter, EpochManagerHandle};
 use near_primitives::apply::ApplyChunkReason;
+use near_primitives::hash::{HASH_BYTES, HASH_COUNTER};
 use near_primitives::hash_cache::HASH_CACHE;
 use near_primitives::receipt::{DelayedReceiptIndices, Receipt};
 use near_primitives::sharding::ShardChunkHeader;
@@ -829,11 +830,13 @@ fn benchmark_chunk_application(
 
         if i == 1 || last_report_time.elapsed() >= report_interval {
             println!(
-                "Applied the chunk {} times. - average stats: (application time: {:.1}ms, applications per second: {:.2}, gas_burned: {:.1} TGas)",
+                "Applied the chunk {} times. - average stats: ({:.1}ms, {:.2}/s, gas_burned: {:.1} TGas, {} hashes, {} hashed bytes)",
                 i,
                 total_chunk_application_time.as_secs_f64() * 1000.0 / i as f64,
                 i as f64 / total_chunk_application_time.as_secs_f64(),
-                total_gas_burned as f64 / 1_000_000_000_000.0 / i as f64
+                total_gas_burned as f64 / 1_000_000_000_000.0 / i as f64,
+                pretty_number(HASH_COUNTER.load(std::sync::atomic::Ordering::Relaxed) / i as u64),
+                pretty_number(HASH_BYTES.load(std::sync::atomic::Ordering::Relaxed) / i as u64)
             );
             last_report_time = std::time::Instant::now();
         }
@@ -868,4 +871,18 @@ fn smart_equals(extra1: &ChunkExtra, extra2: &ChunkExtra) -> bool {
         }
     }
     true
+}
+
+// 12345 -> 12_345
+fn pretty_number(n: u64) -> String {
+    let mut result = String::new();
+    for c in n.to_string().chars().rev().enumerate() {
+        if c.0 > 0 && c.0 % 3 == 0 {
+            result.push('_');
+        }
+        result.push(c.1);
+    }
+    let res = result.chars().rev().collect::<String>();
+    assert_eq!(n, res.replace("_", "").parse::<u64>().unwrap());
+    res
 }

@@ -6,6 +6,10 @@ use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::io::Write;
 
+// Atomic variable to count the number of hashes created.
+pub static HASH_COUNTER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+pub static HASH_BYTES: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
 /// A 256-bit hash used in NEAR Protocol.
 #[derive(
     Copy,
@@ -34,6 +38,8 @@ impl CryptoHash {
 
     /// Calculates hash of given bytes.
     pub fn hash_bytes(bytes: &[u8]) -> CryptoHash {
+        HASH_COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        HASH_BYTES.fetch_add(bytes.len() as u64, std::sync::atomic::Ordering::Relaxed);
         CryptoHash(sha2::Sha256::digest(bytes).into())
     }
 
