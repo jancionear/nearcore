@@ -145,6 +145,7 @@ pub struct ApplyState {
     /// Each shard requests some bandwidth to other shards and then the bandwidth scheduler
     /// decides how much each shard is allowed to send.
     pub bandwidth_requests: BlockBandwidthRequests,
+    pub prepare_txs_get_txs_pool_iter: Option<Box<dyn Fn() -> Box<dyn TransactionGroupIterator>>>,
 }
 
 impl ApplyState {

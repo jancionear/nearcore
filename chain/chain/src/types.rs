@@ -333,6 +333,13 @@ pub struct ApplyChunkShardContext<'a> {
     pub last_validator_proposals: ValidatorStakeIter<'a>,
     pub gas_limit: Gas,
     pub is_new_chunk: bool,
+    // todo - make this something like ChunkProducerContext?
+    pub prepare_txs: Option<PrepareTxsContext>,
+}
+
+pub struct PrepareTxsContext {
+    // todo - pass transaction pool. fails because of circular crate dependency.
+    pub transaction_pool_iter: Box<dyn Fn() -> Box<dyn TransactionGroupIterator>>,
 }
 
 /// Contains transactions that were fetched from the transaction pool

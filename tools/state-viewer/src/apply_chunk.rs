@@ -176,6 +176,7 @@ pub fn apply_chunk(
                 last_validator_proposals: chunk_header.prev_validator_proposals(),
                 gas_limit: chunk_header.gas_limit(),
                 is_new_chunk: true,
+                prepare_txs: None,
             },
             ApplyChunkBlockContext {
                 block_type: BlockType::Normal,

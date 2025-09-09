@@ -244,6 +244,7 @@ impl TestEnv {
                     ),
                     gas_limit,
                     is_new_chunk: true,
+                    prepare_txs: None,
                 },
                 ApplyChunkBlockContext {
                     block_type: BlockType::Normal,
