@@ -608,10 +608,6 @@ impl RuntimeAdapter for NightshadeRuntime {
         let runtime_config = self.runtime_config_store.get_config(protocol_version);
 
         let shard_uid = self.get_shard_uid_from_epoch_id(shard_id, &epoch_id)?;
-        // While the height of the next block that includes the chunk might not be prev_height + 1,
-        // using it will result in a more conservative check and will not accidentally allow
-        // invalid transactions to be included.
-        let next_block_height = prev_block.height + 1;
 
         let mut trie = match storage_config.source {
             StorageDataSource::Db => {
@@ -638,147 +634,21 @@ impl RuntimeAdapter for NightshadeRuntime {
             runtime_config.witness_config.new_transactions_validation_state_size_soft_limit;
         trie = trie.recording_reads_with_proof_size_limit(proof_size_limit);
 
-        let mut state_update = TrieUpdate::new(trie);
+        let state_update = TrieUpdate::new(trie);
 
-        // Total amount of gas burnt for converting transactions towards receipts.
-        let mut total_gas_burnt = Gas::ZERO;
-        let mut total_size = 0u64;
-
-        let transactions_gas_limit = chunk_tx_gas_limit(runtime_config, &prev_block, shard_id);
-
-        let mut result = PreparedTransactions { transactions: Vec::new(), limited_by: None };
-        let mut num_checked_transactions = 0;
-
-        let size_limit = runtime_config.witness_config.combined_transactions_size_limit as u64;
-        // for metrics only
-        let mut rejected_due_to_congestion = 0;
-        let mut rejected_invalid_tx = 0;
-        let mut rejected_invalid_for_chain = 0;
-
-        // Add new transactions to the result until some limit is hit or the transactions run out.
-        'add_txs_loop: while let Some(transaction_group_iter) = transaction_groups.next() {
-            if total_gas_burnt >= transactions_gas_limit {
-                result.limited_by = Some(PrepareTransactionsLimit::Gas);
-                break;
-            }
-            if total_size >= size_limit {
-                result.limited_by = Some(PrepareTransactionsLimit::Size);
-                break;
-            }
-
-            if let Some(time_limit) = &time_limit {
-                if start_time.elapsed() >= *time_limit {
-                    result.limited_by = Some(PrepareTransactionsLimit::Time);
-                    break;
-                }
-            }
-
-            // FIXME(nagisa): why is this not using `check_proof_size_limit_exceed`? Comment.
-            if state_update.trie.recorded_storage_size() as u64
-                > runtime_config.witness_config.new_transactions_validation_state_size_soft_limit
-            {
-                result.limited_by = Some(PrepareTransactionsLimit::StorageProofSize);
-                break;
-            }
-
-            // Take a single transaction from this transaction group
-            while let Some(tx_peek) = transaction_group_iter.peek_next() {
-                // Stop adding transactions if the size limit would be exceeded
-                if total_size.saturating_add(tx_peek.get_size()) > size_limit as u64 {
-                    result.limited_by = Some(PrepareTransactionsLimit::Size);
-                    break 'add_txs_loop;
-                }
-
-                // Take the transaction out of the pool. Please take note that
-                // the transaction may still be rejected in which case it will
-                // not be returned to the pool. Most notably this may happen
-                // under congestion.
-                let validated_tx = transaction_group_iter
-                    .next()
-                    .expect("peek_next() returned Some, so next() should return Some as well");
-                num_checked_transactions += 1;
-
-                if !congestion_control_accepts_transaction(
-                    self.epoch_manager.as_ref(),
-                    &runtime_config,
-                    &epoch_id,
-                    &prev_block,
-                    &validated_tx,
-                )? {
-                    tracing::trace!(target: "runtime", tx=?validated_tx.get_hash(), "discarding transaction due to congestion");
-                    rejected_due_to_congestion += 1;
-                    continue;
-                }
-
-                // Verifying the transaction is on the same chain and hasn't expired yet.
-                if !chain_validate(&validated_tx.to_signed_tx()) {
-                    tracing::trace!(target: "runtime", tx=?validated_tx.get_hash(), "discarding transaction that failed chain validation");
-                    rejected_invalid_for_chain += 1;
-                    continue;
-                }
-
-                let (mut signer, mut access_key) =
-                    get_signer_and_access_key(&state_update, &validated_tx)
-                        .map_err(|_| Error::InvalidTransactions)?;
-                let verify_result = tx_cost(
-                    runtime_config,
-                    &validated_tx.to_tx(),
-                    prev_block.next_gas_price,
-                    protocol_version,
-                )
-                .map_err(InvalidTxError::from)
-                .and_then(|cost| {
-                    verify_and_charge_tx_ephemeral(
-                        runtime_config,
-                        &mut signer,
-                        &mut access_key,
-                        validated_tx.to_tx(),
-                        &cost,
-                        Some(next_block_height),
-                    )
-                })
-                .and_then(|verification_res| {
-                    set_tx_state_changes(&mut state_update, &validated_tx, &signer, &access_key);
-                    Ok(verification_res)
-                });
-
-                match verify_result {
-                    Ok(cost) => {
-                        tracing::trace!(target: "runtime", tx=?validated_tx.get_hash(), "including transaction that passed validation and verification");
-                        state_update.commit(StateChangeCause::NotWritableToDisk);
-                        total_gas_burnt = total_gas_burnt.checked_add(cost.gas_burnt).unwrap();
-                        total_size += validated_tx.get_size();
-                        result.transactions.push(validated_tx);
-                        // Take one transaction from this group, no more.
-                        break;
-                    }
-                    Err(err) => {
-                        tracing::trace!(target: "runtime", tx=?validated_tx.get_hash(), ?err, "discarding transaction that failed verification or verification");
-                        rejected_invalid_tx += 1;
-                        state_update.rollback();
-                    }
-                }
-            }
-        }
-        debug!(target: "runtime", limited_by=?result.limited_by, "Transaction filtering results {} valid out of {} pulled from the pool", result.transactions.len(), num_checked_transactions);
-        let shard_label = shard_id.to_string();
-        metrics::PREPARE_TX_SIZE.with_label_values(&[&shard_label]).observe(total_size as f64);
-        metrics::PREPARE_TX_REJECTED
-            .with_label_values(&[&shard_label, "congestion"])
-            .observe(rejected_due_to_congestion as f64);
-        metrics::PREPARE_TX_REJECTED
-            .with_label_values(&[&shard_label, "invalid_tx"])
-            .observe(rejected_invalid_tx as f64);
-        metrics::PREPARE_TX_REJECTED
-            .with_label_values(&[&shard_label, "invalid_block_hash"])
-            .observe(rejected_invalid_for_chain as f64);
-        metrics::PREPARE_TX_GAS
-            .with_label_values(&[&shard_label])
-            .observe(total_gas_burnt.as_gas() as f64);
-        metrics::CONGESTION_PREPARE_TX_GAS_LIMIT
-            .with_label_values(&[&shard_label])
-            .set(i64::try_from(transactions_gas_limit.as_gas()).unwrap_or(i64::MAX));
-        Ok(result)
+        do_prepare_transactions(
+            &prev_block,
+            shard_id,
+            transaction_groups,
+            state_update,
+            epoch_id,
+            self.epoch_manager.as_ref(),
+            protocol_version,
+            runtime_config,
+            chain_validate,
+            start_time,
+            time_limit,
+        )
     }
 
     fn get_gc_stop_height(&self, block_hash: &CryptoHash) -> BlockHeight {
@@ -1390,4 +1260,163 @@ impl node_runtime::adapter::ViewRuntimeAdapter for NightshadeRuntime {
         let state_update = self.tries.new_trie_update_view(*shard_uid, state_root);
         self.trie_viewer.view_global_contract_code(&state_update, identifier)
     }
+}
+
+fn do_prepare_transactions(
+    prev_block: &PrepareTransactionsBlockContext,
+    shard_id: ShardId,
+    transaction_groups: &mut dyn TransactionGroupIterator,
+    mut state_update: TrieUpdate,
+    epoch_id: EpochId,
+    epoch_manager: &dyn EpochManagerAdapter,
+    protocol_version: ProtocolVersion,
+    runtime_config: &RuntimeConfig,
+    chain_validate: &dyn Fn(&SignedTransaction) -> bool,
+    start_time: std::time::Instant,
+    time_limit: Option<Duration>,
+) -> Result<PreparedTransactions, Error> {
+    // Total amount of gas burnt for converting transactions towards receipts.
+    let mut total_gas_burnt = Gas::ZERO;
+    let mut total_size = 0u64;
+
+    let transactions_gas_limit = chunk_tx_gas_limit(runtime_config, &prev_block, shard_id);
+
+    let mut result = PreparedTransactions { transactions: Vec::new(), limited_by: None };
+    let mut num_checked_transactions = 0;
+
+    let size_limit = runtime_config.witness_config.combined_transactions_size_limit as u64;
+    // for metrics only
+    let mut rejected_due_to_congestion = 0;
+    let mut rejected_invalid_tx = 0;
+    let mut rejected_invalid_for_chain = 0;
+
+    // While the height of the next block that includes the chunk might not be prev_height + 1,
+    // using it will result in a more conservative check and will not accidentally allow
+    // invalid transactions to be included.
+    let next_block_height = prev_block.height + 1;
+
+    // Add new transactions to the result until some limit is hit or the transactions run out.
+    'add_txs_loop: while let Some(transaction_group_iter) = transaction_groups.next() {
+        if total_gas_burnt >= transactions_gas_limit {
+            result.limited_by = Some(PrepareTransactionsLimit::Gas);
+            break;
+        }
+        if total_size >= size_limit {
+            result.limited_by = Some(PrepareTransactionsLimit::Size);
+            break;
+        }
+
+        if let Some(time_limit) = &time_limit {
+            if start_time.elapsed() >= *time_limit {
+                result.limited_by = Some(PrepareTransactionsLimit::Time);
+                break;
+            }
+        }
+
+        // FIXME(nagisa): why is this not using `check_proof_size_limit_exceed`? Comment.
+        if state_update.trie.recorded_storage_size() as u64
+            > runtime_config.witness_config.new_transactions_validation_state_size_soft_limit
+        {
+            result.limited_by = Some(PrepareTransactionsLimit::StorageProofSize);
+            break;
+        }
+
+        // Take a single transaction from this transaction group
+        while let Some(tx_peek) = transaction_group_iter.peek_next() {
+            // Stop adding transactions if the size limit would be exceeded
+            if total_size.saturating_add(tx_peek.get_size()) > size_limit as u64 {
+                result.limited_by = Some(PrepareTransactionsLimit::Size);
+                break 'add_txs_loop;
+            }
+
+            // Take the transaction out of the pool. Please take note that
+            // the transaction may still be rejected in which case it will
+            // not be returned to the pool. Most notably this may happen
+            // under congestion.
+            let validated_tx = transaction_group_iter
+                .next()
+                .expect("peek_next() returned Some, so next() should return Some as well");
+            num_checked_transactions += 1;
+
+            if !congestion_control_accepts_transaction(
+                epoch_manager,
+                &runtime_config,
+                &epoch_id,
+                &prev_block,
+                &validated_tx,
+            )? {
+                tracing::trace!(target: "runtime", tx=?validated_tx.get_hash(), "discarding transaction due to congestion");
+                rejected_due_to_congestion += 1;
+                continue;
+            }
+
+            // Verifying the transaction is on the same chain and hasn't expired yet.
+            if !chain_validate(&validated_tx.to_signed_tx()) {
+                tracing::trace!(target: "runtime", tx=?validated_tx.get_hash(), "discarding transaction that failed chain validation");
+                rejected_invalid_for_chain += 1;
+                continue;
+            }
+
+            let (mut signer, mut access_key) =
+                get_signer_and_access_key(&state_update, &validated_tx)
+                    .map_err(|_| Error::InvalidTransactions)?;
+            let verify_result = tx_cost(
+                &runtime_config,
+                &validated_tx.to_tx(),
+                prev_block.next_gas_price,
+                protocol_version,
+            )
+            .map_err(InvalidTxError::from)
+            .and_then(|cost| {
+                verify_and_charge_tx_ephemeral(
+                    &runtime_config,
+                    &mut signer,
+                    &mut access_key,
+                    validated_tx.to_tx(),
+                    &cost,
+                    Some(next_block_height),
+                )
+            })
+            .and_then(|verification_res| {
+                set_tx_state_changes(&mut state_update, &validated_tx, &signer, &access_key);
+                Ok(verification_res)
+            });
+
+            match verify_result {
+                Ok(cost) => {
+                    tracing::trace!(target: "runtime", tx=?validated_tx.get_hash(), "including transaction that passed validation and verification");
+                    state_update.commit(StateChangeCause::NotWritableToDisk);
+                    total_gas_burnt = total_gas_burnt.checked_add(cost.gas_burnt).unwrap();
+                    total_size += validated_tx.get_size();
+                    result.transactions.push(validated_tx);
+                    // Take one transaction from this group, no more.
+                    break;
+                }
+                Err(err) => {
+                    tracing::trace!(target: "runtime", tx=?validated_tx.get_hash(), ?err, "discarding transaction that failed verification or verification");
+                    rejected_invalid_tx += 1;
+                    state_update.rollback();
+                }
+            }
+        }
+    }
+    debug!(target: "runtime", limited_by=?result.limited_by, "Transaction filtering results {} valid out of {} pulled from the pool", result.transactions.len(), num_checked_transactions);
+    let shard_label = shard_id.to_string();
+    metrics::PREPARE_TX_SIZE.with_label_values(&[&shard_label]).observe(total_size as f64);
+    metrics::PREPARE_TX_REJECTED
+        .with_label_values(&[&shard_label, "congestion"])
+        .observe(rejected_due_to_congestion as f64);
+    metrics::PREPARE_TX_REJECTED
+        .with_label_values(&[&shard_label, "invalid_tx"])
+        .observe(rejected_invalid_tx as f64);
+    metrics::PREPARE_TX_REJECTED
+        .with_label_values(&[&shard_label, "invalid_block_hash"])
+        .observe(rejected_invalid_for_chain as f64);
+    metrics::PREPARE_TX_GAS
+        .with_label_values(&[&shard_label])
+        .observe(total_gas_burnt.as_gas() as f64);
+    metrics::CONGESTION_PREPARE_TX_GAS_LIMIT
+        .with_label_values(&[&shard_label])
+        .set(i64::try_from(transactions_gas_limit.as_gas()).unwrap_or(i64::MAX));
+    Ok(result)
 }
