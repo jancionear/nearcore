@@ -20,6 +20,7 @@ use std::collections::BTreeMap;
 mod iterator;
 
 /// Key-value update. Contains a TrieKey and a value.
+#[derive(Clone)]
 pub struct TrieKeyValueUpdate {
     pub trie_key: TrieKey,
     pub value: Option<Vec<u8>>,
@@ -86,6 +87,15 @@ impl TrieUpdate {
             contract_storage: ContractStorage::new(trie_storage),
             committed: Default::default(),
             prospective: Default::default(),
+        }
+    }
+
+    pub fn duplicate_for_tx_preparation(&self) -> TrieUpdate {
+        Self {
+            trie: self.trie.recording_reads_new_recorder(),
+            contract_storage: self.contract_storage.clone(),
+            committed: self.committed.clone(),
+            prospective: self.prospective.clone(),
         }
     }
 
