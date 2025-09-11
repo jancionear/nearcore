@@ -94,7 +94,7 @@ pub struct ChunkProducer {
     pub chunk_production_info: lru::LruCache<(BlockHeight, ShardId), ChunkProduction>,
 
     /// previous chunk update id -> prepared transactions for the next chunk
-    prepare_txs_jobs: lru::LruCache<CachedShardUpdateKey, PrepareTransactionsJobHandle>,
+    prepare_txs_jobs: lru::LruCache<PrepareTransactionsJobKey, PrepareTransactionsJobHandle>,
     prepare_transactions_spawner: Arc<dyn AsyncComputationSpawner>,
 }
 
@@ -297,7 +297,17 @@ impl ChunkProducer {
             let prev_chunk_shard_update_key: CachedShardUpdateKey =
                 Chain::get_cached_shard_update_key(&prev_block_context, &chunks, shard_id).unwrap();
 
-            match self.prepare_txs_jobs.get(&prev_chunk_shard_update_key) {
+            let prepare_job_key = PrepareTransactionsJobKey {
+                shard_id,
+                shard_uid,
+                shard_update_key: prev_chunk_shard_update_key,
+                prev_block_context: PrepareTransactionsBlockContext::new(
+                    prev_block,
+                    &*self.epoch_manager,
+                )?,
+            };
+
+            match self.prepare_txs_jobs.get(&prepare_job_key) {
                 Some(job) => match &*job.get_results() {
                     Ok(txs) => {
                         let is_resharding = self
@@ -492,11 +502,13 @@ impl ChunkProducer {
                 source: near_chain::types::StorageDataSource::Db,
                 state_patch: Default::default(),
             };
+            let prepare_block_context =
+                PrepareTransactionsBlockContext::new(prev_block, &*self.epoch_manager)?;
             self.runtime_adapter
                 .prepare_transactions(
                     Either::Left(storage_config),
                     shard_id,
-                    prev_block.into(),
+                    prepare_block_context,
                     &mut iter,
                     chain_validate,
                     HashSet::new(),
@@ -524,18 +536,17 @@ impl ChunkProducer {
 
     pub fn start_prepare_transactions_job(
         &mut self,
-        key: CachedShardUpdateKey,
+        shard_update_key: CachedShardUpdateKey,
         shard_id: ShardId,
         shard_uid: ShardUId,
         state: TrieUpdate,
-        prev_block: &Block,
+        prev_block_context: PrepareTransactionsBlockContext,
         prev_chunk_tx_hashes: HashSet<CryptoHash>,
     ) {
         if cfg!(feature = "protocol_feature_spice") {
             return;
         }
 
-        let block_context: PrepareTransactionsBlockContext = prev_block.into();
         let tx_pool = self.sharded_tx_pool.clone();
         let runtime_adapter = self.runtime_adapter.clone();
         let time_limit = self.chunk_transactions_time_limit.get();
@@ -543,7 +554,13 @@ impl ChunkProducer {
         let res_sender = Arc::new((std::sync::Mutex::new(None), Condvar::new()));
 
         let job_handle = PrepareTransactionsJobHandle { result: res_sender.clone() };
-        self.prepare_txs_jobs.push(key, job_handle);
+        let prepare_job_key = PrepareTransactionsJobKey {
+            shard_id,
+            shard_uid,
+            shard_update_key,
+            prev_block_context: prev_block_context.clone(),
+        };
+        self.prepare_txs_jobs.push(prepare_job_key, job_handle);
 
         self.prepare_transactions_spawner.spawn("prepare_transactions", move || {
             let mut pool_guard = tx_pool.lock();
@@ -553,7 +570,7 @@ impl ChunkProducer {
                         .prepare_transactions(
                             Either::Right(state),
                             shard_id,
-                            block_context,
+                            prev_block_context,
                             &mut iter,
                             &(|_tx: &SignedTransaction| true), // todo - use self.chain to create chain_validate?
                             prev_chunk_tx_hashes,
@@ -648,6 +665,14 @@ impl ChunkProducer {
         }
         should_skip
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct PrepareTransactionsJobKey {
+    pub shard_id: ShardId,
+    pub shard_uid: ShardUId,
+    pub shard_update_key: CachedShardUpdateKey,
+    pub prev_block_context: PrepareTransactionsBlockContext,
 }
 
 pub struct PrepareTransactionsJobHandle {
