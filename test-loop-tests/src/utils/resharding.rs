@@ -537,7 +537,7 @@ pub(crate) fn call_promise_yield(
                             "call_yield_resume_read_data_id_from_storage".to_string(),
                             yield_payload.clone(),
                             Gas::from_teragas(300),
-                            tip.last_block_hash,
+                            tip.prev_block_hash,
                         );
                         store_and_submit_tx(
                             &node_datas,
@@ -606,7 +606,7 @@ pub(crate) fn call_promise_yield(
                             "call_yield_create_return_promise".to_string(),
                             yield_payload.clone(),
                             Gas::from_teragas(300),
-                            tip.last_block_hash,
+                            tip.prev_block_hash,
                         );
                         store_and_submit_tx(
                             &node_datas,
