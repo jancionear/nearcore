@@ -481,6 +481,8 @@ fn rpc_client<'a>(
 }
 
 /// Finds a block that all clients have on their chain and return its hash.
+/// Uses prev_block to make sure that transaction_validity_period check always passes.
+/// todo - rename function?
 pub fn get_shared_block_hash(
     node_datas: &[NodeExecutionData],
     test_loop_data: &TestLoopData,
@@ -494,7 +496,9 @@ pub fn get_shared_block_hash(
         .iter()
         .map(|client| {
             let head = client.chain.head().unwrap();
-            (head.height, head.last_block_hash)
+            let prev_block_height =
+                client.chain.get_block_header(&head.prev_block_hash).unwrap().height();
+            (prev_block_height, head.prev_block_hash)
         })
         .min_by_key(|&(height, _)| height)
         .unwrap();
