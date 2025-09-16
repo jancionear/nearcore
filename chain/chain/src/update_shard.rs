@@ -121,6 +121,7 @@ pub fn apply_new_chunk(
 ) -> Result<NewChunkResult, Error> {
     let NewChunkData { chunk_header, transactions, block, receipts, storage_context } = data;
     let shard_id = shard_context.shard_uid.shard_id();
+    println!("jandeb: applying chunk H={} s={}", block.height, shard_id);
     let _span = tracing::debug_span!(
         target: "chain",
         parent: parent_span,

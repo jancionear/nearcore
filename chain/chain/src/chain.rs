@@ -1273,6 +1273,8 @@ impl Chain {
         chunk_headers: Vec<ShardChunkHeader>,
         apply_chunks_done_sender: Option<ApplyChunksDoneSender>,
     ) -> Result<(), Error> {
+        println!("jandeb: process_optimistic_block H={}", block.inner.block_height);
+
         let _span = debug_span!(
             target: "chain",
             "process_optimistic_block",
@@ -1803,6 +1805,12 @@ impl Chain {
             tag_block_production = true
         )
         .entered();
+
+        println!(
+            "jandeb: postprocess_ready_block H={} hash={}",
+            block.header().height(),
+            block_hash
+        );
 
         let epoch_id = block.header().epoch_id();
         let shard_layout = self.epoch_manager.get_shard_layout(&epoch_id)?;

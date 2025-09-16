@@ -307,6 +307,8 @@ impl ChunkProducer {
                 )?,
             };
 
+            println!("jandeb: Getting prepared transactions H={} s={}", next_height, shard_id);
+
             match self.prepare_txs_jobs.get(&prepare_job_key) {
                 Some(job) => match &*job.lock().take_result_or_run() {
                     Ok(txs) => {
@@ -544,6 +546,10 @@ impl ChunkProducer {
         prev_chunk_tx_hashes: HashSet<CryptoHash>,
         tx_validity_period_check: impl Fn(&SignedTransaction) -> bool + Send + 'static,
     ) {
+        let h = prev_block_context.height + 1;
+
+        println!("jandeb: Starting prepare transactions job H={} s={}", h, shard_id);
+
         if cfg!(feature = "protocol_feature_spice") {
             return;
         }
@@ -571,6 +577,7 @@ impl ChunkProducer {
 
         // Run the preparation job on a separate thread
         self.prepare_transactions_spawner.spawn("prepare_transactions", move || {
+            println!("jandeb: Running prepare transactions job H={h} s={}", shard_id);
             prepare_job.lock().take_result_or_run();
         });
     }
@@ -705,6 +712,12 @@ impl PrepareTransactionsJob {
         else {
             panic!("run_not_started should only be called on Self::NotStarted!");
         };
+
+        println!(
+            "jandeb: Actually running prepare job H={} s={}",
+            prev_block_context.height + 1,
+            shard_id
+        );
 
         let mut pool_guard = tx_pool.lock();
 

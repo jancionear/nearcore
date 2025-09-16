@@ -496,9 +496,7 @@ pub fn get_shared_block_hash(
         .iter()
         .map(|client| {
             let head = client.chain.head().unwrap();
-            let prev_block_height =
-                client.chain.get_block_header(&head.prev_block_hash).unwrap().height();
-            (prev_block_height, head.prev_block_hash)
+            (head.height, head.last_block_hash)
         })
         .min_by_key(|&(height, _)| height)
         .unwrap();
