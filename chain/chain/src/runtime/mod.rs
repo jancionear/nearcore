@@ -693,6 +693,12 @@ impl RuntimeAdapter for NightshadeRuntime {
                 result.limited_by = Some(PrepareTransactionsLimit::Size);
                 break;
             }
+            if result.transactions.len() > 25_000 {
+                // XXX: Needs a proper solution. This just prevents super large chunks
+                // in case of delays, which makes things worse.
+                result.limited_by = Some(PrepareTransactionsLimit::Gas);
+                break;
+            }
 
             if let Some(time_limit) = &time_limit {
                 if start_time.elapsed() >= *time_limit {
