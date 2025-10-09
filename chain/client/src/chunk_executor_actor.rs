@@ -664,6 +664,7 @@ impl ChunkExecutorActor {
                     shard_update_reason,
                     shard_context,
                     None,
+                    String::new(),
                 )?)
             }),
         )))

@@ -423,11 +423,13 @@ fn test_early_prepare_tx_epoch_switch() {
 
     // Run the chain for a few heights, submit some transactions at each height
     let mut nonce_counter = 1;
+    println!("jandebug: START TXS");
     for _ in 0..5 {
         let block_hash = get_tip(&test_loop.data, &node_datas).last_block_hash;
         submit_transactions(&node_datas, block_hash, &mut nonce_counter);
         run_until_next_height(&mut test_loop, &node_datas);
     }
+    println!("jandebug: END TXS");
 
     // Make sure that the epoch switch happened while submitting transactions
     assert_eq!(start_tip.next_epoch_id, get_tip(&test_loop.data, &node_datas).epoch_id);

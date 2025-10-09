@@ -27,7 +27,7 @@ use near_primitives::sharding::{ShardChunkHeader, ShardChunkWithEncoding};
 use near_primitives::stateless_validation::ChunkProductionKey;
 use near_primitives::transaction::SignedTransaction;
 use near_primitives::types::chunk_extra::ChunkExtra;
-use near_primitives::types::{BlockHeight, EpochId, ShardId};
+use near_primitives::types::{AccountId, BlockHeight, EpochId, ShardId};
 use near_primitives::validator_signer::ValidatorSigner;
 use near_store::adapter::chain_store::ChainStoreAdapter;
 use near_store::{ShardUId, TrieUpdate};
@@ -250,6 +250,13 @@ impl ChunkProducer {
         validator_signer: &Arc<ValidatorSigner>,
         chain_validate: &dyn Fn(&SignedTransaction) -> bool,
     ) -> Result<Option<ProduceChunkResult>, Error> {
+        println!(
+            "jandebug: {}: PRODUCING CHUNK #{} (prev_height: {})",
+            validator_signer.validator_id(),
+            next_height,
+            prev_block.header().height()
+        );
+
         let span = tracing::Span::current();
         let timer = Instant::now();
         let _timer =
@@ -372,6 +379,13 @@ impl ChunkProducer {
             num_filtered_transactions,
             num_outgoing_receipts = outgoing_receipts.len(),
             "finished producing the chunk"
+        );
+        println!(
+            "jandebug: {}: Produced chunk #{} (prev_height: {}, chunk_hash: {:?})",
+            validator_signer.validator_id(),
+            next_height,
+            prev_block.header().height(),
+            encoded_chunk.chunk_hash()
         );
 
         metrics::CHUNK_PRODUCED_TOTAL.inc();
@@ -555,6 +569,7 @@ impl ChunkProducer {
         prev_block_context: PrepareTransactionsBlockContext,
         prev_chunk_tx_hashes: HashSet<CryptoHash>,
         tx_validity_period_check: impl Fn(&SignedTransaction) -> bool + Send + 'static,
+        validator_name: AccountId,
     ) {
         if cfg!(feature = "protocol_feature_spice") {
             return;
@@ -578,10 +593,15 @@ impl ChunkProducer {
             target: "client",
             "start_prepare_transactions_job",
             height = next_height,
+            prev_height = prev_block_context.height,
             shard_id = %shard_uid.shard_id(),
             tag_block_production = true,
         )
         .entered();
+        println!(
+            "jandebug: {}: Starting job #{} (prev_height: {})",
+            validator_name, next_height, prev_block_context.height
+        );
 
         let prepare_job_key = PrepareTransactionsJobKey {
             shard_uid,
@@ -644,6 +664,11 @@ impl ChunkProducer {
         };
 
         let next_height = prev_block.header().height() + 1;
+        println!(
+            "jandebug: Taking job with height #{} (prev block #{})",
+            next_height,
+            prev_block.header().height()
+        );
         let Some(result) = self.prepare_transactions_jobs.pop_job_result(prepare_job_key) else {
             tracing::debug!(
                 target: "client",

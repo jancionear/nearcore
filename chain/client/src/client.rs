@@ -672,6 +672,12 @@ impl Client {
 
         // TODO(#10584): Add debug information about the block production in self.block_production_info
 
+        println!(
+            "jandebug: {}: Producing optimistic block #{} (prev_height: {})",
+            validator_signer.validator_id(),
+            height,
+            prev_header.height()
+        );
         let optimistic_block = OptimisticBlock::produce(
             &prev_header,
             height,
@@ -930,6 +936,16 @@ impl Client {
             None
         };
 
+        println!(
+            "jandebug: {}: PRODUCING BLOCK #{} (prev_height: {}, epoch: {:?}) chunk: (height_created: {}, height_included: {}, hash: {:?})",
+            validator_signer.validator_id(),
+            height,
+            prev_header.height(),
+            epoch_id,
+            chunk_headers[0].height_created(),
+            chunk_headers[0].height_included(),
+            chunk_headers[0].chunk_hash()
+        );
         let block = Arc::new(Block::produce(
             self.upgrade_schedule
                 .protocol_version_to_vote_for(self.clock.now_utc(), next_epoch_protocol_version),
@@ -1560,6 +1576,12 @@ impl Client {
                 return;
             }
         };
+
+        println!(
+            "jandebug: {}: on_block_accepted #{}",
+            self.validator_signer.get().as_ref().unwrap().validator_id(),
+            block.header().height()
+        );
 
         let _ = self.check_and_update_doomslug_tip();
 

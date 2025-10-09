@@ -95,7 +95,9 @@ pub fn process_shard_update(
     shard_update_reason: ShardUpdateReason,
     shard_context: ShardContext,
     on_post_state_ready: Option<PostStateReadyCallback>,
+    apply_msg: String,
 ) -> Result<ShardUpdateResult, Error> {
+    println!("{}", apply_msg);
     Ok(match shard_update_reason {
         ShardUpdateReason::NewChunk(data) => ShardUpdateResult::NewChunk(apply_new_chunk(
             ApplyChunkReason::UpdateTrackedShard,

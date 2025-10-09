@@ -1301,6 +1301,12 @@ impl Chain {
             return Ok(());
         }
 
+        println!(
+            "jandebug: {}: processing optimistic block #{}",
+            self.validator_signer.get().as_ref().unwrap().validator_id(),
+            block.height()
+        );
+
         let block_height = block.height();
         let prev_block_hash = *block.prev_block_hash();
         let prev_block = self.get_block(&prev_block_hash)?;
@@ -2244,6 +2250,12 @@ impl Chain {
         state_patch: SandboxStatePatch,
     ) -> Result<PreprocessBlockResult, Error> {
         let header = block.header();
+
+        println!(
+            "jandebug: {}: preprocessing block #{}",
+            self.validator_signer.get().as_ref().unwrap().validator_id(),
+            header.height()
+        );
 
         // see if the block is already in processing or if there are too many blocks being processed
         self.blocks_in_processing.add_dry_run(&BlockToApply::Normal(*block.hash()))?;
@@ -3215,6 +3227,14 @@ impl Chain {
         let chunk_header = chunk_headers.get(shard_index).ok_or(Error::InvalidShardId(shard_id))?;
         let is_new_chunk = chunk_header.is_new_chunk(block_height);
 
+        let apply_msg = format!(
+            "jandebug: {}: applying chunk (height_created: {}, height_included: {}, chunk_hash: {:?})",
+            self.validator_signer.get().as_ref().unwrap().validator_id(),
+            chunk_header.height_created(),
+            chunk_header.height_included(),
+            chunk_header.chunk_hash()
+        );
+
         if !cfg!(feature = "sandbox") {
             if let Some(result) = self.apply_chunk_results_cache.pop(
                 &cached_shard_update_key,
@@ -3324,6 +3344,7 @@ impl Chain {
                     shard_update_reason,
                     shard_context,
                     on_post_state_ready,
+                    apply_msg,
                 )?)
             }),
         )))

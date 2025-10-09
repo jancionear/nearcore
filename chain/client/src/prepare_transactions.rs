@@ -156,13 +156,23 @@ impl PrepareTransactionsJob {
                     &mut *state,
                     PrepareTransactionsJobState::FinishedResultTaken,
                 ) {
-                    PrepareTransactionsJobState::Finished(result) => return Some(result),
+                    PrepareTransactionsJobState::Finished(result) => {
+                        println!("jandebug: Taking job result");
+                        return Some(result);
+                    }
                     _ => unreachable!(),
                 };
+            }
+            PrepareTransactionsJobState::FinishedResultTaken => {
+                println!("jandebug: Job result already taken");
             }
             PrepareTransactionsJobState::NotStarted(_) => {
                 // Job has not even started by the time it's time to take the result. Discard it.
                 *state = PrepareTransactionsJobState::NotStartedInTime;
+                println!("jandebug: Job not started!");
+            }
+            PrepareTransactionsJobState::NotStartedInTime => {
+                println!("jandebug: Job not started in time!");
             }
             _ => {}
         };
@@ -253,9 +263,11 @@ impl PrepareTransactionsManager {
         let shard_id = key.shard_uid.shard_id();
 
         let Some((job_key, job)) = self.jobs.pop(&shard_id) else {
+            println!("jandebug: No job");
             return None;
         };
         if job_key != key {
+            println!("jandebug: Key mismatch!");
             job.cancel();
             return None;
         }

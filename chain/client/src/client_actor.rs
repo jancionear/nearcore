@@ -1329,6 +1329,8 @@ impl ClientActorInner {
             msg.prev_block_context.height,
             msg.prev_prev_block_header,
         );
+        let validator_name =
+            self.client.validator_signer.get().as_ref().unwrap().validator_id().clone();
         self.client.chunk_producer.start_prepare_transactions_job(
             msg.key,
             msg.shard_uid,
@@ -1336,6 +1338,7 @@ impl ClientActorInner {
             msg.prev_block_context,
             msg.prev_chunk_tx_hashes,
             tx_validity_period_check,
+            validator_name,
         );
     }
 
