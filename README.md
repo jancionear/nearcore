@@ -1,2 +1,1 @@
-# nearcore
-Core 
+Prometheus console for visualizing mocknet

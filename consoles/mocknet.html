@@ -1,0 +1,32 @@
+{{ template "head" . }}
+
+{{ template "prom_content_head" . }}
+<h1> Mocknet </h1>
+
+<h3>Transactions per second (TPS)</h3>
+<div id="tpsGraph"></div>
+<script>
+  new PromConsole.Graph({
+    node: document.querySelector("#tpsGraph"),
+    expr: "sum(rate(near_chunk_transactions_total[1m]))",
+    renderer: 'line',
+    yUnits: 'TPS',
+    name: 'TPS',
+  })
+</script>
+
+<h3>Blocks per second (bps)</h3>
+<div id="bpsGraph"></div>
+<script>
+  new PromConsole.Graph({
+    node: document.querySelector("#bpsGraph"),
+    expr: "avg(rate(near_block_height_head[1m]))",
+    renderer: 'line',
+    yUnits: 'bps',
+    name: 'bps',
+    min: 0,
+  })
+</script>
+{{ template "prom_content_tail" . }}
+
+{{ template "tail" }}
