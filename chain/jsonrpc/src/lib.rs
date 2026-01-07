@@ -25,11 +25,11 @@ use near_client_primitives::debug::{
     DebugBlockStatusQuery, DebugBlocksStartingMode, DebugStatusResponse,
 };
 use near_client_primitives::types::{
-    GetBlockError, GetBlockProofError, GetChunkError, GetClientConfigError,
-    GetExecutionOutcomeError, GetGasPriceError, GetMaintenanceWindowsError,
+    BlockNotificationMessage, GetBlockError, GetBlockProofError, GetChunkError,
+    GetClientConfigError, GetExecutionOutcomeError, GetGasPriceError, GetMaintenanceWindowsError,
     GetNextLightClientBlockError, GetProtocolConfigError, GetReceiptError, GetSplitStorageInfo,
     GetSplitStorageInfoError, GetStateChangesError, GetValidatorInfoError, NetworkInfoResponse,
-    StatusError,
+    StatusError, SubscribeToBlockUpdatesMessage,
 };
 pub use near_jsonrpc_client_internal as client;
 pub use near_jsonrpc_primitives as primitives;
@@ -73,6 +73,7 @@ use near_network::debug::GetDebugStatus;
 use near_network::tcp::{self, ListenerAddr};
 use near_o11y::metrics::{Encoder, TextEncoder, prometheus};
 use near_o11y::span_wrapped_msg::{SpanWrapped, SpanWrappedMessageExt};
+use near_primitives::block::Block;
 use near_primitives::hash::CryptoHash;
 use near_primitives::transaction::SignedTransaction;
 use near_primitives::types::{AccountId, BlockId, BlockReference};
@@ -89,7 +90,7 @@ use std::path::PathBuf;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use tokio::time::{sleep, timeout};
+use tokio::time::timeout;
 use tower_http::cors::CorsLayer;
 use tower_http::limit::RequestBodyLimitLayer;
 
@@ -282,6 +283,7 @@ pub struct ClientSenderForRpc(
     AsyncSender<SpanWrapped<GetClientConfig>, Result<ClientConfig, GetClientConfigError>>,
     AsyncSender<SpanWrapped<GetNetworkInfo>, Result<NetworkInfoResponse, String>>,
     AsyncSender<SpanWrapped<Status>, Result<StatusResponse, StatusError>>,
+    Sender<SubscribeToBlockUpdatesMessage>,
     #[cfg(feature = "test_features")] Sender<near_client::NetworkAdversarialMessage>,
     #[cfg(feature = "test_features")]
     AsyncSender<near_client::NetworkAdversarialMessage, Option<u64>>,
@@ -335,6 +337,9 @@ struct JsonRpcHandler {
     enable_debug_rpc: bool,
     debug_pages_src_path: Option<PathBuf>,
     entity_debug_handler: Arc<dyn EntityDebugHandler>,
+    #[allow(unused)]
+    block_notification_sender: Arc<dyn Fn(BlockNotificationMessage) + Send + Sync>,
+    block_notification_watcher: tokio::sync::watch::Receiver<Option<Arc<Block>>>,
 }
 
 impl JsonRpcHandler {
@@ -626,6 +631,8 @@ impl JsonRpcHandler {
         tx_hash: CryptoHash,
         signer_account_id: &AccountId,
     ) -> Result<bool, near_jsonrpc_primitives::types::transactions::RpcTransactionError> {
+        let mut new_update_watcher = self.block_notification_watcher.clone();
+
         timeout(self.polling_config.polling_timeout, async {
             loop {
                 // TODO(optimization): Introduce a view_client method to only get transaction
@@ -650,7 +657,7 @@ impl JsonRpcHandler {
                     }
                     _ => {}
                 }
-                sleep(self.polling_config.polling_interval).await;
+                new_update_watcher.changed().await.unwrap();
             }
         })
         .await
@@ -678,6 +685,7 @@ impl JsonRpcHandler {
         near_jsonrpc_primitives::types::transactions::RpcTransactionResponse,
         near_jsonrpc_primitives::types::transactions::RpcTransactionError,
     > {
+        let mut new_block_watcher = self.block_notification_watcher.clone();
         let (tx_hash, account_id) = tx_info.to_tx_hash_and_account();
         let mut tx_status_result =
             Err(near_jsonrpc_primitives::types::transactions::RpcTransactionError::TimeoutError);
@@ -716,7 +724,7 @@ impl JsonRpcHandler {
                     }
                     Err(err) => break Err(err),
                 }
-                sleep(self.polling_config.polling_interval).await;
+                new_block_watcher.changed().await.unwrap()
             }
         })
         .await
@@ -1571,6 +1579,8 @@ impl JsonRpcHandler {
         near_jsonrpc_primitives::types::sandbox::RpcSandboxPatchStateResponse,
         near_jsonrpc_primitives::types::sandbox::RpcSandboxPatchStateError,
     > {
+        let mut new_block_watcher = self.block_notification_watcher.clone();
+
         self.client_sender
             .send_async(near_client_primitives::types::SandboxMessage::SandboxPatchState(
                 patch_state_request.records,
@@ -1592,7 +1602,7 @@ impl JsonRpcHandler {
                 {
                     break;
                 }
-                let _ = sleep(self.polling_config.polling_interval).await;
+                new_block_watcher.changed().await.unwrap();
             }
         })
         .await
@@ -1609,6 +1619,7 @@ impl JsonRpcHandler {
         near_jsonrpc_primitives::types::sandbox::RpcSandboxFastForwardError,
     > {
         use near_client_primitives::types::SandboxResponse;
+        let mut new_block_watcher = self.block_notification_watcher.clone();
 
         self.client_sender
             .send_async(near_client_primitives::types::SandboxMessage::SandboxFastForward(
@@ -1634,7 +1645,7 @@ impl JsonRpcHandler {
                     _ => (),
                 }
 
-                let _ = sleep(self.polling_config.polling_interval).await;
+                new_block_watcher.changed().await.unwrap();
             }
             Ok(())
         })
@@ -2023,6 +2034,15 @@ pub fn create_jsonrpc_app(
         ..
     } = config;
 
+    let (block_notification_sender, block_notification_watcher) = tokio::sync::watch::channel(None);
+
+    let sender_arc: Arc<dyn Fn(BlockNotificationMessage) + Send + Sync> =
+        Arc::new(move |m: BlockNotificationMessage| {
+            block_notification_sender.send(Some(m.block)).unwrap()
+        });
+
+    client_sender.4.send(SubscribeToBlockUpdatesMessage { notify: Arc::downgrade(&sender_arc) });
+
     // Create shared state
     let handler = Arc::new(JsonRpcHandler {
         client_sender,
@@ -2036,6 +2056,8 @@ pub fn create_jsonrpc_app(
         entity_debug_handler,
         #[cfg(feature = "test_features")]
         gc_sender,
+        block_notification_sender: sender_arc,
+        block_notification_watcher,
     });
 
     // Build router

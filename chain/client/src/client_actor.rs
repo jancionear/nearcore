@@ -53,7 +53,8 @@ use near_chunks::adapter::ShardsManagerRequestFromClient;
 use near_chunks::client::{ShardedTransactionPool, ShardsManagerResponse};
 use near_client_primitives::types::{
     Error, GetClientConfig, GetClientConfigError, GetNetworkInfo, NetworkInfoResponse,
-    StateSyncStatus, Status, StatusError, StatusSyncInfo, SyncStatus,
+    StateSyncStatus, Status, StatusError, StatusSyncInfo, SubscribeToBlockUpdatesMessage,
+    SyncStatus,
 };
 use near_epoch_manager::EpochManagerAdapter;
 use near_epoch_manager::shard_tracker::ShardTracker;
@@ -2058,5 +2059,12 @@ impl Handler<SpanWrapped<ChainFinalizationRequest>, Result<(), near_chain::Error
     ) -> Result<(), near_chain::Error> {
         let msg = msg.span_unwrap();
         self.client.chain.set_state_finalize(msg.shard_id, msg.sync_hash)
+    }
+}
+
+impl Handler<SubscribeToBlockUpdatesMessage> for ClientActor {
+    fn handle(&mut self, msg: SubscribeToBlockUpdatesMessage) {
+        self.client.block_notification_subscribers.push(msg.notify);
+        // TODO - send the current block?
     }
 }

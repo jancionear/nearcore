@@ -1,3 +1,4 @@
+use near_primitives::block::Block;
 use near_primitives::hash::CryptoHash;
 use near_primitives::merkle::MerklePath;
 use near_primitives::network::PeerId;
@@ -13,6 +14,7 @@ use near_primitives::views::{
 pub use near_primitives::views::{StatusResponse, StatusSyncInfo};
 use near_time::Duration;
 use std::collections::HashMap;
+use std::sync::{Arc, Weak};
 
 /// Combines errors coming from chain, tx pool and block producer.
 #[derive(Debug, thiserror::Error)]
@@ -939,6 +941,18 @@ impl From<near_chain_primitives::Error> for GetClientConfigError {
             _ => Self::Unreachable(error.to_string()),
         }
     }
+}
+
+/// Message to notify the chunk validation actor about new blocks
+/// so it can process orphan witnesses that were waiting for these blocks.
+#[derive(Debug, Clone)]
+pub struct BlockNotificationMessage {
+    pub block: Arc<Block>,
+}
+
+#[derive(Debug)]
+pub struct SubscribeToBlockUpdatesMessage {
+    pub notify: Weak<dyn Fn(BlockNotificationMessage) + Send + Sync>,
 }
 
 #[derive(Debug)]

@@ -10,9 +10,7 @@ use crate::chunk_producer::ChunkProducer;
 use crate::client_actor::ClientSenderForClient;
 use crate::debug::BlockProductionTracker;
 use crate::stateless_validation::chunk_endorsement::ChunkEndorsementTracker;
-use crate::stateless_validation::chunk_validation_actor::{
-    BlockNotificationMessage, ChunkValidationSender,
-};
+use crate::stateless_validation::chunk_validation_actor::ChunkValidationSender;
 use crate::stateless_validation::partial_witness::partial_witness_actor::PartialWitnessSenderForClient;
 use crate::sync::block::BlockSync;
 use crate::sync::epoch::EpochSync;
@@ -43,7 +41,7 @@ use near_chain::{
 use near_chain_configs::{ClientConfig, MutableValidatorSigner, UpdatableClientConfig};
 use near_chunks::adapter::ShardsManagerRequestFromClient;
 use near_chunks::logic::{create_partial_chunk, persist_chunk};
-use near_client_primitives::types::{Error, StateSyncStatus, SyncStatus};
+use near_client_primitives::types::{BlockNotificationMessage, Error, StateSyncStatus, SyncStatus};
 use near_epoch_manager::EpochManagerAdapter;
 use near_epoch_manager::shard_assignment::shard_id_to_uid;
 use near_epoch_manager::shard_tracker::ShardTracker;
@@ -77,7 +75,7 @@ use reed_solomon_erasure::galois_8::ReedSolomon;
 use std::cmp::max;
 use std::collections::{HashMap, HashSet};
 use std::num::NonZeroUsize;
-use std::sync::{Arc, OnceLock};
+use std::sync::{Arc, OnceLock, Weak};
 use tracing::instrument;
 
 const NUM_REBROADCAST_BLOCKS: usize = 30;
@@ -180,6 +178,8 @@ pub struct Client {
     chunk_producer_accounts_cache: Option<(EpochId, Arc<Vec<AccountId>>)>,
     /// Reed-Solomon encoder for shadow chunk validation.
     shadow_validation_reed_solomon: OnceLock<Arc<ReedSolomon>>,
+
+    pub block_notification_subscribers: Vec<Weak<dyn Fn(BlockNotificationMessage) + Send + Sync>>,
 }
 
 impl AsRef<Client> for Client {
@@ -423,6 +423,7 @@ impl Client {
             last_optimistic_block_produced: None,
             chunk_producer_accounts_cache: None,
             shadow_validation_reed_solomon: OnceLock::new(),
+            block_notification_subscribers: Vec::new(),
         })
     }
 
@@ -1671,7 +1672,15 @@ impl Client {
 
         // Notify chunk validation actor about the new block for orphan witness processing
         let block_notification = BlockNotificationMessage { block: block.clone() };
-        self.chunk_validation_sender.block_notification.send(block_notification);
+        self.chunk_validation_sender.block_notification.send(block_notification.clone());
+
+        self.block_notification_subscribers.retain(|subscriber| match Weak::upgrade(subscriber) {
+            Some(sender) => {
+                sender(block_notification.clone());
+                true
+            }
+            None => false,
+        });
     }
 
     /// Reconcile the transaction pool after processing a block.
