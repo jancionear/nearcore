@@ -20,18 +20,22 @@ parking_lot.workspace = true
 rand.workspace = true
 rayon.workspace = true
 rocksdb.workspace = true
+serde.workspace = true
+serde_json.workspace = true
 strum.workspace = true
 tempfile.workspace = true
 bytesize.workspace = true
 zstd.workspace = true
 
 nearcore.workspace = true
+near-crypto.workspace = true
 near-o11y.workspace = true
 near-epoch-manager.workspace = true
 near-chain.workspace = true
 near-chain-configs.workspace = true
 near-store.workspace = true
 near-primitives.workspace = true
+near-primitives-core.workspace = true
 near-async.workspace = true
 
 [features]

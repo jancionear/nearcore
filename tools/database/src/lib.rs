@@ -8,6 +8,7 @@ mod block_iterators;
 pub mod commands;
 mod compact;
 mod drop_column;
+mod dump_access_keys;
 mod make_snapshot;
 mod memtrie;
 mod run_migrations;

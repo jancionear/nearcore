@@ -6,6 +6,7 @@ use crate::analyze_gas_usage::AnalyzeGasUsageCommand;
 use crate::analyze_high_load::HighLoadStatsCommand;
 use crate::compact::RunCompactionCommand;
 use crate::drop_column::DropColumnCommand;
+use crate::dump_access_keys::DumpAccessKeysCommand;
 use crate::make_snapshot::MakeSnapshotCommand;
 use crate::memtrie::{
     ArchivalDataLossRecoveryCommand, FindBoundaryAccountCommand, LoadMemTrieCommand,
@@ -73,6 +74,9 @@ enum SubCommand {
     /// Analyze size of contracts present in the current state
     AnalyzeContractSizes(AnalyzeContractSizesCommand),
 
+    /// Dump all accounts and their access keys from the current state
+    DumpAccessKeys(DumpAccessKeysCommand),
+
     /// Manually set database version
     SetVersion(SetVersionCommand),
 }
@@ -103,6 +107,7 @@ impl DatabaseCommand {
             SubCommand::HighLoadStats(cmd) => cmd.run(home),
             SubCommand::AnalyzeDelayedReceipt(cmd) => cmd.run(home, genesis_validation),
             SubCommand::AnalyzeContractSizes(cmd) => cmd.run(home, genesis_validation),
+            SubCommand::DumpAccessKeys(cmd) => cmd.run(home, genesis_validation),
             SubCommand::SetVersion(cmd) => cmd.run(home, genesis_validation),
         }
     }
