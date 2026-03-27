@@ -8,8 +8,10 @@ use near_primitives::trie_key::col;
 use near_primitives::trie_key::trie_key_parsers;
 use near_primitives::types::AccountId;
 use near_primitives_core::trie_key::access_key_key_len;
+use near_store::StateSnapshotConfig;
 use near_store::adapter::StoreAdapter;
-use near_store::{Trie, TrieDBStorage};
+use near_store::flat::FlatStorageManager;
+use near_store::{ShardTries, Trie, TrieConfig, TrieDBStorage};
 use nearcore::{load_config, open_storage};
 use serde::Serialize;
 use std::fs::File;
@@ -72,20 +74,40 @@ impl DumpAccessKeysCommand {
             all_shard_uids
         };
 
+        let flat_storage_manager = FlatStorageManager::new(store.flat_store());
+        let shard_tries = ShardTries::new(
+            store.trie_store(),
+            TrieConfig::default(),
+            flat_storage_manager.clone(),
+            StateSnapshotConfig::Disabled,
+        );
+
         std::fs::create_dir_all(&self.output)?;
 
         let mut total_count = 0usize;
 
         for shard_uid in shard_uids_to_dump {
-            println!("processing shard {}", shard_uid);
+            println!("processing shard {} (loading memtrie...)", shard_uid);
 
             let chunk_extra =
                 chain_store.get_chunk_extra(&head.last_block_hash, &shard_uid).unwrap();
-            let state_root = chunk_extra.state_root();
-            let trie_storage = Arc::new(TrieDBStorage::new(store.trie_store(), shard_uid));
-            let trie = Trie::new(trie_storage, *state_root, None);
+            let state_root = *chunk_extra.state_root();
 
-            let mut iterator = trie.disk_iter()?;
+            flat_storage_manager.create_flat_storage_for_shard(shard_uid)?;
+            let flat_storage = flat_storage_manager
+                .get_flat_storage_for_shard(shard_uid)
+                .expect("flat storage was just created");
+            flat_storage.update_flat_head(&head.last_block_hash)?;
+
+            shard_tries.load_memtrie(&shard_uid, Some(state_root), true)?;
+
+            let trie_storage = Arc::new(TrieDBStorage::new(store.trie_store(), shard_uid));
+            let trie = Trie::new(trie_storage, state_root, None);
+
+            let memtries_handle =
+                shard_tries.get_memtries(shard_uid).expect("memtrie was just loaded");
+            let memtries = memtries_handle.read();
+            let mut iterator = memtries.get_iter(&trie)?;
             iterator.seek_prefix(&[col::ACCESS_KEY])?;
 
             let mut entries: Vec<AccessKeyEntry> = Vec::new();
@@ -126,6 +148,10 @@ impl DumpAccessKeysCommand {
             }
             total_count += count;
             println!("  found {} access keys in shard {} ({} parts)", count, shard_uid, part);
+
+            drop(iterator);
+            drop(memtries);
+            shard_tries.unload_memtrie(&shard_uid);
         }
 
         println!("done, {} access keys total", total_count);
