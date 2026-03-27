@@ -17,10 +17,12 @@ use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::Arc;
 
+const ENTRIES_PER_FILE: usize = 1_000_000;
+
 #[derive(Parser)]
 pub(crate) struct DumpAccessKeysCommand {
-    /// Output file path.
-    #[arg(short, long, default_value = "dump.json")]
+    /// Output directory for dumped access key files.
+    #[arg(short, long, default_value = "dump_access_keys")]
     output: PathBuf,
 }
 
@@ -50,7 +52,9 @@ impl DumpAccessKeysCommand {
             EpochManager::new_arc_handle(store.clone(), &near_config.genesis.config, None);
         let shard_layout = epoch_manager.get_shard_layout(&head.epoch_id).unwrap();
 
-        let mut entries: Vec<AccessKeyEntry> = Vec::new();
+        std::fs::create_dir_all(&self.output)?;
+
+        let mut total_count = 0usize;
 
         for shard_uid in shard_layout.shard_uids() {
             println!("processing shard {}", shard_uid);
@@ -64,7 +68,9 @@ impl DumpAccessKeysCommand {
             let mut iterator = trie.disk_iter()?;
             iterator.seek_prefix(&[col::ACCESS_KEY])?;
 
+            let mut entries: Vec<AccessKeyEntry> = Vec::new();
             let mut count = 0usize;
+            let mut part = 0usize;
             for item in &mut iterator {
                 let (key, _value) = item?;
                 if key.is_empty() || key[0] != col::ACCESS_KEY {
@@ -87,16 +93,37 @@ impl DumpAccessKeysCommand {
                 if count % 100_000 == 0 {
                     println!("  processed {} access keys...", count);
                 }
+                if entries.len() >= ENTRIES_PER_FILE {
+                    self.write_part(&shard_uid, part, &entries)?;
+                    entries.clear();
+                    part += 1;
+                }
             }
-            println!("  found {} access keys in shard {}", count, shard_uid);
+            if !entries.is_empty() {
+                self.write_part(&shard_uid, part, &entries)?;
+                entries.clear();
+                part += 1;
+            }
+            total_count += count;
+            println!("  found {} access keys in shard {} ({} parts)", count, shard_uid, part);
         }
 
-        println!("writing {} access keys to {}", entries.len(), self.output.display());
-        let file = File::create(&self.output)?;
-        let writer = BufWriter::new(file);
-        serde_json::to_writer_pretty(writer, &entries)?;
-        println!("done");
+        println!("done, {} access keys total", total_count);
 
+        Ok(())
+    }
+
+    fn write_part(
+        &self,
+        shard_uid: &near_store::ShardUId,
+        part: usize,
+        entries: &[AccessKeyEntry],
+    ) -> anyhow::Result<()> {
+        let filename = self.output.join(format!("{}_part{}.json", shard_uid, part));
+        println!("  writing {} entries to {}", entries.len(), filename.display());
+        let file = File::create(&filename)?;
+        let writer = BufWriter::new(file);
+        serde_json::to_writer_pretty(writer, entries)?;
         Ok(())
     }
 }
