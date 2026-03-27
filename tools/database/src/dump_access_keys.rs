@@ -3,6 +3,7 @@ use near_chain::{ChainStore, ChainStoreAccess};
 use near_chain_configs::GenesisValidationMode;
 use near_crypto::PublicKey;
 use near_epoch_manager::{EpochManager, EpochManagerAdapter};
+use near_primitives::shard_layout::ShardUId;
 use near_primitives::trie_key::col;
 use near_primitives::trie_key::trie_key_parsers;
 use near_primitives::types::AccountId;
@@ -24,6 +25,9 @@ pub(crate) struct DumpAccessKeysCommand {
     /// Output directory for dumped access key files.
     #[arg(short, long, default_value = "dump_access_keys")]
     output: PathBuf,
+    /// Only dump access keys for this shard (e.g. "s0.v3"). If omitted, all shards are dumped.
+    #[arg(short, long)]
+    shard_uid: Option<ShardUId>,
 }
 
 #[derive(Serialize)]
@@ -52,11 +56,27 @@ impl DumpAccessKeysCommand {
             EpochManager::new_arc_handle(store.clone(), &near_config.genesis.config, None);
         let shard_layout = epoch_manager.get_shard_layout(&head.epoch_id).unwrap();
 
+        let all_shard_uids: Vec<ShardUId> = shard_layout.shard_uids().collect();
+
+        let shard_uids_to_dump = if let Some(requested) = &self.shard_uid {
+            if !all_shard_uids.contains(requested) {
+                let available: Vec<String> = all_shard_uids.iter().map(|s| s.to_string()).collect();
+                anyhow::bail!(
+                    "shard uid {} not found. available shard uids: {}",
+                    requested,
+                    available.join(", ")
+                );
+            }
+            vec![*requested]
+        } else {
+            all_shard_uids
+        };
+
         std::fs::create_dir_all(&self.output)?;
 
         let mut total_count = 0usize;
 
-        for shard_uid in shard_layout.shard_uids() {
+        for shard_uid in shard_uids_to_dump {
             println!("processing shard {}", shard_uid);
 
             let chunk_extra =
