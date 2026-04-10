@@ -655,7 +655,11 @@ pub unsafe fn fibonacci() {
 }
 
 fn fib(n: u8) -> u64 {
-    if n < 2 { n as u64 } else { fib(n - 2) + fib(n - 1) }
+    if n < 2 {
+        n as u64
+    } else {
+        fib(n - 2) + fib(n - 1)
+    }
 }
 
 #[unsafe(no_mangle)]
@@ -734,7 +738,11 @@ fn internal_recurse(n: u64) -> u64 {
         n
     } else {
         let a = internal_recurse(n - 1) + 1;
-        if a % 2 == 1 { (a + n) / 2 } else { a }
+        if a % 2 == 1 {
+            (a + n) / 2
+        } else {
+            a
+        }
     }
 }
 
@@ -1244,6 +1252,25 @@ pub unsafe fn call_yield_create_and_resume() {
 
     // This function's return value will resolve to the value returned by the
     // `check_promise_result` callback
+    promise_return(promise_index);
+}
+
+/// Recursively creates yield promises to measure maximum receipt delay.
+/// On each invocation, creates a yield with itself as the callback.
+/// Continues until gas runs out.
+#[unsafe(no_mangle)]
+pub unsafe fn recursive_yield() {
+    let method_name = "recursive_yield";
+    let promise_index = promise_yield_create(
+        method_name.len() as u64,
+        method_name.as_ptr() as u64,
+        0, // arguments_len
+        0, // arguments_ptr
+        0, // gas_fixed
+        1, // gas_weight
+        0, // register_id for data_id
+    );
+
     promise_return(promise_index);
 }
 

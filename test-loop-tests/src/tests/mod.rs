@@ -29,6 +29,7 @@ mod increase_max_congestion_missing_chunks;
 #[cfg(feature = "test_features")]
 mod indexer;
 mod jsonrpc;
+mod long_yield;
 mod malicious_chunk_producer;
 mod max_receipt_size;
 mod multinode_stateless_validators;
