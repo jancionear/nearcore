@@ -32,9 +32,11 @@ pub fn initialize_sharded_genesis_state(
     genesis_epoch_config: &EpochConfig,
     home_dir: Option<&Path>,
 ) {
+    // With dynamic resharding enabled at the genesis protocol version the epoch config carries no
+    // shard layout, so the genesis state is sharded according to the genesis config instead.
     let shard_layout = genesis_epoch_config
         .static_shard_layout()
-        .expect("genesis config must have static shard layout");
+        .unwrap_or_else(|| genesis.config.shard_layout.clone());
     let state_roots = if let Some(state_roots) = get_genesis_state_roots(&store) {
         // TODO: with 2.6 release, remove storing genesis height
         let mut store_update: crate::StoreUpdate = store.store_update();

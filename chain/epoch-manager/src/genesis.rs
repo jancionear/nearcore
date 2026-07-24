@@ -61,12 +61,9 @@ impl EpochManager {
             }
             Ok(genesis_epoch_info)
         } else {
-            let shard_layout = genesis_epoch_config.static_shard_layout().ok_or_else(|| {
-                EpochError::ShardingError(format!(
-                    "static shard layout expected for genesis. genesis_protocol_version={}",
-                    genesis_protocol_version
-                ))
-            })?;
+            // With dynamic resharding enabled at the genesis protocol version the epoch config
+            // carries no shard layout, so it is taken from the genesis config instead.
+            let shard_layout = self.config.genesis_shard_layout();
             proposals_to_epoch_info(
                 &genesis_epoch_config,
                 [0; 32],

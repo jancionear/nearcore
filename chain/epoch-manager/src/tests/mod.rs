@@ -15,6 +15,7 @@ use near_o11y::testonly::init_test_logger;
 use near_primitives::account::id::AccountIdRef;
 use near_primitives::bandwidth_scheduler::BandwidthRequests;
 use near_primitives::block::Tip;
+use near_primitives::chains::MAINNET;
 use near_primitives::epoch_block_info::{BlockInfoV3, BlockInfoV5};
 use near_primitives::hash::hash;
 use near_primitives::shard_layout::ShardLayout;
@@ -2132,6 +2133,7 @@ fn test_protocol_version_switch() {
     let epoch_config = epoch_config(2, 1, 2, 100, 90, 60, 0, Rational32::new(1, 40))
         .for_protocol_version(PROTOCOL_VERSION);
     let genesis_protocol_version = 0;
+    let genesis_shard_layout = epoch_config.static_shard_layout().unwrap();
     let config_store = EpochConfigStore::test(BTreeMap::from_iter(vec![
         (genesis_protocol_version, Arc::new(epoch_config.clone())),
         (PROTOCOL_VERSION, Arc::new(epoch_config)),
@@ -2141,6 +2143,7 @@ fn test_protocol_version_switch() {
         2,
         config_store,
         genesis_protocol_version,
+        genesis_shard_layout,
     );
 
     let amount_staked = Balance::from_yoctonear(1_000_000);
@@ -2165,6 +2168,84 @@ fn test_protocol_version_switch() {
     );
 }
 
+/// When dynamic resharding is already enabled at the genesis protocol version, the genesis epoch
+/// config carries no static shard layout. The genesis shard layout is taken from the genesis config
+/// instead, and stored in the genesis epoch info. This is the case for any chain created in the
+/// dynamic resharding era, for example a forknet of mainnet.
+#[test]
+fn test_genesis_epoch_info_with_dynamic_resharding() {
+    let store = create_test_store().epoch_store();
+
+    let genesis_protocol_version = PROTOCOL_VERSION;
+    assert!(ProtocolFeature::DynamicResharding.enabled(genesis_protocol_version));
+    let genesis_shard_layout = ShardLayout::multi_shard(3, 3);
+    let mut epoch_config = epoch_config(2, 1, 2, 100, 90, 60, 0, Rational32::new(1, 40))
+        .for_protocol_version(genesis_protocol_version);
+    epoch_config.shard_layout_config = ShardLayoutConfig::Dynamic {
+        dynamic_resharding_config: DynamicReshardingConfig::default(),
+    };
+    let config_store =
+        EpochConfigStore::test_single_version(genesis_protocol_version, epoch_config);
+    let config = AllEpochConfig::from_epoch_config_store(
+        "test-chain",
+        2,
+        config_store,
+        genesis_protocol_version,
+        genesis_shard_layout.clone(),
+    );
+
+    let amount_staked = Balance::from_yoctonear(1_000_000);
+    let validators = vec![
+        stake("test1".parse().unwrap(), amount_staked),
+        stake("test2".parse().unwrap(), amount_staked),
+    ];
+    let mut reward_calculator = default_reward_calculator();
+    reward_calculator.genesis_protocol_version = genesis_protocol_version;
+    let epoch_manager = EpochManager::new(store, config, reward_calculator, validators).unwrap();
+
+    let genesis_epoch_info = epoch_manager.get_epoch_info(&EpochId::default()).unwrap();
+    assert_eq!(genesis_epoch_info.shard_layout(), Some(&genesis_shard_layout));
+    assert_eq!(epoch_manager.get_shard_layout(&EpochId::default()).unwrap(), genesis_shard_layout);
+    assert_eq!(
+        genesis_epoch_info.chunk_producers_settlement().len(),
+        genesis_shard_layout.num_shards() as usize
+    );
+}
+
+/// Same as above, but with the real mainnet epoch configs, as used by a forknet of mainnet started
+/// with `chain_id = mainnet` and a genesis protocol version from the dynamic resharding era.
+#[test]
+fn test_genesis_epoch_info_with_mainnet_epoch_configs() {
+    let store = create_test_store().epoch_store();
+
+    let config_store = EpochConfigStore::for_chain_id(MAINNET, None).unwrap();
+    let genesis_protocol_version = ProtocolFeature::DynamicResharding.protocol_version();
+    assert!(config_store.get_config(genesis_protocol_version).static_shard_layout().is_none());
+    // The shard layout the forked chain had, as recorded in the forknet genesis config.
+    let genesis_shard_layout =
+        config_store.get_config(genesis_protocol_version - 1).static_shard_layout().unwrap();
+
+    let epoch_length = 43200;
+    let config = AllEpochConfig::from_epoch_config_store(
+        MAINNET,
+        epoch_length,
+        config_store,
+        genesis_protocol_version,
+        genesis_shard_layout.clone(),
+    );
+
+    let amount_staked = Balance::from_near(10_000);
+    let validators = vec![
+        stake("test1".parse().unwrap(), amount_staked),
+        stake("test2".parse().unwrap(), amount_staked),
+    ];
+    let mut reward_calculator = default_reward_calculator();
+    reward_calculator.genesis_protocol_version = genesis_protocol_version;
+    let epoch_manager = EpochManager::new(store, config, reward_calculator, validators).unwrap();
+
+    assert_eq!(epoch_manager.get_shard_layout(&EpochId::default()).unwrap(), genesis_shard_layout);
+}
+
 #[test]
 fn test_protocol_version_switch_with_shard_layout_change() {
     let store = create_test_store().epoch_store();
@@ -2174,6 +2255,7 @@ fn test_protocol_version_switch_with_shard_layout_change() {
     let new_epoch_config = epoch_config(2, 4, 2, 100, 90, 60, 0, Rational32::new(1, 40))
         .for_protocol_version(PROTOCOL_VERSION);
     let genesis_protocol_version = PROTOCOL_VERSION - 1;
+    let genesis_shard_layout = old_epoch_config.static_shard_layout().unwrap();
     let config_store = EpochConfigStore::test(BTreeMap::from_iter(vec![
         (genesis_protocol_version, Arc::new(old_epoch_config)),
         (PROTOCOL_VERSION, Arc::new(new_epoch_config)),
@@ -2183,6 +2265,7 @@ fn test_protocol_version_switch_with_shard_layout_change() {
         2,
         config_store,
         genesis_protocol_version,
+        genesis_shard_layout,
     );
 
     let amount_staked = Balance::from_yoctonear(1_000_000);
@@ -2231,12 +2314,16 @@ fn test_protocol_version_switch_with_many_seats() {
         stake("test2".parse().unwrap(), amount_staked.checked_div(5).unwrap()),
     ];
 
-    let config_store = EpochConfigStore::test_single_version(
+    let epoch_config = TestEpochConfigBuilder::new().epoch_length(10).build();
+    let genesis_shard_layout = epoch_config.static_shard_layout().unwrap();
+    let config_store = EpochConfigStore::test_single_version(PROTOCOL_VERSION, epoch_config);
+    let config = AllEpochConfig::from_epoch_config_store(
+        "test-chain",
+        10,
+        config_store,
         PROTOCOL_VERSION,
-        TestEpochConfigBuilder::new().epoch_length(10).build(),
+        genesis_shard_layout,
     );
-    let config =
-        AllEpochConfig::from_epoch_config_store("test-chain", 10, config_store, PROTOCOL_VERSION);
 
     let mut epoch_manager =
         EpochManager::new(store, config, default_reward_calculator(), validators).unwrap();
@@ -2264,12 +2351,18 @@ fn test_version_switch_kickout_old_version() {
     let epoch_length = 2;
     let epoch_config = epoch_config(epoch_length, 1, 2, 100, 90, 60, 0, Rational32::new(0, 1))
         .for_protocol_version(version);
+    let genesis_shard_layout = epoch_config.static_shard_layout().unwrap();
     let config_store = EpochConfigStore::test(BTreeMap::from_iter(vec![
         (version, Arc::new(epoch_config.clone())),
         (new_version, Arc::new(epoch_config)),
     ]));
-    let config =
-        AllEpochConfig::from_epoch_config_store("test-chain", 2, config_store, PROTOCOL_VERSION);
+    let config = AllEpochConfig::from_epoch_config_store(
+        "test-chain",
+        2,
+        config_store,
+        PROTOCOL_VERSION,
+        genesis_shard_layout,
+    );
 
     let (large_stake, small_stake) = (Balance::from_yoctonear(1_000), Balance::from_yoctonear(100));
     let validators = vec![

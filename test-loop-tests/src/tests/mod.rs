@@ -26,6 +26,7 @@ mod deploy_compute_cost;
 mod deterministic_account_id;
 #[cfg(feature = "test_features")]
 mod doomslug;
+mod dynamic_resharding_genesis;
 mod early_prepare_transactions;
 mod fix_chunk_producer_stake_threshold;
 mod fix_stake_threshold;

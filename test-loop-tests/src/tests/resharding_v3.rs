@@ -536,8 +536,10 @@ fn build_epoch_config_store(
             ShardLayoutConfig::Dynamic { dynamic_resharding_config: dynamic_config };
 
         // base_protocol_version is PROTOCOL_VERSION - 1 for dynamic resharding.
-        // The genesis epoch needs a static shard layout, and the dynamic config activates
-        // after one protocol upgrade.
+        // The genesis epoch starts with a static shard layout and the dynamic config activates
+        // after one protocol upgrade, so these tests cover the static -> dynamic transition.
+        // (A genesis epoch with dynamic resharding already enabled is covered separately, see
+        // `tests/dynamic_resharding_genesis.rs`.)
         let store = EpochConfigStore::test(BTreeMap::from([
             (base_protocol_version, Arc::new(base_epoch_config)),
             (base_protocol_version + 1, Arc::new(epoch_config)),
@@ -628,7 +630,7 @@ fn test_resharding_v3_base(params: TestReshardingParameters) {
         }
     });
     // With dynamic resharding, we need one protocol upgrade (base → DynamicResharding version).
-    // The genesis epoch must have a static shard layout, and dynamic resharding activates at
+    // The genesis epoch starts with a static shard layout and dynamic resharding activates at
     // PROTOCOL_VERSION. With static resharding, we need PROTOCOL_VERSION - 2 because it's
     // possible to have two reshardings (protocol upgrades) in the same test.
     let base_protocol_version =

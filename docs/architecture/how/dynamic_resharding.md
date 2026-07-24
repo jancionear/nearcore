@@ -112,14 +112,34 @@ During `EpochManager::finalize_epoch()`, when finalizing epoch N:
 
 When bootstrapping from a legacy layout (V1 or V2), the system reconstructs the split history by calling `get_shard_layout_history()` to retrieve all historical layouts, then uses `ShardLayoutV3::derive_with_layout_history()` to build a V3 layout with full ancestor tracking.
 
-### 2.5 Validation
+### 2.5 The Genesis Shard Layout
+
+Every chain created after dynamic resharding was enabled (a forknet or mocknet of mainnet, a fresh
+network on a recent protocol version) has a genesis epoch config with no static shard layout, so the
+layout of the genesis epoch cannot come from the epoch config. Instead it comes from the genesis
+config (`GenesisConfig::shard_layout`), which is where the layout that the genesis state was sharded
+with is recorded:
+
+- `AllEpochConfig::genesis_shard_layout()` returns the static layout of the genesis protocol version
+  when there is one (legacy chains, where the epoch config stays authoritative) and the layout from
+  the genesis config otherwise. `EpochManager::make_genesis_epoch_info()` uses it, so the genesis
+  `EpochInfoV5` carries the layout and `get_shard_layout()` resolves it like any other epoch.
+- `initialize_sharded_genesis_state()` shards the genesis state the same way: the genesis epoch
+  config's static layout if present, the genesis config's layout otherwise.
+
+Note that the genesis layout may still be a V1/V2 layout — the first dynamic split converts it to V3
+via the bootstrap path above. With genesis in the dynamic era there are no static layouts to collect,
+so `get_shard_layout_history()` is empty and the resulting V3 layout starts with no pre-genesis
+ancestry, which matches a genesis state that has no ancestor shards on disk.
+
+### 2.6 Validation
 
 Both `proposed_split` and `shard_split` are validated to prevent forging:
 
 - **Chunk header validation**: During state witness validation, the `proposed_split` in the received chunk header is compared against the locally-computed `ChunkExtra.proposed_split()`. Mismatch produces `InvalidChunkHeaderShardSplit`.
 - **Block header validation**: During block processing, the `shard_split` in the block header is recomputed by calling `get_upcoming_shard_split()` with the block's chunk headers. Mismatch produces `InvalidBlockHeaderShardSplit`.
 
-### 2.6 Validator Assignment Across Resharding
+### 2.7 Validator Assignment Across Resharding
 
 Gated by `ProtocolFeature::StickyReshardingValidatorAssignment` (protocol version 153). Without the feature, an epoch with a layout change reassigns all chunk producers from scratch by `ShardIndex`, forcing every producer to potentially state-sync a different shard. With the feature, `EpochManager::finalize_epoch()` calls `AssignmentStrategy::select(prev_layout, new_layout)` which picks one of:
 
@@ -181,6 +201,7 @@ Limitations:
 - **`can_reshard`** -- O(1) check using `EpochInfoV5::last_resharding`. Returns whether enough epochs have passed since the last resharding.
 - **`pick_shard_to_split`** -- Pure function: picks from `force_split_shards` first, then falls back to highest `total_memory()`.
 - **`get_shard_layout`** -- Single source of truth for shard layouts. Checks `EpochInfo::shard_layout()` first (V5+), falls back to `EpochConfig::static_shard_layout()` for older versions.
+- **`make_genesis_epoch_info`** (`chain/epoch-manager/src/genesis.rs`) -- Builds the genesis epoch info, taking the layout from `AllEpochConfig::genesis_shard_layout()` (see section 2.5).
 - **`get_shard_layout_history`** -- Collects all distinct static shard layouts across protocol versions (newest to oldest). Used for bootstrapping V3 from V1/V2.
 - **`is_produced_block_last_in_epoch`** -- Like `is_next_block_epoch_start`, but works for blocks not yet in the store. Used during block production to decide whether to include `shard_split`.
 - **`is_next_block_possibly_last_in_epoch`** -- Conservative variant of `is_produced_block_last_in_epoch` that checks if the *next* block (one ahead of the one being produced) could be the last of the epoch. May produce false positives but never false negatives. Used by `compute_proposed_split` because the proposed split computed at block H appears in chunk headers at block H+1.
