@@ -314,11 +314,22 @@ async fn lookup_delayed_local_receipt_in_previous_blocks(
             metrics::LOCAL_RECEIPT_LOOKUP_IN_HISTORY_BLOCKS_BACK.set(prev_block_tried as i64);
             return Ok(receipt);
         }
-        block = prev_block.unwrap_or_else(|| {
-            panic!("reached genesis and failed to find local receipt {receipt_id}")
-        });
+        let Some(prev_block) = prev_block else {
+            tracing::warn!(
+                target: INDEXER,
+                %receipt_id,
+                "reached genesis and failed to find local receipt",
+            );
+            return Err(FailedToFetchData::LocalReceiptNotFound(receipt_id));
+        };
+        block = prev_block;
     }
-    panic!("failed to find local receipt {receipt_id} in 1000 prev blocks");
+    tracing::warn!(
+        target: INDEXER,
+        %receipt_id,
+        "failed to find local receipt in 1000 prev blocks",
+    );
+    Err(FailedToFetchData::LocalReceiptNotFound(receipt_id))
 }
 
 async fn find_local_receipt_by_id_in_block(
@@ -452,9 +463,25 @@ pub async fn start(
 
             let streamer_message =
                 Box::pin(build_streamer_message(&view_client, block, &shard_tracker)).await;
-            let Ok(streamer_message) = streamer_message else {
-                tracing::error!(target: INDEXER, ?block_height, ?streamer_message, "failed to build streamer message, skipping");
-                continue;
+            let streamer_message = match streamer_message {
+                Ok(streamer_message) => streamer_message,
+                Err(err) => {
+                    // A missing delayed local receipt means the streamer message
+                    // would be incomplete. For a regular indexer this is a hard
+                    // data gap and we crash, but best-effort consumers such as the
+                    // traffic generator opt into `skip_broken_blocks` and prefer
+                    // dropping the block over crashing the node. Other (typically
+                    // transient) build failures are skipped as before.
+                    if matches!(err, FailedToFetchData::LocalReceiptNotFound(_))
+                        && !indexer_config.skip_broken_blocks
+                    {
+                        panic!(
+                            "failed to build streamer message at height {block_height}: {err:?}"
+                        );
+                    }
+                    tracing::error!(target: INDEXER, ?block_height, ?err, "failed to build streamer message, skipping");
+                    continue;
+                }
             };
 
             tracing::debug!(target: INDEXER, ?block_height, "sending streamer message to the listener");
