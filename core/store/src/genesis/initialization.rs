@@ -18,6 +18,7 @@ use near_primitives::state_record::{
     StateRecord, state_record_to_account_id, state_record_to_shard_id,
 };
 use near_primitives::types::{AccountId, ShardId, StateRoot};
+use near_primitives::version::PROD_GENESIS_PROTOCOL_VERSION;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use std::collections::{BTreeMap, HashSet};
 use std::fs;
@@ -67,13 +68,24 @@ pub fn initialize_sharded_genesis_state(
         state_roots
     };
 
-    // Some hardcoded checks for mainnet and testnet
-    if &genesis.config.chain_id == MAINNET {
-        assert_eq!(format!("{state_roots:?}"), "[8EhZRfDTYujfZoUZtZ3eSMB9gJyFo5zjscR12dEcaxGU]");
-    }
+    // Some hardcoded checks for the genesis of mainnet and testnet. They only apply to the actual
+    // prod genesis, which lives at `PROD_GENESIS_PROTOCOL_VERSION`; a chain created later with the
+    // same chain_id (a forknet, for example) has its own genesis state. Same gating as the genesis
+    // block hash checks in `Chain::make_prod_genesis_block`.
+    if genesis.config.protocol_version == PROD_GENESIS_PROTOCOL_VERSION {
+        if &genesis.config.chain_id == MAINNET {
+            assert_eq!(
+                format!("{state_roots:?}"),
+                "[8EhZRfDTYujfZoUZtZ3eSMB9gJyFo5zjscR12dEcaxGU]"
+            );
+        }
 
-    if &genesis.config.chain_id == TESTNET {
-        assert_eq!(format!("{state_roots:?}"), "[7EAgMRCrBWcb3ZS6SZJ7Dm71VZ1jaBpgGiewAEvFqPT1]");
+        if &genesis.config.chain_id == TESTNET {
+            assert_eq!(
+                format!("{state_roots:?}"),
+                "[7EAgMRCrBWcb3ZS6SZJ7Dm71VZ1jaBpgGiewAEvFqPT1]"
+            );
+        }
     }
 }
 
