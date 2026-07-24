@@ -88,6 +88,17 @@ pub struct IndexerConfig {
     pub finality: Finality,
     /// Tells whether to validate the genesis file before starting
     pub validate_genesis: bool,
+    /// When `true`, a block that repeatedly fails to build a `StreamerMessage`
+    /// (after `MAX_BUILD_STREAMER_MESSAGE_ATTEMPTS` retries) is skipped with an
+    /// error log instead of terminating the streamer with a panic.
+    ///
+    /// This is meant for best-effort consumers such as the traffic generator
+    /// (the `mirror` tool), where dropping the occasional block is preferable
+    /// to crashing the node - for example when a delayed local receipt cannot
+    /// be reconstructed and the streamer message stays incomplete. Regular
+    /// indexers must keep this `false` so that missing data surfaces loudly
+    /// instead of silently leaving a gap in the indexed stream.
+    pub skip_broken_blocks: bool,
 }
 
 impl IndexerConfig {

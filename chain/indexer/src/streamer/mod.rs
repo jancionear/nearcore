@@ -359,17 +359,40 @@ pub async fn start(
                     if transient_while_syncing {
                         build_streamer_message_attempts = 0;
                         tracing::warn!(target: INDEXER, ?block_height, ?err, "failed to build streamer message while the node is syncing, retrying the same height");
-                    } else {
-                        build_streamer_message_attempts += 1;
+                        // Retry the same height on the next outer iteration
+                        // instead of advancing `last_synced_block_height`.
+                        break;
+                    }
+
+                    build_streamer_message_attempts += 1;
+                    if build_streamer_message_attempts < MAX_BUILD_STREAMER_MESSAGE_ATTEMPTS {
                         tracing::error!(target: INDEXER, ?block_height, ?err, attempts = build_streamer_message_attempts, "failed to build streamer message, retrying the same height");
-                        assert!(
-                            build_streamer_message_attempts < MAX_BUILD_STREAMER_MESSAGE_ATTEMPTS,
+                        // Retry the same height on the next outer iteration
+                        // instead of advancing `last_synced_block_height`.
+                        break;
+                    }
+
+                    // The retry budget is exhausted. For a regular indexer this
+                    // is fatal: skipping a block would leave an undetected gap in
+                    // the stream, so we panic. Best-effort consumers such as the
+                    // traffic generator opt into `skip_broken_blocks` and prefer
+                    // to drop the occasional block rather than crash the node.
+                    if !indexer_config.skip_broken_blocks {
+                        panic!(
                             "failed to build streamer message at height {block_height} after {MAX_BUILD_STREAMER_MESSAGE_ATTEMPTS} attempts: {err:?}"
                         );
                     }
-                    // Retry the same height on the next outer iteration instead of
-                    // advancing `last_synced_block_height`.
-                    break;
+                    tracing::error!(
+                        target: INDEXER,
+                        ?block_height,
+                        ?err,
+                        max_attempts = MAX_BUILD_STREAMER_MESSAGE_ATTEMPTS,
+                        "failed to build streamer message after max attempts; skipping this block because skip_broken_blocks is set",
+                    );
+                    build_streamer_message_attempts = 0;
+                    db.put(b"last_synced_block_height", &block_height.to_string()).unwrap();
+                    last_synced_block_height = Some(block_height);
+                    continue;
                 }
             };
 
