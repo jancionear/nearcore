@@ -51,7 +51,7 @@ Major components of nearcore:
   `neard` nodes communicate with each other within the blockchain. RPC carries
   requests from users of the blockchain, while network carries various messages
   needed to implement consensus. Two directly connected nodes communicate by
-  sending protobuf-encoded messages over TCP. A node also includes logic to
+  sending protobuf- or borsh-encoded messages over TCP. A node also includes logic to
   route messages for indirect peers through intermediaries. Oversimplifying a
   lot, it's enough for a new node to know an IP address of just one other
   network participant. From this bootstrap connection, the node learns how to

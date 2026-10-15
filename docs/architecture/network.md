@@ -465,11 +465,51 @@ example types that appear in `Handler<...>` implementations or multi-sender defi
 
 ## 10.2 Messages sent through TCP
 
-Near is using `borsh` serialization to exchange messages between nodes (See
+Near is moving the serialization of messages exchanged between nodes from
+protobuf (`chain/network/src/network_protocol/network.proto`) to `borsh` (See
 [borsh.io](https://borsh.io/)). We should be careful when making changes to
-them. We have to maintain backward compatibility. Only messages implementing
-`BorshSerialize`, `BorshDeserialize` can be sent. We also use `borsh` for
+them. We have to maintain backward compatibility. We also use `borsh` for
 database storage.
+
+Messages are sent as frames: a little endian `u32` length followed by the bytes
+of the frame. A protobuf-encoded message is sent as a single frame. A
+borsh-encoded message is sent as two frames: a versioned header
+(`PeerMessageHeader`, which carries the kind of the message) and the body (the
+borsh-encoded `PeerMessage`), see `PeerMessageFrames`.
+
+The first frame received on a connection determines its encoding (see
+`FramedStream::run_recv_loop`). If it is a valid header, all the messages on the
+connection have to be borsh-encoded: the receiver reads each header alone and
+checks the body against the size limit of the message kind before reading it.
+Anything else, e.g. an invalid header or a body which exceeds the size limit,
+is a protocol violation which closes the connection. Otherwise the messages are
+protobuf-encoded. The first byte of a header (its version) is always smaller
+than 8, which is never a valid first byte of a protobuf message, so a
+protobuf-encoded message is never a valid header, and nodes which support only
+protobuf reject borsh-encoded messages rather than misinterpreting them.
+
+Structs signed with account keys (`AccountData`, `OwnedAccount`) have a single
+borsh representation, used both in memory and in borsh-encoded messages: the
+struct together with its signature (`AccountKeySignature`). The signature is
+made either over the borsh encoding of the struct, preceded by a signature
+differentiator, or over its protobuf encoding. Protobuf encoding is not
+canonical, so a protobuf-signed struct also carries the signed bytes, which are
+needed to verify the signature and to relay the struct unchanged; verifying it
+checks that the bytes encode the struct. Borsh-signed structs can't be
+expressed in protobuf, so they are omitted from protobuf-encoded messages.
+
+The transition is controlled by `NetworkTransitionConfig`:
+* 2.15 - both encodings are supported. A node sends its first handshake in
+  borsh and then in protobuf, and uses the encoding of the first message it
+  receives from then on. Nothing else is sent before that. A peer which accepts
+  borsh skips the protobuf copy of the handshake, a peer which supports only
+  protobuf drops the borsh one.
+  Structs signed with account keys (`AccountData`, `OwnedAccount`) are signed
+  over protobuf-serialized bytes.
+* 2.16 - protobuf messages are no longer accepted on connections (a connection
+  which starts with one is closed), structs are signed over borsh-serialized
+  bytes.
+* 2.17 - structs signed over protobuf-serialized bytes are no longer accepted.
 
 ## 10.3 Messages sent/received through `chain/jsonrpc`
 
