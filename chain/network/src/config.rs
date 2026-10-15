@@ -1,6 +1,7 @@
 use crate::blacklist;
 use crate::concurrency::rate;
 use crate::config_json::Tier1Config;
+use crate::network_protocol::Encoding;
 use crate::network_protocol::PeerAddr;
 use crate::network_protocol::PeerInfo;
 use crate::peer_manager::peer_store;
@@ -144,6 +145,90 @@ impl SocketOptions {
     }
 }
 
+/// Controls the transition of the network protocol from protobuf to borsh serialization.
+///
+/// It applies to two things: the serialization of messages sent on a connection (see
+/// `PeerMessage::serialize`) and the serialization of structs signed with account keys (see
+/// `VersionedAccountData::sign` and `OwnedAccount::sign`). The transition is rolled out over
+/// a few releases, see the presets below.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct NetworkTransitionConfig {
+    /// Try to use borsh serialization when both peers support it. `false` means using only
+    /// protobuf.
+    pub prefer_borsh: bool,
+    /// Whether we accept messages serialized with protobuf, received on a connection.
+    pub allow_protobuf_on_connection: bool,
+    /// Sign structs using the borsh serialization format instead of protobuf.
+    pub sign_with_borsh: bool,
+    /// Whether we accept protobuf-signed structs.
+    pub allow_protobuf_signed_structs: bool,
+}
+
+impl NetworkTransitionConfig {
+    /// Uses only protobuf on connections, like 2.14 and older releases.
+    pub const PROTOBUF_ONLY: Self = Self {
+        prefer_borsh: false,
+        allow_protobuf_on_connection: true,
+        sign_with_borsh: false,
+        allow_protobuf_signed_structs: true,
+    };
+    /// Full support for borsh, which is used when both peers support it.
+    /// Structs are still signed using protobuf.
+    pub const RELEASE_2_15: Self = Self {
+        prefer_borsh: true,
+        allow_protobuf_on_connection: true,
+        sign_with_borsh: false,
+        allow_protobuf_signed_structs: true,
+    };
+    /// Protobuf messages are banned on connections, structs are signed using borsh.
+    pub const RELEASE_2_16: Self = Self {
+        prefer_borsh: true,
+        allow_protobuf_on_connection: false,
+        sign_with_borsh: true,
+        allow_protobuf_signed_structs: true,
+    };
+    /// Protobuf-signed structs are banned.
+    pub const RELEASE_2_17: Self = Self {
+        prefer_borsh: true,
+        allow_protobuf_on_connection: false,
+        sign_with_borsh: true,
+        allow_protobuf_signed_structs: false,
+    };
+    /// Preset used by the current release.
+    pub const CURRENT: Self = Self::RELEASE_2_15;
+
+    /// Encoding used to serialize structs signed by this node.
+    pub(crate) fn signing_encoding(&self) -> Encoding {
+        if self.sign_with_borsh { Encoding::Borsh } else { Encoding::Proto }
+    }
+
+    /// Whether structs signed over bytes serialized with `encoding` are accepted.
+    pub(crate) fn accepts_signed_encoding(&self, encoding: Encoding) -> bool {
+        match encoding {
+            Encoding::Borsh => true,
+            Encoding::Proto => self.allow_protobuf_signed_structs,
+        }
+    }
+
+    fn verify(&self) -> anyhow::Result<()> {
+        anyhow::ensure!(
+            self.prefer_borsh || self.allow_protobuf_on_connection,
+            "prefer_borsh and allow_protobuf_on_connection can't be both false"
+        );
+        anyhow::ensure!(
+            self.accepts_signed_encoding(self.signing_encoding()),
+            "sign_with_borsh can't be false when allow_protobuf_signed_structs is false"
+        );
+        Ok(())
+    }
+}
+
+impl Default for NetworkTransitionConfig {
+    fn default() -> Self {
+        Self::CURRENT
+    }
+}
+
 /// Validated configuration for the peer-to-peer manager.
 #[derive(Clone)]
 pub struct NetworkConfig {
@@ -237,6 +322,8 @@ pub struct NetworkConfig {
     pub outgoing_queue_limiter_capacity_bytes: usize,
     /// Maximum capacity of the write buffer of a single connection.
     pub max_write_buffer_capacity_bytes: usize,
+    /// Controls the transition from protobuf to borsh serialization.
+    pub transition: NetworkTransitionConfig,
 
     #[cfg(test)]
     pub(crate) event_sink:
@@ -297,6 +384,18 @@ impl NetworkConfig {
         }
         if let Some(v) = overrides.routing_graph_max_accounts_per_message {
             self.routing_graph_max_accounts_per_message = v;
+        }
+        if let Some(v) = overrides.prefer_borsh {
+            self.transition.prefer_borsh = v;
+        }
+        if let Some(v) = overrides.allow_protobuf_on_connection {
+            self.transition.allow_protobuf_on_connection = v;
+        }
+        if let Some(v) = overrides.sign_with_borsh {
+            self.transition.sign_with_borsh = v;
+        }
+        if let Some(v) = overrides.allow_protobuf_signed_structs {
+            self.transition.allow_protobuf_signed_structs = v;
         }
     }
 
@@ -456,6 +555,7 @@ impl NetworkConfig {
             max_write_buffer_capacity_bytes: cfg
                 .max_write_buffer_capacity_bytes
                 .unwrap_or(DEFAULT_MAX_WRITE_BUFFER_CAPACITY_BYTES),
+            transition: NetworkTransitionConfig::default(),
             #[cfg(test)]
             event_sink: near_async::messaging::IntoSender::into_sender(
                 near_async::messaging::noop(),
@@ -542,6 +642,7 @@ impl NetworkConfig {
             routing_graph_max_accounts_per_message: DEFAULT_ROUTING_GRAPH_MAX_ACCOUNTS_PER_MESSAGE,
             outgoing_queue_limiter_capacity_bytes: DEFAULT_OUTGOING_QUEUE_LIMITER_CAPACITY_BYTES,
             max_write_buffer_capacity_bytes: DEFAULT_MAX_WRITE_BUFFER_CAPACITY_BYTES,
+            transition: NetworkTransitionConfig::default(),
             #[cfg(test)]
             event_sink: near_async::messaging::IntoSender::into_sender(
                 near_async::messaging::noop(),
@@ -619,6 +720,7 @@ impl NetworkConfig {
             self.routing_graph_max_accounts_per_message > 0,
             "routing_graph_max_accounts_per_message must be > 0"
         );
+        self.transition.verify().context("transition")?;
 
         Ok(VerifiedConfig { node_id: self.node_id(), inner: self })
     }

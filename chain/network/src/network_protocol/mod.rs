@@ -85,6 +85,13 @@ const MAX_MEDIUM_MESSAGE_SIZE: usize = (32 * MIB) as usize;
 const MAX_LARGE_MESSAGE_SIZE: usize = (128 * MIB) as usize;
 const MAX_HUGE_MESSAGE_SIZE: usize = (512 * MIB) as usize;
 
+/// Serialization format of network messages and of payloads signed with account keys.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, strum::IntoStaticStr)]
+pub enum Encoding {
+    Proto,
+    Borsh,
+}
+
 #[derive(PartialEq, Eq, Clone, Debug, Hash)]
 pub struct PeerAddr {
     pub addr: std::net::SocketAddr,
