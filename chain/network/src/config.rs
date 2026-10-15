@@ -872,6 +872,26 @@ mod test {
                 &after.routing_graph_max_accounts_per_message,
                 &overrides.routing_graph_max_accounts_per_message
             ));
+            assert!(check_override_field(
+                &before.transition.prefer_borsh,
+                &after.transition.prefer_borsh,
+                &overrides.prefer_borsh
+            ));
+            assert!(check_override_field(
+                &before.transition.allow_protobuf_on_connection,
+                &after.transition.allow_protobuf_on_connection,
+                &overrides.allow_protobuf_on_connection
+            ));
+            assert!(check_override_field(
+                &before.transition.sign_with_borsh,
+                &after.transition.sign_with_borsh,
+                &overrides.sign_with_borsh
+            ));
+            assert!(check_override_field(
+                &before.transition.allow_protobuf_signed_structs,
+                &after.transition.allow_protobuf_signed_structs,
+                &overrides.allow_protobuf_signed_structs
+            ));
         };
         let no_overrides = NetworkConfigOverrides::default();
         let mut overrides = NetworkConfigOverrides::default();
@@ -885,6 +905,8 @@ mod test {
         overrides.routing_graph_max_peers = Some(30_000);
         overrides.routing_graph_max_edges = Some(40_000);
         overrides.routing_graph_max_accounts_per_message = Some(5_000);
+        overrides.allow_protobuf_on_connection = Some(false);
+        overrides.sign_with_borsh = Some(true);
 
         let nc_before =
             config::NetworkConfig::from_seed("123", tcp::ListenerAddr::reserve_for_test());
@@ -925,6 +947,29 @@ mod test {
         };
         let sad = ad.sign(&signer.into()).unwrap();
         assert!(sad.payload().len() <= network_protocol::MAX_ACCOUNT_DATA_SIZE_BYTES);
+    }
+
+    #[test]
+    fn test_transition_config_validation() {
+        use config::NetworkTransitionConfig as C;
+        for transition in [C::PROTOBUF_ONLY, C::RELEASE_2_15, C::RELEASE_2_16, C::RELEASE_2_17] {
+            let mut nc =
+                config::NetworkConfig::from_seed("123", tcp::ListenerAddr::reserve_for_test());
+            nc.transition = transition;
+            assert!(nc.verify().is_ok(), "{transition:?}");
+        }
+
+        // No encoding left to use on connections.
+        let mut nc = config::NetworkConfig::from_seed("123", tcp::ListenerAddr::reserve_for_test());
+        nc.transition.prefer_borsh = false;
+        nc.transition.allow_protobuf_on_connection = false;
+        assert!(nc.verify().is_err());
+
+        // The node would sign structs in an encoding which it doesn't accept.
+        let mut nc = config::NetworkConfig::from_seed("123", tcp::ListenerAddr::reserve_for_test());
+        nc.transition.sign_with_borsh = false;
+        nc.transition.allow_protobuf_signed_structs = false;
+        assert!(nc.verify().is_err());
     }
 
     #[test]
