@@ -1,5 +1,7 @@
 /// Contains types that belong to the `network protocol.
+mod borsh_wire;
 mod edge;
+mod message_kind;
 mod peer;
 mod proto_conv;
 mod state_sync;
@@ -7,6 +9,7 @@ use borsh::BorshDeserialize;
 use borsh::BorshSerialize;
 use bytesize::{KIB, MIB};
 pub use edge::*;
+pub use message_kind::*;
 use near_primitives::genesis::GenesisId;
 use near_primitives::spice::chunk_endorsement::SpiceChunkEndorsement;
 use near_primitives::spice::partial_data::SpicePartialData;
@@ -558,75 +561,7 @@ impl PeerMessage {
     /// Maximum allowed size (in bytes) of the encoded form of a message of this type.
     /// Incoming messages larger than this are dropped before being processed.
     pub(crate) fn max_size(&self) -> usize {
-        use T1MessageBody::*;
-        use T2MessageBody::*;
-        use TieredMessageBody::{T1, T2};
-
-        match self {
-            PeerMessage::BlockRequest(_)
-            | PeerMessage::BlockHeadersRequest(_)
-            | PeerMessage::RequestUpdateNonce(_)
-            | PeerMessage::Tier1Handshake(_)
-            | PeerMessage::Tier2Handshake(_)
-            | PeerMessage::Tier3Handshake(_)
-            | PeerMessage::Disconnect(_)
-            | PeerMessage::HandshakeFailure(_, _)
-            | PeerMessage::LastEdge(_)
-            | PeerMessage::PeersRequest(_)
-            | PeerMessage::Challenge(_) // challenges are disabled
-            | PeerMessage::EpochSyncRequest => MAX_SMALL_MESSAGE_SIZE,
-
-            PeerMessage::PeersResponse(_)
-            | PeerMessage::Transaction(_)
-            | PeerMessage::SyncRoutingTable(_)
-            | PeerMessage::SyncAccountsData(_)
-            | PeerMessage::SyncSnapshotHosts(_)
-            | PeerMessage::BlockHeaders(_)
-            | PeerMessage::Block(_)
-            | PeerMessage::OptimisticBlock(_) => MAX_MEDIUM_MESSAGE_SIZE,
-
-            PeerMessage::VersionedStateResponse(_) => MAX_LARGE_MESSAGE_SIZE,
-            PeerMessage::EpochSyncResponse(_) => MAX_HUGE_MESSAGE_SIZE,
-            PeerMessage::Routed(msg) => match msg.body() {
-                T1(body) => match body.as_ref() {
-                    BlockApproval(_) | VersionedChunkEndorsement(_) | SpiceChunkEndorsement(_) => {
-                        MAX_SMALL_MESSAGE_SIZE
-                    }
-
-                    PartialEncodedChunkForward(_)
-                    | ChunkContractAccesses(_)
-                    | ContractCodeRequest(_)
-                    | SpiceDataRequest(_)
-                    | SpiceChunkContractAccesses(_)
-                    | SpiceContractCodeRequest(_)
-                    | VersionedPartialEncodedChunk(_) => MAX_MEDIUM_MESSAGE_SIZE,
-
-                    PartialEncodedStateWitness(_)
-                    | PartialEncodedStateWitnessForward(_)
-                    | VersionedPartialEncodedStateWitness(_)
-                    | VersionedPartialEncodedStateWitnessForward(_)
-                    | ContractCodeResponse(_)
-                    | SpicePartialData(_)
-                    | SpiceContractCodeResponse(_) => MAX_LARGE_MESSAGE_SIZE,
-                },
-                T2(body) => match body.as_ref() {
-                    TxStatusRequest(_, _)
-                    | Ping(_)
-                    | Pong(_)
-                    | ChunkStateWitnessAck(_)
-                    | StatePartRequest(_)
-                    | StateHeaderRequest(_)
-                    | StateRequestAck(_) => MAX_SMALL_MESSAGE_SIZE,
-
-                    ForwardTx(_)
-                    | PartialEncodedChunkRequest(_)
-                    | TxStatusResponse(_)
-                    | PartialEncodedChunkResponse(_) => MAX_MEDIUM_MESSAGE_SIZE,
-
-                    | PartialEncodedContractDeploys(_) => MAX_LARGE_MESSAGE_SIZE,
-                },
-            },
-        }
+        self.kind().max_size()
     }
 }
 
