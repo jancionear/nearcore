@@ -1,5 +1,6 @@
 use super::*;
 use crate::network_protocol::PeersResponse;
+use crate::network_protocol::borsh_wire::{PeerMessageHeader, PeerMessageHeaderV1};
 use crate::network_protocol::testonly as data;
 use crate::network_protocol::{RoutedMessage, RoutedMessageBody};
 use crate::testonly::make_rng;
@@ -89,13 +90,25 @@ fn handshake_tracked_shards_too_many() {
     }
 }
 
+const ENCODINGS: [Encoding; 2] = [Encoding::Proto, Encoding::Borsh];
+
 #[test]
-fn serialize_deserialize_protobuf_only() {
+fn serialize_deserialize_signed_structs() {
     let mut rng = make_rng(39521947542);
     let mut clock = time::FakeClock::default();
     let chain = data::Chain::make(&mut clock, &mut rng, 12);
+    let signer = data::make_validator_signer(&mut rng);
+    let mut handshake = data::make_handshake(&mut rng, &chain);
+    handshake.owned_account = Some(
+        OwnedAccount {
+            account_key: signer.public_key(),
+            peer_id: handshake.sender_peer_id.clone(),
+            timestamp: to_unix_nanos(clock.now_utc()),
+        }
+        .sign(&signer),
+    );
     let msgs = [
-        PeerMessage::Tier1Handshake(data::make_handshake(&mut rng, &chain)),
+        PeerMessage::Tier1Handshake(handshake),
         PeerMessage::SyncAccountsData(SyncAccountsData {
             accounts_data: (0..4)
                 .map(|_| Arc::new(data::make_signed_account_data(&mut rng, &clock.clock())))
@@ -104,26 +117,43 @@ fn serialize_deserialize_protobuf_only() {
             requesting_full_sync: true,
         }),
     ];
-    for m in msgs {
-        let m2 = PeerMessage::deserialize(&m.serialize()).with_context(|| m.to_string()).unwrap();
-        assert_eq!(m, m2);
+    for encoding in ENCODINGS {
+        for m in &msgs {
+            let m2 = PeerMessage::deserialize(&m.serialize(encoding))
+                .with_context(|| format!("{m}, encoding={encoding:?}"))
+                .unwrap();
+            assert_eq!(*m, m2);
+        }
     }
 }
 
+/// A signed struct is sent together with the signed protobuf bytes, so verifying it checks that
+/// both match.
 #[test]
-fn serialize_deserialize() -> anyhow::Result<()> {
-    let mut rng = make_rng(89028037453);
-    let mut clock = time::FakeClock::default();
+fn verify_signed_structs() {
+    let mut rng = make_rng(39521947542);
+    let clock = time::FakeClock::default();
+    let signed = data::make_signed_account_data(&mut rng, &clock.clock());
+    signed.verify().unwrap();
+    let got = SignedAccountData::try_from_slice(&borsh::to_vec(&signed).unwrap()).unwrap();
+    assert_eq!(got, signed);
+    got.verify().unwrap();
 
-    let chain = data::Chain::make(&mut clock, &mut rng, 12);
-    let a = data::make_secret_key(&mut rng);
-    let b = data::make_secret_key(&mut rng);
+    // The signature covers the struct: the signed bytes no longer match the changed struct.
+    let mut changed = signed.clone();
+    changed.account_data.version += 1;
+    assert!(changed.verify().is_err());
+}
+
+fn all_messages(rng: &mut crate::testonly::Rng, chain: &data::Chain) -> Vec<PeerMessage> {
+    let a = data::make_secret_key(rng);
+    let b = data::make_secret_key(rng);
     let edge = data::make_edge(&a, &b, 1);
 
     let block3_chunks = chain.blocks[3].chunks();
     let chunk_hash = block3_chunks[0].chunk_hash();
     let routed_message1 = Box::new(data::make_routed_message(
-        &mut rng,
+        rng,
         T2MessageBody::PartialEncodedChunkRequest(PartialEncodedChunkRequestMsg {
             chunk_hash: chunk_hash.clone(),
             part_ords: vec![],
@@ -132,7 +162,7 @@ fn serialize_deserialize() -> anyhow::Result<()> {
         .into(),
     ));
     let routed_message2 = Box::new(data::make_routed_message(
-        &mut rng,
+        rng,
         T2MessageBody::PartialEncodedChunkResponse(PartialEncodedChunkResponseMsg {
             chunk_hash: chunk_hash.clone(),
             parts: data::make_chunk_parts(chain.chunks[chunk_hash].clone()),
@@ -140,46 +170,200 @@ fn serialize_deserialize() -> anyhow::Result<()> {
         })
         .into(),
     ));
-    let msgs = [
-        PeerMessage::Tier2Handshake(data::make_handshake(&mut rng, &chain)),
+    vec![
+        PeerMessage::Tier2Handshake(data::make_handshake(rng, chain)),
         PeerMessage::HandshakeFailure(
-            data::make_peer_info(&mut rng),
+            data::make_peer_info(rng),
             HandshakeFailureReason::InvalidTarget,
         ),
+        PeerMessage::HandshakeFailure(
+            data::make_peer_info(rng),
+            HandshakeFailureReason::ProtocolVersionMismatch {
+                version: 7,
+                oldest_supported_version: 5,
+            },
+        ),
+        PeerMessage::HandshakeFailure(
+            data::make_peer_info(rng),
+            HandshakeFailureReason::GenesisMismatch(chain.genesis_id.clone()),
+        ),
         PeerMessage::LastEdge(edge),
-        PeerMessage::SyncRoutingTable(data::make_routing_table(&mut rng)),
-        PeerMessage::RequestUpdateNonce(data::make_partial_edge(&mut rng)),
+        PeerMessage::SyncRoutingTable(data::make_routing_table(rng)),
+        PeerMessage::RequestUpdateNonce(data::make_partial_edge(rng)),
         PeerMessage::PeersRequest(PeersRequest { max_peers: None, max_direct_peers: None }),
         PeerMessage::PeersResponse(PeersResponse {
-            peers: (0..5).map(|_| data::make_peer_info(&mut rng)).collect(),
-            direct_peers: (0..5).map(|_| data::make_peer_info(&mut rng)).collect(),
+            peers: (0..5).map(|_| data::make_peer_info(rng)).collect(),
+            direct_peers: (0..5).map(|_| data::make_peer_info(rng)).collect(),
         }),
         PeerMessage::BlockHeadersRequest(chain.blocks.iter().map(|b| *b.hash()).collect()),
         PeerMessage::BlockHeaders(chain.get_block_headers().map(Into::into).collect()),
         PeerMessage::BlockRequest(*chain.blocks[5].hash()),
         PeerMessage::Block(chain.blocks[5].clone()),
-        PeerMessage::Transaction(data::make_signed_transaction(&mut rng)),
+        PeerMessage::Transaction(data::make_signed_transaction(rng)),
         PeerMessage::Routed(routed_message1),
         PeerMessage::Routed(routed_message2),
         PeerMessage::Disconnect(Disconnect { remove_from_connection_store: false }),
-    ];
+        PeerMessage::Disconnect(Disconnect { remove_from_connection_store: true }),
+        PeerMessage::EpochSyncRequest,
+    ]
+}
+
+#[test]
+fn serialize_deserialize() -> anyhow::Result<()> {
+    let mut rng = make_rng(89028037453);
+    let mut clock = time::FakeClock::default();
+    let chain = data::Chain::make(&mut clock, &mut rng, 12);
+    let msgs = all_messages(&mut rng, &chain);
 
     // Check that serialize;deserialize = 1
-    for m in &msgs {
-        let m2 = PeerMessage::deserialize(&m.serialize()).with_context(|| m.to_string())?;
-        if *m != m2 {
-            bail!("deserialize(serialize({m}) = {m2}");
+    for encoding in ENCODINGS {
+        for m in &msgs {
+            let m2 = PeerMessage::deserialize(&m.serialize(encoding))
+                .with_context(|| format!("{m}, encoding={encoding:?}"))?;
+            if *m != m2 {
+                bail!("deserialize(serialize({m}, {encoding:?})) = {m2}");
+            }
         }
     }
 
     // Test the unambiguous parsing argument described in
     // https://docs.google.com/document/d/1gCWmt9O-h_-5JDXIqbKxAaSS3Q9pryB1f9DDY1mMav4/edit#heading=h.x1awbr2acslb
     for m in &msgs {
-        let x = m.serialize();
-        assert!(x[0] >= 32, "serialize({})[0] = {:?}, want >= 32", m, x.get(0));
+        let x = m.serialize(Encoding::Proto).body;
+        assert!(x[0] >= 32, "serialize({}, Proto)[0] = {:?}, want >= 32", m, x.get(0));
+        let y = m.serialize(Encoding::Borsh).header.unwrap();
+        assert!(y[0] < 8, "serialize({}, Borsh).header[0] = {:?}, want < 8", m, y.get(0));
     }
 
+    // Encodings should never be compatible. In particular nodes which support only protobuf
+    // have to reject the header frame of every borsh-encoded message. They also try to parse
+    // the body frame which follows it, so it has to be rejected as well for the first handshake,
+    // the only message sent before the encoding of the connection is negotiated.
+    let as_proto = |frame: &[u8]| {
+        PeerMessage::deserialize(&PeerMessageFrames { header: None, body: frame.to_vec() })
+    };
+    for m in &msgs {
+        let frames = m.serialize(Encoding::Borsh);
+        if let Ok(m2) = as_proto(frames.header.as_ref().unwrap()) {
+            bail!("header of {m} parsed as protobuf: {m2}");
+        }
+        let sent_before_negotiation = match m {
+            PeerMessage::Tier1Handshake(_)
+            | PeerMessage::Tier2Handshake(_)
+            | PeerMessage::Tier3Handshake(_) => true,
+            PeerMessage::HandshakeFailure(_, _)
+            | PeerMessage::LastEdge(_)
+            | PeerMessage::SyncRoutingTable(_)
+            | PeerMessage::RequestUpdateNonce(_)
+            | PeerMessage::SyncAccountsData(_)
+            | PeerMessage::PeersRequest(_)
+            | PeerMessage::PeersResponse(_)
+            | PeerMessage::BlockHeadersRequest(_)
+            | PeerMessage::BlockHeaders(_)
+            | PeerMessage::BlockRequest(_)
+            | PeerMessage::Block(_)
+            | PeerMessage::OptimisticBlock(_)
+            | PeerMessage::Transaction(_)
+            | PeerMessage::Routed(_)
+            | PeerMessage::Disconnect(_)
+            | PeerMessage::Challenge(_)
+            | PeerMessage::SyncSnapshotHosts(_)
+            | PeerMessage::VersionedStateResponse(_)
+            | PeerMessage::EpochSyncRequest
+            | PeerMessage::EpochSyncResponse(_) => false,
+        };
+        if sent_before_negotiation {
+            if let Ok(m2) = as_proto(&frames.body) {
+                bail!("body of {m} parsed as protobuf: {m2}");
+            }
+        }
+        // Nodes which support borsh recognize a protobuf-encoded message by it not being a valid
+        // header, see `FramedStream::run_recv_loop`.
+        let proto = m.serialize(Encoding::Proto).body;
+        if let Ok(kind) = parse_borsh_header(&proto) {
+            bail!("{m} encoded with protobuf parsed as a borsh header of {kind:?}");
+        }
+    }
     Ok(())
+}
+
+fn borsh_header(kind: PeerMessageKind) -> Vec<u8> {
+    borsh::to_vec(&PeerMessageHeader::V1(PeerMessageHeaderV1 { kind })).unwrap()
+}
+
+#[test]
+fn borsh_header_matches_body() {
+    let mut rng = make_rng(89028037453);
+    let mut clock = time::FakeClock::default();
+    let chain = data::Chain::make(&mut clock, &mut rng, 12);
+    for m in all_messages(&mut rng, &chain) {
+        let frames = m.serialize(Encoding::Borsh);
+        let header = PeerMessageHeader::try_from_slice(frames.header.as_ref().unwrap()).unwrap();
+        assert_eq!(header, PeerMessageHeader::V1(PeerMessageHeaderV1 { kind: m.kind() }));
+        assert_eq!(frames.body, borsh::to_vec(&m).unwrap());
+        assert!(frames.body.len() <= m.max_size());
+    }
+
+    // A header which lies about the kind of the body is rejected.
+    let m = PeerMessage::BlockRequest(CryptoHash::default());
+    let frames = PeerMessageFrames {
+        header: Some(borsh_header(PeerMessageKind::Disconnect)),
+        body: borsh::to_vec(&m).unwrap(),
+    };
+    assert!(matches!(
+        PeerMessage::deserialize(&frames),
+        Err(ParsePeerMessageError::BorshDecode(ParseBorshPeerMessageError::KindMismatch { .. }))
+    ));
+
+    // A header of an unknown version is rejected.
+    let mut frames = m.serialize(Encoding::Borsh);
+    frames.header.as_mut().unwrap()[0] = 1;
+    assert!(matches!(
+        PeerMessage::deserialize(&frames),
+        Err(ParsePeerMessageError::BorshDecode(ParseBorshPeerMessageError::Header(_)))
+    ));
+}
+
+/// The size limit of the body depends on the message kind declared in the header, so it can be
+/// checked before the body is read, see `FramedStream::run_recv_loop`.
+#[test]
+fn borsh_body_size_limit() {
+    let kind = PeerMessageKind::BlockRequest;
+    let header = borsh_header(kind);
+    assert_eq!(parse_borsh_header(&header).unwrap(), kind);
+    assert_eq!(max_borsh_body_size(kind), kind.max_size());
+    // Decoding applies the same limit. The body doesn't need to be valid.
+    let frames = PeerMessageFrames { header: Some(header), body: vec![0xff; kind.max_size() + 1] };
+    match PeerMessage::deserialize(&frames) {
+        Err(ParsePeerMessageError::TooLarge { kind: got_kind, size, max_size }) => {
+            assert_eq!(got_kind, kind);
+            assert_eq!(size, kind.max_size() + 1);
+            assert_eq!(max_size, kind.max_size());
+        }
+        other => panic!("expected TooLarge, got: {other:?}"),
+    }
+
+    // Transactions are additionally bounded, same as in the protobuf encoding.
+    let kind = PeerMessageKind::Transaction;
+    assert!(MAX_TRANSACTION_SIZE_BYTES < kind.max_size());
+    assert_eq!(max_borsh_body_size(kind), MAX_TRANSACTION_SIZE_BYTES);
+}
+
+/// Discriminants of the message kinds have to match the ones of the corresponding messages.
+#[test]
+fn message_kind_discriminants() {
+    let mut rng = make_rng(89028037453);
+    let mut clock = time::FakeClock::default();
+    let chain = data::Chain::make(&mut clock, &mut rng, 12);
+    for m in all_messages(&mut rng, &chain) {
+        let kind = borsh::to_vec(&m.kind()).unwrap();
+        let body = borsh::to_vec(&m).unwrap();
+        assert_eq!(kind[0], body[0], "{m}");
+        if let PeerMessage::Routed(r) = &m {
+            let tiered = borsh::to_vec(r.body()).unwrap();
+            assert_eq!(kind[1..3], tiered[0..2], "{m}");
+        }
+    }
 }
 
 fn make_block_approval_message() -> RoutedMessage {
