@@ -160,9 +160,12 @@ async fn test_peer_communication(
 
     tracing::info!(target: "test", "sync accounts data");
     let mut events = inbound.events.from_now();
+    let signed_encoding = outbound_transition.signing_encoding();
     let want = PeerMessage::SyncAccountsData(SyncAccountsData {
         accounts_data: (0..3)
-            .map(|_| Arc::new(data::make_signed_account_data(&mut rng, &clock.clock())))
+            .map(|_| {
+                Arc::new(data::make_signed_account_data(&mut rng, &clock.clock(), signed_encoding))
+            })
             .collect(),
         incremental: true,
         requesting_full_sync: false,
@@ -207,13 +210,14 @@ async fn encoding_negotiation() {
         (v15, p, proto),
         (v15, v15, borsh),
         (v15, v16, borsh),
-        (v15, v17, borsh),
+        // 2.17 rejects the handshake of 2.15, which is signed using protobuf.
+        (v15, v17, None),
         (v16, p, None),
         (v16, v15, borsh),
         (v16, v16, borsh),
         (v16, v17, borsh),
         (v17, p, None),
-        (v17, v15, borsh),
+        (v17, v15, None),
         (v17, v16, borsh),
         (v17, v17, borsh),
     ];
