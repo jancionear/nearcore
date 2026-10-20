@@ -103,7 +103,9 @@ impl From<&Handshake> for proto::Handshake {
             sender_listen_port: x.sender_listen_port.unwrap_or(0).into(),
             sender_chain_info: MF::some((&x.sender_chain_info).into()),
             partial_edge_info: MF::some((&x.partial_edge_info).into()),
-            owned_account: x.owned_account.as_ref().map(Into::into).into(),
+            // Nodes which support only protobuf can't verify an owned account signed over its
+            // borsh encoding, so it is omitted.
+            owned_account: x.owned_account.as_ref().and_then(|a| a.to_proto()).into(),
             ..Self::default()
         }
     }
