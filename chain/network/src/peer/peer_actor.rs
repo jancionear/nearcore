@@ -4,8 +4,8 @@ use crate::concurrency::atomic_cell::AtomicCell;
 use crate::concurrency::outgoing_queue_limiter::OutgoingPermit;
 use crate::config::PEERS_RESPONSE_MAX_PEERS;
 use crate::network_protocol::{
-    Edge, EdgeState, OwnedAccount, PartialEdgeInfo, PeerChainInfoV2, PeerIdOrHash, PeerInfo,
-    PeersRequest, PeersResponse, RoutingTableUpdate, SnapshotHostInfoVerificationError,
+    Edge, EdgeState, Encoding, OwnedAccount, PartialEdgeInfo, PeerChainInfoV2, PeerIdOrHash,
+    PeerInfo, PeersRequest, PeersResponse, RoutingTableUpdate, SnapshotHostInfoVerificationError,
     SyncAccountsData, SyncSnapshotHosts, T2MessageBody, TieredMessageBody, from_unix_nanos,
     to_unix_nanos,
 };
@@ -430,8 +430,8 @@ impl PeerActor {
             _ => (),
         };
 
-        let bytes = msg.serialize();
-        let bytes_len = bytes.len();
+        let frames = msg.serialize(Encoding::Proto);
+        let bytes_len = frames.len();
         // Reserve capacity in the global outgoing-queue limiter. Pre-acquired reservations are
         // shrunk to the actual serialized size; everything else acquires now and drops the message
         // if there is no headroom.
@@ -458,7 +458,7 @@ impl PeerActor {
         };
         self.tracker.lock().increment_sent(&self.clock, bytes_len as u64);
         tracing::trace!(target: "network", msg_len = bytes_len);
-        let frame = stream::Frame::with_permit(bytes, permit);
+        let frame = stream::Frame::with_permit(frames, permit);
         self.framed.send(frame);
         metrics::PEER_DATA_SENT_BYTES.inc_by(bytes_len as u64);
         let msg_type = msg.msg_variant();
@@ -1605,6 +1605,8 @@ impl messaging::Handler<stream::Error> for PeerActor {
                     this.stop(ClosingReason::Ban(ReasonForBan::Abusive));
                     true
                 }
+                // The peer doesn't follow the wire format, e.g. it runs an incompatible version.
+                stream::Error::Recv(stream::RecvError::ProtocolViolation(_)) => true,
                 // It is expected in a sense that the peer might be just slow.
                 stream::Error::Send(stream::SendError::QueueOverflow { .. }) => true,
                 // The incoming semaphore can be closed when neard is shutting down.
@@ -1635,7 +1637,7 @@ impl messaging::Handler<stream::Error> for PeerActor {
 }
 
 impl messaging::Handler<IncomingFrame> for PeerActor {
-    fn handle(&mut self, IncomingFrame { data: msg, recv_permit }: IncomingFrame) {
+    fn handle(&mut self, IncomingFrame { message: msg, recv_permit }: IncomingFrame) {
         self.delay_if_registering(move |this| {
             let _span = tracing::debug_span!(
                 target: "network",
@@ -1661,21 +1663,22 @@ impl messaging::Handler<IncomingFrame> for PeerActor {
             let mut peer_msg = match PeerMessage::deserialize(&msg) {
                 Ok(msg) => msg,
                 Err(err) => {
-                    tracing::debug!(target: "network", data = %near_fmt::AbbrBytes(&msg), peer_info = %this.peer_info, %err, "received invalid data");
+                    tracing::debug!(target: "network", data = %near_fmt::AbbrBytes(&msg.body), peer_info = %this.peer_info, %err, "received invalid data");
                     return;
                 }
             };
 
             // Enforce a per-message-type size limit.
+            // The body of a borsh-encoded message is checked before it is read, see `stream`.
             let max_size = peer_msg.max_size();
-            if msg.len() > max_size {
+            if msg.body.len() > max_size {
                 let msg_variant = peer_msg.msg_variant();
                 metrics::MessageDropped::TooLargeForType.inc_msg_type(msg_variant);
                 tracing::debug!(
                     target: "network",
                     peer_info = %this.peer_info,
                     %msg_variant,
-                    msg_len = msg.len(),
+                    msg_len = msg.body.len(),
                     max_size,
                     "received a message exceeding the size limit for its type, dropping it",
                 );

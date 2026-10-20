@@ -4,13 +4,13 @@ use crate::network_protocol::proto::peer_message::Message_type as ProtoMT;
 use crate::network_protocol::proto::{self};
 use crate::network_protocol::state_sync::{SnapshotHostInfo, SyncSnapshotHosts};
 use crate::network_protocol::{
-    Disconnect, MAX_SHARDS_PER_SNAPSHOT_HOST_INFO, PeerMessage, PeersRequest, PeersResponse,
-    RoutedMessageV3, RoutingTableUpdate, SyncAccountsData, TieredMessageBody,
+    Disconnect, MAX_ROUTED_MESSAGE_SIZE_BYTES, MAX_SHARDS_PER_SNAPSHOT_HOST_INFO,
+    MAX_TRANSACTION_SIZE_BYTES, PeerMessage, PeersRequest, PeersResponse, RoutedMessageV3,
+    RoutingTableUpdate, SyncAccountsData, TieredMessageBody,
 };
 use crate::network_protocol::{PeerIdOrHash, RoutedMessageV1};
 use crate::types::StateResponseInfo;
 use borsh::BorshDeserialize as _;
-use bytesize::MIB;
 use near_async::time::error::ComponentRange;
 use near_primitives::block::{Block, BlockHeader};
 use near_primitives::challenge::Challenge;
@@ -19,19 +19,6 @@ use near_primitives::utils::compression::CompressedData;
 use proto::peer_id_or_hash::Target_type::*;
 use protobuf::MessageField as MF;
 use std::sync::Arc;
-
-/// Upper bound on the Borsh-encoded size of a peer-supplied transaction body,
-/// enforced before the body is deserialized to mitigate maliciously inflated
-/// transactions exhausting node memory at decode time. Set comfortably above
-/// the largest valid transaction (`max_transaction_size`, historically 4 MiB)
-/// and far below the 512 MiB peer-frame cap.
-const MAX_TRANSACTION_SIZE_BYTES: usize = 16 * MIB as usize;
-
-/// Upper bound on the Borsh-encoded size of a peer-supplied routed-message body,
-/// enforced before it is deserialized so a maliciously inflated payload (e.g. a
-/// `ForwardTx` carrying an oversized delegate action) cannot exhaust node memory
-/// at decode time.
-const MAX_ROUTED_MESSAGE_SIZE_BYTES: usize = 64 * MIB as usize;
 
 #[derive(thiserror::Error, Debug)]
 pub enum ParseRoutingTableUpdateError {

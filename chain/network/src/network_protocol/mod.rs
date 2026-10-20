@@ -1,4 +1,5 @@
 /// Contains types that belong to the `network protocol.
+mod borsh_conv;
 mod borsh_wire;
 mod edge;
 mod message_kind;
@@ -7,6 +8,8 @@ mod proto_conv;
 mod state_sync;
 use borsh::BorshDeserialize;
 use borsh::BorshSerialize;
+pub use borsh_conv::ParseBorshPeerMessageError;
+pub(crate) use borsh_conv::{max_borsh_body_size, parse_borsh_header};
 use bytesize::{KIB, MIB};
 pub use edge::*;
 pub use message_kind::*;
@@ -88,11 +91,51 @@ const MAX_MEDIUM_MESSAGE_SIZE: usize = (32 * MIB) as usize;
 const MAX_LARGE_MESSAGE_SIZE: usize = (128 * MIB) as usize;
 const MAX_HUGE_MESSAGE_SIZE: usize = (512 * MIB) as usize;
 
+/// Upper bound on the Borsh-encoded size of a peer-supplied transaction body,
+/// enforced before the body is deserialized to mitigate maliciously inflated
+/// transactions exhausting node memory at decode time. Set comfortably above
+/// the largest valid transaction (`max_transaction_size`, historically 4 MiB)
+/// and far below the 512 MiB peer-frame cap.
+const MAX_TRANSACTION_SIZE_BYTES: usize = 16 * MIB as usize;
+
+/// Upper bound on the Borsh-encoded size of a peer-supplied routed-message body,
+/// enforced before it is deserialized so a maliciously inflated payload (e.g. a
+/// `ForwardTx` carrying an oversized delegate action) cannot exhaust node memory
+/// at decode time.
+const MAX_ROUTED_MESSAGE_SIZE_BYTES: usize = 64 * MIB as usize;
+
 /// Serialization format of network messages and of payloads signed with account keys.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, strum::IntoStaticStr)]
 pub enum Encoding {
     Proto,
     Borsh,
+}
+
+/// Frames of a serialized `PeerMessage`. A frame is sent as its length (`u32`, little endian)
+/// followed by its bytes.
+///
+/// A protobuf-encoded message is sent as a single frame. A borsh-encoded message is sent as
+/// two frames: the header (`PeerMessageHeader`) and the body. The receiver reads the header
+/// first and decides what to do with the body (e.g. enforces the size limit of the message
+/// kind) before reading it.
+///
+/// The first byte of a header is smaller than 8, which is never a valid first byte of a
+/// protobuf message. As a result, nodes which support only protobuf reject borsh-encoded
+/// messages, rather than misinterpreting them, and a protobuf-encoded message is never a valid
+/// header.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct PeerMessageFrames {
+    /// Header of a borsh-encoded message, `None` for a protobuf-encoded one.
+    pub header: Option<Vec<u8>>,
+    /// The protobuf-encoded message, or the body of a borsh-encoded message.
+    pub body: Vec<u8>,
+}
+
+impl PeerMessageFrames {
+    /// Total size of the frames, without their lengths.
+    pub fn len(&self) -> usize {
+        self.header.as_ref().map_or(0, Vec::len) + self.body.len()
+    }
 }
 
 #[derive(PartialEq, Eq, Clone, Debug, Hash, BorshSerialize, BorshDeserialize)]
@@ -528,27 +571,43 @@ pub enum ParsePeerMessageError {
     ProtoDecode(#[source] protobuf::Error),
     #[error("ProtoConv")]
     ProtoConv(#[source] proto_conv::ParsePeerMessageError),
+    #[error("BorshDecode")]
+    BorshDecode(#[from] ParseBorshPeerMessageError),
+    #[error("message of kind {kind:?} is too large: {size}B > {max_size}B")]
+    TooLarge { kind: PeerMessageKind, size: usize, max_size: usize },
 }
 
 impl PeerMessage {
-    /// Serializes a message and attaches current Span's context to the message.
-    pub(crate) fn serialize(&self) -> Vec<u8> {
-        let mut msg = proto::PeerMessage::from(self);
-        let cx = Span::current().context();
-        msg.trace_context = inject_trace_context(&cx);
-        msg.write_to_bytes().unwrap()
+    /// Serializes a message using `encoding`.
+    /// Protobuf-encoded messages carry the current Span's context.
+    pub(crate) fn serialize(&self, encoding: Encoding) -> PeerMessageFrames {
+        match encoding {
+            Encoding::Proto => {
+                let mut msg = proto::PeerMessage::from(self);
+                let cx = Span::current().context();
+                msg.trace_context = inject_trace_context(&cx);
+                PeerMessageFrames { header: None, body: msg.write_to_bytes().unwrap() }
+            }
+            Encoding::Borsh => borsh_conv::serialize_peer_message(self),
+        }
     }
 
-    pub(crate) fn deserialize(data: &[u8]) -> Result<PeerMessage, ParsePeerMessageError> {
+    pub(crate) fn deserialize(
+        frames: &PeerMessageFrames,
+    ) -> Result<PeerMessage, ParsePeerMessageError> {
         let span = tracing::trace_span!(target: "network", "deserialize").entered();
-        Ok({
-            let proto_msg: proto::PeerMessage = proto::PeerMessage::parse_from_bytes(data)
-                .map_err(ParsePeerMessageError::ProtoDecode)?;
-            if let Ok(extracted_span_context) = extract_span_context(&proto_msg.trace_context) {
-                span.clone().or_current().add_link(extracted_span_context);
+        match &frames.header {
+            None => {
+                let proto_msg: proto::PeerMessage =
+                    proto::PeerMessage::parse_from_bytes(&frames.body)
+                        .map_err(ParsePeerMessageError::ProtoDecode)?;
+                if let Ok(extracted_span_context) = extract_span_context(&proto_msg.trace_context) {
+                    span.clone().or_current().add_link(extracted_span_context);
+                }
+                (&proto_msg).try_into().map_err(|err| ParsePeerMessageError::ProtoConv(err))
             }
-            (&proto_msg).try_into().map_err(|err| ParsePeerMessageError::ProtoConv(err))?
-        })
+            Some(header) => borsh_conv::deserialize_peer_message(header, &frames.body),
+        }
     }
 
     pub(crate) fn msg_variant(&self) -> &'static str {

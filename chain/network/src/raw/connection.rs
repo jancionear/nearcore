@@ -1,7 +1,8 @@
 use crate::config::SocketOptions;
 use crate::network_protocol::{
-    Handshake, HandshakeFailureReason, PartialEdgeInfo, PeerChainInfoV2, PeerIdOrHash, PeerMessage,
-    Ping, Pong, RawRoutedMessage, RoutingTableUpdate, T2MessageBody, TieredMessageBody,
+    Encoding, Handshake, HandshakeFailureReason, PartialEdgeInfo, PeerChainInfoV2, PeerIdOrHash,
+    PeerMessage, PeerMessageFrames, Ping, Pong, RawRoutedMessage, RoutingTableUpdate,
+    T2MessageBody, TieredMessageBody, parse_borsh_header,
 };
 use crate::tcp;
 use crate::types::{Edge, PartialEncodedChunkRequestMsg, PartialEncodedChunkResponseMsg, PeerInfo};
@@ -519,7 +520,8 @@ impl PeerStream {
     }
 
     async fn write_message(&mut self, msg: &PeerMessage) -> io::Result<()> {
-        let mut msg = msg.serialize();
+        // TODO: switch to borsh before protobuf stops being accepted on connections.
+        let mut msg = msg.serialize(Encoding::Proto).body;
         let mut buf = (msg.len() as u32).to_le_bytes().to_vec();
         buf.append(&mut msg);
         self.stream.stream.write_all(&buf).await
@@ -560,28 +562,41 @@ impl PeerStream {
         Ok((len as usize, first_byte_time.unwrap_or_else(Instant::now)))
     }
 
-    // Reads from the socket until there is at least one full PeerMessage available.
-    async fn recv_message(&mut self) -> Result<(PeerMessage, Instant), RecvError> {
-        let (msg_length, first_byte_time) = self.read_msg_length().await?;
+    // Reads from the socket until there is at least one full frame available.
+    async fn recv_frame(&mut self) -> io::Result<(Vec<u8>, Instant)> {
+        let (frame_length, first_byte_time) = self.read_msg_length().await?;
 
-        while self.buf.remaining() < msg_length + 4 {
+        while self.buf.remaining() < frame_length + 4 {
             self.do_read().await?;
         }
 
         self.buf.advance(4);
-        let msg = PeerMessage::deserialize(&self.buf[..msg_length]);
-        self.buf.advance(msg_length);
+        let frame = self.buf[..frame_length].to_vec();
+        self.buf.advance(frame_length);
 
         // make sure we can probably read the next message in one syscall next time
         let max_len_after_next_read = self.buf.chunk_mut().len() + self.buf.remaining();
         if max_len_after_next_read < 512 {
             self.buf.reserve(512 - max_len_after_next_read);
         }
-        msg.map(|m| {
-            tracing::debug!(target: "network", connection = ?&self, message = %&m, msg_length, "received peer message");
-            (m, first_byte_time)
-        })
-        .map_err(|_| RecvError::Parse(msg_length))
+        Ok((frame, first_byte_time))
+    }
+
+    // Reads from the socket until there is at least one full PeerMessage available.
+    async fn recv_message(&mut self) -> Result<(PeerMessage, Instant), RecvError> {
+        let (first, first_byte_time) = self.recv_frame().await?;
+        // A borsh-encoded message consists of a header frame and a body frame.
+        let frames = match parse_borsh_header(&first) {
+            Ok(_) => PeerMessageFrames { header: Some(first), body: self.recv_frame().await?.0 },
+            Err(_) => PeerMessageFrames { header: None, body: first },
+        };
+        let msg_length = frames.len();
+        PeerMessage::deserialize(&frames)
+            .map(|m| {
+                tracing::debug!(target: "network", connection = ?&self, message = %&m, msg_length, "received peer message");
+                (m, first_byte_time)
+            })
+            .map_err(|_| RecvError::Parse(msg_length))
     }
 }
 

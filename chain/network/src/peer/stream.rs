@@ -1,12 +1,17 @@
 use crate::concurrency::outgoing_queue_limiter::OutgoingPermit;
+use crate::network_protocol::{
+    ParseBorshPeerMessageError, PeerMessageFrames, PeerMessageKind, max_borsh_body_size,
+    parse_borsh_header,
+};
 use crate::peer_manager::connection;
 use crate::recv_permit::RecvMessagePermit;
 use crate::stats::metrics;
 use crate::tcp;
-use bytesize::MIB;
+use bytesize::{KIB, MIB};
 use itertools::Itertools;
 use near_async::futures::{FutureSpawner, FutureSpawnerExt};
 use near_async::messaging::{AsyncSender, Sender};
+use near_o11y::metrics::Histogram;
 use std::io;
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -18,6 +23,13 @@ use tokio::sync::Semaphore;
 /// Maximum size of network message in encoded format.
 /// We encode length as `u32`, and therefore maximum size can't be larger than `u32::MAX`.
 const NETWORK_MESSAGE_MAX_SIZE_BYTES: usize = 512 * MIB as usize;
+
+/// Maximum size of the first frame received on a connection, which contains the handshake (or
+/// a response to it), or its header if it is borsh-encoded.
+pub(crate) const MAX_FIRST_FRAME_SIZE_BYTES: usize = 10 * KIB as usize;
+
+/// Maximum size of the header of a borsh-encoded message, see `PeerMessageFrames`.
+pub(crate) const MAX_HEADER_SIZE_BYTES: usize = 1024;
 
 /// Timeout for individual write operations (write + flush) to detect if the connection is
 /// stuck due to a half-open TCP connection where the peer stopped ACKing writes.
@@ -45,43 +57,57 @@ pub(crate) enum RecvError {
     MessageTooLarge { got_bytes: usize, want_max_bytes: usize },
     #[error("incoming_semaphore has been closed; cannot acquire recv_permit")]
     IncomingSemaphoreClosed,
+    #[error("protocol violation: {0}")]
+    ProtocolViolation(#[from] ProtocolViolation),
+}
+
+/// Violations of the wire format by the peer, see `FramedStream::run_recv_loop`.
+#[derive(thiserror::Error, Debug)]
+pub(crate) enum ProtocolViolation {
+    #[error("frame too large: got {got_bytes}B, want <={want_max_bytes}B")]
+    FrameTooLarge { got_bytes: usize, want_max_bytes: usize },
+    #[error("invalid header: {0}")]
+    InvalidHeader(#[source] ParseBorshPeerMessageError),
+    #[error("body of a {kind:?} message too large: got {got_bytes}B, want <={want_max_bytes}B")]
+    BodyTooLarge { kind: PeerMessageKind, got_bytes: usize, want_max_bytes: usize },
 }
 
 pub(crate) struct Frame {
-    pub bytes: Vec<u8>,
+    pub message: PeerMessageFrames,
     _permit: Option<OutgoingPermit>,
 }
 
 impl Frame {
-    pub fn with_permit(bytes: Vec<u8>, permit: OutgoingPermit) -> Self {
-        Self { bytes, _permit: Some(permit) }
+    pub fn with_permit(message: PeerMessageFrames, permit: OutgoingPermit) -> Self {
+        Self { message, _permit: Some(permit) }
     }
 }
 
 impl std::fmt::Debug for Frame {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Frame").field("bytes_len", &self.bytes.len()).finish()
+        f.debug_struct("Frame").field("bytes_len", &self.message.len()).finish()
     }
 }
 
 impl PartialEq for Frame {
     fn eq(&self, other: &Self) -> bool {
-        self.bytes == other.bytes
+        self.message == other.message
     }
 }
 
 impl Eq for Frame {}
 
 pub(crate) struct IncomingFrame {
-    pub data: Vec<u8>,
+    pub message: PeerMessageFrames,
     pub recv_permit: RecvMessagePermit,
 }
 
 impl std::fmt::Debug for IncomingFrame {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("IncomingFrame")
-            .field("data_prefix", &&self.data.iter().take(32).collect_vec())
-            .field("data_len", &self.data.len())
+            .field("header", &self.message.header)
+            .field("body_prefix", &&self.message.body.iter().take(32).collect_vec())
+            .field("body_len", &self.message.body.len())
             .finish()
     }
 }
@@ -171,7 +197,7 @@ impl FramedStream {
     /// If the message is too large, it will be silently dropped inside run_send_loop.
     /// Emits a critical error to Actor if send queue is full.
     pub fn send(&self, frame: Frame) {
-        let msg_len = frame.bytes.len();
+        let msg_len = frame.message.len();
         let mut buf_size =
             self.stats.bytes_to_send.fetch_add(msg_len as u64, Ordering::Acquire) as usize;
         buf_size += msg_len;
@@ -191,13 +217,10 @@ impl FramedStream {
     }
 
     /// Event loop receiving and processing messages.
-    /// Loop waits for the message to be processed before reading the next message.
-    /// Note that if the message handler spawns an asynchronous subhandler and returns,
-    /// then the loop will start reading the next message before the subhandler returns.
-    /// Loop uses a fixed small buffer allocated by BufReader.
-    /// For each message it allocates a Vec with exact size of the message.
-    // TODO(gprusak): once borsh support is dropped, we can parse a proto
-    // directly from the stream.
+    ///
+    /// The first frame received from the peer determines the encoding of the connection. If it
+    /// is a borsh header, all the messages have to be borsh-encoded (see `RecvLoop::run_borsh`),
+    /// otherwise they are protobuf-encoded (see `RecvLoop::run_proto`).
     async fn run_recv_loop(
         peer_addr: SocketAddr,
         read: ReadHalf,
@@ -207,65 +230,29 @@ impl FramedStream {
         read_timeout: std::time::Duration,
     ) -> Result<(), RecvError> {
         const READ_BUFFER_CAPACITY: usize = 8 * 1024;
-        let mut read = tokio::io::BufReader::with_capacity(READ_BUFFER_CAPACITY, read);
-
-        let msg_size_metric =
-            metrics::MetricGuard::new(&metrics::PEER_MSG_SIZE_BYTES, vec![peer_addr.to_string()]);
-        let buf_size_metric = metrics::MetricGuard::new(
-            &metrics::PEER_DATA_READ_BUFFER_SIZE,
-            vec![peer_addr.to_string()],
-        );
-        loop {
-            let n_u32: u32 = read.read_u32_le().await.map_err(RecvError::IO)?;
-
-            // convert `n` to usize
-            let n: usize = n_u32.try_into().expect("u32 must fit into usize");
-
-            if n > NETWORK_MESSAGE_MAX_SIZE_BYTES {
-                return Err(RecvError::MessageTooLarge {
-                    got_bytes: n,
-                    want_max_bytes: NETWORK_MESSAGE_MAX_SIZE_BYTES,
-                });
-            }
-
-            let (buf, recv_permit) = tokio::time::timeout(read_timeout, async {
-                // Acquire a permit for the incoming message before reading it into memory
-                let incoming_semaphore_permit = incoming_message_semaphore
-                    .clone()
-                    .acquire_many_owned(n_u32)
-                    .await
-                    .map_err(|_| RecvError::IncomingSemaphoreClosed)?;
-                let recv_permit = RecvMessagePermit::new(incoming_semaphore_permit);
-
-                // Read the message from the socket
-                msg_size_metric.observe(n as f64);
-                buf_size_metric.set(n as i64);
-                let mut buf = vec![0; n];
-                let t = metrics::PEER_MSG_READ_LATENCY.start_timer();
-                read.read_exact(&mut buf[..]).await.map_err(RecvError::IO)?;
-                t.observe_duration();
-                buf_size_metric.set(0);
-                Ok((buf, recv_permit))
-            })
-                .await
-                .map_err(|_| {
-                    tracing::debug!(target: "network", timeout_secs = read_timeout.as_secs(), "read timed out");
-                    RecvError::IO(io::Error::new(
-                        io::ErrorKind::TimedOut,
-                        "read timed out",
-                    ))
-                })??;
-
-            stats.received_messages.fetch_add(1, Ordering::Relaxed);
-            stats.received_bytes.fetch_add(n as u64, Ordering::Relaxed);
-            if let Err(_) = frame_sender.send_async(IncomingFrame { data: buf, recv_permit }).await
-            {
-                // We got mailbox error, which means that Actor has stopped,
-                // so we should just close the stream.
-                return Ok(());
-            }
+        let mut recv = RecvLoop {
+            read: tokio::io::BufReader::with_capacity(READ_BUFFER_CAPACITY, read),
+            frame_sender,
+            stats,
+            incoming_message_semaphore,
+            read_timeout,
+            msg_size_metric: metrics::MetricGuard::new(
+                &metrics::PEER_MSG_SIZE_BYTES,
+                vec![peer_addr.to_string()],
+            ),
+            buf_size_metric: metrics::MetricGuard::new(
+                &metrics::PEER_DATA_READ_BUFFER_SIZE,
+                vec![peer_addr.to_string()],
+            ),
+        };
+        let first_frame = recv.read_small_frame(MAX_FIRST_FRAME_SIZE_BYTES).await?;
+        if parse_borsh_header(&first_frame).is_ok() {
+            recv.run_borsh(first_frame).await
+        } else {
+            recv.run_proto(Some(first_frame)).await
         }
     }
+
     async fn run_send_loop(
         tcp_send: WriteHalf,
         mut queue_recv: tokio::sync::mpsc::UnboundedReceiver<Frame>,
@@ -278,15 +265,21 @@ impl FramedStream {
         while let Some(mut frame) = queue_recv.recv().await {
             // Try writing a batch of messages and flush once at the end.
             loop {
-                let msg_len = frame.bytes.len();
+                let msg_len = frame.message.len();
                 // TODO(gprusak): sending a too large message should probably be treated as a bug,
                 // since dropping messages may lead to hard-to-debug high-level issues.
-                if msg_len > NETWORK_MESSAGE_MAX_SIZE_BYTES {
+                if frame.message.body.len() > NETWORK_MESSAGE_MAX_SIZE_BYTES {
                     metrics::MessageDropped::InputTooLong.inc_unknown_msg();
                 } else {
                     tokio::time::timeout(write_timeout, async {
-                        writer.write_u32_le(msg_len as u32).await?;
-                        writer.write_all(&frame.bytes[..]).await?;
+                        // The header and the body are written together, so that a message is
+                        // never split by another one.
+                        if let Some(header) = &frame.message.header {
+                            writer.write_u32_le(header.len() as u32).await?;
+                            writer.write_all(header).await?;
+                        }
+                        writer.write_u32_le(frame.message.body.len() as u32).await?;
+                        writer.write_all(&frame.message.body[..]).await?;
                         io::Result::Ok(())
                     })
                     .await
@@ -327,6 +320,150 @@ impl FramedStream {
     }
 }
 
+/// Receives messages from the peer, see `FramedStream::run_recv_loop`.
+///
+/// Loops wait for the message to be processed before reading the next message.
+/// Note that if the message handler spawns an asynchronous subhandler and returns,
+/// then the loop will start reading the next message before the subhandler returns.
+/// Loops use a fixed small buffer allocated by BufReader.
+/// For each message they allocate a Vec with exact size of the message.
+struct RecvLoop {
+    read: tokio::io::BufReader<ReadHalf>,
+    frame_sender: AsyncSender<IncomingFrame, ()>,
+    stats: Arc<connection::Stats>,
+    incoming_message_semaphore: Arc<Semaphore>,
+    read_timeout: std::time::Duration,
+    msg_size_metric: metrics::MetricGuard<Histogram>,
+    buf_size_metric: metrics::IntGaugeGuard,
+}
+
+impl RecvLoop {
+    /// Receives protobuf-encoded messages, each sent as a single frame. `first_frame` is the
+    /// first message, if it has already been read.
+    async fn run_proto(mut self, first_frame: Option<Vec<u8>>) -> Result<(), RecvError> {
+        if let Some(body) = first_frame {
+            let recv_permit =
+                with_read_timeout(self.read_timeout, self.acquire_recv_permit(body.len())).await?;
+            if !self.deliver(PeerMessageFrames { header: None, body }, recv_permit).await {
+                return Ok(());
+            }
+        }
+        loop {
+            let n = self.read_frame_len().await?;
+            let (body, recv_permit) = self.read_frame(n).await?;
+            if !self.deliver(PeerMessageFrames { header: None, body }, recv_permit).await {
+                return Ok(());
+            }
+        }
+    }
+
+    /// Receives borsh-encoded messages, each sent as a header frame followed by a body frame.
+    /// `header` is the header of the first message. The header is read alone, and the size
+    /// limit of the message kind is checked before the body is read.
+    ///
+    /// Anything else, including a body which exceeds the size limit, is a protocol violation.
+    async fn run_borsh(mut self, mut header: Vec<u8>) -> Result<(), RecvError> {
+        loop {
+            let kind = parse_borsh_header(&header).map_err(ProtocolViolation::InvalidHeader)?;
+            let body_len = self.read_frame_len().await?;
+            let max_size = max_borsh_body_size(kind);
+            if body_len > max_size {
+                return Err(ProtocolViolation::BodyTooLarge {
+                    kind,
+                    got_bytes: body_len,
+                    want_max_bytes: max_size,
+                }
+                .into());
+            }
+            let (body, recv_permit) = self.read_frame(body_len).await?;
+            if !self.deliver(PeerMessageFrames { header: Some(header), body }, recv_permit).await {
+                return Ok(());
+            }
+            header = self.read_small_frame(MAX_HEADER_SIZE_BYTES).await?;
+        }
+    }
+
+    /// Reads the length of the next frame.
+    async fn read_frame_len(&mut self) -> Result<usize, RecvError> {
+        let n_u32: u32 = self.read.read_u32_le().await.map_err(RecvError::IO)?;
+        let n: usize = n_u32.try_into().expect("u32 must fit into usize");
+        if n > NETWORK_MESSAGE_MAX_SIZE_BYTES {
+            return Err(RecvError::MessageTooLarge {
+                got_bytes: n,
+                want_max_bytes: NETWORK_MESSAGE_MAX_SIZE_BYTES,
+            });
+        }
+        Ok(n)
+    }
+
+    /// Reads a frame of at most `max_size` bytes, without recording it in the metrics.
+    async fn read_small_frame(&mut self, max_size: usize) -> Result<Vec<u8>, RecvError> {
+        let n = self.read_frame_len().await?;
+        if n > max_size {
+            return Err(ProtocolViolation::FrameTooLarge {
+                got_bytes: n,
+                want_max_bytes: max_size,
+            }
+            .into());
+        }
+        let mut frame = vec![0; n];
+        with_read_timeout(self.read_timeout, async {
+            self.read.read_exact(&mut frame).await.map_err(RecvError::IO)?;
+            Ok(())
+        })
+        .await?;
+        Ok(frame)
+    }
+
+    /// Acquires a permit for an incoming message of `n` bytes, before it is read into memory.
+    async fn acquire_recv_permit(&self, n: usize) -> Result<RecvMessagePermit, RecvError> {
+        let incoming_semaphore_permit = self
+            .incoming_message_semaphore
+            .clone()
+            .acquire_many_owned(n as u32)
+            .await
+            .map_err(|_| RecvError::IncomingSemaphoreClosed)?;
+        Ok(RecvMessagePermit::new(incoming_semaphore_permit))
+    }
+
+    /// Reads a frame of `n` bytes, which contains a message or its body.
+    async fn read_frame(&mut self, n: usize) -> Result<(Vec<u8>, RecvMessagePermit), RecvError> {
+        with_read_timeout(self.read_timeout, async {
+            let recv_permit = self.acquire_recv_permit(n).await?;
+
+            // Read the message from the socket
+            self.msg_size_metric.observe(n as f64);
+            self.buf_size_metric.set(n as i64);
+            let mut buf = vec![0; n];
+            let t = metrics::PEER_MSG_READ_LATENCY.start_timer();
+            self.read.read_exact(&mut buf[..]).await.map_err(RecvError::IO)?;
+            t.observe_duration();
+            self.buf_size_metric.set(0);
+            Ok((buf, recv_permit))
+        })
+        .await
+    }
+
+    /// Passes a message to the actor. Returns false if the actor has stopped, which means that
+    /// the stream should be closed.
+    async fn deliver(&self, message: PeerMessageFrames, recv_permit: RecvMessagePermit) -> bool {
+        self.stats.received_messages.fetch_add(1, Ordering::Relaxed);
+        self.stats.received_bytes.fetch_add(message.len() as u64, Ordering::Relaxed);
+        self.frame_sender.send_async(IncomingFrame { message, recv_permit }).await.is_ok()
+    }
+}
+
+/// Runs `fut`, failing with a `TimedOut` error if it takes longer than `read_timeout`.
+async fn with_read_timeout<T>(
+    read_timeout: std::time::Duration,
+    fut: impl Future<Output = Result<T, RecvError>>,
+) -> Result<T, RecvError> {
+    tokio::time::timeout(read_timeout, fut).await.map_err(|_| {
+        tracing::debug!(target: "network", timeout_secs = read_timeout.as_secs(), "read timed out");
+        RecvError::IO(io::Error::new(io::ErrorKind::TimedOut, "read timed out"))
+    })?
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -357,8 +494,8 @@ mod tests {
 
         // Enqueue enough large messages to fill the TCP send buffer.
         for _ in 0..64 {
-            let _ = queue_send
-                .send(Frame::with_permit(vec![0u8; 1024 * 1024], OutgoingPermit::fake_for_test()));
+            let message = PeerMessageFrames { header: None, body: vec![0u8; 1024 * 1024] };
+            let _ = queue_send.send(Frame::with_permit(message, OutgoingPermit::fake_for_test()));
         }
         // Close the sender so run_send_loop will drain the queue and exit.
         drop(queue_send);
