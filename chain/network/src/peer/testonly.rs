@@ -2,7 +2,7 @@ use crate::auto_stop::AutoStopActor;
 use crate::broadcast;
 use crate::config::NetworkConfig;
 use crate::network_protocol::{
-    Edge, PartialEdgeInfo, PeerIdOrHash, PeerMessage, RawRoutedMessage, TieredMessageBody,
+    Edge, Encoding, PartialEdgeInfo, PeerIdOrHash, PeerMessage, RawRoutedMessage, TieredMessageBody,
 };
 use crate::network_protocol::{RoutedMessage, testonly as data};
 use crate::peer::peer_actor::PeerActor;
@@ -52,18 +52,20 @@ impl PeerHandle {
             .unwrap();
     }
 
-    pub async fn complete_handshake(&mut self) {
-        self.edge = Some(
-            self.events
-                .recv_until(|ev| match ev {
-                    Event::HandshakeCompleted(ev) => Some(ev.edge),
-                    Event::ConnectionClosed(ev) => {
-                        panic!("handshake failed: {}", ev.reason)
-                    }
-                    _ => None,
-                })
-                .await,
-        );
+    /// Waits for the handshake to complete. Returns the negotiated encoding.
+    pub async fn complete_handshake(&mut self) -> Option<Encoding> {
+        let (edge, encoding) = self
+            .events
+            .recv_until(|ev| match ev {
+                Event::HandshakeCompleted(ev) => Some((ev.edge, ev.encoding)),
+                Event::ConnectionClosed(ev) => {
+                    panic!("handshake failed: {}", ev.reason)
+                }
+                _ => None,
+            })
+            .await;
+        self.edge = Some(edge);
+        encoding
     }
 
     pub fn routed_message(

@@ -7,11 +7,17 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 pub struct Stream {
     stream: tcp::Stream,
+    /// Encoding of the written messages. Messages are read in any encoding.
+    encoding: Encoding,
 }
 
 impl Stream {
     pub fn new(stream: tcp::Stream) -> Self {
-        Self { stream }
+        Self::with_encoding(stream, Encoding::Proto)
+    }
+
+    pub fn with_encoding(stream: tcp::Stream, encoding: Encoding) -> Self {
+        Self { stream, encoding }
     }
 
     async fn read_frame(&mut self) -> Result<Vec<u8>, std::io::Error> {
@@ -22,25 +28,31 @@ impl Stream {
         Ok(buf.to_vec())
     }
 
-    pub async fn read(&mut self) -> Result<PeerMessage, std::io::Error> {
+    /// Reads a message, returns it together with its encoding.
+    pub async fn read_with_encoding(&mut self) -> Result<(PeerMessage, Encoding), std::io::Error> {
         let first = self.read_frame().await?;
         let frames = match parse_borsh_header(&first) {
             Ok(_) => PeerMessageFrames { header: Some(first), body: self.read_frame().await? },
             Err(_) => PeerMessageFrames { header: None, body: first },
         };
-        PeerMessage::deserialize(&frames).map_err(|e| {
+        let msg = PeerMessage::deserialize(&frames).map_err(|e| {
             std::io::Error::new(
                 std::io::ErrorKind::InvalidData,
                 format!("Failed to deserialize: {}", e),
             )
-        })
+        })?;
+        Ok((msg, frames.encoding()))
+    }
+
+    pub async fn read(&mut self) -> Result<PeerMessage, std::io::Error> {
+        Ok(self.read_with_encoding().await?.0)
     }
 
     pub async fn write(&mut self, msg: &PeerMessage) {
-        self.write_encoded(&msg.serialize(Encoding::Proto)).await;
+        self.write_encoded(&msg.serialize(self.encoding)).await;
     }
 
-    async fn write_encoded(&mut self, frames: &PeerMessageFrames) {
+    pub async fn write_encoded(&mut self, frames: &PeerMessageFrames) {
         for frame in frames.header.iter().chain([&frames.body]) {
             self.stream.stream.write_u32_le(frame.len() as u32).await.unwrap();
             self.stream.stream.write_all(frame).await.unwrap();
