@@ -5,9 +5,9 @@ use crate::concurrency::outgoing_queue_limiter::OutgoingPermit;
 use crate::config::PEERS_RESPONSE_MAX_PEERS;
 use crate::network_protocol::{
     Edge, EdgeState, Encoding, OwnedAccount, PartialEdgeInfo, PeerChainInfoV2, PeerIdOrHash,
-    PeerInfo, PeersRequest, PeersResponse, RoutingTableUpdate, SnapshotHostInfoVerificationError,
-    SyncAccountsData, SyncSnapshotHosts, T2MessageBody, TieredMessageBody, from_unix_nanos,
-    to_unix_nanos,
+    PeerInfo, PeerMessageFrames, PeersRequest, PeersResponse, RoutingTableUpdate,
+    SnapshotHostInfoVerificationError, SyncAccountsData, SyncSnapshotHosts, T2MessageBody,
+    TieredMessageBody, from_unix_nanos, to_unix_nanos,
 };
 use crate::peer::stream;
 use crate::peer::stream::IncomingFrame;
@@ -37,8 +37,8 @@ use near_async::messaging::{self, CanSendAsync, IntoAsyncSender, IntoSender};
 use near_async::tokio::TokioRuntimeHandle;
 use near_async::{ActorSystem, time};
 use near_crypto::Signature;
-use near_o11y::log_assert;
 use near_o11y::span_wrapped_msg::SpanWrapped;
+use near_o11y::{log_assert, log_assert_fail};
 use near_primitives::network::{AnnounceAccount, PeerId};
 use near_primitives::types::EpochId;
 use near_primitives::utils::DisplayOption;
@@ -90,6 +90,7 @@ pub struct HandshakeCompletedEvent {
     pub(crate) stream_id: tcp::StreamId,
     pub(crate) edge: Edge,
     pub(crate) tier: tcp::Tier,
+    pub(crate) encoding: Option<Encoding>,
 }
 
 #[derive(thiserror::Error, Clone, PartialEq, Eq, Debug)]
@@ -168,6 +169,9 @@ pub(crate) struct PeerActor {
 
     /// Framed wrapper to send messages through the TCP connection.
     framed: stream::FramedStream,
+    /// Encoding of the messages exchanged with the peer.
+    /// `None` until the first message from the peer is successfully decoded.
+    encoding: Option<Encoding>,
 
     /// Tracker for requests and responses.
     tracker: Arc<Mutex<Tracker>>,
@@ -350,6 +354,7 @@ impl PeerActor {
             stream,
             stats.clone(),
             network_state.incoming_message_semaphore.clone(),
+            network_state.config.transition.connection_encodings(),
             network_state.config.max_write_buffer_capacity_bytes,
         );
         let actor = Self {
@@ -365,6 +370,7 @@ impl PeerActor {
             },
             peer_status: PeerStatus::Connecting(send, connecting_status),
             framed,
+            encoding: None,
             tracker: Default::default(),
             stats,
             routed_message_cache: LruCache::new(
@@ -430,7 +436,26 @@ impl PeerActor {
             _ => (),
         };
 
-        let frames = msg.serialize(Encoding::Proto);
+        // Messages are sent in the negotiated encoding, which is the encoding of the first
+        // message received from the peer. The peer accepts only that encoding, see
+        // `FramedStream::run_recv_loop`. Before it is known, the only message which is sent is
+        // the first handshake, see `send_handshake`.
+        let Some(encoding) = self.encoding else {
+            log_assert_fail!(
+                "{} sent before the encoding of the connection is negotiated",
+                msg.msg_variant()
+            );
+            return;
+        };
+        self.send_encoded_message(msg, msg.serialize(encoding), reserved_permit);
+    }
+
+    fn send_encoded_message(
+        &self,
+        msg: &PeerMessage,
+        frames: PeerMessageFrames,
+        reserved_permit: Option<OutgoingPermit>,
+    ) {
         let bytes_len = frames.len();
         // Reserve capacity in the global outgoing-queue limiter. Pre-acquired reservations are
         // shrunk to the actual serialized size; everything else acquires now and drops the message
@@ -503,7 +528,22 @@ impl PeerActor {
             tcp::Tier::T2 => PeerMessage::Tier2Handshake(handshake),
             tcp::Tier::T3 => PeerMessage::Tier3Handshake(handshake),
         };
-        self.send_message(&msg);
+        match self.encoding {
+            Some(_) => self.send_message(&msg),
+            // The first handshake is sent in all the encodings which this node accepts, in the
+            // order of preference. The peer handles the first one that it accepts (see
+            // `FramedStream::run_recv_loop`), and both sides use its encoding from then on.
+            // This is the only message sent in more than one encoding, and the only message sent
+            // before the encoding is negotiated.
+            //
+            // Nodes which support only protobuf try to parse both frames of the borsh copy as
+            // protobuf, which fails, see the `serialize_deserialize` test.
+            None => {
+                for &encoding in self.network_state.config.transition.connection_encodings() {
+                    self.send_encoded_message(&msg, msg.serialize(encoding), None);
+                }
+            }
+        }
     }
 
     fn stop(&mut self, reason: ClosingReason) {
@@ -666,6 +706,8 @@ impl PeerActor {
         };
 
         let now = self.clock.now();
+        let connection_metric =
+            metrics::Connection { tier, type_: self.peer_type, encoding: self.encoding };
         let conn = Arc::new(connection::Connection {
             tier,
             handle: self.handle.clone(),
@@ -676,8 +718,7 @@ impl PeerActor {
             last_block: Default::default(),
             peer_type: self.peer_type,
             stats: self.stats.clone(),
-            _peer_connections_metric: metrics::PEER_CONNECTIONS
-                .new_point(&metrics::Connection { tier, type_: self.peer_type }),
+            _peer_connections_metric: metrics::PEER_CONNECTIONS.new_point(&connection_metric),
             last_time_peer_requested: AtomicCell::new(None),
             last_time_received_message: AtomicCell::new(now),
             established_time: now,
@@ -862,6 +903,7 @@ impl PeerActor {
                                 stream_id: act.stream_id,
                                 edge: edge_clone,
                                 tier: conn.tier,
+                                encoding: act.encoding,
                             }));
                         },
                         Err(err) => {
@@ -1543,7 +1585,13 @@ impl messaging::Actor for PeerActor {
         // message advising the outbound side whether to attempt to re-establish the connection.
         let remove_from_connection_store =
             self.peer_type == PeerType::Inbound && closing_reason.remove_from_connection_store();
-        self.send_message(&PeerMessage::Disconnect(Disconnect { remove_from_connection_store }));
+        // Nothing is sent before the encoding of the connection is negotiated, see
+        // `send_message_inner`. A peer which is still connecting ignores `Disconnect` anyway.
+        if self.encoding.is_some() {
+            self.send_message(&PeerMessage::Disconnect(Disconnect {
+                remove_from_connection_store,
+            }));
+        }
 
         match &self.peer_status {
             // If PeerActor is in Connecting state, then
@@ -1667,6 +1715,13 @@ impl messaging::Handler<IncomingFrame> for PeerActor {
                     return;
                 }
             };
+            if this.encoding.is_none() {
+                // The stream accepts messages only in the encoding of the first one, see
+                // `FramedStream::run_recv_loop`.
+                let encoding = msg.encoding();
+                tracing::debug!(target: "network", ?encoding, peer_info = %this.peer_info, "negotiated encoding");
+                this.encoding = Some(encoding);
+            }
 
             // Enforce a per-message-type size limit.
             // The body of a borsh-encoded message is checked before it is read, see `stream`.

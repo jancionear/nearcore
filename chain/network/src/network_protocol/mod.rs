@@ -132,6 +132,13 @@ pub(crate) struct PeerMessageFrames {
 }
 
 impl PeerMessageFrames {
+    pub fn encoding(&self) -> Encoding {
+        match self.header {
+            Some(_) => Encoding::Borsh,
+            None => Encoding::Proto,
+        }
+    }
+
     /// Total size of the frames, without their lengths.
     pub fn len(&self) -> usize {
         self.header.as_ref().map_or(0, Vec::len) + self.body.len()

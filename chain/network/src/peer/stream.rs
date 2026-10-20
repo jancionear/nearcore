@@ -1,7 +1,7 @@
 use crate::concurrency::outgoing_queue_limiter::OutgoingPermit;
 use crate::network_protocol::{
-    ParseBorshPeerMessageError, PeerMessageFrames, PeerMessageKind, max_borsh_body_size,
-    parse_borsh_header,
+    Encoding, ParseBorshPeerMessageError, PeerMessage, PeerMessageFrames, PeerMessageKind,
+    max_borsh_body_size, parse_borsh_header,
 };
 use crate::peer_manager::connection;
 use crate::recv_permit::RecvMessagePermit;
@@ -66,6 +66,8 @@ pub(crate) enum RecvError {
 pub(crate) enum ProtocolViolation {
     #[error("frame too large: got {got_bytes}B, want <={want_max_bytes}B")]
     FrameTooLarge { got_bytes: usize, want_max_bytes: usize },
+    #[error("protobuf-encoded messages are not accepted")]
+    ProtobufNotAllowed,
     #[error("invalid header: {0}")]
     InvalidHeader(#[source] ParseBorshPeerMessageError),
     #[error("body of a {kind:?} message too large: got {got_bytes}B, want <={want_max_bytes}B")]
@@ -145,6 +147,7 @@ impl FramedStream {
         stream: tcp::Stream,
         stats: Arc<connection::Stats>,
         incoming_message_semaphore: Arc<Semaphore>,
+        accepted_encodings: &'static [Encoding],
         max_write_buffer_capacity_bytes: usize,
     ) -> Self {
         let (tcp_recv, tcp_send) = tokio::io::split(stream.stream);
@@ -175,6 +178,7 @@ impl FramedStream {
                     frame_sender,
                     stats,
                     incoming_message_semaphore,
+                    accepted_encodings,
                     READ_TIMEOUT,
                 )
                 .await
@@ -220,13 +224,16 @@ impl FramedStream {
     ///
     /// The first frame received from the peer determines the encoding of the connection. If it
     /// is a borsh header, all the messages have to be borsh-encoded (see `RecvLoop::run_borsh`),
-    /// otherwise they are protobuf-encoded (see `RecvLoop::run_proto`).
+    /// otherwise they are protobuf-encoded (see `RecvLoop::run_proto`). A node which doesn't
+    /// accept borsh receives only protobuf-encoded messages, like the nodes which support only
+    /// protobuf: borsh-encoded ones are passed to the actor as invalid protobuf messages.
     async fn run_recv_loop(
         peer_addr: SocketAddr,
         read: ReadHalf,
         frame_sender: AsyncSender<IncomingFrame, ()>,
         stats: Arc<connection::Stats>,
         incoming_message_semaphore: Arc<Semaphore>,
+        accepted_encodings: &'static [Encoding],
         read_timeout: std::time::Duration,
     ) -> Result<(), RecvError> {
         const READ_BUFFER_CAPACITY: usize = 8 * 1024;
@@ -245,11 +252,16 @@ impl FramedStream {
                 vec![peer_addr.to_string()],
             ),
         };
+        if !accepted_encodings.contains(&Encoding::Borsh) {
+            return recv.run_proto(None).await;
+        }
         let first_frame = recv.read_small_frame(MAX_FIRST_FRAME_SIZE_BYTES).await?;
         if parse_borsh_header(&first_frame).is_ok() {
             recv.run_borsh(first_frame).await
-        } else {
+        } else if accepted_encodings.contains(&Encoding::Proto) {
             recv.run_proto(Some(first_frame)).await
+        } else {
+            Err(ProtocolViolation::ProtobufNotAllowed.into())
         }
     }
 
@@ -362,7 +374,9 @@ impl RecvLoop {
     /// limit of the message kind is checked before the body is read.
     ///
     /// Anything else, including a body which exceeds the size limit, is a protocol violation.
+    /// The only exception is the protobuf copy of the first handshake, see below.
     async fn run_borsh(mut self, mut header: Vec<u8>) -> Result<(), RecvError> {
+        let mut first_message = true;
         loop {
             let kind = parse_borsh_header(&header).map_err(ProtocolViolation::InvalidHeader)?;
             let body_len = self.read_frame_len().await?;
@@ -378,6 +392,15 @@ impl RecvLoop {
             let (body, recv_permit) = self.read_frame(body_len).await?;
             if !self.deliver(PeerMessageFrames { header: Some(header), body }, recv_permit).await {
                 return Ok(());
+            }
+            if first_message {
+                first_message = false;
+                // Nodes which accept both encodings send their first handshake in borsh and
+                // then in protobuf, see `PeerActor::send_handshake`. The protobuf copy is skipped.
+                header = self.read_small_frame(MAX_FIRST_FRAME_SIZE_BYTES).await?;
+                if parse_borsh_header(&header).is_ok() || !is_protobuf_handshake(&header) {
+                    continue;
+                }
             }
             header = self.read_small_frame(MAX_HEADER_SIZE_BYTES).await?;
         }
@@ -451,6 +474,17 @@ impl RecvLoop {
         self.stats.received_bytes.fetch_add(message.len() as u64, Ordering::Relaxed);
         self.frame_sender.send_async(IncomingFrame { message, recv_permit }).await.is_ok()
     }
+}
+
+/// Whether `frame` is a protobuf-encoded handshake.
+fn is_protobuf_handshake(frame: &[u8]) -> bool {
+    let frames = PeerMessageFrames { header: None, body: frame.to_vec() };
+    matches!(
+        PeerMessage::deserialize(&frames),
+        Ok(PeerMessage::Tier1Handshake(_)
+            | PeerMessage::Tier2Handshake(_)
+            | PeerMessage::Tier3Handshake(_))
+    )
 }
 
 /// Runs `fut`, failing with a `TimedOut` error if it takes longer than `read_timeout`.

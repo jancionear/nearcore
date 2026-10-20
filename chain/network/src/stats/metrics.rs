@@ -1,5 +1,5 @@
 use crate::network_protocol::RoutedMessage;
-use crate::network_protocol::TieredMessageBody;
+use crate::network_protocol::{Encoding, TieredMessageBody};
 use crate::tcp;
 use crate::types::PeerType;
 use near_async::time;
@@ -59,13 +59,14 @@ impl Drop for GaugePoint {
 pub struct Connection {
     pub tier: tcp::Tier,
     pub type_: PeerType,
+    pub encoding: Option<Encoding>,
 }
 
 impl Labels for Connection {
-    type Array = [&'static str; 2];
-    const NAMES: Self::Array = ["tier", "peer_type"];
+    type Array = [&'static str; 3];
+    const NAMES: Self::Array = ["tier", "peer_type", "encoding"];
     fn values(&self) -> Self::Array {
-        [self.tier.into(), self.type_.into()]
+        [self.tier.into(), self.type_.into(), self.encoding.map_or("unknown", |e| e.into())]
     }
 }
 

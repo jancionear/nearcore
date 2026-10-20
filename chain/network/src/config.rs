@@ -197,6 +197,19 @@ impl NetworkTransitionConfig {
     /// Preset used by the current release.
     pub const CURRENT: Self = Self::RELEASE_2_15;
 
+    /// Encodings which this node accepts on a connection, in the order of preference.
+    /// The first handshake is sent in all of them, and the connection uses the encoding of the
+    /// first message received from the peer, see `FramedStream::run_recv_loop`.
+    pub(crate) fn connection_encodings(&self) -> &'static [Encoding] {
+        match (self.prefer_borsh, self.allow_protobuf_on_connection) {
+            (true, true) => &[Encoding::Borsh, Encoding::Proto],
+            (true, false) => &[Encoding::Borsh],
+            (false, true) => &[Encoding::Proto],
+            // Rejected by `NetworkConfig::verify`.
+            (false, false) => &[],
+        }
+    }
+
     /// Encoding used to serialize structs signed by this node.
     pub(crate) fn signing_encoding(&self) -> Encoding {
         if self.sign_with_borsh { Encoding::Borsh } else { Encoding::Proto }
