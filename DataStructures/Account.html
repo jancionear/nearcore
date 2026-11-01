@@ -220,7 +220,7 @@ An ED25519 public key is 32 bytes long and maps to a 64-character account ID.</p
 <p>The account ID is derived from a Secp256K1 public key using the following formula: <code>'0x' + keccak256(public_key)[12:32].hex()</code>.</p>
 <p>Example: a public key in base58 <code>2KFsZcvNUMBfmTp5DTMmguyeQyontXZ2CirPsb21GgPG3KMhwrkRuNiFCdMyRU3R4KbopMpSMXTFQfLoMkrg4HsT</code> will map to the account ID <code>0x87b435f1fcb4519306f9b755e274107cc78ac4e3</code>.</p>
 <h3 id="implicit-account-creation"><a class="header" href="#implicit-account-creation">Implicit account creation</a></h3>
-<p>An account with implicit account ID can only be created by sending a transaction/receipt with a single <code>Transfer</code> action to the implicit account ID receiver:</p>
+<p>An account with a NEAR-implicit or ETH-implicit account ID can only be created by sending a transaction/receipt with a single <code>Transfer</code> action to the implicit account ID receiver (<a href="#deterministic-account-creation">deterministic accounts</a> have their own rules):</p>
 <ul>
 <li>The account will be created with the account ID.</li>
 <li>The account balance will have a transfer balance deposited to it.</li>
@@ -312,15 +312,16 @@ Current implementation on Runtime only allows your account's contract to read fr
 <p>NOTE: Accounts must maintain a minimum amount of value at a rate of 1 NEAR per 100kb of total storage in order to remain responsive.
 This includes the storage of the account itself, contract code, contract storage, and all access keys.
 Any account with less than this minimum amount will not be able to maintain a responsive contract and will, instead, return an error related to this mismatch in storage vs. minimum account balance.
-See <a href="https://docs.near.org/concepts/storage/storage-staking">Storage Staking</a> in the docs.</p>
+See <a href="https://docs.near.org/protocol/storage/storage-staking">Storage Staking</a> in the docs.</p>
 <h4 id="access-keys"><a class="header" href="#access-keys">Access Keys</a></h4>
 <p>An access key grants an access to a account. Each access key on the account is identified by a unique public key.
 This public key is used to validate signature of transactions.
-Each access key contains a unique nonce to differentiate or order transactions signed with this access key.</p>
-<p>An access key has a permission associated with it. The permission can be one of two types:</p>
+Each access key contains a unique nonce to differentiate or order transactions signed with this access key. A gas key has several nonces instead of one.</p>
+<p>An access key has a permission associated with it. The permission can be one of four types:</p>
 <ul>
 <li><code>FullAccess</code> permission. It grants full access to the account.</li>
 <li><code>FunctionCall</code> permission. It grants access to only issued function call transactions.</li>
+<li><code>GasKeyFullAccess</code> and <code>GasKeyFunctionCall</code> permissions. They grant the same access as <code>FullAccess</code> and <code>FunctionCall</code>, and they pay for gas from a prepaid balance. See <a href="AccessKey.html#gas-keys">Gas Keys</a>.</li>
 </ul>
 <p>See <a href="AccessKey.html">Access Keys</a> for more details.</p>
 

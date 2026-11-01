@@ -265,7 +265,9 @@ struct.</p>
 <p>Each <code>edge</code> is represented by the <code>Edge</code> structure. It contains the following:</p>
 <ul>
 <li>pair of nodes represented by their public keys.</li>
-<li><code>nonce</code> - a unique number representing the state of an edge. Starting with <code>1</code>.
+<li><code>nonce</code> - a number representing the state of an edge. A new edge gets an odd
+nonce based on the current Unix time in seconds. See
+<a href="../NetworkSpec/NetworkSpec.html#edge">Edge</a> for the exact rules.
 Odd numbers represent an active edge. Even numbers represent an edge in which
 one of the nodes, confirmed that the edge is removed.</li>
 <li>Signatures from both peers for active edges.</li>
@@ -398,8 +400,8 @@ struct ActivePeer { // will be renamed to `ConnectedPeer` see #5428
 <h2 id="78---step-8---exchange-routing-table-part-1---node-b"><a class="header" href="#78---step-8---exchange-routing-table-part-1---node-b">7.8 - Step 8 - Exchange routing table part 1 - node <code>B</code></a></h2>
 <p>At the end of the <code>register_peer</code> method node <code>B</code> will perform a
 <code>RoutingTableSync</code> sync. Sending the list of known <code>edges</code> representing a
-full graph, and a list of known <code>AnnounceAccount</code>. Those will be
-covered later, in their dedicated sections see sections (to be added). <!-- TODO: TODO1, TODO2 --></p>
+full graph. Those will be covered later, in their dedicated sections see
+sections (to be added). <!-- TODO: TODO1, TODO2 --></p>
 <pre><code class="language-rust  ignore">message: PeerMessage::RoutingTableSync(SyncData::edge(new_edge)),
 </code></pre>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
@@ -408,9 +410,6 @@ covered later, in their dedicated sections see sections (to be added). <!-- TODO
 pub struct RoutingTableSync { // also known as `SyncData` (#5489)
     /// List of known edges from `RoutingTableActor::edges_info`.
     pub(crate) edges: Vec&lt;Edge&gt;,
-    /// List of known `account_id` to `PeerId` mappings.
-    /// Useful for `send_message_to_account` method, to route message to particular account.
-    pub(crate) accounts: Vec&lt;AnnounceAccount&gt;,
 }
 <span class="boring">}
 </span></code></pre></pre>
@@ -521,11 +520,12 @@ happens asynchronously.</p>
 <p>Actor messages can be found by looking for structs used with the async messaging helpers (for
 example types that appear in <code>Handler&lt;...&gt;</code> implementations or multi-sender definitions).</p>
 <h2 id="102-messages-sent-through-tcp"><a class="header" href="#102-messages-sent-through-tcp">10.2 Messages sent through TCP</a></h2>
-<p>Near is using <code>borsh</code> serialization to exchange messages between nodes (See
-<a href="https://borsh.io/">borsh.io</a>). We should be careful when making changes to
-them. We have to maintain backward compatibility. Only messages implementing
-<code>BorshSerialize</code>, <code>BorshDeserialize</code> can be sent. We also use <code>borsh</code> for
-database storage.</p>
+<p>Nodes exchange messages as protobuf <code>PeerMessage</code> messages, defined in
+<code>chain/network/src/network_protocol/network.proto</code>. Some fields of these
+messages hold <code>borsh</code>-encoded bytes (see <a href="https://borsh.io/">borsh.io</a>), for
+example signatures, edges, blocks, transactions and routed messages. We should
+be careful when making changes to them. We have to maintain backward
+compatibility. We also use <code>borsh</code> for database storage.</p>
 <h2 id="103-messages-sentreceived-through-chainjsonrpc"><a class="header" href="#103-messages-sentreceived-through-chainjsonrpc">10.3 Messages sent/received through <code>chain/jsonrpc</code></a></h2>
 <p>Near runs a <code>json REST server</code> using the axum framework. All messages sent
 and received must implement <code>serde::Serialize</code> and <code>serde::Deserialize</code>.</p>
@@ -571,9 +571,6 @@ used nonce.</li>
 <li><code>DBCol::ComponentEdges</code> Mapping from <code>component_nonce</code> to a list of edges.</li>
 <li><code>DBCol::PeerComponent</code> Mapping from <code>peer_id</code> to the last component <code>nonce</code> it belongs to.</li>
 </ul>
-<h3 id="122-storage-of-account_id-to-peer_id-mapping"><a class="header" href="#122-storage-of-account_id-to-peer_id-mapping">12.2 Storage of <code>account_id</code> to <code>peer_id</code> mapping</a></h3>
-<p><code>ColAccountAnnouncements</code> -&gt; Stores a mapping from <code>account_id</code> to a tuple
-(<code>account_id</code>, <code>peer_id</code>, <code>epoch_id</code>, <code>signature</code>).</p>
 
                     </main>
 

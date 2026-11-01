@@ -195,12 +195,15 @@ is identified by a unique (within the account) public key. Access keys are store
 }
 <span class="boring">}
 </span></code></pre></pre>
-<p>There are 2 types of <code>AccessKeyPermission</code> in NEAR currently: <code>FullAccess</code> and <code>FunctionCall</code>. <code>FullAccess</code> grants permissions to issue any action on the account. This includes <a href="DataStructures/../RuntimeSpec/Actions.html#deploycontractaction">DeployContract</a>, <a href="DataStructures/../RuntimeSpec/Actions.html#transferaction">Transfer</a> tokens, call functions <a href="DataStructures/../RuntimeSpec/Actions.html#functioncallaction">FunctionCall</a>, <a href="DataStructures/../RuntimeSpec/Actions.html#stakeaction">Stake</a> and even permission to delete the account <a href="DataStructures/../RuntimeSpec/Actions.html#deleteaccountaction">DeleteAccountAction</a>. <code>FunctionCall</code> on the other hand, <strong>only</strong> grants permission to call any or a specific set of methods on one given contract. It has an allowance of <code>$NEAR</code> that can be spent on <strong>GAS and transaction fees only</strong>. Function call access keys <strong>cannot</strong> be used to transfer <code>$NEAR</code>.</p>
+<p>There are 4 types of <code>AccessKeyPermission</code>: <code>FullAccess</code>, <code>FunctionCall</code>, <code>GasKeyFullAccess</code> and <code>GasKeyFunctionCall</code>. <code>FullAccess</code> grants permissions to issue any action on the account. This includes <a href="DataStructures/../RuntimeSpec/Actions.html#deploycontractaction">DeployContract</a>, <a href="DataStructures/../RuntimeSpec/Actions.html#transferaction">Transfer</a> tokens, call functions <a href="DataStructures/../RuntimeSpec/Actions.html#functioncallaction">FunctionCall</a>, <a href="DataStructures/../RuntimeSpec/Actions.html#stakeaction">Stake</a> and even permission to delete the account <a href="DataStructures/../RuntimeSpec/Actions.html#deleteaccountaction">DeleteAccountAction</a>. <code>FunctionCall</code> on the other hand, <strong>only</strong> grants permission to call any or a specific set of methods on one given contract. It has an allowance of <code>$NEAR</code> that can be spent on <strong>GAS and transaction fees only</strong>. Function call access keys <strong>cannot</strong> be used to transfer <code>$NEAR</code>.</p>
+<p><code>GasKeyFullAccess</code> and <code>GasKeyFunctionCall</code> are <a href="DataStructures/AccessKey.html#gas-keys">gas keys</a>. They exist from protocol version 85 (nearcore 2.13.0). They grant the same permissions as <code>FullAccess</code> and <code>FunctionCall</code>. They also hold a <code>GasKeyInfo</code> with a prepaid balance that pays for gas and a number of independent nonces.</p>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>pub enum AccessKeyPermission {
     FunctionCall(FunctionCallPermission),
     FullAccess,
+    GasKeyFunctionCall(GasKeyInfo, FunctionCallPermission),
+    GasKeyFullAccess(GasKeyInfo),
 }
 <span class="boring">}
 </span></code></pre></pre>
@@ -227,6 +230,35 @@ is identified by a unique (within the account) public key. Access keys are store
 }
 <span class="boring">}
 </span></code></pre></pre>
+<h2 id="gas-keys"><a class="header" href="#gas-keys">Gas Keys</a></h2>
+<p>A gas key is an access key with the permission <code>GasKeyFullAccess</code> or <code>GasKeyFunctionCall</code>. It holds a prepaid balance. When a transaction is signed with a gas key, the gas is paid from this balance instead of the account balance. Deposits, such as the <code>deposit</code> of a <code>Transfer</code> action, are still paid from the account balance. See <a href="DataStructures/../RuntimeSpec/Transactions.html#gas-key-transactions">Transactions</a> for the checks and <a href="DataStructures/../RuntimeSpec/Fees/Fees.html#gas-key-transactions">Fees</a> for the costs.</p>
+<p>A gas key is created by an <a href="DataStructures/../RuntimeSpec/Actions.html#addkeyaction">AddKey</a> action with a gas key permission. Its balance starts at 0. <a href="DataStructures/../RuntimeSpec/Actions.html#transfertogaskeyaction">TransferToGasKey</a> adds to the balance, and any account can send it. <a href="DataStructures/../RuntimeSpec/Actions.html#withdrawfromgaskeyaction">WithdrawFromGasKey</a> moves balance back to the account. Gas refunds of transactions signed with the gas key also go to its balance. See <a href="DataStructures/../RuntimeSpec/Refunds.html#gas-key-balance-refunds">Refunds</a>.</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub struct GasKeyInfo {
+    pub balance: Balance,
+    pub num_nonces: NonceIndex,
+}
+<span class="boring">}
+</span></code></pre></pre>
+<ul>
+<li><code>balance</code> is the prepaid balance of the gas key. It must be 0 in the <code>AddKey</code> action that creates the key.</li>
+<li><code>num_nonces</code> is the number of independent nonces of the gas key. It must be from 1 to 1024 (<code>MAX_NONCES_FOR_GAS_KEY</code>). <code>NonceIndex</code> is a <code>u16</code>.</li>
+</ul>
+<h3 id="accesskeypermissiongaskeyfullaccess"><a class="header" href="#accesskeypermissiongaskeyfullaccess">AccessKeyPermission::GasKeyFullAccess</a></h3>
+<p>Grants the same permissions as <code>FullAccess</code>. The gas of transactions signed with this key is paid from the gas key balance.</p>
+<h3 id="accesskeypermissiongaskeyfunctioncall"><a class="header" href="#accesskeypermissiongaskeyfunctioncall">AccessKeyPermission::GasKeyFunctionCall</a></h3>
+<p>Grants the same permissions as <code>FunctionCall</code>. The gas of transactions signed with this key is paid from the gas key balance. The <code>allowance</code> in its <code>FunctionCallPermission</code> must be <code>None</code>.</p>
+<h3 id="gas-key-nonces"><a class="header" href="#gas-key-nonces">Gas Key Nonces</a></h3>
+<p>A regular access key has one nonce, in the <code>nonce</code> field of <code>AccessKey</code>. A gas key has <code>num_nonces</code> independent nonces instead, with the indices 0 to <code>num_nonces - 1</code>. The <code>nonce</code> field of a gas key is always 0 and is not used. Clients that share a gas key can use different nonce indices to send transactions in parallel without nonce conflicts. A transaction signed with a gas key must be a <code>TransactionV1</code> with a <code>TransactionNonce::GasKeyNonce</code>, which gives both the nonce and the <code>nonce_index</code>. See <a href="DataStructures/../RuntimeSpec/Transactions.html">Transactions</a>.</p>
+<p>Each nonce is a separate record in the state. Its trie key is the trie key of the access key followed by the <code>nonce_index</code> as 2 little-endian bytes. Its value is the nonce as a Borsh-serialized <code>u64</code>. When the gas key is created, every nonce is set to <code>(block_height - 1) * 1_000_000</code>, where <code>block_height</code> is the height of the block in which the <code>AddKey</code> action is executed.</p>
+<p>Each nonce adds to the storage usage of the account. An ED25519 or ML-DSA-65 key uses 83 bytes per nonce. This is 33 bytes for the key as stored in the trie, 2 bytes for the index, 8 bytes for the value and 40 bytes of overhead per record (<code>storage_num_extra_bytes_record</code>). For a SECP256K1 key, it is 115 bytes per nonce. The account needs storage staking for these bytes, as for any other state. With the current storage price of 10^19 yoctoNEAR per byte, 1024 nonces of an ED25519 key need about 0.85 NEAR.</p>
+<h3 id="gas-key-deletion"><a class="header" href="#gas-key-deletion">Gas Key Deletion</a></h3>
+<p><a href="DataStructures/../RuntimeSpec/Actions.html#deletekeyaction">DeleteKey</a> on a gas key burns the remaining balance of the key and removes all its nonces. If the balance is more than 1 NEAR, the action fails with <code>GasKeyBalanceTooHigh</code>. To delete such a key, first move the balance to the account with <a href="DataStructures/../RuntimeSpec/Actions.html#withdrawfromgaskeyaction">WithdrawFromGasKey</a>. <a href="DataStructures/../RuntimeSpec/Actions.html#deleteaccountaction">DeleteAccount</a> burns the balances of all gas keys of the account. It fails with <code>GasKeyBalanceTooHigh</code> if the sum of these balances is more than 1 NEAR.</p>
+<h3 id="gas-key-namespace"><a class="header" href="#gas-key-namespace">Gas Key Namespace</a></h3>
+<p>Gas keys and regular access keys share the public keys of an account. A public key belongs to at most one access key at a time, regular or gas key. An <code>AddKey</code> action with a public key that is already used fails with <code>AddKeyAlreadyExists</code>.</p>
+<h3 id="gas-keys-and-meta-transactions"><a class="header" href="#gas-keys-and-meta-transactions">Gas Keys and Meta Transactions</a></h3>
+<p>A <a href="DataStructures/../RuntimeSpec/Actions.html#delegate-actions"><code>Delegate</code></a> action signed by a gas key fails with <code>DelegateActionRequiresNonGasKey</code>. A <a href="DataStructures/../RuntimeSpec/Actions.html#delegatev2"><code>DelegateV2</code></a> action can be signed by a gas key. From protocol version 87 (nearcore 2.14.0), new <code>DelegateV2</code> actions are rejected. So a gas key cannot sign the delegate action of a new meta transaction. A relayer can still sign the outer transaction with a gas key.</p>
 <h2 id="account-without-access-keys"><a class="header" href="#account-without-access-keys">Account without access keys</a></h2>
 <p>If account has no access keys attached it means that it has no owner who can run transactions from its behalf. However, if such accounts has code it can be invoked by other accounts and contracts.</p>
 <div style="break-before: page; page-break-before: always;"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.4/dist/katex.min.css">
@@ -309,7 +341,7 @@ An ED25519 public key is 32 bytes long and maps to a 64-character account ID.</p
 <p>The account ID is derived from a Secp256K1 public key using the following formula: <code>'0x' + keccak256(public_key)[12:32].hex()</code>.</p>
 <p>Example: a public key in base58 <code>2KFsZcvNUMBfmTp5DTMmguyeQyontXZ2CirPsb21GgPG3KMhwrkRuNiFCdMyRU3R4KbopMpSMXTFQfLoMkrg4HsT</code> will map to the account ID <code>0x87b435f1fcb4519306f9b755e274107cc78ac4e3</code>.</p>
 <h3 id="implicit-account-creation"><a class="header" href="#implicit-account-creation">Implicit account creation</a></h3>
-<p>An account with implicit account ID can only be created by sending a transaction/receipt with a single <code>Transfer</code> action to the implicit account ID receiver:</p>
+<p>An account with a NEAR-implicit or ETH-implicit account ID can only be created by sending a transaction/receipt with a single <code>Transfer</code> action to the implicit account ID receiver (<a href="DataStructures/Account.html#deterministic-account-creation">deterministic accounts</a> have their own rules):</p>
 <ul>
 <li>The account will be created with the account ID.</li>
 <li>The account balance will have a transfer balance deposited to it.</li>
@@ -401,15 +433,16 @@ Current implementation on Runtime only allows your account's contract to read fr
 <p>NOTE: Accounts must maintain a minimum amount of value at a rate of 1 NEAR per 100kb of total storage in order to remain responsive.
 This includes the storage of the account itself, contract code, contract storage, and all access keys.
 Any account with less than this minimum amount will not be able to maintain a responsive contract and will, instead, return an error related to this mismatch in storage vs. minimum account balance.
-See <a href="https://docs.near.org/concepts/storage/storage-staking">Storage Staking</a> in the docs.</p>
+See <a href="https://docs.near.org/protocol/storage/storage-staking">Storage Staking</a> in the docs.</p>
 <h4 id="access-keys-1"><a class="header" href="#access-keys-1">Access Keys</a></h4>
 <p>An access key grants an access to a account. Each access key on the account is identified by a unique public key.
 This public key is used to validate signature of transactions.
-Each access key contains a unique nonce to differentiate or order transactions signed with this access key.</p>
-<p>An access key has a permission associated with it. The permission can be one of two types:</p>
+Each access key contains a unique nonce to differentiate or order transactions signed with this access key. A gas key has several nonces instead of one.</p>
+<p>An access key has a permission associated with it. The permission can be one of four types:</p>
 <ul>
 <li><code>FullAccess</code> permission. It grants full access to the account.</li>
 <li><code>FunctionCall</code> permission. It grants access to only issued function call transactions.</li>
+<li><code>GasKeyFullAccess</code> and <code>GasKeyFunctionCall</code> permissions. They grant the same access as <code>FullAccess</code> and <code>FunctionCall</code>, and they pay for gas from a prepaid balance. See <a href="DataStructures/AccessKey.html#gas-keys">Gas Keys</a>.</li>
 </ul>
 <p>See <a href="DataStructures/AccessKey.html">Access Keys</a> for more details.</p>
 <div style="break-before: page; page-break-before: always;"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.4/dist/katex.min.css">
@@ -1884,7 +1917,7 @@ is defined by <code>EpochInfo</code> for <code>T+1</code> and the information ag
 <li><code>validators</code>: the list of validators selected for epoch <code>T+2</code></li>
 <li><code>validator_to_index</code>: Mapping from account id to index in <code>validators</code></li>
 <li><code>block_producers_settlement</code>: defines the mapping from height to block producer</li>
-<li><code>chunk_producers_settlement</code>: defines the mapping from height and shard id to chunk producer</li>
+<li><code>chunk_producers_settlement</code>: defines the base mapping from height and shard id to chunk producer. From protocol version 87 on, this mapping can be overridden within the epoch, see <a href="ChainSpec/EpochAndStaking/EpochManager.html#early-chunk-producer-reassignment">Early chunk producer reassignment</a></li>
 <li><code>hidden_validators_settlement</code>: TODO</li>
 <li><code>fishermen</code>, <code>fishermen_to_index</code>: TODO. disabled on mainnet through a large <code>fishermen_threshold</code> in config</li>
 <li><code>stake_change</code>: TODO</li>
@@ -1963,6 +1996,30 @@ then its reward for epoch <code>T</code> is automatically added to the proposal.
 <code>chunk_producers_settlement</code>sets. This algorithm is described in <a href="ChainSpec/EpochAndStaking/../../Economics/Economics.html#validator-selection">Economics</a>.</p>
 <h3 id="validator-reward"><a class="header" href="#validator-reward">Validator reward</a></h3>
 <p>Rewards calculation is described in the <a href="ChainSpec/EpochAndStaking/../../Economics/Economics.html#validator-rewards-calculation">Economics</a> section.</p>
+<h2 id="early-chunk-producer-reassignment"><a class="header" href="#early-chunk-producer-reassignment">Early chunk producer reassignment</a></h2>
+<p>The <a href="ChainSpec/EpochAndStaking/EpochManager.html#kickout-set">kickout set</a> only takes effect at an epoch boundary, so a chunk producer that
+stops producing keeps its slots for the rest of the epoch. From protocol version 87 on, the
+protocol also reassigns chunk producer slots <em>within</em> an epoch.</p>
+<p>A chunk producer is excluded on a shard when both hold for its stats in the current epoch:</p>
+<ul>
+<li>it missed at least 100 chunks on that shard, and</li>
+<li>its produced-to-expected ratio on that shard is below 80%.</li>
+</ul>
+<p>Exclusion is per shard, and stats never cross an epoch boundary. A 1000-block grace window
+at the start of each epoch delays the first possible exclusion, so a producer cannot be
+excluded before roughly block 1000 of an epoch. A safety valve keeps the least-bad producer
+eligible when the rule would exclude every distinct producer on a shard, so a shard can never
+run out of chunk producers.</p>
+<p>The chunk producer for the chunks anchored at a block is sampled with the excluded producers
+removed, and the result is persisted in <code>DBCol::ChunkProducers</code> keyed by
+<code>(anchor_block_hash, shard_id)</code>. The anchor is the chunk's grandparent block, so a chunk at
+height <code>h</code> reads the row written for the block at height <code>h - 2</code>. Chunk validation reads that
+row verbatim rather than re-sampling, which is what makes the assignment identical on every
+node: the exclusion set is derived from the anchor's last-final block, which is
+header-derived and therefore the same everywhere for a canonical anchor.</p>
+<p>Within the first two blocks of an epoch the anchor belongs to the previous epoch. The
+exclusion set is provably empty there, because stats do not cross the boundary, so those
+chunks fall back to the plain settlement sampler.</p>
 <div style="break-before: page; page-break-before: always;"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.4/dist/katex.min.css">
 <h1 id="staking-and-slashing"><a class="header" href="#staking-and-slashing">Staking and slashing</a></h1>
 <h2 id="stake-invariant"><a class="header" href="#stake-invariant">Stake invariant</a></h2>
@@ -2007,26 +2064,28 @@ equal to the maximum of the last three stakes and the highest proposal in the cu
 <p>When a node receives a handshake from other node it will decline this connection if one of the following situations happens:</p>
 <ol>
 <li>Other node has different genesis.</li>
-<li>Edge nonce is too low</li>
+<li>The edge nonce is even, or it is 20 minutes or more away from the current time on the node's clock.</li>
 </ol>
+<p>If the edge nonce is not greater than the nonce of the latest edge between the two nodes, the node does not decline the connection. It replies with a <code>LastEdge</code> message, and the other node retries with a higher nonce. See <a href="NetworkSpec/NetworkSpec.html#edge">Edge</a>.</p>
 <h4 id="edge"><a class="header" href="#edge">Edge</a></h4>
 <p>Edges are used to let other nodes in the network know that there is currently an active connection between a pair of nodes. See the definition of <a href="NetworkSpec/Messages.html#edge">this data structure</a>.</p>
 <p>If the nonce of the edge is odd, it denotes an <code>Added</code> edge, otherwise it denotes a <code>Removed</code> edge. Each node should keep track of the nonce used for edges between every pair of nodes. Peer C believes that the peers A and B are currently connected if and only if the edge with the highest nonce known to C for them has an odd nonce.</p>
 <p>When two nodes successfully connect to each other, they broadcast the new edge to let other peers know about this connection. When a node is disconnected from other node, it should bump the nonce by 1, sign the new edge and broadcast it to let other nodes know that the connection was removed.</p>
 <p>A removed connection will be valid, if it contains valid information from the added edge it is invalidating. This prevents peers bump nonce by more than one when deleting an edge.</p>
-<p>When node A proposes an edge to B with nonce X, it will only accept it and sign it iff:</p>
+<p>When a node opens a connection, it picks the nonce of the new edge from the current Unix time in seconds. If that number is even, the node adds 1, so the nonce is odd. If the node already knows an edge with the other peer, it uses the larger of this value and the next odd number after that edge's nonce.</p>
+<p>When node A proposes an edge to B with nonce X in a handshake, B accepts it and signs it only if all of the following hold:</p>
 <ul>
-<li>X = 1 and B doesn't know about any previous edge between A and B</li>
-<li>X is odd and X &gt; Y where Y is the nonce of the edge with the highest nonce between A and B known to B.</li>
+<li>X is odd.</li>
+<li>X, read as a Unix time in seconds, is less than 20 minutes away from the current time on B's clock.</li>
+<li>If B knows an edge between A and B, X is greater than Y, the highest nonce among the edges between A and B that B knows.</li>
 </ul>
+<p>If X is not greater than Y, B does not sign the edge. B replies with a <code>LastEdge</code> message that holds its edge with nonce Y. A then proposes a new nonce: the larger of the next odd number after Y and a fresh nonce from the current time.</p>
 <!-- TODO: What is a valid edge: pseudo code -->
 <h2 id="routing-table"><a class="header" href="#routing-table">Routing Table</a></h2>
 <p>Every node maintains a routing table with all existing connections and relevant information to route messages. The explicit graph with all active connection is stored at all times.</p>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>struct RoutingTable {
-    /// PeerId associated for every known account id.
-    account_peers: HashMap&lt;AccountId, AnnounceAccount&gt;,
     /// Active PeerId that are part of the shortest path to each PeerId.
     peer_forwarding: HashMap&lt;PeerId, HashSet&lt;PeerId&gt;&gt;,
     /// Store last update for known edges.
@@ -2040,12 +2099,7 @@ equal to the maximum of the last three stakes and the highest proposal in the cu
 <span class="boring">}
 </span></code></pre></pre>
 <ul>
-<li>
-<p><code>account_peers</code> is a mapping from each known account to the correspondent <a href="NetworkSpec/Messages.html#announceaccount">announcement</a>. Given that validators are known by its <a href="NetworkSpec/Messages.html#accountid">AccountId</a> when a node needs to send a message to a validator it finds the <a href="NetworkSpec/Messages.html#peerid">PeerId</a> associated with the <a href="NetworkSpec/Messages.html#accountid">AccountId</a> in this table.</p>
-</li>
-<li>
-<p><code>peer_forwarding</code>: For node <code>S</code>, <code>peer_forwarding</code> constitutes a mapping from each <a href="NetworkSpec/Messages.html#peerid">PeerId</a> <code>T</code>, to the set of peers that are directly connected to <code>S</code> and belong to the shortest route, in terms of number of edges, between <code>S</code> and <code>T</code>. When node <code>S</code> needs to send a message to node <code>T</code> and they are not directly connected, <code>S</code> choose one peer among the set <code>peer_forwarding[S]</code> and sends a routed message to it with destination <code>T</code>.</p>
-</li>
+<li><code>peer_forwarding</code>: For node <code>S</code>, <code>peer_forwarding</code> constitutes a mapping from each <a href="NetworkSpec/Messages.html#peerid">PeerId</a> <code>T</code>, to the set of peers that are directly connected to <code>S</code> and belong to the shortest route, in terms of number of edges, between <code>S</code> and <code>T</code>. When node <code>S</code> needs to send a message to node <code>T</code> and they are not directly connected, <code>S</code> choose one peer among the set <code>peer_forwarding[S]</code> and sends a routed message to it with destination <code>T</code>.</li>
 </ul>
 <!-- TODO: Add example. Draw a graph. Show routing table for each node. -->
 <!-- TODO: Notice when two nodes are totally disconnected, and when two nodes are directly connected -->
@@ -2081,27 +2135,11 @@ equal to the maximum of the last three stakes and the highest proposal in the cu
                 self.routing_table.edges_info[(peer0, peer1)] = edge
 </code></pre>
 <ul>
-<li>Announce account: <code>account_peers</code> map is updated with announcements from more recent epochs.</li>
-</ul>
-<pre><code class="language-python">def on_announce_accounts_received(self, announcements):
-    for announce_account in announcements:
-        # Check the announcement is valid
-        if announce_account.is_valid():
-            account_id = announce_account.account_id
-
-            # Find most recent announcement for account_id being announced
-            current_announce_account = self.routing_table.account_peers.get(account_id)
-
-            # If new epoch is happens after current epoch.
-            if announce_account.epoch &gt; current_announce_account.epoch:
-                # Update with the new announcement
-                self.routing_table.account_peers[announce_id] = announce_account
-</code></pre>
-<ul>
 <li>Route back messages: Read about it on <a href="NetworkSpec/NetworkSpec.html#routing-back">Routing back section</a></li>
 </ul>
 <h3 id="routing"><a class="header" href="#routing">Routing</a></h3>
 <p>When a node needs to send a message to another peer, it checks in the routing table if it is connected to that peer, possibly not directly but through several hops. Then it select one of the shortest path to the target peer and sends a <a href="NetworkSpec/Messages.html#routedmessage"><code>RoutedMessage</code></a> to the first peer in the path.</p>
+<p>Validators are known by their <a href="NetworkSpec/Messages.html#accountid">AccountId</a>. To send a message to a validator, a node first finds the <a href="NetworkSpec/Messages.html#peerid">PeerId</a> of the node running it. Each validator regularly broadcasts an <code>AccountData</code> signed with its validator key, which maps that key to its <a href="NetworkSpec/Messages.html#peerid">PeerId</a>. Nodes learn the validator keys of the current and next epochs from the chain.</p>
 <p>When it receives a <a href="NetworkSpec/Messages.html#routedmessage"><code>RoutedMessage</code></a>, it check if it is the target, in that case consume the body of the message, otherwise it finds a route to the target following described approach and sends the message again. It is important that before routing a message each peer check signature from original author of the message, passing a message with invalid signature can result in ban for the sender. It is not required however checking the content of the message itself.</p>
 <p>Each <a href="NetworkSpec/Messages.html#routedmessage"><code>RoutedMessage</code></a> is equipped with a time-to-live integer. If this message is not for the node processing it, it decrement the field by one before routing it; if the value is 0, the node drops the message instead of routing it.</p>
 <h4 id="routing-back"><a class="header" href="#routing-back">Routing back</a></h4>
@@ -2152,7 +2190,7 @@ def on_routed_message_received(self, routed_message, sender):
         self.send_routed_message(routed_message, sender)
 </code></pre>
 <h3 id="synchronization"><a class="header" href="#synchronization">Synchronization</a></h3>
-<p>When two node connect to each other they exchange all known edges (from <code>RoutingTable::edges_info</code>) and account announcements (from <code>RoutingTable::account_peers</code>). Also they broadcast the newly created edge to all nodes directly connected to them. After a node learns about a new <code>AnnounceAccount</code> or a new <code>Edge</code> they automatically broadcast this information to the rest of the nodes, so everyone is kept up to date.</p>
+<p>When two node connect to each other they exchange all known edges (from <code>RoutingTable::edges_info</code>). Also they broadcast the newly created edge to all nodes directly connected to them. After a node learns about a new <code>Edge</code> they automatically broadcast this information to the rest of the nodes, so everyone is kept up to date.</p>
 <h2 id="security"><a class="header" href="#security">Security</a></h2>
 <p>Messages exchanged between peers (both direct or routed) are cryptographically signed with sender private key. Nodes ID contains public key of each node that allow other peer to verify this messages. To keep secure communication most of this message requires some nonce/timestamp that forbid a malicious actor reuse a signed message out of context.</p>
 <p>In the case of routing messages each intermediate hop should verify that message hash and signatures are valid before routing to next hop.</p>
@@ -2164,10 +2202,10 @@ def on_routed_message_received(self, routed_message, sender):
 <p><a href="https://github.com/nearprotocol/nearcore/issues/2395#issuecomment-610077017">Github comment</a></p>
 <div style="break-before: page; page-break-before: always;"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.4/dist/katex.min.css">
 <h1 id="messages-2"><a class="header" href="#messages-2">Messages</a></h1>
-<p>All message sent in the network are of type <code>PeerMessage</code>. They are encoded using <a href="https://borsh.io/">Borsh</a> which allows a rich structure, small size and fast encoding/decoding. For details about data structures used as part of the message see the <a href="https://github.com/nearprotocol/nearcore">reference code</a>.</p>
+<p>All messages sent in the network are of type <code>PeerMessage</code>. A <code>PeerMessage</code> is encoded with <a href="https://protobuf.dev/">Protocol Buffers</a>, using the schema in <a href="https://github.com/near/nearcore/blob/master/chain/network/src/network_protocol/network.proto">network.proto</a>. Some fields of that schema are <code>bytes</code> fields that hold <a href="https://borsh.io/">Borsh</a> data, for example signatures, public keys, <code>PeerInfo</code>, edges, blocks, block headers, transactions and routed messages. The Rust structures below show either this Borsh data or the Rust types that nearcore uses in memory. For details about data structures used as part of the message see the <a href="https://github.com/nearprotocol/nearcore">reference code</a>.</p>
 <h2 id="encoding"><a class="header" href="#encoding">Encoding</a></h2>
-<p>A <code>PeerMessage</code> is converted into an array of bytes (<code>Vec&lt;u8&gt;</code>) using borsh serialization. An encoded message is conformed by 4 bytes with the length of the serialized <code>PeerMessage</code> concatenated with the serialized <code>PeerMessage</code>.</p>
-<p>Check <a href="https://github.com/nearprotocol/borsh#specification">Borsh specification</a> details to see how it handles each data structure.</p>
+<p>A <code>PeerMessage</code> is converted into an array of bytes (<code>Vec&lt;u8&gt;</code>) using protobuf serialization. An encoded message is the length of the serialized <code>PeerMessage</code> as a 4-byte little-endian unsigned integer, followed by the serialized <code>PeerMessage</code>.</p>
+<p>The Borsh data inside <code>bytes</code> fields follows the <a href="https://github.com/nearprotocol/borsh#specification">Borsh specification</a>.</p>
 <h2 id="data-structures-3"><a class="header" href="#data-structures-3">Data structures</a></h2>
 <h3 id="peerid"><a class="header" href="#peerid">PeerID</a></h3>
 <p>The id of a peer in the network is its <a href="https://github.com/nearprotocol/nearcore/blob/master/core/crypto/src/signature.rs">PublicKey</a>.</p>
@@ -2197,44 +2235,47 @@ def on_routed_message_received(self, routed_message, sender):
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>enum PeerMessage {
-    Handshake(Handshake),
+    Tier1Handshake(Handshake),
+    Tier2Handshake(Handshake),
+    Tier3Handshake(Handshake),
     HandshakeFailure(PeerInfo, HandshakeFailureReason),
     /// When a failed nonce is used by some peer, this message is sent back as evidence.
     LastEdge(Edge),
-    /// Contains accounts and edge information.
-    Sync(SyncData),
-    RequestUpdateNonce(EdgeInfo),
-    ResponseUpdateNonce(Edge),
-    PeersRequest,
-    PeersResponse(Vec&lt;PeerInfo&gt;),
+    /// Contains edge information.
+    SyncRoutingTable(RoutingTableUpdate),
+    RequestUpdateNonce(PartialEdgeInfo),
+
+    SyncAccountsData(SyncAccountsData),
+
+    PeersRequest(PeersRequest),
+    PeersResponse(PeersResponse),
+
     BlockHeadersRequest(Vec&lt;CryptoHash&gt;),
-    BlockHeaders(Vec&lt;BlockHeader&gt;),
+    BlockHeaders(Vec&lt;Arc&lt;BlockHeader&gt;&gt;),
+
     BlockRequest(CryptoHash),
-    Block(Block),
+    Block(Arc&lt;Block&gt;),
+    OptimisticBlock(OptimisticBlock),
+
     Transaction(SignedTransaction),
-    Routed(RoutedMessage),
+    Routed(Box&lt;RoutedMessage&gt;),
+
     /// Gracefully disconnect from other peer.
-    Disconnect,
-    Challenge(Challenge),
+    Disconnect(Disconnect),
+    Challenge(Box&lt;Challenge&gt;),
+
+    SyncSnapshotHosts(SyncSnapshotHosts),
+    StateRequestHeader(ShardId, CryptoHash),
+    StateRequestPart(ShardId, CryptoHash, u64),
+    VersionedStateResponse(StateResponseInfo),
+
+    EpochSyncRequest,
+    EpochSyncResponse(CompressedEpochSyncProof),
 }
 <span class="boring">}
 </span></code></pre></pre>
-<h3 id="announceaccount"><a class="header" href="#announceaccount">AnnounceAccount</a></h3>
-<p>Each peer should announce its account</p>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>struct AnnounceAccount {
-    /// AccountId to be announced.
-    account_id: AccountId,
-    /// PeerId from the owner of the account.
-    peer_id: PeerId,
-    /// This announcement is only valid for this `epoch`.
-    epoch_id: EpochId,
-    /// Signature using AccountId associated secret key.
-    signature: Signature,
-}
-<span class="boring">}
-</span></code></pre></pre>
+<p>This is the Rust enum that nearcore 2.14.0 uses in memory. <code>Arc</code> and <code>Box</code> do not change the encoding. On the wire, each variant is sent in its own field of the protobuf <code>PeerMessage</code>, and a message sets only one of these fields. For example, <code>Routed</code> is sent in the <code>routed</code> field. Its <code>borsh</code> field holds the Borsh encoding of the <a href="NetworkSpec/Messages.html#routedmessage"><code>RoutedMessageV1</code></a> structure below. nearcore also accepts a routed message in the <code>routed_v3</code> field, but it does not send one. A received <code>update_nonce_response</code> field is handled as a <code>SyncRoutingTable</code> message with one edge. nearcore does not send this field.</p>
+<p><code>RequestUpdateNonce</code> carries a <code>PartialEdgeInfo</code>, which is the <a href="NetworkSpec/Messages.html#edgeinfo">EdgeInfo</a> structure below. <code>PeersRequest</code> has the optional limits <code>max_peers</code> and <code>max_direct_peers</code>. <code>PeersResponse</code> has two lists of <code>PeerInfo</code>: <code>peers</code> and <code>direct_peers</code>. <code>Disconnect</code> has a <code>remove_from_connection_store</code> flag. Challenges are disabled, and nodes ignore a <code>Challenge</code> message.</p>
 <h3 id="handshake"><a class="header" href="#handshake">Handshake</a></h3>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
@@ -2288,7 +2329,7 @@ def on_routed_message_received(self, routed_message, sender):
 <h3 id="routedmessage"><a class="header" href="#routedmessage">RoutedMessage</a></h3>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
-</span>struct RoutedMessage {
+</span>struct RoutedMessageV1 {
     /// Peer id which is directed this message.
     /// If `target` is hash, this a message should be routed back.
     target: PeerIdOrHash,
@@ -2308,34 +2349,43 @@ def on_routed_message_received(self, routed_message, sender):
 <h3 id="routedmessagebody"><a class="header" href="#routedmessagebody">RoutedMessageBody</a></h3>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
-</span>enum RoutedMessageBody {
-    BlockApproval(Approval),
-    ForwardTx(SignedTransaction),
-
-    TxStatusRequest(AccountId, CryptoHash),
-    TxStatusResponse(FinalExecutionOutcomeView),
-    QueryRequest {
-        query_id: String,
-        block_id_or_finality: BlockIdOrFinality,
-        request: QueryRequest,
-    },
-    QueryResponse {
-        query_id: String,
-        response: Result&lt;QueryResponse, String&gt;,
-    },
-    ReceiptOutcomeRequest(CryptoHash),
-    ReceiptOutComeResponse(ExecutionOutcomeWithIdAndProof),
-    StateRequestHeader(ShardId, CryptoHash),
-    StateRequestPart(ShardId, CryptoHash, u64),
-    StateResponse(StateResponseInfo),
-    PartialEncodedChunkRequest(PartialEncodedChunkRequestMsg),
-    PartialEncodedChunkResponse(PartialEncodedChunkResponseMsg),
-    PartialEncodedChunk(PartialEncodedChunk),
-    Ping(Ping),
-    Pong(Pong),
+</span>#[borsh(use_discriminant = true)]
+#[repr(u8)]
+enum RoutedMessageBody {
+    BlockApproval(Approval) = 0,
+    ForwardTx(SignedTransaction) = 1,
+    TxStatusRequest(AccountId, CryptoHash) = 2,
+    TxStatusResponse(FinalExecutionOutcomeView) = 3,
+    PartialEncodedChunkRequest(PartialEncodedChunkRequestMsg) = 11,
+    PartialEncodedChunkResponse(PartialEncodedChunkResponseMsg) = 12,
+    /// Ping/Pong used for testing networking and routing.
+    Ping(Ping) = 14,
+    Pong(Pong) = 15,
+    VersionedPartialEncodedChunk(PartialEncodedChunk) = 16,
+    PartialEncodedChunkForward(PartialEncodedChunkForwardMsg) = 18,
+    ChunkStateWitnessAck(ChunkStateWitnessAck) = 21,
+    PartialEncodedStateWitness(PartialEncodedStateWitness) = 22,
+    PartialEncodedStateWitnessForward(PartialEncodedStateWitness) = 23,
+    VersionedChunkEndorsement(ChunkEndorsement) = 24,
+    StatePartRequest(StatePartRequest) = 27,
+    ChunkContractAccesses(ChunkContractAccesses) = 28,
+    ContractCodeRequest(ContractCodeRequest) = 29,
+    ContractCodeResponse(ContractCodeResponse) = 30,
+    PartialEncodedContractDeploys(PartialEncodedContractDeploys) = 31,
+    StateHeaderRequest(StateHeaderRequest) = 32,
+    SpicePartialData(SpicePartialData) = 33,
+    StateRequestAck(StateRequestAck) = 34,
+    SpiceChunkEndorsement(SpiceChunkEndorsement) = 35,
+    SpiceDataRequest(SpiceDataRequest) = 36,
+    SpiceChunkContractAccesses(SpiceChunkContractAccesses) = 37,
+    SpiceContractCodeRequest(SpiceContractCodeRequest) = 38,
+    SpiceContractCodeResponse(SpiceContractCodeResponse) = 39,
+    VersionedPartialEncodedStateWitness(VersionedPartialEncodedStateWitness) = 40,
+    VersionedPartialEncodedStateWitnessForward(VersionedPartialEncodedStateWitness) = 41,
 }
 <span class="boring">}
 </span></code></pre></pre>
+<p>The number after each variant is its Borsh enum tag. Tags that are missing from the list belonged to variants that nearcore removed. The <code>Spice</code> variants belong to a protocol feature that is not part of any stable protocol version.</p>
 <h2 id="cryptohash"><a class="header" href="#cryptohash">CryptoHash</a></h2>
 <p><code>CryptoHash</code> are objects with 256 bits of information.</p>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
@@ -2347,207 +2397,22 @@ pub struct CryptoHash(pub Digest);
 </span></code></pre></pre>
 <div style="break-before: page; page-break-before: always;"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.4/dist/katex.min.css">
 <h1 id="routing-table-exchange-algorithm"><a class="header" href="#routing-table-exchange-algorithm">Routing table exchange algorithm</a></h1>
-<!-- cspell:ignore neps -->
-<ul>
-<li>Proposal Name: New routing table exchange algorithm</li>
-<li>Start Date: 6/21/2021</li>
-<li>NEP PR: <a href="https://github.com/near/nearcore/pull/4112"><code>nearprotocol/neps#0000</code></a></li>
-<li>Issue(s): https://github.com/near/nearcore/issues/3838.</li>
-<li><a href="https://github.com/near/NEPs/pull/220">GitHub PR</a></li>
-</ul>
-<h1 id="summary"><a class="header" href="#summary">Summary</a></h1>
-<p>Currently, every node on the network stores its own copy of the <a href="NetworkSpec/./NetworkSpec.html#routing-table">Routing Graph</a>.
-The process of exchanging and verifying edges requires sending full copy of routing table on every synchronization.
-Sending full copy of routing table is wasteful, in this spec we propose a solution, which allows doing partial  synchronization.
-This should reduce both bandwidth used, and amount of CPU time.</p>
-<p>Typically, only one full sync would be required when a node connects to the network for the first time.
-For given two nodes doing synchronization, we propose a method, which requires bandwidth/processing time proportional to the size of data which needs to be exchanged for given nodes.</p>
-<h1 id="algorithm"><a class="header" href="#algorithm">Algorithm</a></h1>
-<p>In this spec we describe the implementation of <code>Routing Graph Reconciliation</code> algorithm using Inverse Bloom Filters.
-An overview of different <code>Routing Graph Reconciliation</code> algorithms can be a found at
-<a href="https://github.com/pmnoxx/docs/blob/piotr-test-markdown/near/ROUTING_GRAPH_RECONCILIATION.pdf">ROUTING_GRAPH_RECONCILIATION.pdf</a></p>
-<p>The process of exchanging <code>routing tables</code> involves exchanging edges between a pair of nodes.
-For given nodes <code>A</code>, <code>B</code>, that involves adding edges which <code>A</code> has, but <code>B</code> doesn't and vice-versa.
-For each connection we create a data structure <a href="NetworkSpec/RoutingTableExchangeAlgorithm.html#ibfset">IbfSet</a>.
-It stores <code>Inverse Bloom Filters</code> <a href="NetworkSpec/RoutingTableExchangeAlgorithm.html#ibf">Ibf</a> of powers of <code>2^k</code> for <code>k</code> in range <code>10..17</code>.
-This allows us to recover around <code>2^17 / 1.3</code> edges with <code>99%</code> probability according to <a href="https://www.ics.uci.edu/%7Eeppstein/pubs/EppGooUye-SIGCOMM-11.pdf">Efficient Set Reconciliation without Prior Context</a>.
-Otherwise, we do full routing table exchange.</p>
-<p>We have chosen a minimum size of <code>Ibf</code> to be <code>2^10</code>, because the overhead of processing <code>IBF</code> of smaller size of negligible, and to reduce the number of messages required in exchange.
-On the other side, we limit <code>Ibf</code> to size of <code>2^17</code> to reduce memory usage required for each data structure.</p>
-<h1 id="routing-table-1"><a class="header" href="#routing-table-1">Routing Table</a></h1>
-<p>We are extending [Routing Table](NetworkSpec.md#Routing Table) by additional field <code>peer_ibf_set</code></p>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>pub struct RoutingTable {
-   /// Other fields
-   ///    ..
-   /// Data structure used for exchanging routing tables.
-   pub peer_ibf_set: IbfPeerSet,
-}
-<span class="boring">}
-</span></code></pre></pre>
-<ul>
-<li><code>peer_ibf_set</code> - a helper data structure, which allows doing partial synchronization.</li>
-</ul>
-<h1 id="ibfpeerset"><a class="header" href="#ibfpeerset">IbfPeerSet</a></h1>
-<p><code>IbfPeerSet</code> contains a mapping between <code>PeerId</code> and <code>IbfSet</code>.
-It's used to store metadata for each peer, which can be used to compute set difference between routing tables of current peer and peer contained in the mapping.</p>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>pub struct SimpleEdge {
-  pub key: (PeerId, PeerId),
-  pub nonce: u64,
-}
-
-pub struct IbfPeerSet {
-    peer2seed: HashMap&lt;PeerId, u64&gt;,
-    unused_seeds: Vec&lt;u64&gt;,
-    seed2ibf: HashMap&lt;u64, IbfSet&lt;SimpleEdge&gt;&gt;,
-    slot_map: SlotMap,
-    edges: u64,
-}
-<span class="boring">}
-</span></code></pre></pre>
-<ul>
-<li><code>peer2seed</code> - contains a mapping from <code>PeerId</code> to <code>seed</code> used to generate <code>IbfSet</code></li>
-<li><code>unused_seeds</code> - list of currently unused seeds, which will be used for new incoming connections</li>
-<li><code>seed2ibf</code> - contains a mapping from <code>seed</code> to <code>IbfSet</code></li>
-<li><code>slot_map</code> - a helper data structure, which is used to store <code>Edges</code>, this allows us to save memory by not storing
-duplicates.</li>
-<li><code>edges</code> - total number of edges in the data structure</li>
-</ul>
-<h1 id="messages-3"><a class="header" href="#messages-3">Messages</a></h1>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>pub struct RoutingSyncV2 {
-    pub version: u64,
-    pub known_edges: u64,
-    pub ibf_level: u64,
-    pub ibf: Vec&lt;IbfElem&gt;,
-    pub request_all_edges: bool,
-    pub seed: u64,
-    pub edges: Vec&lt;Edge&gt;,
-    pub requested_edges: Vec&lt;u64&gt;,
-    pub done: bool,
-}
-<span class="boring">}
-</span></code></pre></pre>
-<ul>
-<li><code>version</code> - version of routing table, currently 0, for future use</li>
-<li><code>known_edges</code> - number of edges peer knows about, this allows us to decide whenever to request all edges
-immediately or not.</li>
-<li><code>ibf_level</code> - level of inverse bloom filter requested from <code>10</code> to <code>17</code>.</li>
-<li><code>request_all_edges</code> - true if peer decides to request all edges from other peer</li>
-<li><code>seed</code> - seed used to generate ibf</li>
-<li><code>edges</code> - list of edges send to the other peer</li>
-<li><code>requested_edges</code> - list of hashes of edges peer want to get</li>
-<li><code>done</code> - true if it's the last message in synchronization</li>
-</ul>
-<h2 id="ibfset"><a class="header" href="#ibfset">IbfSet</a></h2>
-<p>Structure used to represent set of <code>Inverse Bloom Filters</code> for given peer.</p>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>pub struct IbfSet&lt;T: Hash + Clone&gt; {
-    seed: u64,
-    ibf: Vec&lt;Ibf&gt;,
-    h2e: HashMap&lt;u64, SlotMapId&gt;,
-    hasher: DefaultHasher,
-    pd: PhantomData&lt;T&gt;,
-}
-<span class="boring">}
-</span></code></pre></pre>
-<ul>
-<li><code>seed</code> - seed used to generate IbfSet</li>
-<li><code>ibf</code> - list of <code>Inverse Bloom Filters</code> with sizes from <code>10</code> to <code>17</code>.</li>
-<li><code>h2e</code> - mapping from hash of given edge to id of the edge. This is used to save memory, to avoid storing multiple
-copies of given edge.</li>
-<li><code>hasher</code> - hashing function</li>
-</ul>
-<h2 id="ibf"><a class="header" href="#ibf">Ibf</a></h2>
-<p>Structure representing Reverse Bloom Filter.</p>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>pub struct Ibf {
-    k: i32,
-    pub data: Vec&lt;IbfElem&gt;,
-    hasher: IbfHasher,
-    pub seed: u64,
-}
-<span class="boring">}
-</span></code></pre></pre>
-<ul>
-<li><code>k</code> - number of elements in vector</li>
-<li><code>data</code> - vector of elements of bloom filter</li>
-<li><code>seed</code> - seed of each inverse bloom filter</li>
-<li><code>hasher</code> - hashing function</li>
-</ul>
-<h2 id="ibfelem"><a class="header" href="#ibfelem">IbfElem</a></h2>
-<p>Element of bloom filter</p>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>pub struct IbfElem {
-    xor_elem: u64,
-    xor_hash: u64,
-}
-<span class="boring">}
-</span></code></pre></pre>
-<ul>
-<li><code>xor_element</code> - xor of hashes of edges stored in given box</li>
-<li><code>xor_hash</code> - xor of hashes of hashes of edges stored in give n box</li>
-</ul>
-<h2 id="routing-table-exchange"><a class="header" href="#routing-table-exchange">Routing table exchange</a></h2>
-<p>The process of exchanging routing tables involves multiple steps.
-It could be reduced if needed by adding an estimator of how many edges differ, but it's not implemented for sake of simplicity.</p>
-<h2 id="step-1"><a class="header" href="#step-1">Step 1</a></h2>
-<p>Peer <code>A</code> connects to peer <code>B</code>.</p>
-<h2 id="step-2"><a class="header" href="#step-2">Step 2</a></h2>
-<p>Peer <code>B</code> chooses unique <code>seed</code>, and generates <code>IbfPeerSet</code> based on seed and all known edges in
-[Routing Table](NetworkSpec.md#Routing Table).</p>
-<h2 id="step-3---10"><a class="header" href="#step-3---10">Step 3 - 10</a></h2>
-<p>On odd steps peer <code>B</code> sends message to peer <code>A</code>, with Ibf of size <code>2^(step+7)</code>.
-On even steps, peer <code>A</code> does it.</p>
-<ul>
-<li>Case 1 - if we were unable to find all edges we continue to the next step.</li>
-<li>Case 2 - otherwise, we know what the set difference is.
-We compute the set of hashes of edges given node knows about, and doesn't know about.
-Current peer sends to the other peer the edges it knows about, and asks about edges, based on hashes, it doesn't know about the other peer.
-The other peer sends the response, and the routing table exchange ends.</li>
-</ul>
-<h2 id="step-11"><a class="header" href="#step-11">Step 11</a></h2>
-<p>In case the synchronization isn't done yet, each side sends list of hashes of edges it knows about.</p>
-<h2 id="step-12"><a class="header" href="#step-12">Step 12</a></h2>
-<p>Each side sends list of edges the other side requested.</p>
-<h1 id="security-considerations"><a class="header" href="#security-considerations">Security considerations</a></h1>
-<h3 id="avoid-extra-computation-if-another-peer-reconnects-to-server"><a class="header" href="#avoid-extra-computation-if-another-peer-reconnects-to-server">Avoid extra computation if another peer reconnects to server</a></h3>
-<p>In order to avoid extra computation whenever a peer reconnects to server, we can keep a pool of <code>IbfPeerSet</code> structures.
-The number of such structures which we need to keep is going to be equal to the peak number of incoming connections, which servers have had plus the number of outgoing connections.</p>
-<h3 id="producing-edges-where-there-is-a-hash-collision"><a class="header" href="#producing-edges-where-there-is-a-hash-collision">Producing edges, where there is a hash collision</a></h3>
-<p>We use unique <code>IbfPeerSet</code> structure, for each connection, this prevents seeds to be guessed.
-Therefore, we are resistant to that type of attack.</p>
-<h1 id="memory-overhead"><a class="header" href="#memory-overhead">Memory overhead</a></h1>
-<p>For each connection we need to use approximately <code>(2^10 + ... 2^17) * sizeof(IbfElem) bytes = 2^18 * 16 bytes = 4 MiB</code>.
-Assuming we keep extra <code>40</code> of such data structures, we would need extra <code>160 MiB</code>.</p>
-<h1 id="performance-overhead"><a class="header" href="#performance-overhead">Performance overhead</a></h1>
-<p>On each update we need up update each <code>IbfSet</code> structure <code>3*8 = 24</code> times.
-Assuming we keep <code>40</code> such data structures, that requires up to <code>960</code> updates.</p>
-<h1 id="alternative-approaches"><a class="header" href="#alternative-approaches">Alternative approaches</a></h1>
-<h3 id="only-use-one-ibfpeerset-structure-for-everyone"><a class="header" href="#only-use-one-ibfpeerset-structure-for-everyone">Only use one <code>IbfPeerSet</code> structure for everyone</a></h3>
-<p>This would reduce number of updates we need to do, and memory usage.
-However, it would be possible to guess the hash function used, which would expose us to security vulnerability.
-It would be simple to produce two edges, such that there is a hash collision, which would cause routing table exchange to fail.</p>
-<h3 id="increase-number-of-ibfset-structures-per-ibfpeerset"><a class="header" href="#increase-number-of-ibfset-structures-per-ibfpeerset">Increase number of <code>IbfSet</code> structures per <code>IbfPeerSet</code></a></h3>
-<p>In theory, we could increase the sizes of <code>IBF</code> structures used from <code>2^10..2^17</code> to <code>2^10..2^20</code>.
-This would allow us to recover the set difference if it's up to <code>2^20/3</code> instead of <code>2^17/3</code> at cost of increasing memory overhead from <code>160 MiB to 640 Mib</code>.</p>
-<h3 id="simplify-algorithm-to-only-exchange-list-of-hashes-of-known-edges-of-each-peer"><a class="header" href="#simplify-algorithm-to-only-exchange-list-of-hashes-of-known-edges-of-each-peer">Simplify algorithm to only exchange list of hashes of known edges of each peer</a></h3>
-<p>Each edge has a size of about 400 bytes.
-Let's assume we need to send 1 million edges.
-By sending list of 4 bytes hashes of all known edges on each synchronization we would only need to send <code>4 MiB</code> of metadata plus the size of edges that differ.
-This approach would be simpler, but not as efficient in terms of bandwidth.
-That would still be an improvement of having to send just <code>4 MiB</code> over <code>400 MiB</code> with existing implementation.</p>
-<h1 id="future-improvements"><a class="header" href="#future-improvements">Future improvements</a></h1>
-<h2 id="reduce-memory-usage"><a class="header" href="#reduce-memory-usage">Reduce memory usage</a></h2>
-<h3 id="used-a-fixed-number-of-ibfpeerset-structures-for-each-node-theoretically-smaller-number-of-sets-could-be-used-for-example-10-this-would-require-estimating-how-likely-it-is-to-produce-edges-such-that-they-produce-collisions"><a class="header" href="#used-a-fixed-number-of-ibfpeerset-structures-for-each-node-theoretically-smaller-number-of-sets-could-be-used-for-example-10-this-would-require-estimating-how-likely-it-is-to-produce-edges-such-that-they-produce-collisions">Used a fixed number of <code>IbfPeerSet</code> structures for each node Theoretically, smaller number of sets could be used. For example 10, this would require estimating how likely it is to produce edges such that they produce collisions</a></h3>
-<p>It may be still possible to generate offline such set of edges that can cause recovery of edges from <code>IBF</code> to fail for one node.</p>
+<p>Every node on the network stores its own copy of the <a href="NetworkSpec/./NetworkSpec.html#routing-table">Routing Graph</a>.
+nearcore exchanges this graph in two steps.
+When a connection is set up, the two nodes do a full sync.
+After that, they send only incremental updates.</p>
+<p>After a handshake on a TIER2 connection completes, each node sends one <code>SyncRoutingTable</code> message to the other node.
+The message holds a <code>RoutingTableUpdate</code> with all edges that the node knows.
+After that, a node broadcasts only edges that it has not seen before, also in <code>SyncRoutingTable</code> messages.
+Up to nearcore 2.14.0, these messages also carry account announcements.
+TIER1 and TIER3 connections do not exchange the routing table.
+See the <a href="NetworkSpec/./NetworkSpec.html#synchronization">Synchronization</a> section of the network specification and the <a href="NetworkSpec/./Messages.html#peermessage">PeerMessage</a> listing.</p>
+<h1 id="removed-proposal"><a class="header" href="#removed-proposal">Removed proposal</a></h1>
+<p>An earlier <a href="https://github.com/near/NEPs/pull/220">proposal</a> described a partial exchange that sends only the difference between two routing tables.
+It used Inverse Bloom Filters and a <code>RoutingSyncV2</code> message.
+nearcore had a prototype of it behind a nightly-only build feature.
+nearcore 1.28.0 removed the prototype, and it was never active on mainnet or testnet.
+The <code>RoutingSyncV2</code> message does not exist on the network.</p>
 <div style="break-before: page; page-break-before: always;"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.4/dist/katex.min.css">
 <h1 id="overview-2"><a class="header" href="#overview-2">Overview</a></h1>
 <p>This chapter covers the NEAR Protocol runtime specification.</p>
@@ -2616,9 +2481,14 @@ That would still be an improvement of having to send just <code>4 MiB</code> ove
     DeployGlobalContract(DeployGlobalContractAction),
     UseGlobalContract(UseGlobalContractAction),
     DeterministicStateInit(DeterministicStateInitAction),
+    TransferToGasKey(TransferToGasKeyAction),
+    WithdrawFromGasKey(WithdrawFromGasKeyAction),
+    DelegateV2(VersionedSignedDelegateAction),
+    UniversalStateInit(UniversalStateInitAction),
 }
 <span class="boring">}
 </span></code></pre></pre>
+<p><code>TransferToGasKey</code>, <code>WithdrawFromGasKey</code> and <code>DelegateV2</code> are accepted from protocol version 85 (nearcore 2.13.0). From protocol version 87 (nearcore 2.14.0), new <code>DelegateV2</code> actions are rejected with <code>RemovedProtocolFeature</code>. <code>UniversalStateInit</code> is accepted from protocol version 88 (nearcore 2.14.0). Before the protocol version that enables an action, the action fails validation with <code>UnsupportedProtocolFeature</code>.</p>
 <p>Each transaction consists a list of actions to be performed on the <code>receiver_id</code> side. Since transactions are first
 converted to receipts when they are processed, we will mostly concern ourselves with actions in the context of receipt
 processing.</p>
@@ -2629,7 +2499,11 @@ processing.</p>
 <li><code>AddKey</code></li>
 <li><code>DeleteKey</code></li>
 <li><code>DeleteAccount</code></li>
+<li><code>DeployGlobalContract</code></li>
+<li><code>UseGlobalContract</code></li>
+<li><code>WithdrawFromGasKey</code></li>
 </ul>
+<p>If they are not equal, the action fails with <code>ActorNoPermission</code>.</p>
 <p>NOTE: if the first action in the action list is <code>CreateAccount</code>, <code>predecessor_id</code> becomes <code>receiver_id</code>
 for the rest of the actions until <code>DeleteAccount</code>. This gives permission by another account to act on the newly created account.</p>
 <h2 id="createaccountaction"><a class="header" href="#createaccountaction">CreateAccountAction</a></h2>
@@ -2810,10 +2684,13 @@ value is 10.</p>
 <p><strong>Outcome</strong>:</p>
 <ul>
 <li>Adds a new <a href="RuntimeSpec//DataStructures/AccessKey.html">AccessKey</a> to the receiver's account and associates it with a <code>public_key</code> provided.</li>
+<li>If the permission is <code>GasKeyFullAccess</code> or <code>GasKeyFunctionCall</code>, the new key is a <a href="RuntimeSpec//DataStructures/AccessKey.html#gas-keys">gas key</a> with a balance of 0.
+The <code>nonce</code> field of the key is set to 0. The runtime also creates <code>num_nonces</code> nonce records for the key, each set to <code>(block_height - 1) * 1_000_000</code>.
+These records add to the storage usage of the account, see <a href="RuntimeSpec//DataStructures/AccessKey.html#gas-key-nonces">Gas Key Nonces</a>.</li>
 </ul>
 <h3 id="errors-4"><a class="header" href="#errors-4">Errors</a></h3>
 <p><strong>Validation Error</strong>:</p>
-<p>If the access key is of type <code>FunctionCallPermission</code>, the following errors can happen</p>
+<p>If the access key permission is <code>FunctionCall</code> or <code>GasKeyFunctionCall</code>, the following errors can happen</p>
 <ul>
 <li>If <code>receiver_id</code> in <code>access_key</code> is not a valid account id, the following error will be returned </li>
 </ul>
@@ -2843,6 +2720,40 @@ the following error will be returned</li>
 AddKeyMethodNamesNumberOfBytesExceeded { total_number_of_bytes: u64, limit: u64 }
 <span class="boring">}
 </span></code></pre></pre>
+<p>If the access key permission is <code>GasKeyFullAccess</code> or <code>GasKeyFunctionCall</code>, the following errors can also happen</p>
+<ul>
+<li>If the protocol version is lower than 85, the following error is returned</li>
+</ul>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>UnsupportedProtocolFeature { protocol_feature: String, version: ProtocolVersion },
+<span class="boring">}
+</span></code></pre></pre>
+<ul>
+<li>If the permission is <code>GasKeyFunctionCall</code> and its <code>allowance</code> is not <code>None</code>, the following error is returned</li>
+</ul>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>/// Gas keys with FunctionCall permission cannot have an allowance set.
+GasKeyFunctionCallAllowanceNotAllowed,
+<span class="boring">}
+</span></code></pre></pre>
+<ul>
+<li>If <code>num_nonces</code> is 0 or greater than 1024 (<code>MAX_NONCES_FOR_GAS_KEY</code>), the following error is returned</li>
+</ul>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>GasKeyInvalidNumNonces { requested_nonces: NonceIndex, limit: NonceIndex },
+<span class="boring">}
+</span></code></pre></pre>
+<ul>
+<li>If <code>balance</code> in <code>GasKeyInfo</code> is not 0, the following error is returned</li>
+</ul>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>AddGasKeyWithNonZeroBalance { balance: Balance },
+<span class="boring">}
+</span></code></pre></pre>
 <p><strong>Execution Error</strong>:</p>
 <ul>
 <li>If an account tries to add an access key with a given public key, but an existing access key with this public key already exists, the following error will be returned</li>
@@ -2867,6 +2778,7 @@ AddKeyAlreadyExists { account_id: AccountId, public_key: PublicKey }
 <p><strong>Outcome</strong>:</p>
 <ul>
 <li>Deletes the <a href="RuntimeSpec//DataStructures/AccessKey.html">AccessKey</a> associated with <code>public_key</code>.</li>
+<li>If the key is a <a href="RuntimeSpec//DataStructures/AccessKey.html#gas-keys">gas key</a>, its balance is burnt and all its nonce records are removed.</li>
 </ul>
 <h3 id="errors-5"><a class="header" href="#errors-5">Errors</a></h3>
 <p><strong>Execution Error</strong>:</p>
@@ -2877,6 +2789,16 @@ AddKeyAlreadyExists { account_id: AccountId, public_key: PublicKey }
 </span><span class="boring">fn main() {
 </span>/// Account tries to remove an access key that doesn't exist
 DeleteKeyDoesNotExist { account_id: AccountId, public_key: PublicKey }
+<span class="boring">}
+</span></code></pre></pre>
+<ul>
+<li>If the key is a gas key with a balance of more than 1 NEAR, the following error is returned, with <code>public_key</code> set to the key.
+Use <a href="RuntimeSpec/Actions.html#withdrawfromgaskeyaction">WithdrawFromGasKey</a> to lower the balance first.</li>
+</ul>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>/// Gas key balance is too high to burn during deletion
+GasKeyBalanceTooHigh { account_id: AccountId, public_key: Option&lt;PublicKey&gt;, balance: Balance }
 <span class="boring">}
 </span></code></pre></pre>
 <ul>
@@ -2894,6 +2816,7 @@ DeleteKeyDoesNotExist { account_id: AccountId, public_key: PublicKey }
 <p><strong>Outcomes</strong>:</p>
 <ul>
 <li>The account, as well as all the data stored under the account, is deleted and the tokens are transferred to <code>beneficiary_id</code>.</li>
+<li>The balances of all <a href="RuntimeSpec//DataStructures/AccessKey.html#gas-keys">gas keys</a> of the account are burnt.</li>
 </ul>
 <h3 id="errors-6"><a class="header" href="#errors-6">Errors</a></h3>
 <p><strong>Validation Error</strong>:</p>
@@ -2926,7 +2849,164 @@ DeleteAccountStaking { account_id: AccountId }
 </span></code></pre></pre>
 <p><strong>Execution Error</strong>:</p>
 <ul>
+<li>If the storage usage of the account is more than 10,000 bytes, the following error is returned and nothing is deleted.
+The storage of the contract code or of the global contract reference does not count.
+All other storage counts, including access keys, gas key nonces and contract data.
+To delete the account, first remove contract data or delete keys until the storage usage is 10,000 bytes or less.</li>
+</ul>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>/// Delete account whose state is large is temporarily banned.
+DeleteAccountWithLargeState { account_id: AccountId },
+<span class="boring">}
+</span></code></pre></pre>
+<ul>
+<li>If the sum of the balances of all gas keys of the account is more than 1 NEAR, the following error is returned, with <code>public_key: None</code>.
+Use <a href="RuntimeSpec/Actions.html#withdrawfromgaskeyaction">WithdrawFromGasKey</a> to lower the balances first.</li>
+</ul>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>/// Gas key balance is too high to burn during deletion
+GasKeyBalanceTooHigh { account_id: AccountId, public_key: Option&lt;PublicKey&gt;, balance: Balance }
+<span class="boring">}
+</span></code></pre></pre>
+<ul>
 <li>If state or storage is corrupted, a <code>StorageError</code> is returned.</li>
+</ul>
+<h2 id="transfertogaskeyaction"><a class="header" href="#transfertogaskeyaction">TransferToGasKeyAction</a></h2>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub struct TransferToGasKeyAction {
+    /// The public key of the gas key to fund
+    pub public_key: PublicKey,
+    /// Amount of NEAR to transfer to the gas key
+    pub deposit: Balance,
+}
+<span class="boring">}
+</span></code></pre></pre>
+<p>Adds <code>deposit</code> to the balance of the <a href="RuntimeSpec//DataStructures/AccessKey.html#gas-keys">gas key</a> with the given <code>public_key</code> on the receiver account.
+Any account can send this action, so an account can fund a gas key of another account.
+The <code>deposit</code> is paid by the sender in the same way as the <code>deposit</code> of a <code>Transfer</code>.
+A contract can create this action with the <code>promise_batch_action_transfer_to_gas_key</code> host function.</p>
+<p><strong>Outcome</strong>:</p>
+<ul>
+<li>The balance of the gas key is increased by <code>deposit</code>.</li>
+</ul>
+<h3 id="errors-7"><a class="header" href="#errors-7">Errors</a></h3>
+<p><strong>Validation Error</strong>:</p>
+<ul>
+<li>If the protocol version is lower than 85, <code>UnsupportedProtocolFeature</code> is returned.</li>
+</ul>
+<p><strong>Execution Error</strong>:</p>
+<ul>
+<li>If the receiver account has no access key with <code>public_key</code>, or the key is not a gas key, the following error is returned</li>
+</ul>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>/// Gas key does not exist for the specified public key
+GasKeyDoesNotExist { account_id: AccountId, public_key: PublicKey }
+<span class="boring">}
+</span></code></pre></pre>
+<h2 id="withdrawfromgaskeyaction"><a class="header" href="#withdrawfromgaskeyaction">WithdrawFromGasKeyAction</a></h2>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub struct WithdrawFromGasKeyAction {
+    /// The public key of the gas key to withdraw from
+    pub public_key: PublicKey,
+    /// Amount of NEAR to transfer from the gas key
+    pub amount: Balance,
+}
+<span class="boring">}
+</span></code></pre></pre>
+<p>Moves <code>amount</code> from the balance of the <a href="RuntimeSpec//DataStructures/AccessKey.html#gas-keys">gas key</a> with the given <code>public_key</code> to the balance of the receiver account.
+The <code>predecessor_id</code> and <code>receiver_id</code> must be equal.
+No host function creates this action, so it can only come from a transaction or from the actions of a delegate action.
+From protocol version 87 (nearcore 2.14.0), it cannot be inside a delegate action.</p>
+<p><strong>Outcome</strong>:</p>
+<ul>
+<li>The balance of the gas key is decreased by <code>amount</code>.</li>
+<li>The balance of the account is increased by <code>amount</code>.</li>
+</ul>
+<h3 id="errors-8"><a class="header" href="#errors-8">Errors</a></h3>
+<p><strong>Validation Error</strong>:</p>
+<ul>
+<li>If the protocol version is lower than 85, <code>UnsupportedProtocolFeature</code> is returned.</li>
+<li>From protocol version 87 (nearcore 2.14.0), if a delegate action contains this action, the following error is returned. A receipt created before protocol version 87 still executes.</li>
+</ul>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>/// A `WithdrawFromGasKey` action must not be nested inside a delegate action.
+WithdrawFromGasKeyNotAllowedInDelegate
+<span class="boring">}
+</span></code></pre></pre>
+<p><strong>Execution Error</strong>:</p>
+<ul>
+<li>If the account has no access key with <code>public_key</code>, or the key is not a gas key, the following error is returned</li>
+</ul>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>/// Gas key does not exist for the specified public key
+GasKeyDoesNotExist { account_id: AccountId, public_key: PublicKey }
+<span class="boring">}
+</span></code></pre></pre>
+<ul>
+<li>If the balance of the gas key is less than <code>amount</code>, the following error is returned</li>
+</ul>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>/// Gas key does not have sufficient balance for the requested withdrawal
+InsufficientGasKeyBalance { account_id: AccountId, public_key: PublicKey, balance: Balance, required: Balance }
+<span class="boring">}
+</span></code></pre></pre>
+<h2 id="delegatev2"><a class="header" href="#delegatev2">DelegateV2</a></h2>
+<p><code>DelegateV2</code> is a version of the <a href="RuntimeSpec/Actions.html#delegate-actions">delegate action</a> that a <a href="RuntimeSpec//DataStructures/AccessKey.html#gas-keys">gas key</a> can sign.
+It is accepted at protocol versions 85 and 86.</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub struct VersionedSignedDelegateAction {
+    pub delegate_action: VersionedDelegateActionPayload,
+    pub signature: Signature,
+}
+
+pub enum VersionedDelegateActionPayload {
+    V2(DelegateActionV2),
+}
+
+pub struct DelegateActionV2 {
+    /// Signer of the delegated actions
+    pub sender_id: AccountId,
+    /// Receiver of the delegated actions.
+    pub receiver_id: AccountId,
+    /// List of actions to be executed.
+    pub actions: Vec&lt;NonDelegateAction&gt;,
+    /// Nonce of the signing key, advanced when this action is processed. For
+    /// a gas key it also selects which of the parallel nonces to advance.
+    pub nonce: TransactionNonce,
+    /// The maximal height of the block in the blockchain below which the given DelegateActionV2 is valid.
+    pub max_block_height: BlockHeight,
+    /// Public key used to sign this delegated action.
+    pub public_key: PublicKey,
+}
+<span class="boring">}
+</span></code></pre></pre>
+<p><code>DelegateActionV2</code> has the same fields as <code>DelegateAction</code>, except that <code>nonce</code> is a <a href="RuntimeSpec//RuntimeSpec/Transactions.html"><code>TransactionNonce</code></a>.
+The signature is over the SHA-256 hash of the Borsh encoding of the 4-byte prefix <code>(1 &lt;&lt; 30) + 611</code> (NEP-611), followed by the <code>VersionedDelegateActionPayload</code>.
+The payload starts with the variant byte <code>0</code> for <code>V2</code>.
+A <code>Delegate</code> action uses the prefix <code>(1 &lt;&lt; 30) + 366</code> (NEP-366) instead.
+A <code>TransactionNonce::Nonce</code> must be signed by a regular access key, and it is checked against the nonce of that key.
+A <code>TransactionNonce::GasKeyNonce</code> must be signed by a gas key, and it is checked against the nonce stored for its <code>nonce_index</code>.
+The relayer pays for the gas, as with <code>Delegate</code>. The balance of the gas key is not used.</p>
+<p>From protocol version 87 (nearcore 2.14.0), a new transaction or receipt with a <code>DelegateV2</code> action fails validation with the following error. A receipt created before protocol version 87 still executes.</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>RemovedProtocolFeature { protocol_feature: String, version: ProtocolVersion },
+<span class="boring">}
+</span></code></pre></pre>
+<p>Besides the errors listed in <a href="RuntimeSpec/Actions.html#delegate-actions">Delegate Actions</a>, a <code>DelegateV2</code> action can fail with these execution errors:</p>
+<ul>
+<li><code>DelegateActionAccessKeyError(DelegateActionRequiresGasKey)</code> if the nonce is a <code>GasKeyNonce</code> and the key is not a gas key.</li>
+<li><code>DelegateActionAccessKeyError(DelegateActionRequiresNonGasKey)</code> if the nonce is a plain <code>Nonce</code> and the key is a gas key.</li>
+<li><code>DelegateActionInvalidNonceIndex { nonce_index: NonceIndex, num_nonces: NonceIndex }</code> if <code>nonce_index</code> is not less than the <code>num_nonces</code> of the gas key.</li>
 </ul>
 <h2 id="delegate-actions"><a class="header" href="#delegate-actions">Delegate Actions</a></h2>
 <p>Introduced with <a href="https://github.com/near/NEPs/blob/master/neps/nep-0366.md">NEP-366</a> to enable meta transactions.</p>
@@ -2973,7 +3053,7 @@ struct DelegateAction {
 <li>All actions inside <code>delegate_action.actions</code> are submitted with the <code>delegate_action.sender_id</code> as the predecessor, <code>delegate_action.receiver_id</code> as the receiver, and the relayer (predecessor of <code>DelegateAction</code>) as the signer.</li>
 <li>All gas and balance costs for submitting <code>delegate_action.actions</code> are subtracted from the relayer.</li>
 </ul>
-<h3 id="errors-7"><a class="header" href="#errors-7">Errors</a></h3>
+<h3 id="errors-9"><a class="header" href="#errors-9">Errors</a></h3>
 <p><strong>Validation Error</strong>:</p>
 <ul>
 <li>If the list of Transaction actions contains several <code>DelegateAction</code></li>
@@ -3031,6 +3111,15 @@ DelegateActionAccessKeyError
 <span class="boring">}
 </span></code></pre></pre>
 <ul>
+<li>If the action is a <code>Delegate</code> and its <code>public_key</code> belongs to a <a href="RuntimeSpec//DataStructures/AccessKey.html#gas-keys">gas key</a>, the following error is returned. A <code>Delegate</code> action must be signed with a regular access key.</li>
+</ul>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>/// A plain access key nonce does not select one of the gas key's nonces.
+DelegateActionAccessKeyError(DelegateActionRequiresNonGasKey)
+<span class="boring">}
+</span></code></pre></pre>
+<ul>
 <li>If the <code>nonce</code> does match the <code>public_key</code> for the <code>sender_id</code></li>
 </ul>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
@@ -3076,7 +3165,7 @@ pub enum GlobalContractDeployMode {
 <li>The same code propagates globally, shard by shard.</li>
 <li>Eventually, all accounts on all shards can reference the submitted code by the corresponding global contract identifier.</li>
 </ul>
-<h3 id="errors-8"><a class="header" href="#errors-8">Errors</a></h3>
+<h3 id="errors-10"><a class="header" href="#errors-10">Errors</a></h3>
 <p><strong>Validation Error</strong>:</p>
 <ul>
 <li><code>ContractSizeExceeded</code> if the provided WebAssembly code is larger than <code>max_contract_size</code> (4MiB).</li>
@@ -3095,7 +3184,7 @@ pub enum GlobalContractDeployMode {
 <span class="boring">}
 </span></code></pre></pre>
 <p><strong>Outcome</strong>:</p>
-<h3 id="errors-9"><a class="header" href="#errors-9">Errors</a></h3>
+<h3 id="errors-11"><a class="header" href="#errors-11">Errors</a></h3>
 <p><strong>Validation Error</strong>:</p>
 <ul>
 <li><code>InvalidAccountId</code> if the provided account id does not follow the <a href="RuntimeSpec/../DataStructures/Account.html">AccountId specification</a>.</li>
@@ -3131,7 +3220,7 @@ take a while for it to propagate to all shards.)</li>
 </ul>
 </li>
 </ul>
-<h3 id="errors-10"><a class="header" href="#errors-10">Errors</a></h3>
+<h3 id="errors-12"><a class="header" href="#errors-12">Errors</a></h3>
 <p><strong>Validation Error</strong>:</p>
 <ul>
 <li><code>InvalidDeterministicStateInitReceiver</code> if the receiver id is not derived from the provided <code>DeterministicAccountStateInit</code></li>
@@ -3388,6 +3477,16 @@ the name change often means the change of the semantics, which means the contrac
 execute anyway.</li>
 </ul>
 <p>However there is one reason to not have <code>data_read</code> -- it makes <code>API</code> more human-like which is a general direction Wasm APIs, like WASI are moving towards to.</p>
+<p>Some of the functions below behave differently depending on how the contract execution was initiated:</p>
+<ul>
+<li>an <strong>internal</strong> call executes a receipt, created by a transaction or by a cross-contract call;</li>
+<li>a <strong>view</strong> call is a read-only call made through RPC;</li>
+<li>an <strong>external</strong> call is authorized and paid for by the contract itself, so the caller does not need an account
+or a balance. External calls are part of the <code>ExternalContractCalls</code> protocol feature, which is not yet stable.
+An external call runs the contract method with the reserved name <code>__nightly_external_call</code> (the name will change
+when the feature is stabilized). A view call can also run that method, but an internal call can't: a <code>FunctionCall</code>
+action to it fails with <code>ReservedMethodName</code>.</li>
+</ul>
 <hr />
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
@@ -3411,6 +3510,8 @@ some access key and submitted into a memory pool (either through the wallet usin
 <h6 id="normal-operation"><a class="header" href="#normal-operation">Normal operation</a></h6>
 <ul>
 <li>Saves the bytes of the signer account id into the register.</li>
+<li>In an external call there is no signer, so saves the bytes of the current account id instead: the contract signs
+for the call itself.</li>
 </ul>
 <h6 id="panics-1"><a class="header" href="#panics-1">Panics</a></h6>
 <ul>
@@ -3434,7 +3535,8 @@ e.g. to increase the allowance or manipulate with the public key.</p>
 <h6 id="panics-2"><a class="header" href="#panics-2">Panics</a></h6>
 <ul>
 <li>If the registers exceed the memory limit panics with <code>MemoryAccessViolation</code>;</li>
-<li>If called in a view function panics with <code>ProhibitedInView</code>.</li>
+<li>If called in a view function panics with <code>ProhibitedInView</code>;</li>
+<li>If called in an external call panics with <code>ProhibitedInExternalCall</code>.</li>
 </ul>
 <h6 id="current-bugs-1"><a class="header" href="#current-bugs-1">Current bugs</a></h6>
 <ul>
@@ -3456,7 +3558,8 @@ that does function invocation on the contract or another contract as a result of
 <h6 id="panics-3"><a class="header" href="#panics-3">Panics</a></h6>
 <ul>
 <li>If the registers exceed the memory limit panics with <code>MemoryAccessViolation</code>;</li>
-<li>If called in a view function panics with <code>ProhibitedInView</code>.</li>
+<li>If called in a view function panics with <code>ProhibitedInView</code>;</li>
+<li>If called in an external call panics with <code>ProhibitedInExternalCall</code>.</li>
 </ul>
 <h6 id="current-bugs-2"><a class="header" href="#current-bugs-2">Current bugs</a></h6>
 <ul>
@@ -3474,6 +3577,7 @@ can set this to another account id when sending the receipt.</p>
 <h6 id="normal-operation-2"><a class="header" href="#normal-operation-2">Normal operation</a></h6>
 <ul>
 <li>Saves the bytes of the account id receiving balance refunds into the register.</li>
+<li>In an external call the contract pays for the call, so saves the bytes of the current account id instead.</li>
 </ul>
 <h6 id="panics-4"><a class="header" href="#panics-4">Panics</a></h6>
 <ul>
@@ -3559,6 +3663,20 @@ the contract execution starts;</li>
 </ul>
 <p>If contract execution fails <code>prepaid_gas - used_gas</code> is refunded back to <code>signer_account_id</code> and <code>attached_deposit</code>
 is refunded back to <code>predecessor_account_id</code>.</p>
+<p>An external call (see <a href="RuntimeSpec/Components/BindingsSpec/ContextAPI.html">Context API</a>) has no prepaid gas. Instead, the contract pays for all the gas
+the call uses from its own balance, at the gas price of the call: the gas it burns, the gas attached to function
+calls, and the execution fees of all actions and receipts. The gas is limited by fixed limits, not by the balance: the
+gas burnt is limited by <code>max_gas_burnt_external</code>, and the gas burnt plus the gas attached to promises is limited by
+<code>max_total_prepaid_gas</code>. The contract is charged after the call, and the call is rejected if the balance can't pay.</p>
+<p>While the call runs, <code>account_balance</code> returns the real balance of the contract, which includes the money the call
+will owe for its gas. Deposits and transfers can spend all of it, but the call must leave enough to pay for its fees
+and its gas, or it is rejected.</p>
+<p>The call also pays fees for its input before the method runs (see
+<a href="RuntimeSpec/Components/BindingsSpec/../../../architecture/how/gas.html#gas-in-external-contract-calls">Gas in External Contract Calls</a>). They are charged
+with the gas after the call. <code>used_gas</code> does not include them, and the fees lower the <code>max_gas_burnt_external</code> limit
+on the gas burnt.</p>
+<p>An external call has no deposit. If one is called with a nonzero <code>attached_deposit</code>, it fails with
+<code>DepositInExternalCall</code> before any contract code runs.</p>
 <p>The following spec is the same for all functions:</p>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
@@ -3587,7 +3705,8 @@ used_gas() -&gt; u64
 </span></code></pre></pre>
 <h6 id="panics-7"><a class="header" href="#panics-7">Panics</a></h6>
 <ul>
-<li>If called in a view function panics with <code>ProhibitedInView</code>.</li>
+<li>If called in a view function panics with <code>ProhibitedInView</code>;</li>
+<li>If <code>prepaid_gas</code> is called in an external call panics with <code>ProhibitedInExternalCall</code>.</li>
 </ul>
 <div style="break-before: page; page-break-before: always;"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.4/dist/katex.min.css">
 <h1 id="math-api"><a class="header" href="#math-api">Math API</a></h1>
@@ -3713,7 +3832,7 @@ See https://stackoverflow.com/a/5923961 that explains that null termination is n
 </span></code></pre></pre>
 <p>Special import kept for compatibility with AssemblyScript contracts. Not called by smart contracts directly, but instead
 called by the code generated by AssemblyScript.</p>
-<h1 id="future-improvements-1"><a class="header" href="#future-improvements-1">Future Improvements</a></h1>
+<h1 id="future-improvements"><a class="header" href="#future-improvements">Future Improvements</a></h1>
 <p>In the future we can have some of the registers to be on the guest.
 For instance a guest can tell the host that it has some pre-allocated memory that it wants to be used for the register,
 e.g.</p>
@@ -4461,6 +4580,18 @@ To compute the number of bytes for <code>function_call_permission</code> use <co
 </ul>
 <p>Inside <code>VMLogic</code>, the fees are tracked in the <code>GasCounter</code> struct.
 The VM itself is called in the <code>action_function_call</code> inside <code>Runtime</code>. When all actions are processed, the result is returned as a <code>VMOutcome</code>, which is later merged with <code>ActionResult</code>.</p>
+<h2 id="gas-key-transactions"><a class="header" href="#gas-key-transactions">Gas key transactions</a></h2>
+<p>From protocol version 85 (nearcore 2.13.0), a transaction can be signed with a <a href="RuntimeSpec/Fees//DataStructures/AccessKey.html#gas-keys">gas key</a>.
+Its fees are the same as for a transaction signed with a regular access key, but its cost is paid from two balances:</p>
+<ul>
+<li>The gas cost is paid from the gas key balance. It is <code>gas_burnt</code> converted at the current gas price, plus <code>gas_remaining</code> converted at the receipt gas price.
+The receipt gas price is the larger of the current gas price and <code>min_gas_purchase_price</code>.</li>
+<li>The deposit cost, <code>total_deposit(transaction.actions)</code>, is paid from the account balance. It is the sum of the deposits of all actions, such as <code>Transfer</code>, <code>FunctionCall</code> and <code>TransferToGasKey</code>.</li>
+</ul>
+<p>If the gas key balance does not cover the gas cost, the transaction fails with <code>NotEnoughGasKeyBalance</code> and nothing is charged.
+If the account balance does not cover the deposits, or does not cover the storage of the account after them, the transaction fails with <code>NotEnoughBalanceForDeposit</code>.
+In that case the gas key is charged only for <code>gas_burnt</code>, at the current gas price. See <a href="RuntimeSpec/Fees//RuntimeSpec/Transactions.html#gas-key-transactions">Gas key transactions</a>.
+Gas refunds of a gas key transaction go back to the gas key balance, see <a href="RuntimeSpec/Fees/../Refunds.html#gas-key-balance-refunds">Refunds</a>.</p>
 <h1 id="example"><a class="header" href="#example">Example</a></h1>
 <!-- cspell:ignore VGYT Fwya Wckywk Ejuz -->
 <p>Let's say we have the following transaction:</p>
@@ -4601,7 +4732,7 @@ returned value. Eventually, these <code>DataReceipt</code> will be delivered to 
 One example could be a callback. In this case, we assume the new Receipt will send its Value
 Result to the <a href="RuntimeSpec/Receipts.html#output_data_receivers"><code>output_data_receivers</code></a> of the current
 <code>ActionReceipt</code>.</p>
-<h3 id="errors-11"><a class="header" href="#errors-11">Errors</a></h3>
+<h3 id="errors-13"><a class="header" href="#errors-13">Errors</a></h3>
 <p>As with other actions, errors can be divided into two categories: validation error and execution
 error.</p>
 <h4 id="validation-error"><a class="header" href="#validation-error">Validation Error</a></h4>
@@ -5305,6 +5436,14 @@ issued and when the gas refund arrived. In this case we use the best effort to r
 <li>the allowance should be set to <code>Some</code> limited value, instead of unlimited allowance (<code>None</code>)</li>
 <li>the runtime uses saturating add to increase the allowance, to avoid overflows</li>
 </ul>
+<h2 id="gas-key-balance-refunds"><a class="header" href="#gas-key-balance-refunds">Gas Key Balance refunds</a></h2>
+<p>When a transaction is signed with a <a href="RuntimeSpec/../DataStructures/AccessKey.html#gas-keys">gas key</a>, its gas is paid from the gas key balance.
+Gas refunds for this transaction, and for the receipts it leads to, go back to the gas key balance instead of the account balance.</p>
+<p>A gas refund is identified by the same condition as for allowance refunds: <code>signer_id == receiver_id &amp;&amp; predecessor_id == &quot;system&quot;</code>.
+For such a refund, the runtime looks up the access key of <code>signer_id</code> with the public key <code>signer_public_key</code>.
+If this key exists and is a gas key, the refund is added to the gas key balance, and the account balance does not change.
+Otherwise, the refund is added to the account balance, and the allowance refund described above applies.
+So if a gas key is deleted before a gas refund for it arrives, the refund goes to the account balance.</p>
 <div style="break-before: page; page-break-before: always;"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.4/dist/katex.min.css">
 <h1 id="runtime"><a class="header" href="#runtime">Runtime</a></h1>
 <p>Runtime layer is used to execute smart contracts and other actions created by the users and preserve the state between the executions.
@@ -5346,10 +5485,15 @@ The specification is defined in <code>near-vm-logic</code>, but it is exposed to
 </ul>
 <div style="break-before: page; page-break-before: always;"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.4/dist/katex.min.css">
 <h1 id="transactions"><a class="header" href="#transactions">Transactions</a></h1>
-<p>A transaction in Near is a list of <a href="RuntimeSpec/Actions.html">actions</a> and additional information:</p>
+<p>A transaction in Near is a list of <a href="RuntimeSpec/Actions.html">actions</a> and additional information. There are two versions of a transaction:</p>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
-</span>pub struct Transaction {
+</span>pub enum Transaction {
+    V0(TransactionV0),
+    V1(TransactionV1),
+}
+
+pub struct TransactionV0 {
     /// An account on which behalf transaction is signed
     pub signer_id: AccountId,
     /// An access key which was used to sign a transaction
@@ -5357,15 +5501,46 @@ The specification is defined in <code>near-vm-logic</code>, but it is exposed to
     /// Nonce is used to determine order of transaction in the pool.
     /// It increments for a combination of `signer_id` and `public_key`
     pub nonce: Nonce,
-    /// Receiver account for this transaction. If
+    /// Receiver account for this transaction
     pub receiver_id: AccountId,
     /// The hash of the block in the blockchain on top of which the given transaction is valid
     pub block_hash: CryptoHash,
     /// A list of actions to be applied
     pub actions: Vec&lt;Action&gt;,
 }
+
+pub struct TransactionV1 {
+    pub signer_id: AccountId,
+    pub public_key: PublicKey,
+    /// Nonce is used to determine order of transaction in the pool.
+    /// It increments for a combination of `signer_id` and `public_key`,
+    /// and for gas key it also includes a `nonce_index`.
+    pub nonce: TransactionNonce,
+    pub receiver_id: AccountId,
+    pub block_hash: CryptoHash,
+    pub actions: Vec&lt;Action&gt;,
+    /// Controls nonce validation mode (monotonic or strict sequential).
+    pub nonce_mode: NonceMode,
+}
+
+pub enum TransactionNonce {
+    /// Simple nonce without index, used by ordinary access keys
+    Nonce { nonce: Nonce },
+    /// Nonce with index, used by gas keys
+    GasKeyNonce { nonce: Nonce, nonce_index: NonceIndex },
+}
+
+pub enum NonceMode {
+    /// Any nonce strictly greater than the current access key nonce (default behavior).
+    Monotonic,
+    /// Nonce must be exactly `ak_nonce + 1` (sequential ordering).
+    Strict,
+}
 <span class="boring">}
 </span></code></pre></pre>
+<p>The fields of <code>TransactionV1</code> have the same meaning as in <code>TransactionV0</code>. Its <code>nonce</code> is a <code>TransactionNonce</code>, and its last field <code>nonce_mode</code> sets how the nonce is checked. See <a href="RuntimeSpec/Transactions.html#valid-transaction-nonce">Valid transaction nonce</a>. <code>NonceIndex</code> is a <code>u16</code>.</p>
+<p>A <code>TransactionV0</code> is Borsh-serialized as the struct alone, with no prefix. A <code>TransactionV1</code> is Borsh-serialized as the byte 1 followed by the <code>TransactionV1</code> struct. To tell the two apart, a decoder reads the first two bytes. A <code>TransactionV0</code> starts with the 4-byte little-endian length of <code>signer_id</code>, which is at most 64, so its second byte is always 0. A <code>TransactionV1</code> starts with the byte 1 followed by the length of <code>signer_id</code>, so its second byte is not 0.</p>
+<p><code>TransactionV1</code> is accepted from protocol version 85 (nearcore 2.13.0). Before that, it is rejected with <code>InvalidTransactionVersion</code>. A transaction signed with a <a href="RuntimeSpec/../DataStructures/AccessKey.html#gas-keys">gas key</a> must be a <code>TransactionV1</code> with <code>TransactionNonce::GasKeyNonce</code>. See <a href="RuntimeSpec/Transactions.html#gas-key-transactions">Gas key transactions</a>. <code>NonceMode::Strict</code> can only be set in a <code>TransactionV1</code>. A <code>TransactionV0</code> always uses <code>NonceMode::Monotonic</code>.</p>
 <h2 id="signed-transaction"><a class="header" href="#signed-transaction">Signed Transaction</a></h2>
 <p><code>SignedTransaction</code> is what the node receives from a wallet through JSON-RPC endpoint and then routed to the shard where <code>receiver_id</code> account lives. Signature proves an ownership of the corresponding <code>public_key</code> (which is an AccessKey for a particular account) as well as authenticity of the transaction itself.</p>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
@@ -5374,8 +5549,10 @@ The specification is defined in <code>near-vm-logic</code>, but it is exposed to
     pub transaction: Transaction,
     /// A signature of a hash of the Borsh-serialized Transaction
     pub signature: Signature,
+}
 <span class="boring">}
 </span></code></pre></pre>
+<p>The signed hash covers the whole Borsh encoding of the <code>Transaction</code>, including the leading byte 1 of a <code>TransactionV1</code>.</p>
 <p>Take a look some <a href="RuntimeSpec/Scenarios/Scenarios.html">scenarios</a> how transaction can be applied.</p>
 <h2 id="batched-transaction"><a class="header" href="#batched-transaction">Batched Transaction</a></h2>
 <p>A <code>Transaction</code> can contain a list of actions. When there are more than one action in a transaction, we refer to such
@@ -5451,7 +5628,8 @@ TotalPrepaidGasExceeded { total_prepaid_gas: Gas, limit: Gas }
 <h4 id="valid-actions"><a class="header" href="#valid-actions">Valid actions</a></h4>
 <p>Whether each included action is valid. Details of such check can be found in <a href="RuntimeSpec/Actions.html">Actions</a>.</p>
 <h3 id="validation-with-state"><a class="header" href="#validation-with-state">Validation With State</a></h3>
-<p>After the basic validation is done, we check the transaction against current state to perform further validation.</p>
+<p>After the basic validation is done, we check the transaction against current state to perform further validation.
+A transaction signed with a gas key has some different checks, see <a href="RuntimeSpec/Transactions.html#gas-key-transactions">Gas key transactions</a>.</p>
 <h4 id="existing-signer_id"><a class="header" href="#existing-signer_id">Existing <code>signer_id</code></a></h4>
 <p>Whether <code>signer_id</code> exists. If not, a</p>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
@@ -5462,7 +5640,11 @@ SignerDoesNotExist { signer_id: AccountId },
 </span></code></pre></pre>
 <p>error is returned.</p>
 <h4 id="valid-transaction-nonce"><a class="header" href="#valid-transaction-nonce">Valid transaction nonce</a></h4>
-<p>Whether the transaction nonce is greater than the existing nonce on the access key. If not, a</p>
+<p>The transaction nonce is checked against the current nonce of the access key.
+For a gas key, the current nonce is the nonce stored for the <code>nonce_index</code> of the transaction.
+With <code>NonceMode::Monotonic</code>, which is the default, the transaction nonce must be greater than the current nonce.
+With <code>NonceMode::Strict</code>, the transaction nonce must be exactly the current nonce plus 1.
+<code>NonceMode::Strict</code> is available from protocol version 85 (nearcore 2.13.0). If the check fails, a</p>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>/// Transaction nonce must be strictly greater than `account[access_key].nonce`.
@@ -5470,6 +5652,14 @@ InvalidNonce { tx_nonce: Nonce, ak_nonce: Nonce },
 <span class="boring">}
 </span></code></pre></pre>
 <p>error is returned.</p>
+<p>The transaction nonce must also be less than the height of the block that includes the transaction, multiplied by 1,000,000. If not, a</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>/// Transaction nonce is larger than the upper bound given by the block height
+NonceTooLarge { tx_nonce: Nonce, upper_bound: Nonce },
+<span class="boring">}
+</span></code></pre></pre>
+<p>error is returned. A node does not know this block when a transaction is submitted, so it checks this bound only when it produces or applies a chunk.</p>
 <h4 id="enough-balance-to-cover-transaction-cost"><a class="header" href="#enough-balance-to-cover-transaction-cost">Enough balance to cover transaction cost</a></h4>
 <p>If <code>signer_id</code> account has enough balance to cover the cost of the transaction. If not, a</p>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
@@ -5521,6 +5711,64 @@ contains is not a <code>FunctionCall</code> action.</li>
 <li><code>InvalidAccessKeyError::ReceiverMismatch { tx_receiver: AccountId, ak_receiver: AccountId }</code> if transaction's <code>receiver_id</code> does not match the <code>receiver_id</code> of the access key.</li>
 <li><code>InvalidAccessKeyError::MethodNameMismatch { method_name: String }</code> if the name of the method that the transaction tries to call is not allowed by the access key.</li>
 </ul>
+<h3 id="gas-key-transactions-1"><a class="header" href="#gas-key-transactions-1">Gas key transactions</a></h3>
+<p>From protocol version 85 (nearcore 2.13.0), a transaction can be signed with a <a href="RuntimeSpec/../DataStructures/AccessKey.html#gas-keys">gas key</a>.
+Such a transaction must be a <code>TransactionV1</code> with <code>TransactionNonce::GasKeyNonce { nonce, nonce_index }</code>.
+Its gas is paid from the gas key balance, and its deposits are paid from the account balance.
+The checks below replace the balance, allowance and storage checks of <a href="RuntimeSpec/Transactions.html#validation-with-state">Validation With State</a>.
+The other checks still apply. This includes the nonce check and, for a <code>GasKeyFunctionCall</code> key, the function call access key validations.</p>
+<h4 id="valid-nonce-index"><a class="header" href="#valid-nonce-index">Valid nonce index</a></h4>
+<p>The <code>nonce_index</code> must be less than the <code>num_nonces</code> of the gas key. If not, a</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>/// Transaction is specifying an invalid nonce index. Gas key transactions
+/// must have a nonce_index in valid range, regular transactions must not.
+InvalidNonceIndex { tx_nonce_index: Option&lt;NonceIndex&gt;, num_nonces: NonceIndex },
+<span class="boring">}
+</span></code></pre></pre>
+<p>error is returned. If the access key is not a gas key, the error has <code>num_nonces: 0</code>.
+The same error is returned with <code>tx_nonce_index: None</code> when a gas key signs a transaction without a <code>nonce_index</code>.
+That is a <code>TransactionV0</code> or a <code>TransactionV1</code> with <code>TransactionNonce::Nonce</code>.</p>
+<p>The transaction nonce is then checked against the nonce stored for <code>nonce_index</code>, as described in <a href="RuntimeSpec/Transactions.html#valid-transaction-nonce">Valid transaction nonce</a>.</p>
+<h4 id="enough-gas-key-balance"><a class="header" href="#enough-gas-key-balance">Enough gas key balance</a></h4>
+<p>The gas key balance must cover the gas cost of the transaction.
+The gas cost is the gas burnt to convert the transaction into a receipt, at the current gas price, plus the remaining gas of the receipt, at the receipt gas price.
+The receipt gas price is the larger of the current gas price and <code>min_gas_purchase_price</code>.
+See <a href="RuntimeSpec/Fees/Fees.html#gas-key-transactions">Fees</a>. If the balance is too low, a</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>/// Gas key does not have enough balance to cover gas costs.
+NotEnoughGasKeyBalance { signer_id: AccountId, balance: Balance, cost: Balance },
+<span class="boring">}
+</span></code></pre></pre>
+<p>error is returned.</p>
+<h4 id="enough-account-balance-for-deposits"><a class="header" href="#enough-account-balance-for-deposits">Enough account balance for deposits</a></h4>
+<p>The account balance must cover the sum of the deposits of all actions.
+After paying them, the account must still have enough balance for its storage. If not, a</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>/// Gas key transaction failed because the account could not cover the deposit cost.
+/// Gas is still charged from the gas key in this case.
+NotEnoughBalanceForDeposit {
+    signer_id: AccountId,
+    balance: Balance,
+    cost: Balance,
+    reason: DepositCostFailureReason,
+}
+
+pub enum DepositCostFailureReason {
+    NotEnoughBalance,
+    LackBalanceForState,
+}
+<span class="boring">}
+</span></code></pre></pre>
+<p>error is returned.
+With <code>NotEnoughBalance</code>, the account balance does not cover the deposits. Then <code>balance</code> is the account balance and <code>cost</code> is the sum of the deposits.
+With <code>LackBalanceForState</code>, the balance left after the deposits does not cover the storage of the account. In this case, <code>balance</code> is that remaining balance and <code>cost</code> is the missing amount.</p>
+<p>Nodes reject such a transaction when it is submitted, and chunk producers do not include it.
+When a chunk contains such a transaction, the transaction fails when it is converted to a receipt, and no receipt is created.
+The gas key is still charged for the gas burnt to convert the transaction, at the current gas price, and the nonce for <code>nonce_index</code> is updated.
+The rest of the gas is not charged, so nothing is refunded. The account balance does not change.</p>
 <div style="break-before: page; page-break-before: always;"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.4/dist/katex.min.css">
 <h1 id="scenarios-1"><a class="header" href="#scenarios-1">Scenarios</a></h1>
 <p>In the following sections we go over the common scenarios that runtime takes care of.</p>
@@ -6566,11 +6814,14 @@ chain to runtime, a list of <code>SignedTransaction</code> and a list of <code>R
 returns an <code>ApplyResult</code>, which includes state changes, execution outcomes, etc.</p>
 <p><strong>Architecture Invariant:</strong> The state update is only finalized at the end of
 <code>apply</code>. During all intermediate steps state changes can be reverted.</p>
-<h3 id="runtimenear-vm-logic"><a class="header" href="#runtimenear-vm-logic"><code>runtime/near-vm-logic</code></a></h3>
-<p><code>VMLogic</code> contains all the implementations of host functions and is the
-interface between runtime and wasm. <code>VMLogic</code> is constructed when runtime
-applies function call actions. In <code>VMLogic</code>, interaction with NEAR blockchain
-happens in the following two ways:</p>
+<h3 id="runtimenear-vm-runnersrclogic"><a class="header" href="#runtimenear-vm-runnersrclogic"><code>runtime/near-vm-runner/src/logic</code></a></h3>
+<p>This module holds the VM-independent half of the host side of the contract
+boundary: the <code>VMContext</code> and <code>External</code> interfaces described below, gas
+counting, registers, the promise DAG and the <code>ExecutionResultState</code> that is
+turned into a <code>VMOutcome</code> when a function call finishes. The host functions
+themselves live in <code>runtime/near-vm-runner/src/wasmtime_runner/logic.rs</code>
+and operate directly on the wasmtime <code>Ctx</code> and guest memory. Interaction
+with the NEAR blockchain happens in the following two ways:</p>
 <ul>
 <li><code>VMContext</code>, which contains lightweight information such as current block
 hash, current block height, epoch id, etc.</li>
@@ -6581,7 +6832,7 @@ blockchain.</li>
 <h3 id="runtimenear-vm-runner"><a class="header" href="#runtimenear-vm-runner"><code>runtime/near-vm-runner</code></a></h3>
 <p><code>run</code> function in <code>runner.rs</code> is the entry point to the vm runner. This function essentially spins
 up the vm and executes some function in a contract. Contracts are compiled and run with wasmtime.
-The <code>imports</code> module exposes host functions defined in <code>near-vm-logic</code> to WASM code. In other
+The <code>imports</code> module exposes the host functions defined in <code>wasmtime_runner/logic.rs</code> to WASM code. In other
 words, it defines the ABI of the contracts on NEAR.</p>
 <h3 id="neard"><a class="header" href="#neard"><code>neard</code></a></h3>
 <p>As mentioned before, <code>neard</code> is the crate that contains that main entry points.
@@ -6813,6 +7064,25 @@ periodically in the client actor — if the node is behind by more than
 <code>sync_height_threshold</code> (default 1) blocks, sync is enabled.</p>
 <p>The sync handler classifies the node into one of two categories based on how
 far behind it is, and routes it through the appropriate path.</p>
+<h3 id="picking-the-target-height"><a class="header" href="#picking-the-target-height">Picking the target height</a></h3>
+<p>The height to sync to comes from a peer, and a peer's claim is acted on only
+once its approvals verify against a known epoch's validators (&gt;2/3 stake).
+That check is a pass over about 100 signatures, so the node pays for it only
+when the claim could change the decision:</p>
+<ul>
+<li>A claim at or below <code>head + sync_height_threshold</code> is ignored: it cannot
+start sync. While already syncing the bar is the head itself.</li>
+<li>A block the node requested proves nothing new. It was requested to reach a
+height already proved, and block processing checks its approvals anyway.</li>
+<li>Each distinct header is checked once, whether it passes or fails, however
+many peers relay it.</li>
+</ul>
+<p>A peer with no proved height reads as level with our head, so it stays a
+candidate to download from but never sets the target. Once the head has not
+advanced for about one epoch, the node falls back to the unvalidated claimed
+heights, because the validator sets it knows no longer cover the tip. During
+block sync the node's own header head can also set the target, since header
+sync has already validated it.</p>
 <h3 id="the-two-horizons"><a class="header" href="#the-two-horizons">The two horizons</a></h3>
 <pre><code>         ┌───────────────┐
          │  Sync Needed  │
@@ -6893,6 +7163,42 @@ Headers are requested in batches of up to 512 at a time.</p>
 <p>After headers are synced, the node downloads the full state snapshot at a
 sync hash (near the beginning of the most recent epoch). For each shard the
 node tracks, it downloads state parts from peers and assembles the full state.</p>
+<p>State header and part requests are sent to snapshot hosts over Tier 3. The
+requester opens a Tier 3 connection to the address the host advertises and
+sends its requests over it, and the host sends the acknowledgements and the
+state headers and parts back over the same connection. Concurrent requests to a
+host share one connection. A host accepts up to
+<code>network.max_inbound_tier3_connections</code> (64 by default) connections from
+requesters at a time.</p>
+<p>Requests to hosts whose advertisement carries no address, such as hosts on
+older releases, are routed over Tier 2 along with the requester's own public
+address. A node routes its requests to all hosts this way if
+<code>network.experimental.direct_state_requests_disabled</code> is set. The hosts return
+acknowledgements over Tier 2, then connect back to the requester over Tier 3 to
+send the state headers and parts. State response payloads are accepted only on
+Tier 3 connections.</p>
+<p>A node puts its own public address into the state requests it routes, so that
+hosts can connect back to it, and into its snapshot advertisements, described
+below. It is <code>network.experimental.tier3_public_addr</code> if configured. Otherwise
+the node learns it from its Tier 2 peers, each of which reports the IP at which
+it sees the node. Reports of non-public IPs are ignored, and so are reports of
+IPs in the other address family than the listen address, unless the node listens
+on <code>[::]</code>, which accepts both. The node uses its listen port and the IP reported
+from the most network groups of peers (/16 for IPv4, /32 for IPv6). Reports stop
+counting when their peer disconnects. With
+<code>network.allow_private_ip_in_public_addrs</code>, meant for local test networks,
+private IPs are accepted.</p>
+<p>Snapshot host advertisements are versioned, and version 2 adds the host's own
+listening address: its public address as observed by its peers, or
+<code>tier3_public_addr</code> if configured. The host signs the address together with the
+snapshot fields, so relays cannot alter it. A host advertises each snapshot
+once, so its address stays fixed until its next snapshot. A host that does not
+know its address yet when it creates a snapshot does not advertise that
+snapshot. Version 2 advertisements keep a legacy signature over the snapshot
+fields alone, which is the only one older nodes verify. Older nodes relay them
+as version 1, without the address, and a version 2 copy replaces a version 1
+copy of the same snapshot. Until every node accepts advertisements without the
+legacy signature, nodes drop them instead of relaying.</p>
 <p>State sync creates a gap in the chain data on this node — blocks between the
 epoch sync boundary and the sync point are not processed. This is fine for
 non-archival nodes, as that data would be garbage collected after a few epochs
@@ -6903,6 +7209,31 @@ cannot have gaps.</p>
 epoch, state parts become unavailable from peers. When the node detects this
 (the network tip is more than one epoch ahead of the sync hash), it triggers
 the same data-reset-and-restart flow used for stale nodes.</p>
+<h5 id="state-sync-under-spice"><a class="header" href="#state-sync-under-spice">State sync under spice</a></h5>
+<p>Spice picks a different sync point and a different state to sync to.</p>
+<p>The sync hash is the epoch's <strong>first</strong> block, recorded once that block is
+final. Without spice the node waits for two new chunks in every shard, because
+a chunk that is missing leaves that shard's state trailing the previous epoch.
+Spice puts a chunk in every block, so every shard advances at every height and
+the epoch's first block is already a well-defined anchor for all of them.</p>
+<p>The state synced is the state that block's chunk <em>left behind</em>, not the state
+before it. A spice chunk executes after the block that carries it, so its
+post-execution state root reaches the chain through a <code>ChunkExecutionResult</code>
+that a later block certifies, committing it in the <code>chunk_execution_root</code>
+field of its own header. State sync therefore serves a <code>V3</code> header carrying
+the state root node, that execution result, and a merkle proof of the result's
+<code>ChunkExecutionRoots</code> leaf against the committing block's
+<code>chunk_execution_root</code>. Header sync runs first, so the syncing node already
+holds the header the proof is checked against.</p>
+<p>Because the state is the post-state, nothing is applied after the download:
+finalization records the certified <code>ChunkExtra</code> for the sync block — which is
+what the chunk executor reads to carry on from the next block — moves the flat
+head to the sync block, and sets the spice execution heads to it.</p>
+<p>The snapshot that serves all this is taken by the chunk executor, right after
+the epoch's first block has executed for every tracked shard, and is keyed by
+that block rather than by an earlier one. It is announced to the network only
+once the block's chunks are certified, since before that no peer could prove
+the roots it serves.</p>
 <h4 id="step-4-block-sync"><a class="header" href="#step-4-block-sync">Step 4: block sync</a></h4>
 <p>The final step downloads and applies blocks from the sync point to the network
 tip. Header sync runs alongside block sync on every tick. Block sync requests
@@ -6937,6 +7268,11 @@ header head is within the epoch sync horizon: if so, it re-enters at header
 sync (headers are already downloaded); if not, it redoes epoch sync with a
 fresh proof. Previously downloaded state parts are preserved in the DB, so
 the node does not re-download parts that were already saved before the crash.</p>
+<p>Applied state parts are tracked in <code>DBCol::StatePartsApplied</code>. On restart,
+state sync keeps them only while the flat storage status for the shard is not
+yet <code>Ready</code>. A <code>Ready</code> status means an earlier sync applied every part and
+finalized the shard, which modifies the trie on top of the parts, so the node
+clears flat storage and applies every part again.</p>
 <h2 id="side-topic-how-blocks-are-added-to-the-chain"><a class="header" href="#side-topic-how-blocks-are-added-to-the-chain">Side topic: how blocks are added to the chain?</a></h2>
 <p>A node can receive a Block in two ways:</p>
 <ul>
@@ -7268,10 +7604,11 @@ would be a chunk creator in +2, +3, +4 and +8 blocks (this is controlled by
 <h2 id="step-3-en-route-to-validatorproducer"><a class="header" href="#step-3-en-route-to-validatorproducer">Step 3: En-route to validator/producer</a></h2>
 <p>Great, the node knows to send (forward) the transaction to the validator, but
 how does the routing work? How do we know which peer is hosting a validator?</p>
-<p>Each validator is regularly (every <code>config.ttl_account_id_router</code>/2 seconds == 30
-minutes in production) broadcasting so called <code>AnnounceAccount</code>, which is
-basically a pair of <code>(account_id, peer_id)</code>, to the whole network. This way each
-node knows which <code>peer_id</code> to send the message to.</p>
+<p>Each validator regularly (every <code>tier1.advertise_proxies_interval</code> == 15 minutes
+by default) broadcasts a signed <code>AccountData</code> to the whole network. It maps the
+validator's public key to the <code>peer_id</code> of the node running the validator. Each
+node knows the keys of the current and next epoch validators from the chain, so
+it knows which <code>peer_id</code> to send the message to.</p>
 <p>Then it asks the routing table about the shortest path to the peer, and sends
 the <code>ForwardTx</code> message to the peer.</p>
 <h2 id="step-4-chunk-producer"><a class="header" href="#step-4-chunk-producer">Step 4: Chunk producer</a></h2>
@@ -7289,7 +7626,7 @@ identifier. If the validator sees that the transaction is present in the chain,
 it removes it from its local mempool.</p>
 <h3 id="can-transaction-get-lost"><a class="header" href="#can-transaction-get-lost">Can transaction get lost?</a></h3>
 <p>Yes - they can and they do. Sometimes a node doesn’t have a path to a given
-validator or it didn’t receive an <code>AnnounceAccount</code> for it, so it doesn’t know
+validator or it didn’t receive an <code>AccountData</code> for it, so it doesn’t know
 where to forward the message. And if this happens to all 4 validators that we
 try to send to, then the message can be silently dropped.</p>
 <p>We’re working on adding some monitoring to see how often this happens.</p>
@@ -7733,7 +8070,7 @@ no explicit act of buying gas. Instead, the fee is subtracted directly in NEAR
 tokens from the balance of the signer's account. The fee is calculated as <code>gas amount</code> * <code>gas price</code>. The gas amount for actions included in a <code>SignedTransaction</code>
 are all fixed, except for function calls where the user needs to specify the attached
 gas amount for the dynamic execution part.
-(See <a href="https://docs.near.org/protocol/gas#cost-for-common-actions">here</a> for more details.)</p>
+(See <a href="https://docs.near.org/protocol/transactions/gas#cost-for-common-actions">here</a> for more details.)</p>
 <p>If the account has insufficient balance to pay for this, it will fail with a
 <code>NotEnoughBalance</code> error, with the required balance included in the error message.</p>
 <p>The <code>gas amount</code> is not a field of <code>SignedTransaction</code>, nor is it something the
@@ -7816,6 +8153,40 @@ gas that is computed after the current call has finished. This allows attaching
 100% of unspent gas to a call. If there are multiple calls, this allows
 attaching an equal fraction to each, or any other split as defined by the weight
 per call.</p>
+<h3 id="gas-in-external-contract-calls"><a class="header" href="#gas-in-external-contract-calls">Gas in External Contract Calls</a></h3>
+<p>External contract calls (the <code>ExternalContractCalls</code> protocol feature, not yet
+stable) let a contract authorize a call from a user who has no balance. The
+contract pays for the gas, so there is no <code>attached_gas</code> and the
+<code>prepaid_gas()</code> host function fails. Instead, two limits apply:</p>
+<ul>
+<li>The call can burn at most <code>max_gas_burnt_external</code>, 20 Tgas. This bounds the
+work done before the contract has decided to accept the call.</li>
+<li>The gas burnt plus the gas attached to outgoing promises can be at most
+<code>max_total_prepaid_gas</code>.</li>
+</ul>
+<p>The contract pays for all the gas the call uses from its balance, at the gas
+price of the call: the gas it burns, the gas attached to function calls, and
+the execution fees of all actions and receipts. As in other calls, the VM only
+counts the gas against the fixed limits above; the runtime charges the
+contract after the call, and rejects the call if the balance can't pay. A
+rejected call pays nothing, so the VM doesn't need to stop a call as soon as
+the balance runs out: the call can't do more unpaid work than any call the
+contract rejects. While the call runs, its balance is the real balance of the
+contract, which it can spend on deposits and transfers; if it doesn't leave
+enough to pay for the fees and the gas, the call is rejected. This is the same
+way storage staking is checked after a call. A promise gets
+exactly the gas it was created with: unspent gas is not distributed by weight,
+because there is no prepaid gas to distribute.</p>
+<p>Before the method runs, the call burns the fees of a self-addressed function
+call with the same method name and input: receipt creation, the function call
+base fee, and the per-byte fee for the method name and the payload, each with
+its send and execution part. There is no signature, so there is no signature
+verification fee. The fees count toward <code>max_gas_burnt_external</code>, so a larger
+payload leaves less of the budget to the method. With the largest payload the
+fees are about 8 Tgas. The contract must be able to afford the fees, or the
+call is rejected before any contract code is loaded. Like the rest of the
+call, the fees are charged after the call, and only if the contract accepts
+it.</p>
 <h3 id="contract-reward"><a class="header" href="#contract-reward">Contract Reward</a></h3>
 <p>A rather unique property of Near Protocol is that a part of the gas fee goes to
 the contract owner. This &quot;smart contract gets paid&quot; model is pretty much the
@@ -8382,7 +8753,7 @@ auto-generated code (in our case Rust code) - that can be directly imported into
 your library.</p>
 <p>The main benefit of protocol buffers is their backwards compatibility (as long
 as you adhere to the rules and don’t reuse the same field ids).</p>
-<h2 id="summary-1"><a class="header" href="#summary-1">Summary</a></h2>
+<h2 id="summary"><a class="header" href="#summary">Summary</a></h2>
 <p>So to recap what we’ve learned:</p>
 <p>JSON - mostly used for external APIs - look for serde::Serialize/Deserialize</p>
 <p>Proto - currently being developed to be used for network connections - objects
@@ -9397,7 +9768,9 @@ struct.</p>
 <p>Each <code>edge</code> is represented by the <code>Edge</code> structure. It contains the following:</p>
 <ul>
 <li>pair of nodes represented by their public keys.</li>
-<li><code>nonce</code> - a unique number representing the state of an edge. Starting with <code>1</code>.
+<li><code>nonce</code> - a number representing the state of an edge. A new edge gets an odd
+nonce based on the current Unix time in seconds. See
+<a href="architecture/../NetworkSpec/NetworkSpec.html#edge">Edge</a> for the exact rules.
 Odd numbers represent an active edge. Even numbers represent an edge in which
 one of the nodes, confirmed that the edge is removed.</li>
 <li>Signatures from both peers for active edges.</li>
@@ -9530,8 +9903,8 @@ struct ActivePeer { // will be renamed to `ConnectedPeer` see #5428
 <h2 id="78---step-8---exchange-routing-table-part-1---node-b"><a class="header" href="#78---step-8---exchange-routing-table-part-1---node-b">7.8 - Step 8 - Exchange routing table part 1 - node <code>B</code></a></h2>
 <p>At the end of the <code>register_peer</code> method node <code>B</code> will perform a
 <code>RoutingTableSync</code> sync. Sending the list of known <code>edges</code> representing a
-full graph, and a list of known <code>AnnounceAccount</code>. Those will be
-covered later, in their dedicated sections see sections (to be added). <!-- TODO: TODO1, TODO2 --></p>
+full graph. Those will be covered later, in their dedicated sections see
+sections (to be added). <!-- TODO: TODO1, TODO2 --></p>
 <pre><code class="language-rust  ignore">message: PeerMessage::RoutingTableSync(SyncData::edge(new_edge)),
 </code></pre>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
@@ -9540,9 +9913,6 @@ covered later, in their dedicated sections see sections (to be added). <!-- TODO
 pub struct RoutingTableSync { // also known as `SyncData` (#5489)
     /// List of known edges from `RoutingTableActor::edges_info`.
     pub(crate) edges: Vec&lt;Edge&gt;,
-    /// List of known `account_id` to `PeerId` mappings.
-    /// Useful for `send_message_to_account` method, to route message to particular account.
-    pub(crate) accounts: Vec&lt;AnnounceAccount&gt;,
 }
 <span class="boring">}
 </span></code></pre></pre>
@@ -9653,11 +10023,12 @@ happens asynchronously.</p>
 <p>Actor messages can be found by looking for structs used with the async messaging helpers (for
 example types that appear in <code>Handler&lt;...&gt;</code> implementations or multi-sender definitions).</p>
 <h2 id="102-messages-sent-through-tcp"><a class="header" href="#102-messages-sent-through-tcp">10.2 Messages sent through TCP</a></h2>
-<p>Near is using <code>borsh</code> serialization to exchange messages between nodes (See
-<a href="https://borsh.io/">borsh.io</a>). We should be careful when making changes to
-them. We have to maintain backward compatibility. Only messages implementing
-<code>BorshSerialize</code>, <code>BorshDeserialize</code> can be sent. We also use <code>borsh</code> for
-database storage.</p>
+<p>Nodes exchange messages as protobuf <code>PeerMessage</code> messages, defined in
+<code>chain/network/src/network_protocol/network.proto</code>. Some fields of these
+messages hold <code>borsh</code>-encoded bytes (see <a href="https://borsh.io/">borsh.io</a>), for
+example signatures, edges, blocks, transactions and routed messages. We should
+be careful when making changes to them. We have to maintain backward
+compatibility. We also use <code>borsh</code> for database storage.</p>
 <h2 id="103-messages-sentreceived-through-chainjsonrpc"><a class="header" href="#103-messages-sentreceived-through-chainjsonrpc">10.3 Messages sent/received through <code>chain/jsonrpc</code></a></h2>
 <p>Near runs a <code>json REST server</code> using the axum framework. All messages sent
 and received must implement <code>serde::Serialize</code> and <code>serde::Deserialize</code>.</p>
@@ -9703,9 +10074,6 @@ used nonce.</li>
 <li><code>DBCol::ComponentEdges</code> Mapping from <code>component_nonce</code> to a list of edges.</li>
 <li><code>DBCol::PeerComponent</code> Mapping from <code>peer_id</code> to the last component <code>nonce</code> it belongs to.</li>
 </ul>
-<h3 id="122-storage-of-account_id-to-peer_id-mapping"><a class="header" href="#122-storage-of-account_id-to-peer_id-mapping">12.2 Storage of <code>account_id</code> to <code>peer_id</code> mapping</a></h3>
-<p><code>ColAccountAnnouncements</code> -&gt; Stores a mapping from <code>account_id</code> to a tuple
-(<code>account_id</code>, <code>peer_id</code>, <code>epoch_id</code>, <code>signature</code>).</p>
 <div style="break-before: page; page-break-before: always;"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.4/dist/katex.min.css">
 <h1 id="gas-cost-parameters"><a class="header" href="#gas-cost-parameters">Gas Cost Parameters</a></h1>
 <p>Gas in NEAR Protocol solves two problems.</p>
@@ -9887,9 +10255,8 @@ hence it affects the deploy action costs.</p>
 <p>Gas parameters are a subset of runtime parameters that are defined in
 <a href="architecture/gas/../../../core/parameters/res/runtime_configs/parameters.yaml">runtime_configs/parameters.yaml</a>.
 <strong>IMPORTANT:</strong> This is not the final list of parameters, it contains the base
-values which can be overwritten per protocol version. For example,
-<a href="architecture/gas/../../../core/parameters/res/runtime_configs/53.yaml">53.yaml</a>
-changes several parameters starting from version 53. You can see the final list
+values which can be overwritten per protocol version. File <code>V.yaml</code>
+represents parameter changes starting from version <code>V</code>. You can see the final list
 of parameters in
 <a href="architecture/gas/../../../core/parameters/res/runtime_configs/parameters.snap">runtime_configs/parameters.snap</a>.
 This file is automatically updated whenever any of the parameters changes. To
@@ -11509,7 +11876,7 @@ Which makes it most representative for measuring the realistic throughput of the
 <p>One needs to compile the <code>benchmarks/synth-bm</code>, create the link to the <code>neard</code> executable and run the tasks from the <code>justfile</code>.
 The details are available on the dedicated <a href="practices/workflows/./benchmarking_synthetic_workloads.html">page</a>.</p>
 <h3 id="direct-transaction-injection"><a class="header" href="#direct-transaction-injection">Direct transaction injection</a></h3>
-<p>This section closely follows (duplicates) the dedicated <code>readme.md</code> in <code>benchmarks/transaction-generator</code>.
+<p>This section closely follows (duplicates) the dedicated <code>readme.md</code> in <code>benchmarks/transactions-generator</code>.
 In case of questions you may want to consult that as well.</p>
 <p>This benchmark bypasses the RPC layer and injects the transactions using direct calls to the ingress handling actor.
 It is representative of the performance of the <code>neard</code> excluding the RPC layer.
@@ -11960,7 +12327,7 @@ make -j8
     _ZN10near_store4trie4Trie3get17h11d4bcd3667e3c8fE
     _ZN85_$LT$near_store..trie..update..TrieUpdate$u20$as$u20$near_store..trie..TrieAccess$GT$3get17h041c58f313ed6d6cE
     _ZN10near_store5utils11get_account17hf3071e79288206c0E
-    _ZN12node_runtime8verifier25get_signer_and_access_key17hca85f102c5a0241bE
+    _ZN12near_runtime8verifier25get_signer_and_access_key17hca85f102c5a0241bE
     _ZN92_$LT$near_chain..runtime..NightshadeRuntime$u20$as$u20$near_chain..types..RuntimeAdapter$GT$24can_verify_and_charge_tx17hb1907151d54f3c6bE
     _ZN11near_client11rpc_handler10RpcHandler10process_tx17h3ca7fec97c6dd01eE
     _ZN110_$LT$actix..sync..SyncContextEnvelope$LT$M$GT$$u20$as$u20$actix..address..envelope..EnvelopeProxy$LT$A$GT$$GT$6handle17h0f78e99e6ce63395E
@@ -12927,9 +13294,9 @@ python tests/sanity/block_production.py
 </code></pre>
 <p>Use <code>pytest/tests/sanity/block_production.py</code> as the basic example of starting a
 cluster with multiple nodes, and doing RPC calls.</p>
-<p>See <code>pytest/tests/sanity/deploy_call_smart_contract.py</code> to see how contracts can
+<p>See <code>pytest/tests/contracts/deploy_call_smart_contract.py</code> to see how contracts can
 be deployed, or transactions called.</p>
-<p>See <code>pytest/tests/sanity/state_sync.py</code> to see how to delay the launch of the
+<p>See <code>pytest/tests/sanity/state_sync_routed.py</code> to see how to delay the launch of the
 whole cluster by using <code>init_cluster</code> instead of <code>start_cluster</code>, and then
 launching nodes manually.</p>
 <h3 id="enabling-adversarial-behavior"><a class="header" href="#enabling-adversarial-behavior">Enabling adversarial behavior</a></h3>
@@ -13030,7 +13397,7 @@ local config.</p>
 tests that test syncing) might want to configure the nodes but delay their
 start. In such a case you will initialize the cluster by calling
 <code>init_cluster</code> and will run the nodes manually, for example, see
-<a href="https://github.com/near/nearcore/blob/master/pytest/tests/sanity/state_sync.py"><code>state_sync.py</code></a></p>
+<a href="https://github.com/near/nearcore/blob/master/pytest/tests/sanity/state_sync_routed.py"><code>state_sync_routed.py</code></a></p>
 <h2 id="connecting-to-a-mocknet"><a class="header" href="#connecting-to-a-mocknet">Connecting to a mocknet</a></h2>
 <p>Nodes that run against a mocknet would connect to an existing cluster instead of
 running their own.</p>
