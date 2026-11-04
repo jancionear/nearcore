@@ -58,6 +58,7 @@ near-parameters.workspace = true
 near-primitives.workspace = true
 near-primitives-core.workspace = true
 near-replay.workspace = true
+near-state-viewer.workspace = true
 near-store.workspace = true
 node-runtime.workspace = true
 near-test-contracts.workspace = true
@@ -95,6 +96,7 @@ nightly = [
     "near-parameters/nightly",
     "near-primitives-core/nightly",
     "near-primitives/nightly",
+    "near-state-viewer/nightly",
     "near-store/nightly",
     "near-vm-runner/nightly",
     "nearcore/nightly",

@@ -207,3 +207,27 @@ failed loading outgoing receipt BoSv67f3CYsWu9LfLxPNkKGSEnwiH7jwPzEmYwL5c7rm
 failed loading outgoing receipt D4AEcD6umuJKGjSNA2JEZ4EMxn3GK4Z8Ew1iAQpWYtPS
 failed loading outgoing receipt AAht3HUDJeGRJ1N776ZKJ2vRiRBAD9GtsLabgbrdioAC
 ```
+
+### check-pending-receipt-origins
+
+Checks that no pending receipt was created in, or originates from a transaction
+included in, a protocol version older than `--min-protocol-version` (by default
+the version of `RejectUniversalAccountTransfers`). It also checks that no
+pending receipt transfers to a universal (`0u`) account. It exits with status 1
+when the check fails and 2 when the check couldn't be completed.
+
+Pending receipts are read from the state of every shard at the checked block
+(postponed, delayed, promise yield and buffered receipts), and from the receipts
+in flight between shards. Each receipt is traced back to its transaction through
+the `ReceiptToTx` column. The protocol version of each step comes from the block
+in which the parent receipt or transaction was executed.
+
+Run it on a node that tracks all shards and stores `ReceiptToTx` and the
+execution outcomes (the RPC defaults). The node must have been running since
+before the oldest pending receipt was created, otherwise that receipt's origin
+is unknown and the check fails. The database is opened read-only, so the
+command can run next to a running node.
+
+```ignore
+neard view-state check-pending-receipt-origins
+```

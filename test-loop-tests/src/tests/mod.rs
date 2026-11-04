@@ -62,6 +62,7 @@ mod multinode_stateless_validators;
 mod network_drop;
 mod optimistic_block;
 mod p256_verify;
+mod pending_receipt_origins;
 mod pending_transaction_queue;
 mod process_blocks;
 mod processed_receipts_gc;

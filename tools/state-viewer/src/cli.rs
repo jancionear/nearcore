@@ -2,6 +2,7 @@ use crate::commands::*;
 use crate::congestion_control::CongestionControlCmd;
 use crate::contract_accounts::ContractAccountFilter;
 use crate::latest_witnesses::StateWitnessCmd;
+use crate::pending_receipt_origins::CheckPendingReceiptOriginsCmd;
 use crate::replay_headers::replay_headers;
 use crate::rocksdb_stats::get_rocksdb_stats;
 use crate::trie_iteration_benchmark::TrieIterationBenchmarkCmd;
@@ -50,6 +51,9 @@ pub enum StateViewerSubCommand {
     /// Check whether the node has all the blocks up to its head.
     #[clap(alias = "check_block")]
     CheckBlock,
+    /// Check that no pending receipt was created in, or originates from a
+    /// transaction included in, a protocol version older than the given one.
+    CheckPendingReceiptOrigins(CheckPendingReceiptOriginsCmd),
     /// Looks up a certain chunk.
     Chunks(ChunksCmd),
     /// View chunk application stats for a chunk.
@@ -172,6 +176,9 @@ impl StateViewerSubCommand {
             StateViewerSubCommand::ApplyTx(cmd) => cmd.run(home_dir, near_config, store),
             StateViewerSubCommand::Chain(cmd) => cmd.run(home_dir, near_config, store),
             StateViewerSubCommand::CheckBlock => check_block_chunk_existence(near_config, store),
+            StateViewerSubCommand::CheckPendingReceiptOrigins(cmd) => {
+                cmd.run(home_dir, near_config, store)
+            }
             StateViewerSubCommand::Chunks(cmd) => cmd.run(near_config, store),
             StateViewerSubCommand::ChunkApplyStats(cmd) => cmd.run(near_config, store),
             StateViewerSubCommand::ClearCache => clear_cache(store),

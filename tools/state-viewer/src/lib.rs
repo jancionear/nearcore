@@ -8,6 +8,7 @@ mod congestion_control;
 mod contract_accounts;
 mod epoch_info;
 mod latest_witnesses;
+pub mod pending_receipt_origins;
 pub mod progress_reporter;
 mod replay_headers;
 mod rocksdb_stats;
